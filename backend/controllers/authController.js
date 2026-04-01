@@ -204,19 +204,34 @@ const logout = async (req, res) => {
 };
 
 const getAllUsers = async (req, res) => {
-  const loggedInUserId = req.user.userId;
-
   try {
-    // 1. Get all users except logged-in user
-    const users = await User.find({ _id: { $ne: loggedInUserId } })
+    console.log("==== GET ALL USERS START ====");
+
+    // ✅ Safe auth check
+    if (!req.user || !req.user.userId) {
+      console.log("❌ Unauthorized access");
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+
+    const loggedInUserId = req.user.userId;
+    console.log("LOGGED IN USER:", loggedInUserId);
+
+    // 1️⃣ Get all users except logged-in user
+    const users = await User.find({
+      _id: { $ne: loggedInUserId },
+    })
       .select(
         "username profilePicture lastSeen isOnline phoneNumber phoneSuffix about",
       )
       .lean();
 
-    // 2. Get all conversations involving logged-in user
+    console.log("👥 USERS:", users.length);
+
+    // 2️⃣ Get conversations
     const conversations = await Conversation.find({
-      participants: loggedInUserId,
+      participants: { $in: [loggedInUserId] },
     })
       .populate({
         path: "lastMessage",
@@ -224,30 +239,42 @@ const getAllUsers = async (req, res) => {
       })
       .lean();
 
-    // 3. Map conversations by userId
+    console.log("💬 CONVERSATIONS:", conversations.length);
+
+    // 3️⃣ Map conversations
     const conversationMap = {};
 
     conversations.forEach((conv) => {
       const otherUserId = conv.participants.find(
-        (id) => id.toString() !== loggedInUserId,
+        (id) => id.toString() !== loggedInUserId.toString(),
       );
+
       if (otherUserId) {
         conversationMap[otherUserId.toString()] = conv;
       }
     });
 
-    // 4. Attach conversation to users
+    // 4️⃣ Attach conversation
     const usersWithConversations = users.map((user) => ({
       ...user,
       conversation: conversationMap[user._id.toString()] || null,
     }));
 
-    return response(res, 200, "Users retrieved successfully", {
+    console.log(usersWithConversations);
+
+    console.log("✅ FINAL USERS:", usersWithConversations.length);
+    console.log("==== END ====");
+
+    // ✅ SIMPLE RESPONSE (BEST)
+    return res.status(200).json({
+      message: "Users retrieved successfully",
       users: usersWithConversations,
     });
   } catch (error) {
-    console.error(error);
-    return response(res, 500, "Internal server error");
+    console.error("❌ ERROR:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
   }
 };
 
