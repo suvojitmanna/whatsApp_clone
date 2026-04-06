@@ -16,23 +16,27 @@ const sendOtp = async (req, res) => {
   let user;
 
   try {
+    // ================= EMAIL FLOW =================
     if (email) {
       user = await User.findOne({ email });
 
       if (!user) {
-        user = new User({ email });
+        user = new User({
+          email,
+          username: email.split("@")[0], // FIXED
+        });
       }
 
       user.emailOtp = otp;
       user.emailOtpExpire = expiry;
 
       await user.save();
-
       await sendOtpToEmail(email, otp);
 
       return response(res, 200, "OTP sent to your email", { email });
     }
 
+    // ================= PHONE FLOW =================
     if (!phoneNumber || !phoneSuffix) {
       return response(res, 400, "Phone number and suffix are required");
     }
@@ -44,6 +48,7 @@ const sendOtp = async (req, res) => {
     if (!user) {
       user = new User({
         phoneNumber: fullPhoneNumber,
+        username: "user_" + fullPhoneNumber.slice(-6), // FIXED (IMPORTANT)
       });
     }
 
@@ -53,6 +58,7 @@ const sendOtp = async (req, res) => {
     await user.save();
 
     await twilloService.sendOtpToPhoneNumber(fullPhoneNumber);
+
     return response(res, 200, "OTP sent successfully", {
       phoneNumber: fullPhoneNumber,
     });
@@ -67,51 +73,75 @@ const verifyOtp = async (req, res) => {
 
   try {
     let user;
+
+    // ================= EMAIL VERIFY =================
     if (email) {
       user = await User.findOne({ email });
+
       if (!user) {
         return response(res, 404, "User not found");
       }
+
       const now = new Date();
+
       if (
         !user.emailOtp ||
         String(user.emailOtp) !== String(otp) ||
         now > new Date(user.emailOtpExpire)
       ) {
-        return response(res, 400, "invalid expired otp");
+        return response(res, 400, "Invalid or expired OTP");
       }
+
       user.isVerified = true;
       user.emailOtp = null;
       user.emailOtpExpire = null;
+
       await user.save();
-    } else {
-      if (!phoneNumber) {
+    }
+
+    // ================= PHONE VERIFY =================
+    else {
+      if (!phoneNumber || !phoneSuffix) {
         return response(res, 400, "Phone number and suffix are required");
       }
+
       const fullPhoneNumber = `${phoneSuffix}${phoneNumber}`;
-      user = await User.findOne({ phoneNumber: fullPhoneNumber }); //
+
+      user = await User.findOne({ phoneNumber: fullPhoneNumber });
+
       if (!user) {
-        return response(res, 404, "user not found");
+        return response(res, 404, "User not found");
       }
+
       const result = await twilloService.verifyOtp(fullPhoneNumber, otp);
+
       if (result.status !== "approved") {
-        return response(res, 400, "Invalid otp");
+        return response(res, 400, "Invalid OTP");
       }
+
       user.isVerified = true;
       await user.save();
     }
+
+    // ================= TOKEN =================
     const token = generateToken(user?._id);
+
     res.cookie("auth_token", token, {
       httpOnly: true,
+      secure: false, // ⚠️ set true in production
+      sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 24 * 365,
     });
-    return response(res, 200, "otp verified successfully", { token, user });
+
+    return response(res, 200, "OTP verified successfully", {
+      token,
+      user,
+    });
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");
   }
 };
-
 const updateProfile = async (req, res) => {
   const { username, agreed, about } = req.body;
   const userId = req.user.userId;
@@ -174,19 +204,34 @@ const logout = async (req, res) => {
 };
 
 const getAllUsers = async (req, res) => {
-  const loggedInUserId = req.user.userId;
-
   try {
-    // 1. Get all users except logged-in user
-    const users = await User.find({ _id: { $ne: loggedInUserId } })
+    console.log("==== GET ALL USERS START ====");
+
+    // Safe auth check
+    if (!req.user || !req.user.userId) {
+      console.log("❌ Unauthorized access");
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+
+    const loggedInUserId = req.user.userId;
+    console.log("LOGGED IN USER:", loggedInUserId);
+
+    // 1️⃣ Get all users except logged-in user
+    const users = await User.find({
+      _id: { $ne: loggedInUserId },
+    })
       .select(
-        "username profilePicture lastSeen isOnline phoneNumber phoneSuffix about"
+        "username profilePicture lastSeen isOnline phoneNumber phoneSuffix about",
       )
       .lean();
 
-    // 2. Get all conversations involving logged-in user
+    console.log("👥 USERS:", users.length);
+
+    // 2️⃣ Get conversations
     const conversations = await Conversation.find({
-      participants: loggedInUserId,
+      participants: { $in: [loggedInUserId] },
     })
       .populate({
         path: "lastMessage",
@@ -194,30 +239,42 @@ const getAllUsers = async (req, res) => {
       })
       .lean();
 
-    // 3. Map conversations by userId
+    console.log("💬 CONVERSATIONS:", conversations.length);
+
+    // 3️⃣ Map conversations
     const conversationMap = {};
 
     conversations.forEach((conv) => {
       const otherUserId = conv.participants.find(
-        (id) => id.toString() !== loggedInUserId
+        (id) => id.toString() !== loggedInUserId.toString(),
       );
+
       if (otherUserId) {
         conversationMap[otherUserId.toString()] = conv;
       }
     });
 
-    // 4. Attach conversation to users
+    // 4️⃣ Attach conversation
     const usersWithConversations = users.map((user) => ({
       ...user,
       conversation: conversationMap[user._id.toString()] || null,
     }));
 
-    return response(res, 200, "Users retrieved successfully", {
+    console.log(usersWithConversations);
+
+    console.log("✅ FINAL USERS:", usersWithConversations.length);
+    console.log("==== END ====");
+
+    // SIMPLE RESPONSE (BEST)
+    return res.status(200).json({
+      message: "Users retrieved successfully",
       users: usersWithConversations,
     });
   } catch (error) {
-    console.error(error);
-    return response(res, 500, "Internal server error");
+    console.error("❌ ERROR:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+    });
   }
 };
 

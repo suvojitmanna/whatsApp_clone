@@ -46,6 +46,6 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// ✅ prevent overwrite error
+// prevent overwrite error
 module.exports =
   mongoose.models.Message || mongoose.model("Message", messageSchema);

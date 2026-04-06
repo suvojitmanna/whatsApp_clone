@@ -16,7 +16,7 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CORS
+// CORS
 const corsOption = {
   origin: process.env.FRONTEND_URL,
   credentials: true,
@@ -28,7 +28,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ✅ Create server for socket
+// Create server for socket
 const server = http.createServer(app);
 const io = initializeSocket(server);
 
@@ -54,7 +54,7 @@ connectDb();
 // PORT
 const PORT = process.env.PORT || 5000;
 
-// ✅ IMPORTANT: use server.listen
+// IMPORTANT: use server.listen
 if (process.env.NODE_ENV !== "production") {
   server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

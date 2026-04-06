@@ -8,7 +8,7 @@ const conversationSchema = new mongoose.Schema(
       ref: "Message",
     },
     unreadCount: {
-      type: Number, // FIXED
+      type: Number, 
       default: 0,
     },
   },

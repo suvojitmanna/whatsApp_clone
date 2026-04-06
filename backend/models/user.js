@@ -34,9 +34,8 @@ const userSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     agreed: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-// ✅ prevent overwrite error
-module.exports =
-  mongoose.models.User || mongoose.model("User", userSchema);
+// prevent overwrite error
+module.exports = mongoose.models.User || mongoose.model("User", userSchema);
