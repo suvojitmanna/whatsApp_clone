@@ -64,21 +64,22 @@ function initializeSocket(server) {
     });
 
     // 🔹 READ RECEIPT
-    socket.on("message_read", async (messageIds, senderId) => {
-      try {
-        await Message.updateMany(
-          { _id: { $in: messageIds } },
-          { $set: { messageStatus: "read" } },
-        );
+    socket.on("message_read", async ({ messageIds, senderId }) => {
+  try {
+    await Message.updateMany(
+      { _id: { $in: messageIds } },
+      { $set: { messageStatus: "read" } }
+    );
 
-        io.to(senderId).emit("message_status_update_bulk", {
-          messageIds,
-          messageStatus: "read",
-        });
-      } catch (error) {
-        console.error("Error marking message as read:", error);
-      }
+    io.to(senderId.toString()).emit("message_status_update_bulk", {
+      messageIds,
+      messageStatus: "read",
     });
+
+  } catch (error) {
+    console.error("Error marking message as read:", error);
+  }
+});
 
     // 🔹 TYPING START
     socket.on("typing_start", ({ conversationId, receiverId }) => {
@@ -131,37 +132,49 @@ function initializeSocket(server) {
     });
 
     // 🔹 ADD REACTION
+    const mongoose = require("mongoose");
+
     socket.on("add_reaction", async ({ messageId, emoji, reactionUserId }) => {
       try {
-        const message = await Message.findById(messageId);
-        if (!message) return;
+        const userObjectId = new mongoose.Types.ObjectId(reactionUserId);
 
-        const index = message.reactions.findIndex(
-          (r) => r.userId.toString() === reactionUserId && r.emoji === emoji,
+        // 🔥 REMOVE old reaction from this user
+        await Message.updateOne(
+          { _id: messageId },
+          {
+            $pull: { reactions: { userId: userObjectId } },
+          },
         );
 
-        if (index > -1) {
-          message.reactions.splice(index, 1);
-        } else {
-          message.reactions.push({ userId: reactionUserId, emoji });
-        }
+        // 🔥 ADD new reaction
+        await Message.updateOne(
+          { _id: messageId },
+          {
+            $push: {
+              reactions: {
+                userId: userObjectId,
+                emoji,
+              },
+            },
+          },
+        );
 
-        await message.save();
-
-        const populated = await Message.findById(messageId)
+        const updated = await Message.findById(messageId)
           .populate("sender", "username profilePicture")
           .populate("receiver", "username profilePicture")
           .populate("reactions.userId", "username profilePicture");
 
-        const data = {
+        io.to(updated.sender._id.toString()).emit("reaction_update", {
           messageId,
-          reactions: populated.reactions,
-        };
+          reactions: updated.reactions,
+        });
 
-        io.to(populated.sender._id.toString()).emit("reaction_update", data);
-        io.to(populated.receiver._id.toString()).emit("reaction_update", data);
+        io.to(updated.receiver._id.toString()).emit("reaction_update", {
+          messageId,
+          reactions: updated.reactions,
+        });
       } catch (error) {
-        console.error("Error adding reaction:", error);
+        console.error(error);
       }
     });
 

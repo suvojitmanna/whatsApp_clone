@@ -109,7 +109,6 @@ const sideBar = () => {
       </div>
     </>
   );
-
   return (
     <motion.div
       initial={{ x: -100 }}

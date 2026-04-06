@@ -1,5 +1,3 @@
-const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
-
 export default function formatTimestamp(timestamp) {
   const now = Date.now();
   const messageTime = new Date(timestamp).getTime();

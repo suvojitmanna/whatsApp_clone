@@ -114,10 +114,16 @@ const ChatList = ({ contacts }) => {
               </div>
               <div className="flex justify-between items-baseline">
                 <p
-                  className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"} truncate`}
+                  className={`text-sm ${
+                    theme === "dark" ? "text-gray-400" : "text-gray-500"
+                  } max-w-[220px] break-all`}
                 >
-                  {contact?.conversation?.lastMessage?.content ||
-                    "No messages yet"}
+                  {contact?.conversation?.lastMessage?.content
+                    ? contact.conversation.lastMessage.content.length > 30
+                      ? contact.conversation.lastMessage.content.slice(0, 30) +
+                        "..."
+                      : contact.conversation.lastMessage.content
+                    : "No messages yet"}
                 </p>
                 {contact?.conversation &&
                   contact?.conversation?.unreadCount > 0 &&

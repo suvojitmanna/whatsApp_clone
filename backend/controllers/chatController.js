@@ -7,7 +7,8 @@ exports.sendMessage = async (req, res) => {
   // Implementation for sending a message
   try {
     const { senderId, receiverId, content, messageStatus } = req.body;
-
+    console.log("FILE:", req.file); // 👈 ADD THIS
+    console.log("BODY:", req.body);
     const participants = [senderId, receiverId].sort();
     const file = req.file;
     const timestamp = new Date();
@@ -52,6 +53,7 @@ exports.sendMessage = async (req, res) => {
       imageOrVideoUrl,
       messageStatus,
       timestamp,
+      reactions: [],
     });
     await message.save();
     if (message?.content) {
@@ -124,6 +126,7 @@ exports.getMessages = async (req, res) => {
     const messages = await Message.find({ conversation: conversationId })
       .populate("sender", "username profilePicture")
       .populate("receiver", "username profilePicture")
+      .populate("reactions.userId", "username profilePicture") // ✅ ADD THIS
       .sort({ createdAt: 1 });
 
     await Message.updateMany(

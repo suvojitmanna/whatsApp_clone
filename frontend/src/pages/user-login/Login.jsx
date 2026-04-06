@@ -166,56 +166,54 @@ const Login = () => {
   };
 
   const OnOtpSubmit = async (data) => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    if (!userPhoneData) {
-      throw new Error("Phone or email data is missing");
-    }
-
-    const otpString = data.otp;
-
-    if (!otpString || otpString.length !== 6) {
-      toast.error("Enter valid 6-digit OTP");
-      return;
-    }
-
-    let response;
-
-    if (userPhoneData?.email) {
-      response = await verifyOtp(null, null, otpString, userPhoneData.email);
-    } else {
-      response = await verifyOtp(
-        userPhoneData.phoneNumber,
-        userPhoneData.phoneSuffix,
-        otpString,
-        null
-      );
-    }
-
-    if (response.data.success) {
-      toast.success("Otp Verified Successfully");
-
-      const user = response.data?.user;
-
-      // Save user in Zustand
-      setUser(user);
-
-      // FIXED CONDITION (simple & reliable)
-      if (user && user.username) {
-        navigate("/"); // make sure this does NOT clear user
-      } else {
-        setStep(3); // go to profile creation
+      if (!userPhoneData) {
+        throw new Error("Phone or email data is missing");
       }
-    } else {
-      toast.error(response.data.message || "Invalid OTP");
+
+      const otpString = data.otp;
+
+      if (!otpString || otpString.length !== 6) {
+        toast.error("Enter valid 6-digit OTP");
+        return;
+      }
+
+      let response;
+
+      if (userPhoneData?.email) {
+        response = await verifyOtp(null, null, otpString, userPhoneData.email);
+      } else {
+        response = await verifyOtp(
+          userPhoneData.phoneNumber,
+          userPhoneData.phoneSuffix,
+          otpString,
+          null,
+        );
+      }
+
+      if (response.data.success) {
+        toast.success("Otp Verified Successfully");
+
+        const user = response.data?.user;
+
+        console.log("USER AFTER OTP:", user);
+
+        // ✅ Save user
+        setUser(user);
+
+        // ✅ ALWAYS GO TO STEP 3
+        setStep(3);
+      } else {
+        toast.error(response.data.message || "Invalid OTP");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "OTP verification failed");
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    toast.error(error.response?.data?.message || "OTP verification failed");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -227,56 +225,53 @@ const Login = () => {
   };
 
   const onProfileSubmit = async (data) => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    console.log("STEP 1: Profile submit started");
+      console.log("STEP 1: Profile submit started");
 
-    const formData = new FormData();
+      const formData = new FormData();
 
-    formData.append("username", data.username);
-    formData.append("agreed", data.agreed);
+      formData.append("username", data.username);
+      formData.append("agreed", data.agreed);
 
-    if (profilePictureFile) {
-      formData.append("media", profilePictureFile);
-    } else {
-      formData.append("profilePicture", selectedAvatar);
+      if (profilePictureFile) {
+        formData.append("media", profilePictureFile);
+      } else {
+        formData.append("profilePicture", selectedAvatar);
+      }
+
+      console.log("STEP 2: Sending profile update API...");
+
+      await updateUserProfile(formData);
+
+      console.log("STEP 3: Profile updated in DB");
+
+      const result = await checkUserAuth();
+      console.log("STEP 4: checkUserAuth result:", result);
+
+      // FIXED
+      setUser(result.data.user);
+
+      console.log("STEP 5: User set in Zustand:", result.data.user);
+
+      toast.success("Welcome back to WhatsApp");
+
+      console.log("STEP 6: Navigating to /");
+
+      navigate("/");
+
+      console.log("STEP 7: After navigation (before reset)");
+
+      console.log("STEP 8: After resetLoginStates");
+    } catch (error) {
+      console.log("ERROR:", error);
+      setError(error.message || "Failed to update profile picture");
+    } finally {
+      setLoading(false);
+      console.log("STEP 9: Loading finished");
     }
-
-    console.log("STEP 2: Sending profile update API...");
-
-    await updateUserProfile(formData);
-
-    console.log("STEP 3: Profile updated in DB");
-
-    const result = await checkUserAuth();
-    console.log("STEP 4: checkUserAuth result:", result);
-
-    // FIXED
-    setUser(result.data.user);
-
-    console.log("STEP 5: User set in Zustand:", result.data.user);
-
-    toast.success("Welcome back to WhatsApp");
-
-    console.log("STEP 6: Navigating to /");
-
-    navigate("/");
-
-    console.log("STEP 7: After navigation (before reset)");
-
-    
-
-    console.log("STEP 8: After resetLoginStates");
-
-  } catch (error) {
-    console.log("ERROR:", error);
-    setError(error.message || "Failed to update profile picture");
-  } finally {
-    setLoading(false);
-    console.log("STEP 9: Loading finished");
-  }
-};
+  };
 
   const handleOtpChange = (index, value) => {
     const newOtp = [...otp];
@@ -503,7 +498,7 @@ const Login = () => {
           <form onSubmit={handleOtpSubmit(OnOtpSubmit)} className="space-y-4">
             <p
               className={`text-center ${
-                theme === "dark" ? "text-gray-300" : "text-gray-600"
+                theme === "dark" ? "text-gray-300" : "text-black"
               } mb-4`}
             >
               Please enter the 6 digit otp send your
@@ -520,7 +515,7 @@ const Login = () => {
                   maxLength={1}
                   value={digit}
                   onChange={(e) => handleOtpChange(index, e.target.value)}
-                  className={`w-12 h-12 text-center border ${
+                  className={`w-12 h-12 text-center text-black border ${
                     theme === "dark"
                       ? "bg-gray-700 border-gray-600 text-white"
                       : "bg-white border-gray-300"
@@ -623,7 +618,7 @@ const Login = () => {
                 type="text"
                 {...profileRegister("username")}
                 placeholder="Username"
-                className={`w-full pl-10 pr-3 py-2 border ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-lg`}
+                className={`w-full pl-10 pr-3 py-2 border text-black ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-lg`}
               />
               {ProfileErrors.username && (
                 <p className="text-red-500 text-sm mt-1">
@@ -639,7 +634,7 @@ const Login = () => {
                   type="checkbox"
                   id="terms"
                   {...profileRegister("agreed")}
-                  className={`rounded ${theme === "dark" ? "text-green-500 bg-gray-700" : "text-green-500 focus:ring-green-500"}`}
+                  className={`rounded cursor-pointer ${theme === "dark" ? "text-green-500 bg-gray-700" : "text-green-500 focus:ring-green-500"}`}
                 />
                 <label
                   htmlFor="terms"

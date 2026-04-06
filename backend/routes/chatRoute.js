@@ -5,7 +5,12 @@ const { multerMiddleware } = require("../config/cloudinary.js");
 
 const router = express.Router();
 
-router.post("/send-message", authMiddleware, chatController.sendMessage);
+router.post(
+  "/send-message",
+  authMiddleware,
+  multerMiddleware,
+  chatController.sendMessage,
+);
 router.get("/conversation", authMiddleware, chatController.getConversation);
 
 router.get(
@@ -14,13 +19,12 @@ router.get(
   chatController.getMessages,
 );
 
-router.put(
-  "/messages/read",
-  authMiddleware,
-  multerMiddleware,
-  chatController.markAsRead,
-);
+router.put("/messages/read", authMiddleware, chatController.markAsRead);
 
-router.delete("/messages/:messageId", authMiddleware, chatController.deleteMessage);
+router.delete(
+  "/messages/:messageId",
+  authMiddleware,
+  chatController.deleteMessage,
+);
 
 module.exports = router;

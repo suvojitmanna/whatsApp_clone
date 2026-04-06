@@ -7,8 +7,31 @@ import Home from "./components/homePage.jsx";
 import UserDetails from "./components/userDetails.jsx";
 import Status from "./pages/statusSection/status.jsx";
 import Setting from "./pages/SettingSection/setting.jsx";
+import useUserStore from "./store/useUserStore.js";
+import { useEffect } from "react";
+import { disconnectSocket, initializeSocket } from "./services/chatService.js";
+
+// ❌ removed Socket import
 
 const App = () => {
+  const { user } = useUserStore();
+  const { setUser, initSocketListener, cleanup } = useUserStore(); // ✅ fixed name
+
+  useEffect(() => {
+    if (user?._id) {
+      initializeSocket();
+
+      // ❌ removed wrong condition
+      setUser(user); // ✅ fixed function
+      initSocketListener();
+    }
+
+    return () => {
+      cleanup();
+      disconnectSocket();
+    };
+  }, [user, setUser, initSocketListener, cleanup]); // (kept your structure)
+
   return (
     <>
       <ToastContainer position="top-right" autoClose={3000} />

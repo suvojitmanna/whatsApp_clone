@@ -207,7 +207,7 @@ const getAllUsers = async (req, res) => {
   try {
     console.log("==== GET ALL USERS START ====");
 
-    // ✅ Safe auth check
+    // Safe auth check
     if (!req.user || !req.user.userId) {
       console.log("❌ Unauthorized access");
       return res.status(401).json({
@@ -265,7 +265,7 @@ const getAllUsers = async (req, res) => {
     console.log("✅ FINAL USERS:", usersWithConversations.length);
     console.log("==== END ====");
 
-    // ✅ SIMPLE RESPONSE (BEST)
+    // SIMPLE RESPONSE (BEST)
     return res.status(200).json({
       message: "Users retrieved successfully",
       users: usersWithConversations,

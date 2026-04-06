@@ -3,7 +3,7 @@ import useLayoutStore from "../store/layoutStore";
 import useThemeStore from "../store/themeStore";
 import SideBar from "../components/sideBar";
 import { motion, AnimatePresence } from "framer-motion";
-import ChatWindow from "../pages/chatSection/chatWindow";
+import ChatWindow from "../pages/chatSection/ChatWindow";
 
 const Layout = ({
   children,
