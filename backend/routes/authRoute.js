@@ -15,7 +15,7 @@ router.put(
   authController.updateProfile,
 );
 
-router.get("/logout", authMiddleware, authController.logout);
+router.get("/logout",authController.logout);
 
 router.get('/check-auth', authMiddleware, authController.checkAuthenticated);
 

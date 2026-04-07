@@ -20,7 +20,7 @@ import { FaEllipsis } from "react-icons/fa6";
 import { object } from "yup";
 import MessageBuble from "./MessageBuble";
 import EmojiPicker from "emoji-picker-react";
-import UseOutsideClick from "../../hook/useOutsideClick";
+import useOutsideClick from "../../hook/useOutsideClick";
 import formatTimestamp from "../../utils/formatTime";
 
 const isValidate = (date) => {
@@ -223,92 +223,129 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   }
 
   // Close on outside click
-  UseOutsideClick(emojiPickerRef, () => {
-    setShowEmojiPicker(false);
-  });
-  UseOutsideClick(fileMenuRef, () => {
-    setShowFileMenu(false);
-  });
+  useOutsideClick(emojiPickerRef, () => {
+  if (showEmojiPicker) setShowEmojiPicker(false);
+});
 
+useOutsideClick(fileMenuRef, () => {
+  if (showFileMenu) setShowFileMenu(false);
+});
   return (
     <div
       className={`flex h-screen w-full flex-col {theme === "dark" ? "bg-[#303430] text-white" : "bg-[rgb(230,235,240)] text-gray-600"}`}
     >
       {/* upper part ui */}
       <div
-  className={`p-4 ${
-    theme === "dark"
-      ? "bg-[#303430] text-white"
-      : "bg-[rgb(229,230,232)] text-gray-600"
-  } flex items-center`}
->
-  <button onClick={() => setSelectedContact(null)}>
-    <FaArrowLeft className="mr-2 focus:outline-none cursor-pointer h-full w-full " />
-  </button>
-
-  <img
-    src={selectedContact?.profilePicture}
-    alt={selectedContact?.username}
-    className="ml-4 w-10 h-10 rounded-full"
-  />
-
-  <div className="ml-3 flex-grow">
-    <h2 className="font-semibold text-start">
-      {selectedContact?.username}
-    </h2>
-
-    {isTyping ? (
-      <div>Typing...</div>
-    ) : (
-      <p
-        className={`text-sm ${
-          theme === "dark" ? "text-gray-400" : "text-gray-500"
-        }`}
+        className={`p-4 ${
+          theme === "dark"
+            ? "bg-[#303430] text-white"
+            : "bg-[rgb(229,230,232)] text-gray-600"
+        } flex items-center`}
       >
-        {selectedContact?.isOnline
-  ? "Online"
-  : selectedContact?.lastSeen
-    ? `Last seen ${formatTimestamp(selectedContact.lastSeen)}`
-    : "Offline"}
-      </p>
-    )}
-  </div>
+        <button onClick={() => setSelectedContact(null)}>
+          <FaArrowLeft className="mr-2 focus:outline-none cursor-pointer h-full w-full " />
+        </button>
 
-  <div className="flex items-center space-x-4">
-    <button className="focus:outline-none cursor-pointer">
-      <FaVideo className="h-7 w-7" />
-    </button>
-    <button className="focus:outline-none cursor-pointer">
-      <FaEllipsisV className="h-5 w-5" />
-    </button>
-  </div>
-</div>
+        <img
+          src={selectedContact?.profilePicture}
+          alt={selectedContact?.username}
+          className="ml-4 w-10 h-10 rounded-full"
+        />
+
+        <div className="ml-3 flex-grow">
+          <h2 className="font-semibold text-start">
+            {selectedContact?.username}
+          </h2>
+
+          {isTyping ? (
+            <div>Typing...</div>
+          ) : (
+            <p
+              className={`text-sm ${
+                theme === "dark" ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
+              {selectedContact?.isOnline
+                ? "Online"
+                : selectedContact?.lastSeen
+                  ? `Last seen ${formatTimestamp(selectedContact.lastSeen)}`
+                  : "Offline"}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center space-x-4">
+          <button className="focus:outline-none cursor-pointer">
+            <FaVideo className="h-7 w-7" />
+          </button>
+          <button className="focus:outline-none cursor-pointer">
+            <FaEllipsisV className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
 
       {/* message part seen */}
       <div
-        className={`flex-1 p-4 overflow-y-auto ${theme === "dark" ? "bg-[#27a0a0]" : "bg-[rgb(241,236,229)]"} `}
+        className={`flex-1 p-4 overflow-y-auto scroll-smooth custom-scrollbar relative transition-colors duration-500 ${
+          theme === "dark"
+            ? "bg-[#0b141a] bg-opacity-95" // Deep Charcoal-Navy
+            : "bg-[#efe7de]" // Classic soft parchment
+        }`}
+        style={{
+          // Optional: Add a subtle pattern overlay for that "Premium" Telegram/WhatsApp feel
+          backgroundImage:
+            theme === "dark"
+              ? `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`
+              : `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`,
+          backgroundBlendMode: theme === "dark" ? "overlay" : "soft-light",
+          backgroundSize: "400px",
+        }}
       >
-        {Object.entries(groupedMessages).map(([date, msgs]) => (
-          <React.Fragment key={date}>
-            {renderDateSeparator(new Date(date))}
-            {msgs
-              .filter(
-                (msg) =>
-                  msg.conversation === selectedContact?.conversation?._id,
-              )
-              .map((msg) => (
-                <MessageBuble
-                  key={msg._id || msg.temp}
-                  message={msg}
-                  theme={theme}
-                  currentUser={user}
-                  onReact={handleReaction}
-                  deleteMessage={deleteMessage}
-                />
-              ))}
-          </React.Fragment>
-        ))}
-        <div ref={messageEndRef} />
+        {/* The grouping logic is solid, let's just ensure the rendering is clean */}
+        <div className="max-w-4xl mx-auto flex flex-col space-y-2">
+          {Object.entries(groupedMessages).map(([date, msgs]) => {
+            const filteredMsgs = msgs.filter(
+              (msg) => msg.conversation === selectedContact?.conversation?._id,
+            );
+
+            // Don't render the separator if there are no messages for this date
+            if (filteredMsgs.length === 0) return null;
+
+            return (
+              <React.Fragment key={date}>
+                {/* Enhanced Separator */}
+                <div className="sticky top-2 z-10 flex justify-center my-4">
+                  <span
+                    className={`px-4 py-1.5 rounded-full text-xs font-medium shadow-sm backdrop-blur-md ${
+                      theme === "dark"
+                        ? "bg-[#182229]/80 text-gray-400 border border-white/5"
+                        : "bg-white/80 text-gray-600 border border-black/5"
+                    }`}
+                  >
+                    {new Date(date).toLocaleDateString(undefined, {
+                      weekday: "long",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+
+                {filteredMsgs.map((msg) => (
+                  <MessageBuble
+                    key={msg._id || msg.temp}
+                    message={msg}
+                    theme={theme}
+                    currentUser={user}
+                    onReact={handleReaction}
+                    deleteMessage={deleteMessage}
+                  />
+                ))}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        <div ref={messageEndRef} className="h-4" />
       </div>
 
       {/* file */}

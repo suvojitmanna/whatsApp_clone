@@ -11,8 +11,6 @@ import useUserStore from "./store/useUserStore.js";
 import { useEffect } from "react";
 import { disconnectSocket, initializeSocket } from "./services/chatService.js";
 
-// ❌ removed Socket import
-
 const App = () => {
   const { user } = useUserStore();
   const { setUser, initSocketListener, cleanup } = useUserStore(); // fixed name
@@ -20,9 +18,7 @@ const App = () => {
   useEffect(() => {
     if (user?._id) {
       initializeSocket();
-
-      // ❌ removed wrong condition
-      setUser(user); // fixed function
+      setUser(user);
       initSocketListener();
     }
 
@@ -30,7 +26,7 @@ const App = () => {
       cleanup();
       disconnectSocket();
     };
-  }, [user, setUser, initSocketListener, cleanup]); // (kept your structure)
+  }, [user, setUser, initSocketListener, cleanup]);
 
   return (
     <>

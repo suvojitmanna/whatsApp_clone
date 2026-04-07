@@ -83,33 +83,65 @@ const Layout = ({
 
       {/* Theme Dialog */}
       {isThemeDialogOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[100]"
+          onClick={toggleThemeDialoge} // Closes when clicking background
+        >
           <div
-            className={`${
+            onClick={(e) => e.stopPropagation()} // Prevents closing when clicking inside
+            className={`relative p-6 rounded-2xl shadow-2xl max-w-[360px] w-full transform transition-all animate-in fade-in zoom-in duration-200 ${
               theme === "dark"
-                ? "bg-[#202c33] text-white"
-                : "bg-white text-black"
-            } p-6 rounded-lg shadow-lg max-w-sm w-full`}
+                ? "bg-[#2a3942] text-[#e9edef]"
+                : "bg-white text-[#111b21]"
+            }`}
           >
-            <h2 className="text-xl font-semibold mb-4">Choose Theme</h2>
+            <h2 className="text-xl font-medium mb-6">Choose Theme</h2>
 
-            <button
-              onClick={() => setTheme("light")}
-              className="block w-full mb-2"
-            >
-              Light
-            </button>
+            <div className="space-y-4">
+              {/* Light Theme Option */}
+              <label className="flex items-center justify-between cursor-pointer group">
+                <span className="text-md">Light</span>
+                <input
+                  type="radio"
+                  name="theme"
+                  checked={theme === "light"}
+                  onChange={() => setTheme("light")}
+                  className="w-5 h-5 accent-[#00a884] cursor-pointer"
+                />
+              </label>
 
-            <button onClick={() => setTheme("dark")} className="block w-full">
-              Dark
-            </button>
+              {/* Dark Theme Option */}
+              <label className="flex items-center justify-between cursor-pointer group">
+                <span className="text-md">Dark</span>
+                <input
+                  type="radio"
+                  name="theme"
+                  checked={theme === "dark"}
+                  onChange={() => setTheme("dark")}
+                  className="w-5 h-5 accent-[#00a884] cursor-pointer"
+                />
+              </label>
+            </div>
 
-            <button
-              onClick={toggleThemeDialoge}
-              className="mt-4 w-full bg-blue-500 text-white py-2 rounded"
-            >
-              Close
-            </button>
+            {/* Action Buttons */}
+            <div className="mt-8 flex justify-end gap-2">
+              <button
+                onClick={toggleThemeDialoge}
+                className={`px-5 py-2 rounded-full font-medium transition-colors cursor-pointer ${
+                  theme === "dark"
+                    ? "text-[#00a884] hover:bg-[#202c33]"
+                    : "text-[#00a884] hover:bg-gray-50"
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={toggleThemeDialoge}
+                className="px-6 py-2 bg-[#00a884] hover:bg-[#06cf9c] text-white rounded-full font-medium shadow-sm active:scale-95 transition-all cursor-pointer"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       )}

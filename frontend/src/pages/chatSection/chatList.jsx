@@ -47,13 +47,7 @@ const ChatList = ({ contacts }) => {
     >
       <div className="p-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold">Chats</h2>
-        <button
-          className="p-2 bg-green-500 text-white rounded-full shadow-md cursor-pointer 
-  transition-all duration-300 ease-in-out
-  hover:bg-green-600 hover:scale-110 hover:rotate-90
-  active:scale-90
-  animate-bounce-slow"
-        >
+        <button className="p-2 bg-green-500 text-white rounded-full shadow-md cursor-pointer transition-all duration-300 ease-in-out hover:bg-green-600 hover:scale-110 hover:rotate-90 active:scale-90 animate-bounce-slow">
           <FaPlus />
         </button>
       </div>

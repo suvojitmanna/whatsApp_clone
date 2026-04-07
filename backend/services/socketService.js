@@ -71,7 +71,7 @@ function initializeSocket(server) {
 
         if (!messages.length) return;
 
-        // ✅ get unique senderIds
+        // get unique senderIds
         const senderIds = [
           ...new Set(messages.map((msg) => msg.sender.toString())),
         ];
@@ -81,7 +81,7 @@ function initializeSocket(server) {
           { $set: { messageStatus: "read" } },
         );
 
-        // ✅ emit to all senders
+        // emit to all senders
         senderIds.forEach((senderId) => {
           io.to(senderId).emit("message_status_update_bulk", {
             messageIds,

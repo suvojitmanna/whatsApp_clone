@@ -5,14 +5,14 @@ let socket = null;
 
 export const initializeSocket = () => {
   if (socket) {
-    socket.disconnect(); // ✅ force fresh connection
+    socket.disconnect(); // force fresh connection
   }
 
   const BACKEND_URL = import.meta.env.VITE_API_URL;
 
   socket = io(BACKEND_URL, {
     withCredentials: true,
-    transports: ["websocket", "polling"], // ✅ improved
+    transports: ["websocket", "polling"], // improved
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
   });

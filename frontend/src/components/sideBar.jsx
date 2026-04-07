@@ -74,8 +74,12 @@ const sideBar = () => {
       {!isMobile && <div className="flex-grow" />}
 
       <div
-        className={`${isMobile ? "hidden" : "flex flex-col gap-6 items-center"}`}
-      >
+  className={`${
+    isMobile
+      ? "flex flex-row justify-between items-center w-full px-6"
+      : "flex flex-col gap-6 items-center"
+  }`}
+>
         {/* User Profile */}
         <Link to="/user-profile">
           <motion.div
