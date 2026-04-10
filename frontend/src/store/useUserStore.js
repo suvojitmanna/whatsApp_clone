@@ -10,14 +10,18 @@ const useUserStore = create(
       isAuthenticated: false,
 
       setUser: (userData) => {
-        set({
-          user: userData,
-          isAuthenticated: true,
-        });
+  // normalize user structure
+  const normalizedUser =
+    userData?.user || userData?.data?.user || userData;
 
-        // FIX HERE
-        useChatStore.getState().setCurrentUser(userData);
-      },
+  set({
+    user: normalizedUser,
+    isAuthenticated: true,
+  });
+
+  // keep chat store consistent too
+  useChatStore.getState().setCurrentUser(normalizedUser);
+},
 
       clearUser: () =>
         set({
