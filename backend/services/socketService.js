@@ -1,6 +1,7 @@
 const { Server } = require("socket.io");
 const User = require("../models/user");
 const Message = require("../models/message");
+const handleVideoCallEvent = require("./videoCallService");
 
 const onlineUsers = new Map();
 const typingUsers = new Map();
@@ -23,6 +24,7 @@ function initializeSocket(server) {
     socket.on("user_connected", async (connectingUserId) => {
       try {
         userId = connectingUserId;
+        socket.userId = userId;
 
         onlineUsers.set(userId, socket.id);
         socket.join(userId);
@@ -37,6 +39,10 @@ function initializeSocket(server) {
         console.error("Error in user_connected:", error);
       }
     });
+
+    //handleVideo call events
+
+    handleVideoCallEvent(socket, io, onlineUsers);
 
     // 🔹 GET USER STATUS
     socket.on("get_user_status", (requestingUserId, callback) => {
