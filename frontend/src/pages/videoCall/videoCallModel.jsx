@@ -96,21 +96,29 @@ const VideoCallModel = ({ socket }) => {
   }, [remoteStream]);
 
   //Initialize media stream
-  const InitializeMedia = async (video = true) => {
+ let currentStream = null; // 🔥 outside function (global or ref)
+
+const InitializeMedia = async (video = true) => {
   try {
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    // ✅ Stop previous stream FIRST
+    if (currentStream) {
+      currentStream.getTracks().forEach((track) => track.stop());
+      currentStream = null;
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: video ? { width: 640, height: 400 } : false,
+      video: video ? { width: 640, height: 480 } : false,
       audio: true,
     });
 
+    console.log("🎥 Local media stream:", stream.getTracks());
+
+    currentStream = stream; // ✅ store reference
     setLocalStream(stream);
+
     return stream;
   } catch (error) {
-    console.error("Media error", error);
+    console.error("❌ Media error", error);
     throw error;
   }
 };

@@ -40,10 +40,6 @@ function initializeSocket(server) {
       }
     });
 
-    //handleVideo call events
-
-    handleVideoCallEvent(socket, io, onlineUsers);
-
     // 🔹 GET USER STATUS
     socket.on("get_user_status", (requestingUserId, callback) => {
       const isOnline = onlineUsers.has(requestingUserId);
@@ -196,8 +192,11 @@ function initializeSocket(server) {
       }
     });
 
+    //handleVideo call events
+    handleVideoCallEvent(socket, io, onlineUsers);
+
     // 🔹 DISCONNECT
-    socket.on("disconnect", async () => {
+    const handleDisconnected= async () => {
       if (!userId) return;
 
       try {
@@ -231,7 +230,7 @@ function initializeSocket(server) {
       } catch (error) {
         console.error("Error handling disconnect:", error);
       }
-    });
+    };
   });
 
   // FIXED (outside connection)

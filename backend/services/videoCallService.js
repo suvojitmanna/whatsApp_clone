@@ -3,20 +3,15 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
   socket.on(
     "initiate_call",
     ({ callerId, receiverId, callType, callerInfo }) => {
-      // prevent self-call
-      if (callerId === receiverId) {
-        return socket.emit("call_failed", { reason: "Cannot call yourself" });
-      }
-
       const receiverSocketId = onlineUsers.get(receiverId);
 
       if (receiverSocketId) {
-        const callId = `${callerId}_${receiverId}_${Date.now()}`;
+        const callId = `${callerId}-${receiverId}-${Date.now()}`;
 
         io.to(receiverSocketId).emit("incoming_call", {
           callerId,
-          callerName: callerInfo?.username,
-          callerAvatar: callerInfo?.profilePicture,
+          callerName: callerInfo.username,
+          callerAvatar: callerInfo.profilePicture,
           callId,
           callType,
         });
@@ -28,20 +23,14 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
   );
 
   //   Accepted Call
-  socket.on("accept_call", ({ callerId, receiverId, receiverInfo, callId }) => {
-    // prevent self-call
-    if (callerId === receiverId) {
-      return socket.emit("call_failed", { reason: "Cannot call yourself" });
-    }
-
+  socket.on("accept_call", ({ callerId, receiverInfo, callId }) => {
     const callerSocketId = onlineUsers.get(callerId);
 
     if (callerSocketId) {
       io.to(callerSocketId).emit("call_accepted", {
         callId,
-        receiverId,
-        receiverName: receiverInfo?.username,
-        receiverAvatar: receiverInfo?.profilePicture,
+        receiverName: receiverInfo.username,
+        receiverAvatar: receiverInfo.profilePicture,
       });
     } else {
       console.log(`server: Caller ${callerId} not found`);
@@ -50,18 +39,11 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
   });
 
   //   Reject Call
-  socket.on("reject_call", ({ callerId, receiverId, callId }) => {
-    // prevent self-call
-    if (callerId === receiverId) {
-      return socket.emit("call_failed", { reason: "Cannot call yourself" });
-    }
-
+  socket.on("reject_call", ({ callerId, callId }) => {
     const callerSocketId = onlineUsers.get(callerId);
-
     if (callerSocketId) {
       io.to(callerSocketId).emit("call_rejected", {
         callId,
-        receiverId,
       });
     } else {
       console.log(`server: Caller ${callerId} not found`);
@@ -69,27 +51,18 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
   });
 
   //   End Call
-  socket.on("end_call", ({ callerId, participantId, callId }) => {
-    // prevent self-call
-    if (callerId === participantId) {
-      return socket.emit("call_failed", {
-        reason: "Cannot end call with yourself",
-      });
-    }
-
+  socket.on("end_call", ({ participantId, callId }) => {
     const participantSocketId = onlineUsers.get(participantId);
-
     if (participantSocketId) {
       io.to(participantSocketId).emit("call_ended", {
         callId,
-        endedBy: callerId,
       });
     } else {
       console.log(`server: Participant ${participantId} not found`);
     }
   });
 
-  //WebRct
+  //WebRct signaling
   socket.on("webrtc_offer", ({ offer, receiverId, callId }) => {
     const receiverSocketId = onlineUsers.get(receiverId);
 
@@ -98,7 +71,6 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
         offer,
         senderId: socket.userId,
         callId,
-        timestamp: Date.now(),
       });
       console.log(`server offer forward to ${receiverId}`);
     } else {
@@ -116,7 +88,6 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
         answer,
         senderId: socket.userId,
         callId,
-        timestamp: Date.now(),
       });
     } else {
       console.log(`server: Receiver ${receiverId} not found for answer`);
@@ -132,7 +103,6 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
         candidate,
         senderId: socket.userId,
         callId,
-        timestamp: Date.now(),
       });
     } else {
       console.log(`server: Receiver ${receiverId} not found for ICE`);

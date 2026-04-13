@@ -43,7 +43,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const socket = getSocket();
+  const {socket} = getSocket();
 
   const {
     messages,
