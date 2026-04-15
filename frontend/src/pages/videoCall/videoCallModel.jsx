@@ -97,20 +97,20 @@ const VideoCallModel = ({ socket }) => {
 
   //Initialize media stream
   const InitializeMedia = async (video = true) => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: video ? { width: 640, height: 480 } : false,
-      audio: true,
-    });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: video ? { width: 640, height: 480 } : false,
+        audio: true,
+      });
 
-    console.log("local media stream ",stream.getTracks())
-    setLocalStream(stream);
-    return stream;
-  } catch (error) {
-    console.error("Media error", error);
-    throw error;
-  }
-};
+      console.log("local media stream ", stream.getTracks());
+      setLocalStream(stream);
+      return stream;
+    } catch (error) {
+      console.error("Media error", error);
+      throw error;
+    }
+  };
 
   //create peer connection
   const createPeerConnection = (stream, role) => {
@@ -142,12 +142,12 @@ const VideoCallModel = ({ socket }) => {
 
     // handle remote stream
     pc.ontrack = (event) => {
-      if(event.stream && event.streams[0]){
-        setRemoteStream(event.streams[0])
-      }else{
-        const stream = new MediaStream([event.track])
-        setRemoteStream(stream)
-      }
+      if (event.streams && event.streams[0]) {
+  setRemoteStream(event.streams[0]);
+} else {
+  const stream = new MediaStream([event.track]);
+  setRemoteStream(stream);
+}
     };
 
     pc.onconnectionstatechange = () => {
@@ -254,7 +254,7 @@ const VideoCallModel = ({ socket }) => {
 
     endCall();
   };
-  
+
   // socket event listeners
   useEffect(() => {
     if (!socket) return;
@@ -419,7 +419,14 @@ const VideoCallModel = ({ socket }) => {
                 className={`w-full h-full object-cover bg-gray-800 ${remoteStream ? "block" : "hidden"}`}
               />
             )}
-
+            <audio
+              autoPlay
+              ref={(audio) => {
+                if (audio && remoteStream) {
+                  audio.srcObject = remoteStream;
+                }
+              }}
+            />
             {(!remoteStream || callType !== "video") && (
               <div className="w-full h-full bg-gray-800 flex items-center justify-center ">
                 <div className="text-center">
@@ -481,8 +488,9 @@ const VideoCallModel = ({ socket }) => {
                   </button>
                 )}
 
-                <button onClick={toggleAudio}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isVideoEnabled ? "bg-gray-600 hover:bg-gray-700 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}
+                <button
+                  onClick={toggleAudio}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isAudioEnabled  ? "bg-gray-600 hover:bg-gray-700 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}
                 >
                   {isAudioEnabled ? (
                     <FaMicrophone className="h-5 w-5" />
