@@ -349,7 +349,7 @@ const VideoCallModel = ({ socket }) => {
     socket.on("webrtc_offer", handleWebRTCOffer);
     socket.on("webrtc_answer", handleWebRTCAnswer);
     socket.on("webrtc_ice_candidate", handleWebRTCIceCandidates);
-    console.log("socket lisitiner");
+    console.log("socket listener registered");
 
     return () => {
       socket.off("call_accepted", handleCallAccepted);

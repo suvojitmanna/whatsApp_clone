@@ -5,7 +5,14 @@ import { updateUserProfile } from "../services/url.services";
 import { toast } from "react-toastify";
 import Layout from "../components/layout";
 import { AnimatePresence, motion } from "framer-motion";
-import { FaCamera, FaCheck, FaSmile } from "react-icons/fa";
+import {
+  FaCamera,
+  FaCheck,
+  FaEnvelope,
+  FaLock,
+  FaPhone,
+  FaSmile,
+} from "react-icons/fa";
 import { FaPencil } from "react-icons/fa6";
 import { MdCancel } from "react-icons/md";
 import EmojiPicker from "emoji-picker-react";
@@ -108,7 +115,7 @@ const userDetails = () => {
         }`}
       >
         {/* Header */}
-        <div className="w-full px-8 py-10 max-w-2xl">
+        <div className="w-full px-8 py-2 max-w-2xl">
           <h1 className="text-3xl font-extrabold bg-gradient-to-r from-green-500 to-emerald-400 bg-clip-text text-transparent">
             Profile Settings
           </h1>
@@ -116,7 +123,7 @@ const userDetails = () => {
 
         <div className="w-full max-w-2xl px-6 pb-20 space-y-8">
           {/* Profile Image */}
-          <section className="flex flex-col items-center p-8 rounded-2xl backdrop-blur-xl bg-white/5 border border-white/10 shadow-xl">
+          <section className="flex flex-col items-center px-8 py-6 rounded-2xl backdrop-blur-xl bg-white/5 border border-white/10 shadow-xl">
             <div className="relative group">
               <div className="absolute -inset-2 bg-gradient-to-tr from-green-400 to-emerald-500 rounded-full blur-xl opacity-30 group-hover:opacity-60 transition"></div>
 
@@ -163,10 +170,87 @@ const userDetails = () => {
           </section>
 
           {/* FORM */}
-          <div className="grid gap-6">
+          <div className="grid gap-3">
+            {/* EMAIL / PHONE SECTION */}
+            {/* EMAIL FIELD */}
+            {user?.email && (
+              <div
+                className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${
+                  theme === "dark"
+                    ? "bg-white/5 border-white/10 hover:border-blue-400/40"
+                    : "bg-white/70 border-gray-200 hover:border-blue-400/40"
+                } shadow-lg`}
+              >
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-blue-500 uppercase tracking-widest">
+                    Email Address
+                  </label>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                      Verified
+                    </span>
+                    {/* The lock icon added to show it's non-editable */}
+                    <FaLock className="text-blue-500/40 size-2.5" />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mt-3">
+                  <div className="flex-grow flex items-center gap-3">
+                    <div
+                      className={`p-2 rounded-lg ${theme === "dark" ? "bg-white/5" : "bg-gray-100"}`}
+                    >
+                      <FaEnvelope className="text-gray-400 size-4" />
+                    </div>
+                    <p className="text-lg font-medium opacity-90">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PHONE FIELD */}
+            {user?.phoneNumber && (
+              <div
+                className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${
+                  theme === "dark"
+                    ? "bg-white/5 border-white/10 hover:border-emerald-400/40"
+                    : "bg-white/70 border-gray-200 hover:border-emerald-400/40"
+                } shadow-lg`}
+              >
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-emerald-500 uppercase tracking-widest">
+                    Phone Number
+                  </label>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                      Primary
+                    </span>
+                    {/* Matched the lock color to the emerald theme for a cleaner look */}
+                    <FaLock className="text-emerald-500/30 size-2.5" />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mt-3">
+                  <div className="flex-grow flex items-center gap-3">
+                    <div
+                      className={`p-2 rounded-lg ${theme === "dark" ? "bg-white/5" : "bg-gray-100"}`}
+                    >
+                      <FaPhone className="text-gray-400 size-4" />
+                    </div>
+                    <p className="text-lg font-medium opacity-90">
+                      {user.phoneNumber}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* NAME */}
             <div
-              className={`group rounded-2xl p-6 backdrop-blur-xl border transition-all ${
+              className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${
                 theme === "dark"
                   ? "bg-white/5 border-white/10 hover:border-green-400/40"
                   : "bg-white/70 border-gray-200 hover:border-green-400/40"
@@ -241,7 +325,7 @@ const userDetails = () => {
 
             {/* ABOUT */}
             <div
-              className={`group rounded-2xl p-6 backdrop-blur-xl border transition-all ${
+              className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${
                 theme === "dark"
                   ? "bg-white/5 border-white/10 hover:border-green-400/40"
                   : "bg-white/70 border-gray-200 hover:border-green-400/40"
