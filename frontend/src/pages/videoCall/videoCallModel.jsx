@@ -415,6 +415,7 @@ const VideoCallModel = ({ socket }) => {
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
+                controls
                 className={`w-full h-full object-cover bg-gray-800 ${remoteStream ? "block" : "hidden"}`}
               />
             )}
