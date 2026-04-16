@@ -291,7 +291,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
           <img
             src={selectedContact?.profilePicture}
             alt={selectedContact?.username}
-            className="ml-4 w-10 h-10 rounded-full"
+            className="ml-4 w-10 h-10 rounded-full "
           />
 
           <div className="ml-3 flex-grow">

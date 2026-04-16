@@ -165,22 +165,27 @@ const MessageBuble = ({
           {showEmojiPicker && (
             <div
               ref={emojiPickerRef}
-              className="absolute left-4 bottom-20 z-50"
+              className="fixed z-[9999]"
+              style={{
+                bottom: "80px",
+                left: "50%",
+                transform: "translateX(-50%)",
+              }}
             >
               <div className="relative">
                 <EmojiPicker
-                  className="absolute left-0 mb-6 z-50"
                   onEmojiClick={(emojiObject) => handleReact(emojiObject.emoji)}
                   theme={theme}
                 />
 
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setShowEmojiPicker(false);
                   }}
-                  className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                  className="absolute top-2 right-2 bg-white dark:bg-[#202c33] rounded-full p-1 shadow"
                 >
-                  <RxCross2 />
+                  <RxCross2 className="text-white cursor-pointer" />
                 </button>
               </div>
             </div>
@@ -240,10 +245,24 @@ const MessageBuble = ({
           >
             <button
               onClick={() => {
+                let textToCopy = "";
+
                 if (message.contentType === "text") {
-                  navigator.clipboard.writeText(message.content);
-                  toast.success("Copy");
+                  textToCopy = message.content;
                 }
+
+                if (
+                  message.contentType === "image" ||
+                  message.contentType === "video"
+                ) {
+                  textToCopy = message.imageOrVideoUrl;
+                }
+
+                if (textToCopy) {
+                  navigator.clipboard.writeText(textToCopy);
+                  toast.success("Copied");
+                }
+
                 setShowOptions(false);
               }}
               className="flex items-center px-4 py-2 gap-3 rounded-lg cursor-pointer"
