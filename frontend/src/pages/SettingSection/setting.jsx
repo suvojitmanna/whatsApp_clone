@@ -23,7 +23,16 @@ const Settings = () => {
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
 
+  const menuItems = [
+    { icon: FaUser, label: "Account", href: "/user-profile" },
+    { icon: FaComment, label: "Chats", href: "/" },
+    { icon: FaQuestionCircle, label: "Help", href: "/help" },
+  ];
+  const filteredItems = menuItems.filter((item) =>
+    item.label.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
   const toggleThemeDialoge = () => {
     setIsDialogOpen((prev) => !prev);
   };
@@ -99,6 +108,8 @@ const Settings = () => {
                 <input
                   type="text"
                   placeholder="Search settings"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className={`w-full py-2.5 pl-12 pr-4 outline-none transition-all rounded-full ${
                     theme === "dark"
                       ? "bg-[#202c33] focus:bg-[#2a3942] text-white"
@@ -132,11 +143,7 @@ const Settings = () => {
             {/* MENU */}
             <div className="flex flex-col flex-1 px-2 min-h-0">
               <div className="space-y-1">
-                {[
-                  { icon: FaUser, label: "Account", href: "/user-profile" },
-                  { icon: FaComment, label: "Chats", href: "/" },
-                  { icon: FaQuestionCircle, label: "Help", href: "/help" },
-                ].map((item, i) => (
+                {filteredItems.map((item, i) => (
                   <motion.div
                     key={item.href}
                     initial={{ opacity: 0, x: -20 }}
