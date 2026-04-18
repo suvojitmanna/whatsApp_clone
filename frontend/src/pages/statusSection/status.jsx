@@ -124,25 +124,13 @@ const status = () => {
   };
 
   const handleStatusPreview = (contact, statusIndex = 0) => {
-  if (!contact?.statuses?.length) {
-    console.error("No statuses available");
-    return;
-  }
+    setPreviewContact(contact);
+    setCurrentStatusIndex(statusIndex);
 
-  const status = contact.statuses[statusIndex];
-
-  if (!status?.id) {
-    console.error("Invalid status ID:", status);
-    return;
-  }
-
-  setPreviewContact(contact);
-  setCurrentStatusIndex(statusIndex);
-
-  console.log("✅ Viewing status ID:", status.id);
-
-  handleViewStatus(status.id);
-};
+    if (contact.statuses[statusIndex]) {
+      handleViewStatus(contact.statuses[statusIndex].id);
+    }
+  };
 
   const handlePreviewClose = () => {
     setPreviewContact(null);
