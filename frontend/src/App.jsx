@@ -39,25 +39,26 @@ const App = () => {
       <ToastContainer position="top-right" autoClose={3000} />
       <BrowserRouter>
         <Routes>
-          {/* PUBLIC ROUTE */}
+          {/* Public */}
           <Route element={<PublicRoute />}>
             <Route path="/user-login" element={<Login />} />
           </Route>
 
-          {/* PROTECTED ROUTES */}
+          {/* Protected */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Home />} />
             <Route path="/user-profile" element={<UserDetails />} />
             <Route path="/status" element={<Status />} />
             <Route path="/setting" element={<Setting />} />
-          </Route>
-          <Route element={<ProtectedRoute />}>
-            <Route path="/help" element={<HelpPage />} />
-            <Route path="/help/get-started" element={<GetStarted />} />
-            <Route path="/help/security" element={<Security />} />
-            <Route path="/help/chat-media" element={<ChatMedia />} />
-            <Route path="/help/privacy" element={<Privacy />} />
-            <Route path="/help/contact-support" element={<ContactSupport />} />
+
+            <Route path="/help">
+              <Route index element={<HelpPage />} />
+              <Route path="get-started" element={<GetStarted />} />
+              <Route path="security" element={<Security />} />
+              <Route path="chat-media" element={<ChatMedia />} />
+              <Route path="privacy" element={<Privacy />} />
+              <Route path="contact-support" element={<ContactSupport />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

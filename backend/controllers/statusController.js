@@ -97,34 +97,36 @@ exports.viewStatus = async (req, res) => {
       return response(res, 404, "Status not found");
     }
 
-    const alreadyViewed = status.viewers.some((v) => v.toString() === userId);
+    //  FIX: check inside viewer.user
+    const alreadyViewed = status.viewers.some(
+      (v) => v.user.toString() === userId,
+    );
 
+    //  FIX: push correct structure
     if (!alreadyViewed) {
-      status.viewers.push(userId);
+      status.viewers.push({ user: userId });
       await status.save();
     }
 
+    //  FIX: correct populate
     const updatedStatus = await Status.findById(statusId)
       .populate("user", "username profilePicture")
-      .populate("viewers", "username profilePicture");
+      .populate("viewers.user", "username profilePicture");
 
-    // Emit status view update to the status owner
+    //  Socket emit
     if (req.io && req.socketUserMap) {
-      const statusOwnerSocketId = req.socketUserMap.get(
-        status.user._id.toString(),
-      );
+      const statusOwnerSocketId = req.socketUserMap.get(status.user.toString());
+
       if (statusOwnerSocketId) {
-        const viewData = {
+        req.io.to(statusOwnerSocketId).emit("status_view", {
           statusId,
           viewerId: userId,
           totalViews: updatedStatus.viewers.length,
           viewers: updatedStatus.viewers,
-        };
-        req.io.to(statusOwnerSocketId).emit("status_view", viewData);
-      } else {
-        console.log("Status owner is not connected via socket");
+        });
       }
     }
+
     return response(res, 200, "Status viewed successfully", updatedStatus);
   } catch (error) {
     console.error(error);

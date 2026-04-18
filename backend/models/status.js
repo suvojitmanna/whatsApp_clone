@@ -18,6 +18,8 @@ const statusSchema = new mongoose.Schema(
       enum: ["text", "image", "video"],
       default: "text",
     },
+
+    // ✅ FIXED HERE
     viewers: [
       {
         user: {
@@ -30,6 +32,7 @@ const statusSchema = new mongoose.Schema(
         },
       },
     ],
+
     visibility: {
       type: String,
       enum: ["public", "contacts", "private"],
@@ -41,7 +44,7 @@ const statusSchema = new mongoose.Schema(
       index: { expires: 0 },
     },
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Status", statusSchema);

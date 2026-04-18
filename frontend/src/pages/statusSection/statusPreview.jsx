@@ -71,7 +71,7 @@ const StatusPreview = ({
         exit={{ opacity: 0 }}
         className={`fixed inset-0 h-full w-full bg-black bg-opacity-90 z-50 flex items-center
          justify-center `}
-        style={{ backdropFilter: "blur(5px}" }}
+        style={{ backdropFilter: "blur(5px)" }}
         onClick={onClose}
       >
         <div
@@ -163,7 +163,7 @@ const StatusPreview = ({
                   alt="image"
                   className="max-w-full max-h-full object-contain "
                 />
-              ) : currentIndex.contentType === "video" ? (
+              ) : currentStatus.contentType === "video" ? (
                 <video
                   src={currentStatus.media}
                   lassName="max-w-full max-h-full object-contain "
@@ -202,7 +202,7 @@ const StatusPreview = ({
                     <span>{currentStatus?.viewers.length} </span>
                   </div>
                   <FaChevronDown
-                    className={`h-4 w-4 transition-transform ${showViewers ? "rotate-180" : ""}`}
+                    className={`h-4 w-4 transition-transform cursor-pointer ${showViewers ? "rotate-180" : ""}`}
                   />
                 </button>
 
@@ -220,21 +220,21 @@ const StatusPreview = ({
                         </p>
                       ) : currentStatus.viewers.length > 0 ? (
                         <div className="space-y-2">
-                          {currentStatus?.viewers.map((viewers) => {
+                          {currentStatus?.viewers.map((viewer) => (
                             <div
-                              key={viewers?._id}
+                              key={viewer?.user?._id || viewer?._id}
                               className="flex items-center space-x-3"
                             >
                               <img
-                                src={viewers.profilePicture}
-                                alt={viewers.username}
+                                src={viewer?.user?.profilePicture}
+                                alt={viewer?.user?.username}
                                 className="w-8 h-8 rounded-full object-cover"
                               />
                               <span className="text-white">
-                                {viewers.username}
+                                {viewer?.user?.username}
                               </span>
-                            </div>;
-                          })}
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <p className="text-white text-center">No Viewers Yet</p>
