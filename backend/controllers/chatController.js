@@ -1,7 +1,7 @@
 const { uploadFileToCloudinary } = require("../config/cloudinary");
 const response = require("../utils/responseHandeler.js");
 const Message = require("../models/message.js");
-const Conversation = require("../models/conversation.js");
+const Conversation = require("../models/converSation.js");
 
 exports.sendMessage = async (req, res) => {
   // Implementation for sending a message
