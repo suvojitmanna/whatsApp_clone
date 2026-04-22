@@ -1,6 +1,6 @@
 const { uploadFileToCloudinary } = require("../config/cloudinary");
 const response = require("../utils/responseHandeler.js");
-const Message = require("../models/Message.js");
+const Message = require("../models/message.js");
 const Status = require("../models/status.js");
 
 exports.createStatus = async (req, res) => {
