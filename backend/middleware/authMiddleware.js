@@ -2,19 +2,14 @@ const jwt = require("jsonwebtoken");
 const response = require("../utils/responseHandeler");
 
 const authMiddleware = (req, res, next) => {
-  // const authToken = req.cookies?.auth_token;
+  // 🔥 get token from BOTH cookie + header
+  const token =
+    req.cookies?.auth_token ||
+    (req.headers.authorization && req.headers.authorization.split(" ")[1]);
 
-  // if (!authToken) {
-  //   return response(res, 401, "Unauthorized");
-  // }
-
-  const authHeader = req.headers["authorization"];
-
-  if (!authHeader || !authHeader.startsWith("Bearer")) {
+  if (!token) {
     return response(res, 401, "Unauthorized");
   }
-
-  const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

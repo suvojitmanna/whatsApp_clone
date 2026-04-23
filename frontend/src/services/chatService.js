@@ -3,7 +3,6 @@ import useUserStore from "../store/useUserStore";
 
 let socket = null;
 
-const token =localStorage.getItem("auth_token")
 
 export const initializeSocket = () => {
   if (socket) {
@@ -14,7 +13,6 @@ export const initializeSocket = () => {
   console.log("API URL:", import.meta.env.VITE_API_URL);
 
   socket = io(BACKEND_URL, {
-    auth:{token},
     // withCredentials: true,
     transports: ["websocket", "polling"],
     reconnectionAttempts: 5,

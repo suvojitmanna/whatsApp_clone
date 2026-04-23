@@ -7,7 +7,7 @@ const axiosInstance = axios.create({
   withCredentials: true,
 });
 
-const getToken = () =>localStorage.getItem("auth_token")
+const getToken = () => localStorage.getItem("auth_token")
 
 export const sendOtp = (phoneNumber, phoneSuffix, email) => {
   return axiosInstance.post("/auth/send-otp", {
