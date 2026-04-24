@@ -29,6 +29,11 @@ const Settings = () => {
     { icon: FaUser, label: "Account", href: "/user-profile" },
     { icon: FaComment, label: "Chats", href: "/" },
     { icon: FaQuestionCircle, label: "Help", href: "/help" },
+    {
+      icon: theme === "dark" ? FaMoon : FaSun,
+      label: "Theme",
+      action: "theme",
+    },
   ];
   const filteredItems = menuItems.filter((item) =>
     item.label.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -143,38 +148,76 @@ const Settings = () => {
             {/* MENU */}
             <div className="flex flex-col flex-1 px-2 min-h-0">
               <div className="space-y-1">
-                {filteredItems.map((item, i) => (
-                  <motion.div
-                    key={item.href}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.08 }}
-                  >
-                    <Link
-                      to={item.href}
-                      className="flex items-center gap-4 px-4 py-3 rounded-xl 
-                      hover:bg-white/10 hover:shadow-md hover:translate-x-1 
-                      transition-all duration-300 group"
+                {filteredItems.length === 0 && searchTerm ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    {/* Icon Container */}
+                    <div className="relative mb-6">
+                      {/* Soft Glow (no pulse) */}
+                      <div className="absolute inset-0 rounded-full blur-2xl bg-green-500/20"></div>
+
+                      {/* Floating Icon (smooth, not blinking) */}
+                      <motion.div
+                        animate={{ y: [0, -6, 0] }}
+                        transition={{
+                          duration: 2.5,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                        className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-500 shadow-lg animate-bounce"
+                      >
+                        <FaSearch className="text-white text-xl" />
+                      </motion.div>
+                    </div>
+
+                    {/* Text */}
+                    <div className="space-y-1">
+                      <h2 className="text-sm font-semibold text-gray-800 dark:text-white tracking-tight">
+                        No results found
+                      </h2>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 max-w-[220px] leading-relaxed">
+                        Try a different keyword or check spelling.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  filteredItems.map((item, i) => (
+                    <motion.div
+                      key={item.label}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.08 }}
                     >
-                      <item.icon className="opacity-70 group-hover:text-[#00a884] transition" />
-                      <span className="text-sm md:text-base">{item.label}</span>
-                    </Link>
-                  </motion.div>
-                ))}
+                      {item.action === "theme" ? (
+                        <motion.button
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={toggleThemeDialoge}
+                          className="w-full flex items-center gap-4 px-4 py-3 rounded-xl mt-2 bg-gradient-to-r from-[#00a884]/10 to-blue-500/10 hover:from-[#00a884]/20 hover:to-blue-500/20 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer"
+                        >
+                          {theme === "dark" ? <FaMoon /> : <FaSun />}
+                          <span className="text-sm md:text-base">Theme</span>
+                          <span className="ml-auto text-xs md:text-sm text-gray-400 capitalize">
+                            {theme}
+                          </span>
+                        </motion.button>
+                      ) : (
+                        <Link
+                          to={item.href}
+                          className="flex items-center gap-4 px-4 py-3 rounded-xl 
+          hover:bg-white/10 hover:shadow-md hover:translate-x-1 
+          transition-all duration-300 group"
+                        >
+                          <item.icon className="opacity-70 group-hover:text-[#00a884]" />
+                          <span className="text-sm md:text-base">
+                            {item.label}
+                          </span>
+                        </Link>
+                      )}
+                    </motion.div>
+                  ))
+                )}
 
                 {/* THEME */}
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={toggleThemeDialoge}
-                  className="w-full flex items-center gap-4 px-4 py-3 rounded-xl mt-2 bg-gradient-to-r from-[#00a884]/10 to-blue-500/10 hover:from-[#00a884]/20 hover:to-blue-500/20 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer"
-                >
-                  {theme === "dark" ? <FaMoon /> : <FaSun />}
-                  <span className="text-sm md:text-base">Theme</span>
-                  <span className="ml-auto text-xs md:text-sm text-gray-400 capitalize">
-                    {theme}
-                  </span>
-                </motion.button>
               </div>
 
               {/* LOGOUT */}
