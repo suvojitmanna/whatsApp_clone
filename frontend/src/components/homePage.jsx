@@ -25,8 +25,6 @@ const HomePage = () => {
     try {
       const result = await getAllUsers();
 
-      console.log("API RESULT:", result);
-
       setAllUser(result.users); // DIRECT FIX
     } catch (error) {
       console.log(error);

@@ -10,7 +10,6 @@ export const initializeSocket = () => {
   }
 
   const BACKEND_URL = import.meta.env.VITE_API_URL;
-  console.log("API URL:", import.meta.env.VITE_API_URL);
 
   socket = io(BACKEND_URL, {
     // withCredentials: true,

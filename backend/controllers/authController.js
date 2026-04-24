@@ -153,7 +153,6 @@ const updateProfile = async (req, res) => {
     //FIX: upload only if file exists
     if (file) {
       const uploadResult = await uploadFileToCloudinary(file);
-      console.log("Upload result:", uploadResult);
       user.profilePicture = uploadResult.secure_url;
     } else if (req.body.profilePicture) {
       // fallback if image URL provided
@@ -165,7 +164,6 @@ const updateProfile = async (req, res) => {
     if (about) user.about = about;
 
     await user.save();
-    console.log("User updated:", user);
     return response(res, 200, "Profile updated successfully", { user });
   } catch (error) {
     console.error(error);
@@ -205,7 +203,6 @@ const logout = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
   try {
-    console.log("==== GET ALL USERS START ====");
 
     // Safe auth check
     if (!req.user || !req.user.userId) {
@@ -216,7 +213,6 @@ const getAllUsers = async (req, res) => {
     }
 
     const loggedInUserId = req.user.userId;
-    console.log("LOGGED IN USER:", loggedInUserId);
 
     // 1️⃣ Get all users except logged-in user
     const users = await User.find({
@@ -227,7 +223,6 @@ const getAllUsers = async (req, res) => {
       )
       .lean();
 
-    console.log("👥 USERS:", users.length);
 
     // 2️⃣ Get conversations
     const conversations = await Conversation.find({
@@ -238,8 +233,6 @@ const getAllUsers = async (req, res) => {
         select: "content sender receiver createdAt",
       })
       .lean();
-
-    console.log("💬 CONVERSATIONS:", conversations.length);
 
     // 3️⃣ Map conversations
     const conversationMap = {};
@@ -259,11 +252,6 @@ const getAllUsers = async (req, res) => {
       ...user,
       conversation: conversationMap[user._id.toString()] || null,
     }));
-
-    console.log(usersWithConversations);
-
-    console.log(" FINAL USERS:", usersWithConversations.length);
-    console.log("==== END ====");
 
     // SIMPLE RESPONSE (BEST)
     return res.status(200).json({

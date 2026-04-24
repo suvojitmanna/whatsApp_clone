@@ -8,6 +8,7 @@ import {
   FaUserShield,
   FaSearch,
   FaChevronRight,
+  FaArrowLeft,
 } from "react-icons/fa";
 import useThemeStore from "../store/themeStore";
 
@@ -50,7 +51,7 @@ const HelpPage = () => {
   const isDark = theme === "dark";
 
   const filteredItems = helpItems.filter((item) =>
-    item.title.toLowerCase().includes(search.toLowerCase())
+    item.title.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -63,9 +64,20 @@ const HelpPage = () => {
         className={`p-6 sticky top-0 z-10 border-b shadow-xl transition-colors
         ${isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200"}`}
       >
-        <h1 className="text-2xl font-bold mb-4 tracking-tight">
-          Help Center
-        </h1>
+        <div className="flex items-center mb-4">
+          <button
+            onClick={() => navigate(-1)}
+            className={`p-2 rounded-full transition-all active:scale-90 ${
+              isDark
+                ? "hover:bg-gray-700 text-white"
+                : "hover:bg-gray-100 text-gray-600"
+            }`}
+          >
+            <FaArrowLeft className="text-xl cursor-pointer" />
+          </button>
+
+          <h1 className="text-2xl font-bold tracking-tight">Help Center</h1>
+        </div>
 
         {/* Search */}
         <div className="relative group">
@@ -77,9 +89,10 @@ const HelpPage = () => {
             type="text"
             placeholder="Search for help..."
             className={`w-full py-3 pl-12 pr-4 rounded-full outline-none transition-all border
-            ${isDark
-              ? "bg-[#202c33] text-white border-transparent focus:ring-2 focus:ring-green-500/50"
-              : "bg-gray-200 text-black border-gray-300 focus:ring-2 focus:ring-green-400"
+            ${
+              isDark
+                ? "bg-[#202c33] text-white border-transparent focus:ring-2 focus:ring-green-500/50"
+                : "bg-gray-200 text-black border-gray-300 focus:ring-2 focus:ring-green-400"
             }`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -103,9 +116,10 @@ const HelpPage = () => {
                 whileTap={{ scale: 0.98 }}
                 onClick={() => navigate(item.path)}
                 className={`group flex items-center justify-between p-5 rounded-full cursor-pointer transition-all shadow-sm border
-                ${isDark
-                  ? "bg-[#202c33] border-gray-800 hover:bg-[#2a3942]"
-                  : "bg-white border-gray-200 hover:bg-gray-50"
+                ${
+                  isDark
+                    ? "bg-[#202c33] border-gray-800 hover:bg-[#2a3942]"
+                    : "bg-white border-gray-200 hover:bg-gray-50"
                 }`}
               >
                 <div className="flex items-center gap-5">
@@ -131,9 +145,10 @@ const HelpPage = () => {
 
                 <FaChevronRight
                   className={`ml-2 transition-colors
-                  ${isDark
-                    ? "text-gray-600 group-hover:text-green-500"
-                    : "text-gray-400 group-hover:text-green-600"
+                  ${
+                    isDark
+                      ? "text-gray-600 group-hover:text-green-500"
+                      : "text-gray-400 group-hover:text-green-600"
                   }`}
                 />
               </motion.div>
@@ -160,14 +175,14 @@ const HelpPage = () => {
         ${isDark ? "border-gray-800" : "border-gray-200"}`}
       >
         {/* Footer / Quick Help */}
-<footer className="p-6 text-center border-t border-gray-800">
-  <button 
-    onClick={() => navigate("/help/contact-support")}
-    className="text-green-500 font-medium hover:underline cursor-pointer transition-all active:opacity-70"
-  >
-    Contact Support
-  </button>
-</footer>
+        <footer className="p-6 text-center border-t border-gray-800">
+          <button
+            onClick={() => navigate("/help/contact-support")}
+            className="text-green-500 font-medium hover:underline cursor-pointer transition-all active:opacity-70"
+          >
+            Contact Support
+          </button>
+        </footer>
       </footer>
     </div>
   );
