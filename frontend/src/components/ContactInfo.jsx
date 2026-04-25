@@ -1,11 +1,11 @@
 import { useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion"; // Added for premium feel
+import { motion, AnimatePresence } from "framer-motion";
 import useOutsideClick from "../hook/useOutsideClick";
 import useLayoutStore from "../store/layoutStore";
 import { RxCross2 } from "react-icons/rx";
 import useThemeStore from "../store/themeStore";
 import { useChatStore } from "../store/chatStore";
-import { FaPhone, FaVideo } from "react-icons/fa";
+import { FaPen, FaPhone, FaSearch, FaVideo } from "react-icons/fa";
 import { HiDotsVertical } from "react-icons/hi";
 import useVideoCallStore from "../store/videoCallStore";
 
@@ -142,7 +142,7 @@ const ContactInfo = () => {
               whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
               className="p-2 rounded-full text-gray-500 dark:text-gray-400 transition-colors"
             >
-              <HiDotsVertical className="h-5 w-5 cursor-pointer" />
+              <FaPen className="h-5 w-5 cursor-pointer" />
             </motion.button>
           </div>
 
@@ -204,6 +204,10 @@ const ContactInfo = () => {
             {/* Premium Action Buttons */}
             <div className="flex justify-center gap-8">
               <ActionButton
+              icon={<FaSearch size={18} />}
+              label="Search" />
+
+              <ActionButton
                 icon={<FaPhone size={18} />}
                 label="Audio"
                 onClick={handleAudioCall}
@@ -224,15 +228,7 @@ const ContactInfo = () => {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.4, type: "spring", stiffness: 100 }}
-                className={`relative p-3 rounded-[28px] overflow-hidden transition-all duration-500
-      /* Glassmorphism Core */
-      backdrop-blur-2xl border
-      ${
-        theme === "dark"
-          ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
-          : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
-      }
-    `}
+                className={`relative p-3 rounded-[28px] overflow-hidden transition-all duration-500 backdrop-blur-2xl border${theme === "dark" ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]" : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"}`}
               >
                 {/* Subtle Inner Glow (Premium Touch) */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
@@ -247,9 +243,7 @@ const ContactInfo = () => {
 
                 {/* About Text */}
                 <p
-                  className={`text-[15px] leading-relaxed relative z-10
-      ${theme === "dark" ? "text-gray-200" : "text-gray-700"}
-    `}
+                  className={`text-[15px] leading-relaxed relative z-10${theme === "dark" ? "text-gray-200" : "text-gray-700"}`}
                 >
                   {selectedContact?.about || "Hey there! I am using WhatsApp."}
                 </p>

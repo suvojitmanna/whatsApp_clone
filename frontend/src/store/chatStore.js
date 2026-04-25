@@ -3,6 +3,7 @@ import { getSocket } from "../services/chatService";
 import axiosInstance from "../services/url.services";
 
 export const useChatStore = create((set, get) => ({
+  users: [],
   conversations: [],
   currentConversation: null,
   currentUser: null,

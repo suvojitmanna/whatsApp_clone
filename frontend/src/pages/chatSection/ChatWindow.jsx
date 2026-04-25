@@ -28,6 +28,9 @@ import { getSocket } from "../../services/chatService";
 import useVideoCallStore from "../../store/videoCallStore";
 import useLayoutStore from "../../store/layoutStore";
 import { HiDotsVertical } from "react-icons/hi";
+import { FiSearch } from "react-icons/fi";
+import { motion } from "framer-motion";
+import { RxCross2 } from "react-icons/rx";
 
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -36,13 +39,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
+  const [searchIcon, setSearchIcon] = useState(false);
   const [filePreview, setFilePreview] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const typingTimeOutRef = useRef(null);
   const messageEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
   const fileInputRef = useRef(null);
   const fileMenuRef = useRef(null);
+  const searchIconRef = useRef(null);
 
   const { theme } = useThemeStore();
   const { user } = useUserStore();
@@ -205,6 +212,16 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
       }, {})
     : {};
 
+  const filteredGroupedMessages = Object.fromEntries(
+    Object.entries(groupedMessages).map(([date, msgs]) => {
+      const filteredMsgs = msgs.filter((msg) =>
+        msg.content?.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
+
+      return [date, filteredMsgs];
+    }),
+  );
+
   const handleReaction = (messageId, emoji) => {
     addReaction(messageId, emoji);
   };
@@ -252,6 +269,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
     if (showFileMenu) setShowFileMenu(false);
   });
 
+  useOutsideClick(searchIconRef, () => {
+    setIsSearchOpen(false);
+  });
+
   if (!selectedContact) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center mx-auto h-screen text-center">
@@ -295,26 +316,24 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
           </button>
 
           <div className="relative ml-4">
-  {/* Profile Picture */}
-  <img
-    src={selectedContact?.profilePicture || "/default-avatar.png"}
-    alt={selectedContact?.username}
-    onClick={() => setShowContactInfo(true)}
-    className="w-10 h-10 rounded-full cursor-pointer object-cover hover:opacity-80 transition-opacity border border-white/10"
-  />
+            {/* Profile Picture */}
+            <img
+              src={selectedContact?.profilePicture || "/default-avatar.png"}
+              alt={selectedContact?.username}
+              onClick={() => setShowContactInfo(true)}
+              className="w-10 h-10 rounded-full cursor-pointer object-cover hover:opacity-80 transition-opacity border border-white/10"
+            />
 
-  {/* Real-life WhatsApp Online Dot */}
-  {online && (
-    <span 
-      className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 
-      /* The "Cutout" effect: matches your header/sidebar background */
-      ${theme === "dark" ? "border-[#111b21]" : "border-white"} 
-      bg-emerald-500 shadow-sm`}
-      title="Online"
-    ></span>
-  )}
-</div>
+            {/* Real-life WhatsApp Online Dot */}
+            {online && (
+              <span
+                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#111b21]" : "border-white"} bg-emerald-500 shadow-sm`}
+                title="Online"
+              ></span>
+            )}
+          </div>
 
+          {/* contact image and userName */}
           <div
             className="ml-3 flex-grow cursor-pointer"
             onClick={() => setShowContactInfo(true)}
@@ -338,6 +357,140 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                     : "Offline"}
               </p>
             )}
+          </div>
+
+          {/* search icon */}
+          <div className="px-4 py-3" ref={searchIconRef}>
+            <div className="relative flex items-center justify-end">
+              {/* Search Icon (hidden when open) */}
+              <button
+                onClick={() => setIsSearchOpen(true)}
+                className={`
+                    ${
+                      isSearchOpen
+                        ? "opacity-0 pointer-events-none scale-90"
+                        : "opacity-100 scale-100"
+                    }
+
+                    group relative p-2.5 rounded-xl
+                    transition-all duration-300
+                  bg-white/30 dark:bg-zinc-800/30
+                    backdrop-blur-xl
+
+                    before:absolute before:inset-0 before:rounded-xl
+                    before:bg-gradient-to-br before:from-white/40 before:to-transparent
+                    before:opacity-60 before:pointer-events-none
+
+                    border border-white/30 dark:border-white/10
+                  hover:border-green-400/40
+
+                    shadow-[0_4px_20px_rgba(0,0,0,0.08)]
+                    hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)]
+
+                    active:scale-95 cursor-pointer
+                    focus:outline-none focus:ring-4 focus:ring-green-600
+                  `}
+              >
+                <FiSearch
+                  className="
+                  h-5 w-5
+
+                text-zinc-700 dark:text-zinc-300
+
+              group-hover:text-green-500
+                group-hover:scale-110
+
+              transition-all duration-300"
+                />
+              </button>
+
+              {/* Expandable Input */}
+              <div
+                className={`
+                  /* ===== Position & Animation ===== */
+                  absolute right-0 origin-right
+                  transition-all duration-300
+                  ${
+                    isSearchOpen
+                      ? "w-72 scale-100 opacity-100"
+                      : "w-0 scale-95 opacity-0 pointer-events-none"
+                  }
+                `}
+              >
+                {/*Make this a group */}
+                <div
+                  className="
+                    relative rounded-2xl overflow-hidden group
+                    transition-all duration-300
+                  "
+                >
+                  {/*Glass Overlay */}
+                  <div
+                    className="
+                      absolute inset-0 rounded-2xl pointer-events-none
+                      bg-gradient-to-br from-white/40 to-transparent
+                      opacity-60
+                      group-focus-within:opacity-80
+                      transition-all duration-300
+                    "
+                  />
+
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Search or start new chat"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={`
+                      w-full pl-10 pr-10 py-2.5 rounded-2xl
+                      outline-none text-sm relative z-10
+
+                      backdrop-blur-xl
+                      bg-white/30 dark:bg-zinc-800/30
+
+                      border border-white/30 dark:border-white/10
+                      group-focus-within:border-emerald-400/60
+
+                      ${theme === "dark" ? "text-white" : "text-gray-900"}
+
+                      /* Shadow glow on focus */
+                      shadow-[0_4px_20px_rgba(0,0,0,0.08)]
+                      group-focus-within:shadow-[0_6px_25px_rgba(0,255,150,0.25)]
+
+                      transition-all duration-300
+                    `}
+                  />
+
+                  {/*Left Icon (reacts on focus) */}
+                  <FiSearch
+                    className="
+                      absolute left-3 top-1/2 -translate-y-1/2 z-20
+                      text-gray-400
+                      group-focus-within:text-emerald-400
+                      group-focus-within:scale-110
+                      transition-all duration-300"
+                  />
+
+                  {/*Close Button (reacts on focus) */}
+                  <button
+                    onClick={() => {
+                      setIsSearchOpen(false);
+                      setSearchTerm("");
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-20"
+                  >
+                    <RxCross2
+                      className="
+          text-gray-500
+          group-focus-within:text-emerald-400
+          hover:text-emerald-500
+          transition-all duration-300
+        "
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Calling Button */}
@@ -384,11 +537,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
         >
           {/* The grouping logic is solid, let's just ensure the rendering is clean */}
           <div className="max-w-4xl mx-auto flex flex-col space-y-2">
-            {Object.entries(groupedMessages).map(([date, msgs]) => {
-              const filteredMsgs = msgs.filter(
-                (msg) =>
-                  msg.conversation === selectedContact?.conversation?._id,
-              );
+            {Object.entries(filteredGroupedMessages).map(([date, msgs]) => {
+              const filteredMsgs = msgs;
 
               // Don't render the separator if there are no messages for this date
               if (filteredMsgs.length === 0) return null;
