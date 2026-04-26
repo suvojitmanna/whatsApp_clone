@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import useVideoCallStore from "../../store/videoCallStore";
 import useUserStore from "../../store/useUserStore";
 import useThemeStore from "../../store/themeStore";
+import { LuScreenShare, LuScreenShareOff } from "react-icons/lu";
 import {
   FaMicrophone,
   FaMicrophoneSlash,
@@ -15,6 +16,8 @@ const VideoCallModel = ({ socket }) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const [callTime, setCallTime] = React.useState(0);
+  const [isScreenSharing, setIsScreenSharing] = React.useState(false);
+  const [cameraStream, setCameraStream] = React.useState(null);
 
   const {
     currentCall,
@@ -25,14 +28,11 @@ const VideoCallModel = ({ socket }) => {
     isVideoEnabled,
     isAudioEnabled,
     peerConnection,
-    iceCandidatesQueue,
     isCallModalOpen,
     callStatus,
-    setIncomingCall,
     setCurrentCall,
     setCallType,
     setCallActive,
-    setCallModalOpen,
     endCall,
     setCallStatus,
     setLocalStream,
@@ -130,10 +130,69 @@ const VideoCallModel = ({ socket }) => {
 
       console.log("local media stream ", stream.getTracks());
       setLocalStream(stream);
+      setCameraStream(stream);
       return stream;
     } catch (error) {
       console.error("Media error", error);
       throw error;
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    try {
+      const sender = peerConnection
+        ?.getSenders()
+        .find((s) => s.track?.kind === "video");
+
+      //STOP SCREEN SHARE
+      if (isScreenSharing) {
+        const sender = peerConnection
+          ?.getSenders()
+          .find((s) => s.track?.kind === "video");
+
+        const cameraTrack = cameraStream?.getVideoTracks()[0];
+
+        if (sender && cameraTrack) {
+          sender.replaceTrack(cameraTrack);
+        }
+
+        setLocalStream(cameraStream);
+        setIsScreenSharing(false);
+
+        return;
+      }
+
+      //START SCREEN SHARE
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
+
+      const screenTrack = screenStream.getVideoTracks()[0];
+
+      if (sender) {
+        sender.replaceTrack(screenTrack);
+      }
+
+      setLocalStream(screenStream);
+      setIsScreenSharing(true);
+
+      //ONLY switch back when screen ENDS
+      screenTrack.onended = () => {
+        const sender = peerConnection
+          ?.getSenders()
+          .find((s) => s.track?.kind === "video");
+
+        const cameraTrack = cameraStream?.getVideoTracks()[0];
+
+        if (sender && cameraTrack) {
+          sender.replaceTrack(cameraTrack);
+        }
+
+        setLocalStream(cameraStream);
+        setIsScreenSharing(false);
+      };
+    } catch (err) {
+      console.error("Screen share toggle error:", err);
     }
   };
 
@@ -266,6 +325,47 @@ const VideoCallModel = ({ socket }) => {
     endCall();
   };
 
+  const cleanupCall = () => {
+    //stop sender tracks
+    if (peerConnection) {
+      peerConnection.getSenders().forEach((s) => {
+        if (s.track) s.track.stop();
+        s.replaceTrack(null);
+      });
+    }
+
+    //stop screen stream
+    if (isScreenSharing && localStream) {
+      localStream.getTracks().forEach((t) => t.stop());
+    }
+
+    //stop camera stream (IMPORTANT)
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((t) => t.stop());
+    }
+
+    //fallback
+    if (localStream) {
+      localStream.getTracks().forEach((t) => t.stop());
+    }
+
+    if (remoteStream) {
+      remoteStream.getTracks().forEach((t) => t.stop());
+    }
+
+    if (peerConnection) {
+      peerConnection.close();
+    }
+
+    setLocalStream(null);
+    setCameraStream(null);
+    setRemoteStream(null);
+    setPeerConnection(null);
+    setCallType(null);
+
+    endCall();
+  };
+
   //Handle end call
   const handleEndCall = () => {
     setCallTime(0);
@@ -279,7 +379,7 @@ const VideoCallModel = ({ socket }) => {
       });
     }
 
-    endCall();
+    cleanupCall();
   };
 
   // Time format function
@@ -307,7 +407,7 @@ const VideoCallModel = ({ socket }) => {
     };
 
     const handleCallEnded = () => {
-      endCall();
+      cleanupCall();
     };
 
     const handleWebRTCOffer = async ({ offer, senderId, callId }) => {
@@ -578,16 +678,57 @@ const VideoCallModel = ({ socket }) => {
                     {callType === "video" && (
                       <button
                         onClick={toggleVideo}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
+                        className={`group relative w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 cursor-pointer overflow-hidden ${
                           isVideoEnabled
-                            ? "bg-white/10 text-white"
-                            : "bg-red-500 text-white"
+                            ? "hover:bg-green-600/20 hover:border-green-400/50 hover:shadow-[0_0_20px_rgba(37,99,235,0. 2)] border text-white"
+                            : "bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] border border-red-400/50"
                         }`}
                       >
-                        {isVideoEnabled ? (
-                          <FaVideo className="size-5" />
-                        ) : (
-                          <FaVideoSlash className="size-5" />
+                        {/* Subtle inner light effect for premium depth */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                        <div className="relative transform transition-transform duration-300 group-hover:scale-110">
+                          {isVideoEnabled ? (
+                            <FaVideo className="size-5" />
+                          ) : (
+                            <FaVideoSlash className="size-5" />
+                          )}
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Share Screen */}
+                    {callType === "video" && (
+                      <button
+                        onClick={toggleScreenShare}
+                        className={`group relative w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 cursor-pointer overflow-hidden ${
+                          isScreenSharing
+                            ? "bg-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.4)] border border-emerald-300/50"
+                            : " hover:bg-blue-600/20 hover:border-blue-400/50 hover:shadow-[0_0_20px_rgba(37,99,235,0.2)] border text-white"
+                        }`}
+                        title={
+                          isScreenSharing ? "Stop Sharing" : "Share Screen"
+                        }
+                      >
+                        {/* Background pulse for active sharing */}
+                        {isScreenSharing && (
+                          <span className="absolute inset-0 rounded-2xl bg-emerald-400 animate-pulse opacity-20" />
+                        )}
+
+                        <div className="relative transition-all duration-300 group-hover:scale-110">
+                          {isScreenSharing ? (
+                            <LuScreenShareOff className="text-xl" />
+                          ) : (
+                            <LuScreenShare className="text-xl" />
+                          )}
+                        </div>
+
+                        {/* Premium indicator dot */}
+                        {isScreenSharing && (
+                          <span className="absolute top-2 right-2 flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                          </span>
                         )}
                       </button>
                     )}
