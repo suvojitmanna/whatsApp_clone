@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import useThemeStore from "../../store/themeStore";
 import { logoutUser } from "../../services/user.services";
@@ -24,6 +24,7 @@ const Settings = () => {
   const { user } = useUserStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const inputRef = useRef(null)
 
   const menuItems = [
     { icon: FaUser, label: "Account", href: "/user-profile" },
@@ -58,6 +59,15 @@ const Settings = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+  // and any opening animations have completed.
+  const timer = setTimeout(() => {
+    inputRef.current?.focus();
+  }, 100);
+
+  return () => clearTimeout(timer);
+}, []);
 
   // Shadow Loader (chat style)
   const Loader = () => (
@@ -111,6 +121,7 @@ const Settings = () => {
                 <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#00a884] transition-colors" />
 
                 <input
+                ref={inputRef}
                   type="text"
                   placeholder="Search settings"
                   value={searchTerm}

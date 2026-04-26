@@ -21,6 +21,10 @@ const MessageBuble = ({
   onReact,
   currentUser,
   deleteMessage,
+  searchTerm,
+  highlightText,
+  dataMatch,
+  isActive,
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
@@ -62,11 +66,8 @@ const MessageBuble = ({
     clearTimeout(pressTimer.current);
   };
 
-  const handleClick = () => {
-    if (!isLongPress.current) {
-      setShowReactions((prev) => !prev);
-    }
-  };
+  const safeHighlight =
+    typeof highlightText === "function" ? highlightText : (text) => text;
 
   const handleReact = (emoji) => {
     onReact(message._id, emoji);
@@ -75,7 +76,6 @@ const MessageBuble = ({
   };
 
   // Close on outside click
-
   useOutsideClick(emojiPickerRef, () => {
     if (showEmojiPicker) setShowEmojiPicker(false);
   });
@@ -89,20 +89,36 @@ const MessageBuble = ({
   if (!message) return null;
 
   return (
-    <div className={`chat ${bubbleClass}`}>
-      <div className={`${bubbleContentClass} relative group`} ref={messageRef}>
+    <div
+      className={`chat ${bubbleClass}`}
+      data-match={dataMatch ? "true" : "false"}
+      className={`chat ${bubbleClass} transition-all duration-300 ${
+        isActive ? "scale-[1.02]" : ""
+      }`}
+    >
+      <div
+        className={`${bubbleContentClass} relative group transition-all duration-300 ${
+          isActive
+            ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.6)]"
+            : ""
+        }`}
+      >
         <div
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          onMouseDown={handleTouchStart} // desktop hold (optional)
+          onMouseDown={handleTouchStart}
           onMouseUp={handleTouchEnd}
-          onClick={() => setShowReactions((prev) => !prev)} // normal click
+          onClick={() => setShowReactions((prev) => !prev)}
           className="relative"
         >
           {/* MESSAGE */}
           <div className="flex flex-col gap-1">
             {message.contentType === "text" && (
-              <p className="break-all whitespace-pre-wrap">{message.content}</p>
+              <p className="break-all whitespace-pre-wrap">
+                {searchTerm
+                  ? safeHighlight(message.content || "", searchTerm)
+                  : message.content}
+              </p>
             )}
 
             {message.contentType === "image" && (
@@ -113,7 +129,11 @@ const MessageBuble = ({
                   className="rounded-xl w-full max-w-[280px] sm:max-w-xs md:max-w-sm object-cover"
                 />
                 {message.content && (
-                  <p className="mt-1 break-words">{message.content}</p>
+                  <p className="mt-1 break-words">
+                    {searchTerm
+                      ? safeHighlight(message.content || "", searchTerm)
+                      : message.content}
+                  </p>
                 )}
               </div>
             )}
@@ -244,14 +264,7 @@ const MessageBuble = ({
 
         {message.reactions && message.reactions.length > 0 && (
           <div
-            className={`absolute -bottom-3 flex items-center gap-1 px-1.5 py-1 rounded-full 
-      shadow-sm border transition-transform duration-200 hover:scale-110 z-20
-      ${isUserMessage ? "right-3" : "left-3"} 
-      ${
-        theme === "dark"
-          ? "bg-[#202c33] border-[#3b4a54] text-gray-300"
-          : "bg-gray-100 border-gray-200 text-gray-600"
-      }`}
+            className={`absolute -bottom-3 flex items-center gap-1 px-1.5 py-1 rounded-full shadow-sm border transition-transform duration-200 hover:scale-110 z-20 ${isUserMessage ? "right-3" : "left-3"} ${theme === "dark" ? "bg-[#202c33] border-[#3b4a54] text-gray-300" : "bg-gray-100 border-gray-200 text-gray-600"}`}
           >
             <div className="flex items-center gap-0.5">
               {message.reactions.map((reaction, index) => (
