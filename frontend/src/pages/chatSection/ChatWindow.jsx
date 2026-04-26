@@ -50,6 +50,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const fileInputRef = useRef(null);
   const fileMenuRef = useRef(null);
   const searchIconRef = useRef(null);
+  const inputRef = useRef(null);
 
   const { theme } = useThemeStore();
   const { user } = useUserStore();
@@ -271,7 +272,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
   useOutsideClick(searchIconRef, () => {
     setIsSearchOpen(false);
+    setSearchTerm("");
   });
+
+  useEffect(() => {
+  if (isSearchOpen) {
+    // so the browser accepts the focus command
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
+  }
+}, [isSearchOpen]);
 
   if (!selectedContact) {
     return (
@@ -437,6 +449,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
                   <input
                     autoFocus
+                    ref={inputRef}
                     type="text"
                     placeholder="Search or start new chat"
                     value={searchTerm}
