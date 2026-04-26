@@ -170,9 +170,7 @@ const ContactInfo = () => {
             {/* Identity Section */}
             <div className="text-center mb-6">
               <h2
-                className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300
-    ${theme === "dark" ? "text-white/95" : "text-gray-900"}
-  `}
+                className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300${theme === "dark" ? "text-white/95" : "text-gray-900"}`}
               >
                 {selectedContact?.username}
               </h2>
@@ -182,8 +180,7 @@ const ContactInfo = () => {
                 {selectedContact?.email && (
                   <p
                     className={`text-[13px] font-medium transition-colors duration-300
-        ${theme === "dark" ? "text-gray-400" : "text-gray-500"}
-      `}
+                    ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
                   >
                     {selectedContact.email}
                   </p>
@@ -192,8 +189,7 @@ const ContactInfo = () => {
                 {selectedContact?.phoneNumber && (
                   <p
                     className={`text-[13px] font-medium transition-colors duration-300
-        ${theme === "dark" ? "text-emerald-500/80" : "text-emerald-600"}
-      `}
+                    ${theme === "dark" ? "text-emerald-500/80" : "text-emerald-600"}`}
                   >
                     {selectedContact.phoneNumber}
                   </p>
@@ -203,9 +199,7 @@ const ContactInfo = () => {
 
             {/* Premium Action Buttons */}
             <div className="flex justify-center gap-8">
-              <ActionButton
-              icon={<FaSearch size={18} />}
-              label="Search" />
+              <ActionButton icon={<FaSearch size={18} />} label="Search" />
 
               <ActionButton
                 icon={<FaPhone size={18} />}

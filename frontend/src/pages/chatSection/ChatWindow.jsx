@@ -44,6 +44,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
+
   const typingTimeOutRef = useRef(null);
   const messageEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -51,11 +53,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const fileMenuRef = useRef(null);
   const searchIconRef = useRef(null);
   const inputRef = useRef(null);
+  const messageRefs = useRef([]);
 
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const { socket } = getSocket();
-
   const {
     messages,
     loading,
@@ -74,12 +76,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
     addReaction,
   } = useChatStore();
 
+  let matchCounter = -1;
+
   //get online status and last seen
   const online = isUserOnline(selectedContact?._id);
   const lastSeen = getUserLastSeen(selectedContact?._id);
   const isTyping = isUserTyping(selectedContact?._id);
 
-  const showContactInfo = useLayoutStore((state) => state.showContactInfo);
   const setShowContactInfo = useLayoutStore(
     (state) => state.setShowContactInfo,
   );
@@ -127,6 +130,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
       }
     };
   }, [message, selectedContact, startTying, stopTying]);
+
+  useEffect(() => {
+    if (searchTerm) {
+      const el = document.querySelector("[data-match='true']");
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [searchTerm]);
+
+  useEffect(() => {
+    messageRefs.current = [];
+  }, [searchTerm]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -214,14 +228,38 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
     : {};
 
   const filteredGroupedMessages = Object.fromEntries(
-    Object.entries(groupedMessages).map(([date, msgs]) => {
-      const filteredMsgs = msgs.filter((msg) =>
-        msg.content?.toLowerCase().includes(searchTerm.toLowerCase()),
-      );
+    Object.entries(groupedMessages)
+      .map(([date, msgs]) => {
+        const filteredMsgs = msgs.filter((msg) =>
+          (msg.content || "").toLowerCase().includes(searchTerm.toLowerCase()),
+        );
 
-      return [date, filteredMsgs];
-    }),
+        return [date, filteredMsgs];
+      })
+      .filter(([_, msgs]) => msgs.length > 0),
   );
+
+  const finalMessagesToRender = searchTerm
+    ? filteredGroupedMessages
+    : groupedMessages;
+
+  const resultCount = Object.values(filteredGroupedMessages).flat().length;
+
+  const highlightText = (text, term) => {
+    if (!term) return text;
+
+    const parts = text.split(new RegExp(`(${term})`, "gi"));
+
+    return parts.map((part, i) =>
+      part.toLowerCase() === term.toLowerCase() ? (
+        <span key={i} className="bg-yellow-300 text-black px-1 rounded">
+          {part}
+        </span>
+      ) : (
+        part
+      ),
+    );
+  };
 
   const handleReaction = (messageId, emoji) => {
     addReaction(messageId, emoji);
@@ -276,14 +314,69 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   });
 
   useEffect(() => {
-  if (isSearchOpen) {
-    // so the browser accepts the focus command
-    const timer = setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-    return () => clearTimeout(timer);
-  }
-}, [isSearchOpen]);
+    if (isSearchOpen) {
+      // so the browser accepts the focus command
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    if (!searchTerm) return;
+
+    const elements = document.querySelectorAll("[data-match='true']");
+
+    if (elements.length === 0) return;
+
+    const el = elements[currentIndex];
+
+    if (el) {
+      setTimeout(() => {
+        el.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 50);
+    }
+  }, [currentIndex, searchTerm]);
+
+  const goNext = () => {
+    setCurrentIndex((prev) => (prev < resultCount - 1 ? prev + 1 : 0));
+  };
+
+  const goPrev = () => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : resultCount - 1));
+  };
+
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [searchTerm]);
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (!searchTerm) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        goNext();
+      }
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        goPrev();
+      }
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        goNext(); // WhatsApp behavior
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [searchTerm, resultCount]);
 
   if (!selectedContact) {
     return (
@@ -372,135 +465,158 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
           </div>
 
           {/* search icon */}
-          <div className="px-4 py-3" ref={searchIconRef}>
+          <div className="px-4 py-2" ref={searchIconRef}>
             <div className="relative flex items-center justify-end">
-              {/* Search Icon (hidden when open) */}
+
+              {/* Search Icon Trigger */}
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className={`
-                    ${
-                      isSearchOpen
-                        ? "opacity-0 pointer-events-none scale-90"
-                        : "opacity-100 scale-100"
-                    }
+                className={`${
+                  isSearchOpen
+                    ? "opacity-0 pointer-events-none scale-90"
+                    : "opacity-100 scale-100"
+                }
 
-                    group relative p-2.5 rounded-xl
-                    transition-all duration-300
-                  bg-white/30 dark:bg-zinc-800/30
-                    backdrop-blur-xl
+                group relative p-2 rounded-xl
+                transition-all duration-300
+              bg-white/30 dark:bg-zinc-800/30
+                backdrop-blur-xl
 
-                    before:absolute before:inset-0 before:rounded-xl
-                    before:bg-gradient-to-br before:from-white/40 before:to-transparent
-                    before:opacity-60 before:pointer-events-none
+                before:absolute before:inset-0 before:rounded-xl
+                before:bg-gradient-to-br before:from-white/40 before:to-transparent
+                before:opacity-60 before:pointer-events-none
 
-                    border border-white/30 dark:border-white/10
-                  hover:border-green-400/40
+                border border-white/30 dark:border-white/10
+              hover:border-green-400/40
 
-                    shadow-[0_4px_20px_rgba(0,0,0,0.08)]
-                    hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)]
+                shadow-[0_2px_15px_rgba(0,0,0,0.06)]
+                hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)]
 
-                    active:scale-95 cursor-pointer
-                    focus:outline-none focus:ring-4 focus:ring-green-600
-                  `}
+                active:scale-95 cursor-pointer
+                focus:outline-none focus:ring-2 focus:ring-green-600/50`}
               >
                 <FiSearch
-                  className="
-                  h-5 w-5
-
+                  className="h-4 w-4
                 text-zinc-700 dark:text-zinc-300
-
-              group-hover:text-green-500
-                group-hover:scale-110
-
-              transition-all duration-300"
+                group-hover:text-green-500
+                  group-hover:scale-110
+                  transition-all duration-300"
                 />
               </button>
 
               {/* Expandable Input */}
               <div
-                className={`
-                  /* ===== Position & Animation ===== */
-                  absolute right-0 origin-right
-                  transition-all duration-300
-                  ${
-                    isSearchOpen
-                      ? "w-72 scale-100 opacity-100"
-                      : "w-0 scale-95 opacity-0 pointer-events-none"
-                  }
-                `}
+                className={`absolute right-0 origin-righttransition-all duration-300 ${
+                  isSearchOpen
+                    ? "w-60 sm:w-64 scale-100 opacity-100"
+                    : "w-0 scale-95 opacity-0 pointer-events-none"
+                }`}
               >
-                {/*Make this a group */}
-                <div
-                  className="
-                    relative rounded-2xl overflow-hidden group
-                    transition-all duration-300
-                  "
-                >
-                  {/*Glass Overlay */}
-                  <div
-                    className="
-                      absolute inset-0 rounded-2xl pointer-events-none
-                      bg-gradient-to-br from-white/40 to-transparent
-                      opacity-60
-                      group-focus-within:opacity-80
-                      transition-all duration-300
-                    "
-                  />
+                <div className="relative flex flex-col">
+                  {/* Input Wrapper */}
+                  <div className="relative w-full rounded-xl overflow-hidden group transition-all duration-300">
+                    {/* Glass Overlay */}
+                    <div className=" absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br from-white/40 to-transparent opacity-60 group-focus-within:opacity-80 transition-all duration-300" />
 
-                  <input
-                    autoFocus
-                    ref={inputRef}
-                    type="text"
-                    placeholder="Search or start new chat"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className={`
-                      w-full pl-10 pr-10 py-2.5 rounded-2xl
-                      outline-none text-sm relative z-10
-
-                      backdrop-blur-xl
-                      bg-white/30 dark:bg-zinc-800/30
-
-                      border border-white/30 dark:border-white/10
-                      group-focus-within:border-emerald-400/60
-
-                      ${theme === "dark" ? "text-white" : "text-gray-900"}
-
-                      /* Shadow glow on focus */
-                      shadow-[0_4px_20px_rgba(0,0,0,0.08)]
-                      group-focus-within:shadow-[0_6px_25px_rgba(0,255,150,0.25)]
-
-                      transition-all duration-300
-                    `}
-                  />
-
-                  {/*Left Icon (reacts on focus) */}
-                  <FiSearch
-                    className="
-                      absolute left-3 top-1/2 -translate-y-1/2 z-20
-                      text-gray-400
-                      group-focus-within:text-emerald-400
-                      group-focus-within:scale-110
-                      transition-all duration-300"
-                  />
-
-                  {/*Close Button (reacts on focus) */}
-                  <button
-                    onClick={() => {
-                      setIsSearchOpen(false);
-                      setSearchTerm("");
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 z-20"
-                  >
-                    <RxCross2
-                      className="
-          text-gray-500
-          group-focus-within:text-emerald-400
-          hover:text-emerald-500
-          transition-all duration-300
-        "
+                    <input
+                      autoFocus
+                      ref={inputRef}
+                      type="text"
+                      placeholder="Search..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className={`w-full pl-8 pr-8 py-1.5 rounded-xl outline-none text-xs relative z-10 backdrop-blur-xl bg-white/30 dark:bg-zinc-800/30 border border-white/30 dark:border-white/10 group-focus-within:border-emerald-400/60 ${theme === "dark" ? "text-white" : "text-gray-900"} shadow-[0_4px_15px_rgba(0,0,0,0.05)] group-focus-within:shadow-[0_6px_20px_rgba(0,255,150,0.2)]  transition-all duration-300 `}
                     />
-                  </button>
+
+                    {/* Left Icon */}
+                    <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 text-gray-400 group-focus-within:text-emerald-400 transition-all duration-300" />
+
+                    {/* Close Button */}
+                    <button
+                      onClick={() => {
+                        setIsSearchOpen(false);
+                        setSearchTerm("");
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20"
+                    >
+                      <RxCross2 className=" h-3.5 w-3.5 text-gray-500 group-focus-within:text-emerald-400 hover:text-emerald-500 transition-all duration-300 " />
+                    </button>
+                  </div>
+
+                  {/* RESULTS / NOT FOUND LOGIC */}
+                  {searchTerm.trim() !== "" && (
+                    <div className="flex items-center justify-end animate-in fade-in slide-in-from-top-1 duration-300 pt-2">
+                      {resultCount > 0 ? (
+                        <div className="flex items-center gap-1.5 px-1.5 py-1 rounded-full bg-white/60 dark:bg-zinc-900/60  backdrop-blur-md  border border-white/20 dark:border-white/10  shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+                          {/* RESULT COUNTER */}
+                          <span className="px-3 text-[11px] font-semibold tracking-tight text-gray-600 dark:text-zinc-300 tabular-nums">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                              {currentIndex + 1}
+                            </span>
+                            <span className="mx-1 opacity-40">/</span>
+                            <span className="opacity-80">{resultCount}</span>
+                          </span>
+
+                          {/* DIVIDER */}
+                          <div className="h-4 w-px bg-gradient-to-b from-transparent via-gray-300/40 to-transparent dark:via-zinc-700/40" />
+
+                          {/* BUTTONS */}
+                          <div className="flex items-center gap-0.5">
+                            {/* PREV */}
+                            <button
+                              onClick={goPrev}
+                              aria-label="Previous"
+                              className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600  hover:bg-emerald-500/10 active:scale-90  transition-all duration-200 cursor-pointer"
+                            >
+                              <svg
+                                className="w-3 h-3 group-hover:-translate-y-[1px] transition-transform"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M5 15l7-7 7 7"
+                                />
+                              </svg>
+                            </button>
+
+                            {/* NEXT */}
+                            <button
+                              onClick={goNext}
+                              aria-label="Next"
+                              className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-90 transition-all duration-200 cursor-pointer"
+                            >
+                              <svg
+                                className="w-3 h-3 group-hover:translate-y-[1px] transition-transform"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2.5}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* PREMIUM EMPTY STATE */
+                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-rose-500/10 to-transparent border border-rose-500/20 text-[11px] font-medium text-rose-500/90">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
+                          </span>
+                          No results found
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -536,8 +652,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
         <div
           className={`flex-1 p-4 overflow-y-auto scroll-smooth custom-scrollbar relative transition-colors duration-500 ${
             theme === "dark"
-              ? "bg-[#0b141a] bg-opacity-95" // Deep Charcoal-Navy
-              : "bg-[#efe7de]" // Classic soft parchment
+              ? "bg-[#0b141a] bg-opacity-95"
+              : "bg-[#efe7de]"
           }`}
           style={{
             backgroundImage:
@@ -550,35 +666,46 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
         >
           {/* The grouping logic is solid, let's just ensure the rendering is clean */}
           <div className="max-w-4xl mx-auto flex flex-col space-y-2">
-            {Object.entries(filteredGroupedMessages).map(([date, msgs]) => {
-              const filteredMsgs = msgs;
-
-              // Don't render the separator if there are no messages for this date
-              if (filteredMsgs.length === 0) return null;
+            {Object.entries(finalMessagesToRender).map(([date, msgs]) => {
+              if (msgs.length === 0) return null;
 
               return (
                 <React.Fragment key={date}>
-                  {/* Enhanced Separator */}
                   <div className="flex justify-center my-4">
-                    <span
-                      className={`px-4 py-1.5 text-xs font-medium ${
-                        theme === "dark" ? "text-gray-400" : "text-gray-600"
-                      }`}
-                    >
+                    <span className="px-4 py-1.5 text-xs text-gray-400">
                       {renderDateSeparator(new Date(date))}
                     </span>
                   </div>
 
-                  {filteredMsgs.map((msg) => (
-                    <MessageBuble
-                      key={msg._id || msg.temp}
-                      message={msg}
-                      theme={theme}
-                      currentUser={user}
-                      onReact={handleReaction}
-                      deleteMessage={deleteMessage}
-                    />
-                  ))}
+                  {msgs.map((msg) => {
+                    const isMatch =
+                      searchTerm &&
+                      (msg.content || "")
+                        .toLowerCase()
+                        .includes(searchTerm.toLowerCase());
+                    if (isMatch) {
+                      matchCounter++;
+                    }
+                    return (
+                      <MessageBuble
+                        key={msg._id || msg.temp}
+                        message={msg}
+                        theme={theme}
+                        currentUser={user}
+                        onReact={handleReaction}
+                        deleteMessage={deleteMessage}
+                        searchTerm={searchTerm}
+                        highlightText={highlightText}
+                        dataMatch={isMatch}
+                        isActive={isMatch && matchCounter === currentIndex}
+                        setRef={(el) => {
+                          if (isMatch && el) {
+                            messageRefs.current.push(el);
+                          }
+                        }}
+                      />
+                    );
+                  })}
                 </React.Fragment>
               );
             })}
@@ -617,7 +744,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
         )}
 
         {/* down part ui */}
-
         <div
           className={`p-4 ${theme === "dark" ? "bg-[#303430]" : "bg-white"} flex items-center space-x-2 relative`}
         >
