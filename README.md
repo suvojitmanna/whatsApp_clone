@@ -111,6 +111,7 @@ flowchart TD
 ```
 
 ## 🧩 Project Structure
+```
 client/
  ├── components/
  ├── pages/
@@ -123,6 +124,7 @@ server/
  ├── models/
  ├── middleware/
  └── socket/
+```
 ⚙️ Installation
 git clone https://github.com/suvojitmanna/whatsApp_clone.git
 
