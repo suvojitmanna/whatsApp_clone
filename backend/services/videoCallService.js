@@ -21,8 +21,6 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       }
     },
   );
-
-  //   Accepted Call
   socket.on("accept_call", ({ callerId, receiverInfo, callId }) => {
     const callerSocketId = onlineUsers.get(callerId);
 
@@ -37,8 +35,6 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       socket.emit("call_failed", { reason: "caller is offline" });
     }
   });
-
-  //   Reject Call
   socket.on("reject_call", ({ callerId, callId }) => {
     const callerSocketId = onlineUsers.get(callerId);
     if (callerSocketId) {
@@ -49,8 +45,6 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       console.log(`server: Caller ${callerId} not found`);
     }
   });
-
-  //   End Call
   socket.on("end_call", ({ participantId, callId }) => {
     const participantSocketId = onlineUsers.get(participantId);
     if (participantSocketId) {
@@ -61,8 +55,6 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       console.log(`server: Participant ${participantId} not found`);
     }
   });
-
-  //WebRct signaling
   socket.on("webrtc_offer", ({ offer, receiverId, callId }) => {
     const receiverSocketId = onlineUsers.get(receiverId);
 
@@ -78,8 +70,6 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       socket.emit("call_failed", { reason: "receiver offline" });
     }
   });
-
-  //   Answer
   socket.on("webrtc_answer", ({ answer, receiverId, callId }) => {
     const receiverSocketId = onlineUsers.get(receiverId);
 

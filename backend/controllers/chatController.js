@@ -4,7 +4,6 @@ const Message = require("../models/message.js");
 const Conversation = require("../models/ConverSation.js");
 
 exports.sendMessage = async (req, res) => {
-  // Implementation for sending a message
   try {
     const { senderId, receiverId, content, messageStatus } = req.body;
     const participants = [senderId, receiverId].sort();
@@ -14,12 +13,10 @@ exports.sendMessage = async (req, res) => {
     let conversation = await Conversation.findOne({
       participants: participants,
     });
-
     if (!conversation) {
       conversation = new Conversation({ participants: participants });
       await conversation.save();
     }
-
     let imageOrVideoUrl = null;
     let contentType = null;
 
@@ -111,10 +108,8 @@ exports.getConversation = async (req, res) => {
 exports.getMessages = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId } = req.params;
-
   try {
     const conversation = await Conversation.findById(conversationId);
-
     if (!conversation) {
       return response(res, 404, "Conversation not found");
     }
@@ -158,7 +153,6 @@ exports.markAsRead = async (req, res) => {
     if (!messages.length) {
       return response(res, 404, "Messages not found");
     }
-
     await Message.updateMany(
       {
         _id: { $in: messageIds },
@@ -168,18 +162,15 @@ exports.markAsRead = async (req, res) => {
         $set: { messageStatus: "read" },
       }
     );
-
     messages = messages.map((msg) => ({
       ...msg._doc,
       messageStatus: "read",
     }));
-
     if (req.io && req.socketUserMap instanceof Map) {
       for (const message of messages) {
         const senderSocketId = req.socketUserMap.get(
           message.sender.toString()
         );
-
         if (senderSocketId) {
           req.io.to(senderSocketId).emit("message_read", {
             _id: message._id,
@@ -188,7 +179,6 @@ exports.markAsRead = async (req, res) => {
         }
       }
     }
-
     return response(res, 200, "Messages marked as read", messages);
 
   } catch (error) {
@@ -219,8 +209,6 @@ exports.deleteMessage = async (req, res) => {
       if (receiverSocketId) {
         req.io.to(receiverSocketId).emit("message_deleted", messageId);
       }
-
-      // optional: update sender UI
       const senderSocketId = req.socketUserMap.get(userId);
       if (senderSocketId) {
         req.io.to(senderSocketId).emit("message_deleted", messageId);

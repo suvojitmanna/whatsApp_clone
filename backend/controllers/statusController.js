@@ -11,8 +11,6 @@ exports.createStatus = async (req, res) => {
 
     let mediaUrl = null;
     let finalContentType = contentType || "text";
-
-    // File upload handling
     if (file) {
       const uploadFile = await uploadFileToCloudinary(file);
       mediaUrl = uploadFile?.secure_url;
@@ -29,13 +27,10 @@ exports.createStatus = async (req, res) => {
     } else {
       return response(res, 400, "Content is required");
     }
-
-    // Expire time (24 hours default)
     const expireAt = inputExpireAt
       ? new Date(inputExpireAt)
       : new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Create status
     const status = new Status({
       user: userId,
       content: mediaUrl ? null : content,
@@ -45,13 +40,9 @@ exports.createStatus = async (req, res) => {
     });
 
     await status.save();
-
-    // Populate correctly
     const populatedStatus = await Status.findById(status._id)
       .populate("user", "username profilePicture")
       .populate("viewers", "username profilePicture");
-
-    // Emit new status to followers (for simplicity, emitting to all users)
     if (req.io && req.socketUserMap) {
       for (const [connectedUserId, socketId] of req.socketUserMap) {
         if (connectedUserId !== userId) {
@@ -69,14 +60,12 @@ exports.createStatus = async (req, res) => {
 exports.getStatuses = async (req, res) => {
   try {
     const userId = req.user.userId;
-
     const statuses = await Status.find({
       expireAt: { $gt: new Date() },
     })
       .populate("user", "username profilePicture")
       .populate("viewers.user", "username profilePicture")
       .sort({ createdAt: -1 });
-
     return response(res, 200, "Statuses retrieved successfully", statuses);
   } catch (error) {
     console.error(error);
@@ -87,31 +76,22 @@ exports.getStatuses = async (req, res) => {
 exports.viewStatus = async (req, res) => {
   const { statusId } = req.params;
   const userId = req.user.userId;
-
   try {
     const status = await Status.findById(statusId);
 
     if (!status) {
       return response(res, 404, "Status not found");
     }
-
-    //  FIX: check inside viewer.user
     const alreadyViewed = status.viewers.some(
       (v) => v.user.toString() === userId,
     );
-
-    //  FIX: push correct structure
     if (!alreadyViewed) {
       status.viewers.push({ user: userId });
       await status.save();
     }
-
-    //  FIX: correct populate
     const updatedStatus = await Status.findById(statusId)
       .populate("user", "username profilePicture")
       .populate("viewers.user", "username profilePicture");
-
-    //  Socket emit
     if (req.io && req.socketUserMap) {
       const statusOwnerSocketId = req.socketUserMap.get(status.user.toString());
 
@@ -138,17 +118,13 @@ exports.deleteStatus = async (req, res) => {
 
   try {
     const status = await Status.findById(statusId);
-
     if (!status) {
       return response(res, 404, "Status not found");
     }
-
     if (status.user.toString() !== userId) {
       return response(res, 403, "Unauthorized to delete this status");
     }
-
     await Status.deleteOne({ _id: statusId });
-
     if (req.io && req.socketUserMap) {
       for (const [connectedUserId, socketId] of req.socketUserMap) {
         if (connectedUserId !== userId) {
@@ -156,7 +132,6 @@ exports.deleteStatus = async (req, res) => {
         }
       }
     }
-
     return response(res, 200, "Status deleted successfully");
   } catch (error) {
     console.error(error);

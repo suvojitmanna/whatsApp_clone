@@ -17,7 +17,6 @@ export const useChatStore = create((set, get) => ({
     const socket = getSocket();
     if (!socket) return;
 
-    // remove all listeners before adding new ones
     socket.off("receive_message");
     socket.off("user_typing");
     socket.off("user_status");
@@ -28,9 +27,8 @@ export const useChatStore = create((set, get) => ({
     socket.off("reaction_update");
     socket.off("message_status_update_bulk");
 
-    // Listen for incoming messages
     socket.on("receive_message", (message) => {
-      get().receiveMessage(message); //  FIX
+      get().receiveMessage(message);
     });
 
     socket.on("message_status_update_bulk", ({ messageIds, messageStatus }) => {
@@ -40,8 +38,6 @@ export const useChatStore = create((set, get) => ({
         ),
       }));
     });
-
-    // confirm message sent successfully
     socket.on("message_send", (message) => {
       set((state) => ({
         messages: state.messages.map((msg) =>
@@ -49,8 +45,6 @@ export const useChatStore = create((set, get) => ({
         ),
       }));
     });
-
-    //update message status
     socket.on("message_status_update", ({ messageId, messageStatus }) => {
       set((state) => ({
         messages: state.messages.map((msg) =>
@@ -59,7 +53,6 @@ export const useChatStore = create((set, get) => ({
       }));
     });
 
-    //handle reaction on message
     socket.on("reaction_update", ({ messageId, reactions }) => {
       set((state) => ({
         messages: state.messages.map((msg) =>
@@ -67,21 +60,15 @@ export const useChatStore = create((set, get) => ({
         ),
       }));
     });
-
-    //handle deleted message
     socket.on("message_deleted", ({ deletedMessageId }) => {
       set((state) => ({
         messages: state.messages.filter((msg) => msg._id !== deletedMessageId),
       }));
     });
-
-    //handle any message sending error
     socket.on("message_error", (error) => {
       console.error("Message error:", error);
       set({ error: error.message });
     });
-
-    // Listen for typing indicators
     socket.on("user_typing", ({ conversationId, userId, isTyping }) => {
       set((state) => {
         const newTypingUsers = new Map(state.typingUsers);
@@ -97,8 +84,6 @@ export const useChatStore = create((set, get) => ({
         return { typingUsers: newTypingUsers };
       });
     });
-
-    //track users online/offline status
     socket.on("user_status", ({ userId, isOnline, lastSeen }) => {
       set((state) => {
         const newOnlineUsers = new Map(state.onlineUsers);
@@ -362,15 +347,9 @@ export const useChatStore = create((set, get) => ({
     let socket = getSocket();
     const { currentUser } = get();
 
-    console.log("🟡 STEP 1 socket:", socket);
-    console.log("🟡 STEP 2 currentUser:", currentUser);
-
     if (!socket) {
-      console.log("🔴 socket is NULL → initializing...");
       socket = initializeSocket();
     }
-
-    console.log("🟢 STEP 3 socket after init:", socket?.id);
 
     if (socket && currentUser) {
       console.log(" STEP 4 EMIT DATA:", {
@@ -384,8 +363,6 @@ export const useChatStore = create((set, get) => ({
         emoji,
         reactionUserId: currentUser._id,
       });
-    } else {
-      console.log("❌ STEP 5 emit blocked:", { socket, currentUser });
     }
   },
 
@@ -394,7 +371,7 @@ export const useChatStore = create((set, get) => ({
     const socket = getSocket();
     if (socket && currentConversation && receiverId) {
       socket.emit("typing_start", {
-        conversationId: currentConversation?._id, // FIXED
+        conversationId: currentConversation?._id,
         receiverId,
       });
     }
@@ -405,7 +382,7 @@ export const useChatStore = create((set, get) => ({
     const socket = getSocket();
     if (socket && currentConversation && receiverId) {
       socket.emit("typing_stop", {
-        conversationId: currentConversation?._id, // FIXED
+        conversationId: currentConversation?._id,
         receiverId,
       });
     }

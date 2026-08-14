@@ -3,19 +3,17 @@ import { subscribeWithSelector } from "zustand/middleware";
 
 const useVideoCallStore = create(
   subscribeWithSelector((set, get) => ({
-    // Call State
+
     currentCall: null,
     incomingCall: null,
     isCallActive: false,
     callType: null,
 
-    // media State
     localStream: null,
     remoteStream: null,
     isVideoEnabled: true,
     isAudioEnabled: true,
 
-    // WebRtc
     peerConnection: null,
     iceCandidatesQueue: [],
 
