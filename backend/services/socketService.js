@@ -70,7 +70,6 @@ function initializeSocket(server) {
 
     // 🔹 READ RECEIPT
     socket.on("message_read", async ({ messageIds }) => {
-      console.log(" READ EVENT RECEIVED:", {messageIds,messageStatus: "read",});
       try {
         const messages = await Message.find({ _id: { $in: messageIds } });
 
@@ -218,7 +217,6 @@ function initializeSocket(server) {
         });
 
         socket.leave(userId);
-        console.log("User disconnected:", userId);
       } catch (error) {
         console.error("Error handling disconnect:", error);
       }

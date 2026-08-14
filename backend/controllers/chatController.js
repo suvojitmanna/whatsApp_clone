@@ -7,8 +7,6 @@ exports.sendMessage = async (req, res) => {
   // Implementation for sending a message
   try {
     const { senderId, receiverId, content, messageStatus } = req.body;
-    console.log("FILE:", req.file); 
-    console.log("BODY:", req.body);
     const participants = [senderId, receiverId].sort();
     const file = req.file;
     const timestamp = new Date();

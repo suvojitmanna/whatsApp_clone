@@ -6,8 +6,6 @@ const Status = require("../models/status.js");
 exports.createStatus = async (req, res) => {
   try {
     const { content, contentType, expireAt: inputExpireAt } = req.body;
-    console.log("BODY:", req.body);
-    console.log("FILE:", req.file);
     const file = req.file;
     const userId = req.user.userId;
 
