@@ -26,6 +26,7 @@ export const useChatStore = create((set, get) => ({
     socket.off("message_error");
     socket.off("message_deleted");
     socket.off("message_status_update");
+    socket.off("message_read");
     socket.off("reaction_update");
     socket.off("message_status_update_bulk");
 
@@ -53,6 +54,19 @@ export const useChatStore = create((set, get) => ({
       set((state) => ({
         messages: state.messages.map((msg) =>
           msg._id === messageId ? { ...msg, messageStatus } : msg,
+        ),
+      }));
+    });
+
+    socket.on("message_read", ({ _id, messageStatus }) => {
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          msg._id === _id
+            ? {
+              ...msg,
+              messageStatus: messageStatus || "read",
+            }
+            : msg
         ),
       }));
     });
@@ -117,6 +131,7 @@ export const useChatStore = create((set, get) => ({
 
     // emit status for all users in conversation List
     const { conversations } = get();
+
     if (conversations?.data?.length > 0) {
       conversations.data.forEach((con) => {
         const otherUser = con.participants.find(
@@ -163,11 +178,8 @@ export const useChatStore = create((set, get) => ({
   fetchMessages: async (conversationId) => {
     if (!conversationId) return;
     set({ loading: true, error: null });
-
     try {
-      const { data } = await axiosInstance.get(
-        `/chat/conversation/${conversationId}/messages`,
-      );
+      const { data } = await axiosInstance.get(`/chat/conversation/${conversationId}/messages`,);
       const messageArray = data?.data || data || [];
       set({
         messages: messageArray,

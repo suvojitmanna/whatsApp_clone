@@ -1,4 +1,4 @@
-import React, { useRef, useState} from "react";
+import React, { useRef, useState } from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaCheckDouble, FaPlus, FaRegCopy, FaSmile } from "react-icons/fa";
@@ -9,6 +9,8 @@ import { RxCross2 } from "react-icons/rx";
 import useOutsideClick from "../../hook/useOutsideClick";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
+import { FaRegImage, FaVideo } from "react-icons/fa";
+import { FaRegFileAlt } from "react-icons/fa";
 
 const MessageBuble = ({
   message,
@@ -20,6 +22,7 @@ const MessageBuble = ({
   highlightText,
   dataMatch,
   isActive,
+  onStatusClick,
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
@@ -36,7 +39,6 @@ const MessageBuble = ({
   const isUserMessage = message.sender?._id === currentUser?._id;
 
   const bubbleClass = isUserMessage ? "chat-end" : "chat-start";
-
   const bubbleContentClass = isUserMessage
     ? `chat-bubble md:max-w-[50%] min-w-[130px] ${
         theme === "dark" ? "bg-[#144d38] text-white" : "bg-[#d8fdd3] text-black"
@@ -51,7 +53,6 @@ const MessageBuble = ({
 
   const handleTouchStart = () => {
     isLongPress.current = false;
-
     pressTimer.current = setTimeout(() => {
       isLongPress.current = true;
       setShowReactions(true);
@@ -75,9 +76,11 @@ const MessageBuble = ({
   useOutsideClick(emojiPickerRef, () => {
     if (showEmojiPicker) setShowEmojiPicker(false);
   });
+
   useOutsideClick(reactionsMenuRef, () => {
     if (showReactions) setShowReactions(false);
   });
+
   useOutsideClick(optionRef, () => {
     if (showOptions) setShowOptions(false);
   });
@@ -107,6 +110,108 @@ const MessageBuble = ({
           onClick={() => setShowReactions((prev) => !prev)}
           className="relative"
         >
+          {message.statusId && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+
+                if (!onStatusClick) return;
+
+                onStatusClick(message.statusId);
+
+                const statusId =
+                  typeof message.statusId === "object"
+                    ? message.statusId?._id
+                    : message.statusId;
+
+                if (statusId) {
+                  onStatusClick(String(statusId));
+                }
+              }}
+              className={`mb-2 w-full text-left overflow-hidden rounded-lg border-l-4 cursor-pointer hover:brightness-110 active:scale-[0.99] transition-all duration-200 ${
+                theme === "dark"
+                  ? "bg-[#0b4f3a] border-purple-400"
+                  : "bg-gray-100 border-purple-500"
+              }`}
+            >
+              {/* Header */}
+              <div className="px-3 py-2">
+                <p
+                  className={`text-sm font-semibold ${
+                    theme === "dark" ? "text-purple-300" : "text-purple-600"
+                  }`}
+                >
+                  {message.statusId?.user?.username || "Status"}
+                </p>
+
+                {message.statusId?.contentType === "text" && (
+                  <div className="px-3 py-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FaRegFileAlt
+                        size={12}
+                        className={
+                          theme === "dark" ? "text-gray-300" : "text-gray-500"
+                        }
+                      />
+
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Text status
+                      </span>
+                    </div>
+
+                    <p
+                      className={`text-sm line-clamp-2 ${
+                        theme === "dark" ? "text-white" : "text-gray-800"
+                      }`}
+                    >
+                      {message.statusId?.content || "Text status"}
+                    </p>
+                  </div>
+                )}
+
+                {message.statusId?.contentType === "image" && (
+                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <FaRegImage size={11} />
+                    <span>Photo</span>
+                  </div>
+                )}
+
+                {message.statusId?.contentType === "video" && (
+                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <FaVideo size={11} />
+                    <span>Video</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Image status */}
+              {message.statusId?.contentType === "image" &&
+                message.statusId?.mediaUrl && (
+                  <img
+                    src={message.statusId.mediaUrl}
+                    alt="Status"
+                    className="w-full h-24 object-cover"
+                  />
+                )}
+
+              {/* Video status */}
+              {message.statusId?.contentType === "video" &&
+                message.statusId?.mediaUrl && (
+                  <div className="relative h-24 w-full">
+                    <video
+                      src={message.statusId.mediaUrl}
+                      muted
+                      className="h-full w-full object-cover"
+                    />
+
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <FaVideo className="text-white" />
+                    </div>
+                  </div>
+                )}
+            </button>
+          )}
           {/* MESSAGE */}
           <div className="flex flex-col gap-1">
             {message.contentType === "text" && (
@@ -166,7 +271,6 @@ const MessageBuble = ({
           )}
         </div>
 
-        {/* 3 DOT */}
         <div className="absolute top-1 right-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition z-20">
           <button
             onClick={() => setShowOptions((prev) => !prev)}
@@ -281,6 +385,7 @@ const MessageBuble = ({
             </div>
           </div>
         )}
+
         {showOptions && (
           <div
             ref={optionRef}
@@ -338,7 +443,7 @@ const MessageBuble = ({
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className={`fixed inset-0 z-[1000] flex items-center justify-center px-4 backdrop-blur-md ${
-                theme === "dark" ? "bg-black/70" : "bg-black/30"
+                theme === "dark" ? "bg-black/60" : "bg-gray-900/30"
               }`}
               onClick={() => setDeleteModal(null)}
             >
@@ -351,19 +456,19 @@ const MessageBuble = ({
                   duration: 0.5,
                   bounce: 0.3,
                 }}
-                className={`w-full max-w-sm rounded-[24px] border p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] ${
+                className={`w-full max-w-sm rounded-[24px] border p-6 backdrop-blur-xl ${
                   theme === "dark"
-                    ? "bg-[#202c33] border-white/10"
-                    : "bg-white border-gray-200"
+                    ? "bg-[#202c33]/60 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]"
+                    : "bg-white/70 border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)]"
                 }`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex flex-col items-center text-center">
                   <div
-                    className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full ring-4 ${
+                    className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full ring-4 backdrop-blur-md ${
                       theme === "dark"
-                        ? "bg-red-500/10 text-red-400 ring-red-500/5"
-                        : "bg-red-50 text-red-500 ring-red-100"
+                        ? "bg-red-500/20 text-red-400 ring-red-500/10"
+                        : "bg-red-500/10 text-red-500 ring-red-500/20"
                     }`}
                   >
                     <RiDeleteBin6Line size={24} />
@@ -377,7 +482,7 @@ const MessageBuble = ({
                   </h2>
                   <p
                     className={`mt-2 text-sm leading-relaxed ${
-                      theme === "dark" ? "text-gray-400" : "text-gray-500"
+                      theme === "dark" ? "text-gray-300" : "text-gray-600"
                     }`}
                   >
                     Choose how you want to delete this message. This action
@@ -390,7 +495,6 @@ const MessageBuble = ({
                     onClick={async () => {
                       try {
                         await deleteMessage(deleteModal._id, "everyone");
-
                         toast.success("Message deleted for everyone");
                       } catch (error) {
                         toast.error("Failed to delete message");
@@ -398,7 +502,7 @@ const MessageBuble = ({
                         setDeleteModal(null);
                       }
                     }}
-                    className="w-full rounded-xl bg-red-500 py-3.5 font-medium text-white shadow-sm shadow-red-500/20 transition-all duration-200 hover:bg-red-600 active:scale-[0.98] cursor-pointer"
+                    className="w-full rounded-xl bg-red-500/90 backdrop-blur-sm py-3.5 font-medium text-white shadow-sm shadow-red-500/20 transition-all duration-200 hover:bg-red-500 active:scale-[0.98] cursor-pointer border border-red-400/20"
                   >
                     Delete for everyone
                   </button>
@@ -407,7 +511,6 @@ const MessageBuble = ({
                     onClick={async () => {
                       try {
                         await deleteMessage(deleteModal._id, "me");
-
                         toast.success("Message deleted for me");
                       } catch (error) {
                         toast.error("Failed to delete message");
@@ -415,10 +518,10 @@ const MessageBuble = ({
                         setDeleteModal(null);
                       }
                     }}
-                    className={`w-full rounded-xl py-3.5 font-medium transition-all duration-200 active:scale-[0.98] cursor-pointer ${
+                    className={`w-full rounded-xl py-3.5 font-medium transition-all duration-200 active:scale-[0.98] cursor-pointer backdrop-blur-sm border ${
                       theme === "dark"
-                        ? "bg-white/5 text-white hover:bg-white/10"
-                        : "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                        ? "bg-white/5 text-white hover:bg-white/10 border-white/5"
+                        : "bg-white/40 text-gray-900 hover:bg-white/60 border-white/50 shadow-sm"
                     }`}
                   >
                     Delete for me
@@ -429,7 +532,7 @@ const MessageBuble = ({
                     className={`mt-1 w-full rounded-xl py-3 font-medium transition-colors duration-200 cursor-pointer ${
                       theme === "dark"
                         ? "text-gray-400 hover:text-gray-200 hover:bg-white/5"
-                        : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-white/40"
                     }`}
                   >
                     Cancel

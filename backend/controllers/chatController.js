@@ -5,7 +5,13 @@ const Conversation = require("../models/ConverSation.js");
 
 exports.sendMessage = async (req, res) => {
   try {
-    const { senderId, receiverId, content, messageStatus } = req.body;
+    const {
+      senderId,
+      receiverId,
+      content,
+      messageStatus,
+      statusId,
+    } = req.body;
     const participants = [senderId, receiverId].sort();
     const file = req.file;
     const timestamp = new Date();
@@ -49,6 +55,7 @@ exports.sendMessage = async (req, res) => {
       messageStatus,
       timestamp,
       reactions: [],
+      statusId: statusId || null,
     });
     await message.save();
     if (message?.content) {
@@ -59,7 +66,14 @@ exports.sendMessage = async (req, res) => {
 
     const populatedMessage = await Message.findOne(message._id)
       .populate("sender", "username profilePicture")
-      .populate("receiver", "username profilePicture");
+      .populate("receiver", "username profilePicture")
+      .populate({
+        path: "statusId",
+        populate: {
+          path: "user",
+          select: "username profilePicture",
+        },
+      });
 
     if (req.io && req.socketUserMap) {
       const receiverSocketId = req.socketUserMap.get(receiverId);
@@ -94,13 +108,7 @@ exports.getConversation = async (req, res) => {
         },
       })
       .sort({ updatedAt: -1 });
-
-    return response(
-      res,
-      201,
-      "Conversation retrieved successfully",
-      conversation,
-    );
+    return response(res, 201, "Conversation retrieved successfully", conversation);
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");
@@ -118,12 +126,20 @@ exports.getMessages = async (req, res) => {
     if (!conversation.participants.includes(userId)) {
       return response(res, 403, "Not Authorized  Access denied");
     }
-    const messages = await Message.find({ conversation: conversationId })
+    const messages = await Message.find({
+      conversation: conversationId,
+    })
       .populate("sender", "username profilePicture")
       .populate("receiver", "username profilePicture")
-      .populate("reactions.userId", "username profilePicture") // ADD THIS
+      .populate("reactions.userId", "username profilePicture")
+      .populate({
+        path: "statusId",
+        populate: {
+          path: "user",
+          select: "username profilePicture",
+        },
+      })
       .sort({ createdAt: 1 });
-
     await Message.updateMany(
       {
         conversation: conversationId,
@@ -155,6 +171,7 @@ exports.markAsRead = async (req, res) => {
     if (!messages.length) {
       return response(res, 404, "Messages not found");
     }
+
     await Message.updateMany(
       {
         _id: { $in: messageIds },
@@ -168,6 +185,7 @@ exports.markAsRead = async (req, res) => {
       ...msg._doc,
       messageStatus: "read",
     }));
+
     if (req.io && req.socketUserMap instanceof Map) {
       for (const message of messages) {
         const senderSocketId = req.socketUserMap.get(
@@ -214,11 +232,7 @@ exports.deleteMessage = async (req, res) => {
     }
     if (deleteFor === "everyone") {
       if (message.sender.toString() !== userId) {
-        return response(
-          res,
-          403,
-          "Only sender can delete for everyone"
-        );
+        return response(res, 403, "Only sender can delete for everyone");
       }
       await Message.deleteOne({ _id: messageId, });
 
@@ -263,10 +277,6 @@ exports.deleteMessage = async (req, res) => {
     return response(res, 400, "Invalid delete option");
   } catch (error) {
     console.error("DELETE MESSAGE ERROR:", error);
-    return response(
-      res,
-      500,
-      error.message || "Internal server error"
-    );
+    return response(res, 500, error.message || "Internal server error");
   }
 };

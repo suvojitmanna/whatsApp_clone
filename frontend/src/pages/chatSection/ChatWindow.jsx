@@ -17,6 +17,7 @@ import {
   FaTimes,
   FaVideo,
 } from "react-icons/fa";
+import { BsEmojiFrown } from "react-icons/bs";
 import { FaEllipsis } from "react-icons/fa6";
 import { object } from "yup";
 import MessageBuble from "./MessageBuble";
@@ -35,7 +36,7 @@ import { RxCross2 } from "react-icons/rx";
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
 };
-const ChatWindow = ({ selectedContact, setSelectedContact }) => {
+const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -82,9 +83,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const setShowContactInfo = useLayoutStore(
     (state) => state.setShowContactInfo,
   );
+
   const setCurrentConversation = useChatStore(
     (state) => state.setCurrentConversation,
   );
+
   useEffect(() => {
     if (selectedContact?._id && conversations?.data?.length > 0) {
       const conversation = conversations?.data?.find((conv) =>
@@ -207,7 +210,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
       </div>
     );
   };
-
+  
   const groupedMessages = Array.isArray(messages)
     ? messages.reduce((acc, message) => {
         if (!message.createdAt) return acc;
@@ -242,12 +245,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
     : groupedMessages;
 
   const resultCount = Object.values(filteredGroupedMessages).flat().length;
-
   const highlightText = (text, term) => {
     if (!term) return text;
 
     const parts = text.split(new RegExp(`(${term})`, "gi"));
-
     return parts.map((part, i) =>
       part.toLowerCase() === term.toLowerCase() ? (
         <span key={i} className="bg-yellow-300 text-black px-1 rounded">
@@ -343,6 +344,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   useEffect(() => {
     setCurrentIndex(0);
   }, [searchTerm]);
+  
   useEffect(() => {
     const handleKey = (e) => {
       if (!searchTerm) return;
@@ -426,7 +428,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
               className="w-10 h-10 rounded-full cursor-pointer object-cover "
             />
 
-            {/* Real-life WhatsApp Online Dot */}
             {online && (
               <span
                 className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#111b21]" : "border-white"} bg-emerald-500 shadow-sm`}
@@ -687,6 +688,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                         currentUser={user}
                         onReact={handleReaction}
                         deleteMessage={deleteMessage}
+                        onStatusClick={onStatusClick}
                         searchTerm={searchTerm}
                         highlightText={highlightText}
                         dataMatch={isMatch}
@@ -745,7 +747,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
             className="focus:outline-none"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           >
-            <FaSmile
+            <BsEmojiFrown
               className={`h-6 w-6 cursor-pointer ${theme === "dark" ? "text-gray-400" : "text-gray-500"} ml-2 `}
             />
           </button>
@@ -817,8 +819,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                 handleSendMessage();
               }
             }}
-            placeholder="Type a message 
-        "
+            placeholder="Type a message "
             className={`flex-grow px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 ${theme === "dark" ? "bg-gray-700 text-white border-gray-600" : "bg-white text-black border-gray-300"}`}
           />
           <button onClick={handleSendMessage} className="focus:outline-none">
