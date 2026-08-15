@@ -192,34 +192,82 @@ exports.markAsRead = async (req, res) => {
 exports.deleteMessage = async (req, res) => {
   const userId = req.user.userId;
   const { messageId } = req.params;
+  const { deleteFor } = req.body;
 
   try {
-    const message = await Message.findOneAndDelete({
-      _id: messageId,
-      sender: userId,
-    });
+    const message = await Message.findById(messageId);
 
     if (!message) {
-      return response(res, 404, "Message not found or unauthorized");
+      return response(res, 404, "Message not found");
     }
 
-    if (req.io && req.socketUserMap instanceof Map) {
-      const receiverSocketId = req.socketUserMap.get(
-        message.receiver.toString(),
+    // Delete for me
+    if (deleteFor === "me") {
+      await Message.updateOne(
+        { _id: messageId },
+        {
+          $addToSet: {
+            deletedFor: userId,
+          },
+        }
       );
 
-      if (receiverSocketId) {
-        req.io.to(receiverSocketId).emit("message_deleted", messageId);
-      }
-      const senderSocketId = req.socketUserMap.get(userId);
-      if (senderSocketId) {
-        req.io.to(senderSocketId).emit("message_deleted", messageId);
-      }
+      return response(res, 200, "Message deleted for you");
     }
 
-    return response(res, 200, "Message deleted successfully");
+    // Delete for everyone
+    if (deleteFor === "everyone") {
+      if (message.sender.toString() !== userId) {
+        return response(
+          res,
+          403,
+          "Only sender can delete for everyone"
+        );
+      }
+
+      await Message.deleteOne({
+        _id: messageId,
+      });
+
+      const payload = {
+        deletedMessageId: messageId,
+        conversationId: message.conversation.toString(),
+      };
+
+      if (req.io && req.socketUserMap instanceof Map) {
+        const receiverSocketId = req.socketUserMap.get(
+          message.receiver.toString()
+        );
+
+        if (receiverSocketId) {
+          req.io
+            .to(receiverSocketId)
+            .emit("message_deleted", payload);
+        }
+
+        const senderSocketId = req.socketUserMap.get(userId);
+
+        if (senderSocketId) {
+          req.io
+            .to(senderSocketId)
+            .emit("message_deleted", payload);
+        }
+      }
+
+      return response(
+        res,
+        200,
+        "Message deleted for everyone"
+      );
+    }
+
+    return response(res, 400, "Invalid delete option");
   } catch (error) {
-    console.error(error);
-    return response(res, 500, "Internal server error");
+    console.error("DELETE MESSAGE ERROR:", error);
+    return response(
+      res,
+      500,
+      error.message || "Internal server error"
+    );
   }
 };

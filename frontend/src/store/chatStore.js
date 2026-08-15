@@ -373,9 +373,9 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  deleteMessage: async (messageId) => {
+  deleteMessage: async (messageId, deleteFor) => {
     try {
-      await axiosInstance.delete(`/chat/messages/${messageId}`);
+      await axiosInstance.delete(`/chat/messages/${messageId}`, { data: { deleteFor, } })
 
       set((state) => ({
         messages: state.messages?.filter((msg) => msg?._id !== messageId),
