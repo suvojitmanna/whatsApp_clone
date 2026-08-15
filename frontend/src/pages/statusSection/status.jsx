@@ -28,19 +28,15 @@ const status = () => {
   const modalRef = useRef(null);
 
   const {
-    statuses,
     loading,
     error,
     fetchStatuses,
     createStatus,
     viewStatus,
     deleteStatus,
-    getStatusViewer,
-    getGroupStatus,
     getOtherStatuses,
     getUserStatuses,
     clearError,
-    reset,
     initializeSocket,
     cleanupSocket,
   } = useStatusStore();

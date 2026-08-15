@@ -192,46 +192,52 @@ const StatusPreview = ({
             )}
 
             {isOwner && (
-              <div className="absolute bottom-4 left-4 right-4 ">
+              <div className="absolute bottom-24 left-4 right-4 md:bottom-4 md:left-4 md:right-4">
                 <button
                   onClick={handleViewersToggle}
-                  className="flex items-center justify-between w-full text-white bg-black bg-opacity-50 rounded-lg px-4 py-2 hover:bg-opacity-70 transition-all"
+                  className="flex items-center justify-between w-full
+                 text-white bg-black/70 backdrop-blur-md
+                 rounded-xl px-4 py-3 shadow-lg"
                 >
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2">
                     <FaEye className="w-4 h-4" />
-                    <span>{currentStatus?.viewers.length} </span>
+                    <span>{currentStatus?.viewers?.length || 0}</span>
                   </div>
+
                   <FaChevronDown
-                    className={`h-4 w-4 transition-transform cursor-pointer ${showViewers ? "rotate-180" : ""}`}
+                    className={`h-4 w-4 transition-transform ${
+                      showViewers ? "rotate-180" : ""
+                    }`}
                   />
                 </button>
 
                 <AnimatePresence>
                   {showViewers && (
                     <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mt-2 bg-black bg-opacity-70 rounded-lg p-4 max-h-40 overflow-y-auto"
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 15 }}
+                      className="mt-2 bg-black/90 backdrop-blur-md rounded-xl p-4 max-h-[35vh] overflow-y-auto"
                     >
                       {loading ? (
                         <p className="text-white text-center">
-                          Loading Viewers
+                          Loading Viewers...
                         </p>
-                      ) : currentStatus.viewers.length > 0 ? (
-                        <div className="space-y-2">
-                          {currentStatus?.viewers.map((viewer) => (
+                      ) : currentStatus?.viewers?.length > 0 ? (
+                        <div className="space-y-3">
+                          {currentStatus.viewers.map((viewer) => (
                             <div
                               key={viewer?.user?._id || viewer?._id}
-                              className="flex items-center space-x-3"
+                              className="flex items-center gap-3"
                             >
                               <img
                                 src={viewer?.user?.profilePicture}
-                                alt={viewer?.user?.username}
-                                className="w-8 h-8 rounded-full object-cover"
+                                alt={viewer?.user?.username || "Viewer"}
+                                className="w-9 h-9 rounded-full object-cover"
                               />
-                              <span className="text-white">
-                                {viewer?.user?.username}
+
+                              <span className="text-white text-sm">
+                                {viewer?.user?.username || "Unknown"}
                               </span>
                             </div>
                           ))}
