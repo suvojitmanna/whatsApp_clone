@@ -489,7 +489,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                   {/* Input Wrapper */}
                   <div className="relative w-full rounded-xl overflow-hidden group transition-all duration-300">
                     {/* Glass Overlay */}
-                    <div className=" absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br from-white/40 to-transparent opacity-60 group-focus-within:opacity-80 transition-all duration-300" />
+                    <div
+                      className={`absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br opacity-60 group-focus-within:opacity-80 transition-all duration-300 
+                        ${
+                          theme === "dark"
+                            ? "from-white/10 via-white/5 to-transparent"
+                            : "from-white/60 via-white/30 to-transparent"
+                        }`}
+                    />
 
                     <input
                       autoFocus
@@ -498,11 +505,22 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                       placeholder="Search..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className={`w-full pl-8 pr-8 py-1.5 rounded-xl outline-none text-xs relative z-10 backdrop-blur-xl bg-white/30 dark:bg-zinc-800/30 border border-white/30 dark:border-white/10 group-focus-within:border-emerald-400/60 ${theme === "dark" ? "text-white" : "text-gray-900"} shadow-[0_4px_15px_rgba(0,0,0,0.05)] group-focus-within:shadow-[0_6px_20px_rgba(0,255,150,0.2)]  transition-all duration-300 `}
+                      className={`w-full pl-8 pr-8 py-1.5 rounded-xl outline-none text-xs relative z-10 backdrop-blur-xl border transition-all duration-300
+                      ${
+                        theme === "dark"
+                          ? "bg-zinc-800/70 text-white placeholder:text-gray-500 border-white/10 focus:border-emerald-400/60 focus:bg-zinc-800/90"
+                          : "bg-white/70 text-gray-900 placeholder:text-gray-400 border-gray-200/80 focus:border-emerald-400/60 focus:bg-white/90"
+                      }shadow-[0_4px_15px_rgba(0,0,0,0.05)] focus:shadow-[0_6px_20px_rgba(0,255,150,0.2)]`}
                     />
 
                     {/* Left Icon */}
-                    <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 text-gray-400 group-focus-within:text-emerald-400 transition-all duration-300" />
+                    <FiSearch
+                      className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 transition-all duration-300 ${
+                        theme === "dark"
+                          ? "text-gray-500 group-focus-within:text-emerald-400"
+                          : "text-gray-400 group-focus-within:text-emerald-500"
+                      }`}
+                    />
 
                     {/* Close Button */}
                     <button
@@ -510,9 +528,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                         setIsSearchOpen(false);
                         setSearchTerm("");
                       }}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20"
+                      className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-20 transition-all duration-300${
+                        theme === "dark"
+                          ? "text-gray-500 hover:text-emerald-400"
+                          : "text-gray-400 hover:text-emerald-500"
+                      }`}
                     >
-                      <RxCross2 className=" h-3.5 w-3.5 text-gray-500 group-focus-within:text-emerald-400 hover:text-emerald-500 transition-all duration-300 " />
+                      <RxCross2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
 

@@ -65,11 +65,26 @@ export const useChatStore = create((set, get) => ({
       }));
     });
 
-    socket.on("message_deleted", ({ deletedMessageId }) => {
+    socket.on("message_deleted", ({ deletedMessageId, conversationId, lastMessage }) => {
       set((state) => ({
-        messages: state.messages.filter((msg) => msg._id !== deletedMessageId),
+        messages: state.messages.filter(
+          (msg) => msg._id !== deletedMessageId
+        ),
+
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) =>
+            String(conv._id) === String(conversationId)
+              ? {
+                ...conv,
+                lastMessage: lastMessage || null,
+              }
+              : conv
+          ),
+        },
       }));
-    });
+    }
+    );
 
     socket.on("message_error", (error) => {
       console.error("Message error:", error);

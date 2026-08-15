@@ -200,8 +200,6 @@ exports.deleteMessage = async (req, res) => {
     if (!message) {
       return response(res, 404, "Message not found");
     }
-
-    // Delete for me
     if (deleteFor === "me") {
       await Message.updateOne(
         { _id: messageId },
@@ -214,8 +212,6 @@ exports.deleteMessage = async (req, res) => {
 
       return response(res, 200, "Message deleted for you");
     }
-
-    // Delete for everyone
     if (deleteFor === "everyone") {
       if (message.sender.toString() !== userId) {
         return response(
@@ -224,29 +220,37 @@ exports.deleteMessage = async (req, res) => {
           "Only sender can delete for everyone"
         );
       }
+      await Message.deleteOne({ _id: messageId, });
 
-      await Message.deleteOne({
-        _id: messageId,
-      });
+      const previousMessage = await Message.findOne({
+        conversation: message.conversation,
+      })
+        .sort({ createdAt: -1 })
+        .populate("sender", "username profilePicture")
+        .populate("receiver", "username profilePicture");
 
+      await Conversation.findByIdAndUpdate(
+        message.conversation,
+        {
+          lastMessage: previousMessage?._id || null,
+        },
+        { new: true }
+      );
       const payload = {
         deletedMessageId: messageId,
         conversationId: message.conversation.toString(),
+        lastMessage: previousMessage,
       };
-
       if (req.io && req.socketUserMap instanceof Map) {
         const receiverSocketId = req.socketUserMap.get(
           message.receiver.toString()
         );
-
         if (receiverSocketId) {
           req.io
             .to(receiverSocketId)
             .emit("message_deleted", payload);
         }
-
         const senderSocketId = req.socketUserMap.get(userId);
-
         if (senderSocketId) {
           req.io
             .to(senderSocketId)
@@ -254,13 +258,8 @@ exports.deleteMessage = async (req, res) => {
         }
       }
 
-      return response(
-        res,
-        200,
-        "Message deleted for everyone"
-      );
+      return response(res, 200, "Message deleted for everyone");
     }
-
     return response(res, 400, "Invalid delete option");
   } catch (error) {
     console.error("DELETE MESSAGE ERROR:", error);

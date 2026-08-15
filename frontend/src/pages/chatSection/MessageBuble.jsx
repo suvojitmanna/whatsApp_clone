@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState} from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaCheckDouble, FaPlus, FaRegCopy, FaSmile } from "react-icons/fa";
