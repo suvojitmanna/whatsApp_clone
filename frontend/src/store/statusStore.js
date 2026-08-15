@@ -63,39 +63,43 @@ const useStatusStore = create((set, get) => ({
 
   //Create Status
   createStatus: async (statusData) => {
-    set({ loading: true, error: null });
-    try {
-      const formData = new FormData();
+  set({ loading: true, error: null });
 
-      if (statusData.file) {
-        formData.append("media", statusData.file);
-      }
+  try {
+    const formData = new FormData();
 
-      if (statusData.content?.trim()) {
-        formData.append("content", statusData.content);
-      }
-
-      const { data } = await axiosInstance.post("/status", formData, {
-      });
-
-      if (data.data) {
-        set((state) => ({
-          statuses: state.statuses.some((s) => s._id === data.data._id)
-            ? state.statuses
-            : [data.data, ...state.statuses],
-        }));
-      }
-      set({ loading: false });
-
-      set({ loading: false });
-
-      return data.data;
-    } catch (error) {
-      console.log("error creating status", error);
-      set({ error: error.message, loading: false });
-      throw error;
+    if (statusData.media) {
+      formData.append("media", statusData.media);
     }
-  },
+
+    if (statusData.content?.trim()) {
+      formData.append("content", statusData.content.trim());
+    }
+
+    const { data } = await axiosInstance.post("/status", formData);
+
+    if (data.data) {
+      set((state) => ({
+        statuses: state.statuses.some(
+          (s) => s._id === data.data._id
+        )
+          ? state.statuses
+          : [data.data, ...state.statuses],
+      }));
+    }
+
+    set({ loading: false });
+
+    return data.data;
+  } catch (error) {
+    console.log("STATUS CREATE ERROR:", error.response?.data);
+    set({
+      error: error.response?.data?.message || error.message,
+      loading: false,
+    });
+    throw error;
+  }
+},
 
   //view status
   viewStatus: async (statusId) => {
@@ -160,13 +164,13 @@ const useStatusStore = create((set, get) => ({
       }
 
       acc[statusUserId].statuses.push({
-  id: status._id,
-  content: status.content,
-  media: status.mediaUrl,
-  contentType: status.contentType,
-  timeStamp: status.createdAt,
-  viewers: status.viewers || [],
-});
+        id: status._id,
+        content: status.content,
+        media: status.mediaUrl,
+        contentType: status.contentType,
+        timeStamp: status.createdAt,
+        viewers: status.viewers || [],
+      });
 
       return acc;
     }, {});
