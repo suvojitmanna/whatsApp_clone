@@ -59,9 +59,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const { socket } = getSocket();
   const {
     messages,
-    loading,
     sendMessage,
-    receiveMessage,
     fetchMessages,
     fetchConversations,
     conversations,
@@ -70,7 +68,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
     stopTying,
     getUserLastSeen,
     isUserOnline,
-    cleanup,
     deleteMessage,
     addReaction,
   } = useChatStore();
@@ -85,7 +82,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const setShowContactInfo = useLayoutStore(
     (state) => state.setShowContactInfo,
   );
-
+  const setCurrentConversation = useChatStore(
+    (state) => state.setCurrentConversation,
+  );
   useEffect(() => {
     if (selectedContact?._id && conversations?.data?.length > 0) {
       const conversation = conversations?.data?.find((conv) =>
@@ -267,9 +266,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const handleVideoCall = () => {
     if (selectedContact && online) {
       const { initiateCall } = useVideoCallStore.getState();
-
       const avatar = selectedContact?.profilePicture;
-
       initiateCall(
         selectedContact?._id,
         selectedContact?.username,
@@ -284,9 +281,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const handleAudioCall = () => {
     if (selectedContact && online) {
       const { initiateCall } = useVideoCallStore.getState();
-
       const avatar = selectedContact?.profilePicture;
-
       initiateCall(
         selectedContact?._id,
         selectedContact?.username,
@@ -314,7 +309,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
   useEffect(() => {
     if (isSearchOpen) {
-      // so the browser accepts the focus command
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -324,11 +318,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
   useEffect(() => {
     if (!searchTerm) return;
-
     const elements = document.querySelectorAll("[data-match='true']");
-
     if (elements.length === 0) return;
-
     const el = elements[currentIndex];
 
     if (el) {
@@ -368,12 +359,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
       if (e.key === "Enter") {
         e.preventDefault();
-        goNext(); // WhatsApp behavior
+        goNext();
       }
     };
-
     window.addEventListener("keydown", handleKey);
-
     return () => window.removeEventListener("keydown", handleKey);
   }, [searchTerm, resultCount]);
 
@@ -415,8 +404,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
               : "bg-[rgb(229,230,232)] text-gray-600"
           } flex items-center`}
         >
-          <button onClick={() => setSelectedContact(null)}>
-            <FaArrowLeft className="mr-2 focus:outline-none cursor-pointer h-full w-full " />
+          <button
+            onClick={() => {
+              setSelectedContact(null);
+              setCurrentConversation(null);
+            }}
+          >
+            <FaArrowLeft className="mr-2 focus:outline-none cursor-pointer h-full w-full" />
           </button>
 
           <div className="relative ml-4">
@@ -477,33 +471,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                   isSearchOpen
                     ? "opacity-0 pointer-events-none scale-90"
                     : "opacity-100 scale-100"
-                }
-
-                group relative p-2 rounded-xl
-                transition-all duration-300
-              bg-white/30 dark:bg-zinc-800/30
-                backdrop-blur-xl
-
-                before:absolute before:inset-0 before:rounded-xl
-                before:bg-gradient-to-br before:from-white/40 before:to-transparent
-                before:opacity-60 before:pointer-events-none
-
-                border border-white/30 dark:border-white/10
-              hover:border-green-400/40
-
-                shadow-[0_2px_15px_rgba(0,0,0,0.06)]
-                hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)]
-
-                active:scale-95 cursor-pointer
-                focus:outline-none focus:ring-2 focus:ring-green-600/50`}
+                }group relative p-2 rounded-xl transition-all duration-300 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-xl before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-white/40 before:to-transparent before:opacity-60 before:pointer-events-none border border-white/30 dark:border-white/10 hover:border-green-400/40 shadow-[0_2px_15px_rgba(0,0,0,0.06)]
+                hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)] active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-600/50`}
               >
-                <FiSearch
-                  className="h-4 w-4
-                text-zinc-700 dark:text-zinc-300
-                group-hover:text-green-500
-                  group-hover:scale-110
-                  transition-all duration-300"
-                />
+                <FiSearch className="h-4 w-4text-zinc-700 dark:text-zinc-300 group-hover:text-green-500group-hover:scale-110 transition-all duration-300" />
               </button>
 
               {/* Expandable Input */}

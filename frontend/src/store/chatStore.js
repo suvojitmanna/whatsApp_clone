@@ -7,6 +7,8 @@ export const useChatStore = create((set, get) => ({
   conversations: [],
   currentConversation: null,
   currentUser: null,
+  setCurrentConversation: (conversation) =>
+    set({ currentConversation: conversation }),
   messages: [],
   loading: false,
   error: null,
@@ -38,6 +40,7 @@ export const useChatStore = create((set, get) => ({
         ),
       }));
     });
+
     socket.on("message_send", (message) => {
       set((state) => ({
         messages: state.messages.map((msg) =>
@@ -45,6 +48,7 @@ export const useChatStore = create((set, get) => ({
         ),
       }));
     });
+
     socket.on("message_status_update", ({ messageId, messageStatus }) => {
       set((state) => ({
         messages: state.messages.map((msg) =>
@@ -60,15 +64,18 @@ export const useChatStore = create((set, get) => ({
         ),
       }));
     });
+
     socket.on("message_deleted", ({ deletedMessageId }) => {
       set((state) => ({
         messages: state.messages.filter((msg) => msg._id !== deletedMessageId),
       }));
     });
+
     socket.on("message_error", (error) => {
       console.error("Message error:", error);
       set({ error: error.message });
     });
+
     socket.on("user_typing", ({ conversationId, userId, isTyping }) => {
       set((state) => {
         const newTypingUsers = new Map(state.typingUsers);
@@ -84,6 +91,7 @@ export const useChatStore = create((set, get) => ({
         return { typingUsers: newTypingUsers };
       });
     });
+
     socket.on("user_status", ({ userId, isOnline, lastSeen }) => {
       set((state) => {
         const newOnlineUsers = new Map(state.onlineUsers);
@@ -94,7 +102,6 @@ export const useChatStore = create((set, get) => ({
 
     // emit status for all users in conversation List
     const { conversations } = get();
-
     if (conversations?.data?.length > 0) {
       conversations.data.forEach((con) => {
         const otherUser = con.participants.find(
@@ -121,7 +128,6 @@ export const useChatStore = create((set, get) => ({
 
   // set current user conversation
   setCurrentUser: (user) => set({ currentUser: user }),
-
   fetchConversations: async () => {
     set({ loading: true, error: null });
     try {
@@ -147,14 +153,12 @@ export const useChatStore = create((set, get) => ({
       const { data } = await axiosInstance.get(
         `/chat/conversation/${conversationId}/messages`,
       );
-
       const messageArray = data?.data || data || [];
       set({
         messages: messageArray,
         currentConversation: { _id: conversationId },
         loading: false,
       });
-
       const { markMessageAsRead } = get();
       markMessageAsRead();
 
@@ -194,7 +198,6 @@ export const useChatStore = create((set, get) => ({
     }
 
     const tempId = `temp-${Date.now()}`;
-
     const optimisticMessage = {
       _id: tempId,
       sender: { _id: senderId },
@@ -224,7 +227,6 @@ export const useChatStore = create((set, get) => ({
       );
 
       const messageData = data.data || data;
-
       set((state) => ({
         messages: state.messages.map((msg) =>
           msg._id === tempId ? messageData : msg,
@@ -234,7 +236,6 @@ export const useChatStore = create((set, get) => ({
       return messageData;
     } catch (error) {
       console.error("error sending message", error);
-
       set((state) => ({
         messages: state.messages.map((msg) =>
           msg._id === tempId ? { ...msg, messageStatus: "failed" } : msg,
@@ -245,59 +246,82 @@ export const useChatStore = create((set, get) => ({
       throw error;
     }
   },
-
   receiveMessage: (message) => {
     if (!message) return;
 
-    const { currentConversation, currentUser, messages } = get();
+    const {
+      currentConversation,
+      currentUser,
+      messages,
+    } = get();
 
-    const messageExits = messages.some((msg) => msg._id === message._id);
-    if (messageExits) return;
+    const messageExists = messages.some(
+      (msg) => msg._id === message._id
+    );
+    if (messageExists) return;
+    const conversationId =
+      message.conversation?._id || message.conversation;
 
-    if (message.conversationId === currentConversation?._id) {
+    const isCurrentConversation =
+      String(conversationId) ===
+      String(currentConversation?._id);
+
+    const isForCurrentUser =
+      String(message.receiver?._id) ===
+      String(currentUser?._id);
+
+    // Current open chat
+    if (isCurrentConversation) {
       set((state) => ({
         messages: [...state.messages, message],
       }));
 
-      if (message.receiver?._id === currentUser?._id) {
-        get().markMessageAsRead();
+      if (isForCurrentUser) {
+        get()
       }
     }
 
-    set((state) => {
-      const updateConversations = state.conversations?.data?.map((conv) => {
-        if (conv._id === message.conversationId) {
+    // Update ChatList
+    set((state) => ({
+      conversations: {
+        ...state.conversations,
+        data: state.conversations?.data?.map((conv) => {
+          if (
+            String(conv._id) !== String(conversationId)
+          ) {
+            return conv;
+          }
+
           return {
             ...conv,
             lastMessage: message,
             unreadCount:
-              message.receiver?._id === currentUser?._id
-                ? (conv.unreadCount || 0) + 1
-                : conv.unreadCount || 0,
+              isForCurrentUser && !isCurrentConversation
+                ? message.unreadCount
+                : conv.unreadCount,
           };
-        }
-        return conv;
-      });
-
-      return {
-        conversations: {
-          ...state.conversations,
-          data: updateConversations,
-        },
-      };
-    });
+        }),
+      },
+    }));
   },
 
-  //mark as read
   markMessageAsRead: async () => {
-    const { messages, currentUser } = get();
-    if (!messages.length || !currentUser) return;
+    const {
+      messages,
+      currentUser,
+      currentConversation,
+    } = get();
+
+    if (!messages.length || !currentUser || !currentConversation) {
+      return;
+    }
 
     const unreadIds = messages
       .filter(
         (msg) =>
           msg.messageStatus !== "read" &&
-          msg.receiver?._id === currentUser?._id,
+          String(msg.receiver?._id) ===
+          String(currentUser?._id)
       )
       .map((msg) => msg._id)
       .filter(Boolean);
@@ -308,15 +332,33 @@ export const useChatStore = create((set, get) => ({
       await axiosInstance.put("/chat/messages/read", {
         messageIds: unreadIds,
       });
-      console.log("📩 marking as read:", unreadIds);
 
       set((state) => ({
         messages: state.messages.map((msg) =>
-          unreadIds.includes(msg._id) ? { ...msg, messageStatus: "read" } : msg,
+          unreadIds.includes(msg._id)
+            ? {
+              ...msg,
+              messageStatus: "read",
+            }
+            : msg
         ),
+
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) =>
+            String(conv._id) ===
+              String(currentConversation._id)
+              ? {
+                ...conv,
+                unreadCount: 0,
+              }
+              : conv
+          ),
+        },
       }));
 
       const socket = getSocket();
+
       if (socket) {
         socket.emit("message_read", {
           messageIds: unreadIds,
@@ -324,7 +366,10 @@ export const useChatStore = create((set, get) => ({
         });
       }
     } catch (error) {
-      console.error("failed to mark message as read", error);
+      console.error(
+        "failed to mark message as read",
+        error
+      );
     }
   },
 
