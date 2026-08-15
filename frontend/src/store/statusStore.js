@@ -160,12 +160,13 @@ const useStatusStore = create((set, get) => ({
       }
 
       acc[statusUserId].statuses.push({
-        id: status._id,
-        media: status.mediaUrl,
-        contentType: status.contentType,
-        timeStamp: status.createdAt,
-        viewers: status.viewers,
-      });
+  id: status._id,
+  content: status.content,
+  media: status.mediaUrl,
+  contentType: status.contentType,
+  timeStamp: status.createdAt,
+  viewers: status.viewers || [],
+});
 
       return acc;
     }, {});

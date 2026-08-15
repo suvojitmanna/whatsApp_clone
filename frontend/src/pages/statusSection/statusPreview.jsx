@@ -59,7 +59,6 @@ const StatusPreview = ({
       onPrev();
     }
   };
-
   if (!currentStatus) return null;
   return (
     <div>
@@ -154,7 +153,9 @@ const StatusPreview = ({
             <div className="w-full h-full flex items-center justify-center">
               {currentStatus.contentType === "text" ? (
                 <div className="text-white text-center p-8">
-                  <p className="text-2xl font-medium">{currentStatus.media} </p>
+                  <p className="text-2xl font-medium">
+                    {currentStatus.content}{" "}
+                  </p>
                 </div>
               ) : currentStatus.contentType === "image" ? (
                 <img

@@ -344,7 +344,7 @@ const status = () => {
               <div className="flex-1 h-[1px] ml-3 bg-gradient-to-r from-transparent via-gray-500/20 to-transparent" />
             </div>
 
-            {/* 🔄 Loading */}
+            {/* Loading */}
             {loading ? (
               <div className="flex flex-col items-center py-24">
                 <div className="relative">
@@ -357,7 +357,7 @@ const status = () => {
                 </p>
               </div>
             ) : otherStatuses.length > 0 ? (
-              /* 📦 Status List Container */
+              /* Status List Container */
               <div
                 className={`rounded-[2.5rem] overflow-hidden border shadow-2xl backdrop-blur-xl transition-all ${
                   theme === "dark"
@@ -387,7 +387,7 @@ const status = () => {
                 ))}
               </div>
             ) : (
-              /* 😶 Empty State */
+              /* Empty State */
               <div className="text-center py-24 px-6 rounded-[2.5rem] border border-dashed backdrop-blur-md bg-black/5 dark:bg-white/5 dark:border-white/10 border-gray-300 transition-all">
                 <div className="text-6xl mb-5 opacity-20 animate-pulse">✨</div>
 
