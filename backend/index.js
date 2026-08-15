@@ -16,30 +16,24 @@ dotenv.config();
 
 const app = express();
 
-// CORS
 const corsOption = {
   origin: process.env.FRONTEND_URL,
   credentials: true,
 };
 app.use(cors(corsOption));
 
-// Middleware
 app.use(express.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Create server for socket
 const server = http.createServer(app);
 const io = initializeSocket(server);
 
-// attach io globally
 app.use((req, res, next) => {
   req.io = io;
   req.socketUserMap = io.socketUserMap;
   next();
 });
-
-// Routes
 app.get("/", (req, res) => {
   res.send("API is running 🚀");
 });
@@ -48,16 +42,13 @@ app.use("/api/auth", authRoute);
 app.use("/api/chat", chatRoute);
 app.use("/api/status", statusRoute);
 
-// DB connect
 connectDb();
 
 // PORT
 const PORT = process.env.PORT || 5000;
 
-// IMPORTANT: use server.listen
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// for deployment
 module.exports = app;

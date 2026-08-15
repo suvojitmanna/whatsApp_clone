@@ -42,6 +42,11 @@ const messageSchema = new mongoose.Schema(
       enum: ["send", "delivered", "read"],
       default: "send",
     },
+    statusId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Status",
+  default: null,
+},
   },
   { timestamps: true },
 );

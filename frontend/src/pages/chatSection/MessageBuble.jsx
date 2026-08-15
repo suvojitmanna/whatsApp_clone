@@ -1,19 +1,16 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import { format } from "date-fns";
-import {
-  FaCheckDouble,
-  FaPlus,
-  FaRegCopy,
-  FaSmile,
-  FaTrashAlt,
-} from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
+import { FaCheckDouble, FaPlus, FaRegCopy, FaSmile } from "react-icons/fa";
+import { RiDeleteBin6Line } from "react-icons/ri";
 import { FiCheck } from "react-icons/fi";
 import { HiDotsVertical } from "react-icons/hi";
 import { RxCross2 } from "react-icons/rx";
 import useOutsideClick from "../../hook/useOutsideClick";
 import EmojiPicker from "emoji-picker-react";
-import { reach } from "yup";
 import { toast } from "react-toastify";
+import { FaRegImage, FaVideo } from "react-icons/fa";
+import { FaRegFileAlt } from "react-icons/fa";
 
 const MessageBuble = ({
   message,
@@ -25,10 +22,12 @@ const MessageBuble = ({
   highlightText,
   dataMatch,
   isActive,
+  onStatusClick,
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(null);
 
   const messageRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -40,7 +39,6 @@ const MessageBuble = ({
   const isUserMessage = message.sender?._id === currentUser?._id;
 
   const bubbleClass = isUserMessage ? "chat-end" : "chat-start";
-
   const bubbleContentClass = isUserMessage
     ? `chat-bubble md:max-w-[50%] min-w-[130px] ${
         theme === "dark" ? "bg-[#144d38] text-white" : "bg-[#d8fdd3] text-black"
@@ -55,7 +53,6 @@ const MessageBuble = ({
 
   const handleTouchStart = () => {
     isLongPress.current = false;
-
     pressTimer.current = setTimeout(() => {
       isLongPress.current = true;
       setShowReactions(true);
@@ -79,9 +76,11 @@ const MessageBuble = ({
   useOutsideClick(emojiPickerRef, () => {
     if (showEmojiPicker) setShowEmojiPicker(false);
   });
+
   useOutsideClick(reactionsMenuRef, () => {
     if (showReactions) setShowReactions(false);
   });
+
   useOutsideClick(optionRef, () => {
     if (showOptions) setShowOptions(false);
   });
@@ -111,6 +110,108 @@ const MessageBuble = ({
           onClick={() => setShowReactions((prev) => !prev)}
           className="relative"
         >
+          {message.statusId && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+
+                if (!onStatusClick) return;
+
+                onStatusClick(message.statusId);
+
+                const statusId =
+                  typeof message.statusId === "object"
+                    ? message.statusId?._id
+                    : message.statusId;
+
+                if (statusId) {
+                  onStatusClick(String(statusId));
+                }
+              }}
+              className={`mb-2 w-full text-left overflow-hidden rounded-lg border-l-4 cursor-pointer hover:brightness-110 active:scale-[0.99] transition-all duration-200 ${
+                theme === "dark"
+                  ? "bg-[#0b4f3a] border-purple-400"
+                  : "bg-gray-100 border-purple-500"
+              }`}
+            >
+              {/* Header */}
+              <div className="px-3 py-2">
+                <p
+                  className={`text-sm font-semibold ${
+                    theme === "dark" ? "text-purple-300" : "text-purple-600"
+                  }`}
+                >
+                  {message.statusId?.user?.username || "Status"}
+                </p>
+
+                {message.statusId?.contentType === "text" && (
+                  <div className="px-3 py-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FaRegFileAlt
+                        size={12}
+                        className={
+                          theme === "dark" ? "text-gray-300" : "text-gray-500"
+                        }
+                      />
+
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Text status
+                      </span>
+                    </div>
+
+                    <p
+                      className={`text-sm line-clamp-2 ${
+                        theme === "dark" ? "text-white" : "text-gray-800"
+                      }`}
+                    >
+                      {message.statusId?.content || "Text status"}
+                    </p>
+                  </div>
+                )}
+
+                {message.statusId?.contentType === "image" && (
+                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <FaRegImage size={11} />
+                    <span>Photo</span>
+                  </div>
+                )}
+
+                {message.statusId?.contentType === "video" && (
+                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                    <FaVideo size={11} />
+                    <span>Video</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Image status */}
+              {message.statusId?.contentType === "image" &&
+                message.statusId?.mediaUrl && (
+                  <img
+                    src={message.statusId.mediaUrl}
+                    alt="Status"
+                    className="w-full h-24 object-cover"
+                  />
+                )}
+
+              {/* Video status */}
+              {message.statusId?.contentType === "video" &&
+                message.statusId?.mediaUrl && (
+                  <div className="relative h-24 w-full">
+                    <video
+                      src={message.statusId.mediaUrl}
+                      muted
+                      className="h-full w-full object-cover"
+                    />
+
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <FaVideo className="text-white" />
+                    </div>
+                  </div>
+                )}
+            </button>
+          )}
           {/* MESSAGE */}
           <div className="flex flex-col gap-1">
             {message.contentType === "text" && (
@@ -170,7 +271,6 @@ const MessageBuble = ({
           )}
         </div>
 
-        {/* 3 DOT */}
         <div className="absolute top-1 right-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition z-20">
           <button
             onClick={() => setShowOptions((prev) => !prev)}
@@ -192,7 +292,7 @@ const MessageBuble = ({
           {showReactions && (
             <div
               ref={reactionsMenuRef}
-              className="absolute bottom-full mb-2 flex items-center bg-[#202c33] rounded-full px-2 py-1.5 gap-1 shadow-lg z-50"
+              className="absolute bottom-full mb-2 flex items-center rounded-full px-2 py-1.5 gap-1 shadow-lg z-50"
             >
               {quickReactions.map((emoji, index) => (
                 <button
@@ -205,12 +305,17 @@ const MessageBuble = ({
               ))}
 
               <div className="w-[1px] h-5 bg-gray-600 mx-1" />
-
               <button
-                className="hover:bg-[#ffffff1a] rounded-full p-1"
+                className={`${theme === "dark" ? "bg-gray-400" : "hover:bg-gray-400"}hover:bg-[#ffffff1a] rounded-full p-1`}
                 onClick={() => setShowEmojiPicker((prev) => !prev)}
               >
-                <FaPlus className="h-4 w-4 text-gray-300 cursor-pointer" />
+                <FaPlus
+                  className={`h-4 w-4 cursor-pointer ${
+                    theme === "dark"
+                      ? "bg-gray-900 text-gray-300"
+                      : "text-gray-900"
+                  }`}
+                />
               </button>
             </div>
           )}
@@ -280,10 +385,11 @@ const MessageBuble = ({
             </div>
           </div>
         )}
+
         {showOptions && (
           <div
             ref={optionRef}
-            className={`absolute top-8 right-1 z-50 w-36 rounded-xl shadow-lg py-2 text-sm ${
+            className={`absolute top-8 z-50 rounded-xl shadow-lg text-sm ${
               theme === "dark"
                 ? "bg-[#1d1f1f] text-white"
                 : "bg-gray-100 text-black"
@@ -292,11 +398,9 @@ const MessageBuble = ({
             <button
               onClick={() => {
                 let textToCopy = "";
-
                 if (message.contentType === "text") {
                   textToCopy = message.content;
                 }
-
                 if (
                   message.contentType === "image" ||
                   message.contentType === "video"
@@ -308,30 +412,136 @@ const MessageBuble = ({
                   navigator.clipboard.writeText(textToCopy);
                   toast.success("Copied");
                 }
-
                 setShowOptions(false);
               }}
-              className="flex items-center px-4 py-2 gap-3 rounded-lg cursor-pointer"
+              className={`flex w-full h-full items-center px-4 py-2 gap-3 rounded-lg cursor-pointer ${theme === "dark" ? "hover:bg-gray-500" : "hover:bg-gray-200"} `}
             >
               <FaRegCopy size={14} />
               <span>Copy</span>
             </button>
-
+            <div className="" />
             {isUserMessage && (
               <button
                 onClick={() => {
-                  deleteMessage(message?._id);
-                  toast.success("Message Deleted");
+                  setDeleteModal(message);
                   setShowOptions(false);
                 }}
-                className="flex items-center px-4 py-2 gap-3 rounded-lg text-red-600 cursor-pointer"
+                className={`border-t flex items-center px-4 py-2 gap-3 rounded-lg text-red-600 cursor-pointer ${theme === "dark" ? "hover:bg-gray-500" : "hover:bg-gray-200"}`}
               >
-                <FaTrashAlt className="text-red-600" size={14} />
+                <RiDeleteBin6Line className="text-red-600" size={14} />
                 <span>Delete</span>
               </button>
             )}
           </div>
         )}
+
+        <AnimatePresence>
+          {deleteModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className={`fixed inset-0 z-[1000] flex items-center justify-center px-4 backdrop-blur-md ${
+                theme === "dark" ? "bg-black/60" : "bg-gray-900/30"
+              }`}
+              onClick={() => setDeleteModal(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 15 }}
+                transition={{
+                  type: "spring",
+                  duration: 0.5,
+                  bounce: 0.3,
+                }}
+                className={`w-full max-w-sm rounded-[24px] border p-6 backdrop-blur-xl ${
+                  theme === "dark"
+                    ? "bg-[#202c33]/60 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]"
+                    : "bg-white/70 border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)]"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex flex-col items-center text-center">
+                  <div
+                    className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full ring-4 backdrop-blur-md ${
+                      theme === "dark"
+                        ? "bg-red-500/20 text-red-400 ring-red-500/10"
+                        : "bg-red-500/10 text-red-500 ring-red-500/20"
+                    }`}
+                  >
+                    <RiDeleteBin6Line size={24} />
+                  </div>
+                  <h2
+                    className={`text-xl font-semibold tracking-tight ${
+                      theme === "dark" ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    Delete message?
+                  </h2>
+                  <p
+                    className={`mt-2 text-sm leading-relaxed ${
+                      theme === "dark" ? "text-gray-300" : "text-gray-600"
+                    }`}
+                  >
+                    Choose how you want to delete this message. This action
+                    cannot be undone.
+                  </p>
+                </div>
+
+                <div className="mt-7 flex flex-col gap-2.5">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await deleteMessage(deleteModal._id, "everyone");
+                        toast.success("Message deleted for everyone");
+                      } catch (error) {
+                        toast.error("Failed to delete message");
+                      } finally {
+                        setDeleteModal(null);
+                      }
+                    }}
+                    className="w-full rounded-xl bg-red-500/90 backdrop-blur-sm py-3.5 font-medium text-white shadow-sm shadow-red-500/20 transition-all duration-200 hover:bg-red-500 active:scale-[0.98] cursor-pointer border border-red-400/20"
+                  >
+                    Delete for everyone
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      try {
+                        await deleteMessage(deleteModal._id, "me");
+                        toast.success("Message deleted for me");
+                      } catch (error) {
+                        toast.error("Failed to delete message");
+                      } finally {
+                        setDeleteModal(null);
+                      }
+                    }}
+                    className={`w-full rounded-xl py-3.5 font-medium transition-all duration-200 active:scale-[0.98] cursor-pointer backdrop-blur-sm border ${
+                      theme === "dark"
+                        ? "bg-white/5 text-white hover:bg-white/10 border-white/5"
+                        : "bg-white/40 text-gray-900 hover:bg-white/60 border-white/50 shadow-sm"
+                    }`}
+                  >
+                    Delete for me
+                  </button>
+
+                  <button
+                    onClick={() => setDeleteModal(null)}
+                    className={`mt-1 w-full rounded-xl py-3 font-medium transition-colors duration-200 cursor-pointer ${
+                      theme === "dark"
+                        ? "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-white/40"
+                    }`}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

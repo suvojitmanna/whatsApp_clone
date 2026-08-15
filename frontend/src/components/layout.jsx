@@ -13,6 +13,7 @@ const Layout = ({
   toggleThemeDialoge,
   isStatusPreviewOpen,
   statusPreviewContent,
+  handleStatusClick,
 }) => {
   const selectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedContact = useLayoutStore(
@@ -22,13 +23,9 @@ const Layout = ({
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const { theme, setTheme } = useThemeStore();
   const showContactInfo = useLayoutStore((state) => state.showContactInfo);
-  const showProfilePicture = useLayoutStore(
-  (state) => state.showProfilePicture
-);
+  const showProfilePicture = useLayoutStore((state) => state.showProfilePicture);
 
-const setShowProfilePicture = useLayoutStore(
-  (state) => state.setShowProfilePicture
-);
+  const setShowProfilePicture = useLayoutStore((state) => state.setShowProfilePicture);
 
   useEffect(() => {
     const handleResize = () => {
@@ -81,6 +78,7 @@ const setShowProfilePicture = useLayoutStore(
               <ChatWindow
                 selectedContact={selectedContact}
                 setSelectedContact={setSelectedContact}
+                onStatusClick={handleStatusClick}
                 isMobile={isMobile}
               />
             </motion.div>
@@ -89,26 +87,25 @@ const setShowProfilePicture = useLayoutStore(
         </AnimatePresence>
         {showContactInfo && <ContactInfo />}
         {showProfilePicture && (
-  <ProfilePicture
-    isOpen={showProfilePicture}
-    onClose={() => setShowProfilePicture(false)}
-    image={selectedContact?.profilePicture}
-    username={selectedContact?.username}
-  />
-)}
+          <ProfilePicture
+            isOpen={showProfilePicture}
+            onClose={() => setShowProfilePicture(false)}
+            image={selectedContact?.profilePicture}
+            username={selectedContact?.username}
+          />
+        )}
       </div>
 
       {/* Mobile Sidebar */}
       {isMobile && <SideBar />}
-
       {/* Theme Dialog */}
       {isThemeDialogOpen && (
         <div
           className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[100]"
-          onClick={toggleThemeDialoge} // Closes when clicking background
+          onClick={toggleThemeDialoge}
         >
           <div
-            onClick={(e) => e.stopPropagation()} // Prevents closing when clicking inside
+            onClick={(e) => e.stopPropagation()}
             className={`relative p-6 rounded-2xl shadow-2xl max-w-[360px] w-full transform transition-all animate-in fade-in zoom-in duration-200 ${
               theme === "dark"
                 ? "bg-[#2a3942] text-[#e9edef]"

@@ -16,22 +16,15 @@ function initializeSocket(server) {
     },
     pingTimeout: 60000,
   });
-
-  //MiddleWare
   io.use(socketMiddleware);
-
   io.on("connection", (socket) => {
     let userId;
-
-    // 🔹 USER CONNECT
     socket.on("user_connected", async (connectingUserId) => {
       try {
         userId = connectingUserId;
         socket.userId = userId;
-
         onlineUsers.set(userId, socket.id);
         socket.join(userId);
-
         await User.findByIdAndUpdate(userId, {
           isOnline: true,
           lastSeen: new Date(),
@@ -43,7 +36,6 @@ function initializeSocket(server) {
       }
     });
 
-    // 🔹 GET USER STATUS
     socket.on("get_user_status", (requestingUserId, callback) => {
       const isOnline = onlineUsers.has(requestingUserId);
 
@@ -53,12 +45,9 @@ function initializeSocket(server) {
         lastSeen: isOnline ? new Date() : null,
       });
     });
-
-    // 🔹 SEND MESSAGE
     socket.on("send_message", async (message) => {
       try {
         const receiverId = message.receiver?._id?.toString();
-
         if (receiverId) {
           io.to(receiverId).emit("receive_message", message);
         }
@@ -68,14 +57,11 @@ function initializeSocket(server) {
       }
     });
 
-    // 🔹 READ RECEIPT
     socket.on("message_read", async ({ messageIds }) => {
       try {
         const messages = await Message.find({ _id: { $in: messageIds } });
 
         if (!messages.length) return;
-
-        // get unique senderIds
         const senderIds = [
           ...new Set(messages.map((msg) => msg.sender.toString())),
         ];
@@ -84,8 +70,6 @@ function initializeSocket(server) {
           { _id: { $in: messageIds } },
           { $set: { messageStatus: "read" } },
         );
-
-        // emit to all senders
         senderIds.forEach((senderId) => {
           io.to(senderId).emit("message_status_update_bulk", {
             messageIds,
@@ -96,20 +80,14 @@ function initializeSocket(server) {
         console.error("Error marking message as read:", error);
       }
     });
-
-    // 🔹 TYPING START
     socket.on("typing_start", ({ conversationId, receiverId }) => {
       if (!userId || !conversationId || !receiverId) return;
-
       if (!typingUsers.has(userId)) typingUsers.set(userId, {});
       const userTyping = typingUsers.get(userId);
-
       userTyping[conversationId] = true;
-
       if (userTyping[`${conversationId}_timeout`]) {
         clearTimeout(userTyping[`${conversationId}_timeout`]);
       }
-
       userTyping[`${conversationId}_timeout`] = setTimeout(() => {
         userTyping[conversationId] = false;
 
@@ -127,14 +105,10 @@ function initializeSocket(server) {
       });
     });
 
-    // 🔹 TYPING STOP
     socket.on("typing_stop", ({ conversationId, receiverId }) => {
       if (!typingUsers.has(userId)) return;
-
       const userTyping = typingUsers.get(userId);
-
       userTyping[conversationId] = false;
-
       if (userTyping[`${conversationId}_timeout`]) {
         clearTimeout(userTyping[`${conversationId}_timeout`]);
         delete userTyping[`${conversationId}_timeout`];
@@ -152,16 +126,12 @@ function initializeSocket(server) {
     socket.on("add_reaction", async ({ messageId, emoji, reactionUserId }) => {
       try {
         const userObjectId = new mongoose.Types.ObjectId(reactionUserId);
-
-        // REMOVE old reaction from this user
         await Message.updateOne(
           { _id: messageId },
           {
             $pull: { reactions: { userId: userObjectId } },
           },
         );
-
-        // ADD new reaction
         await Message.updateOne(
           { _id: messageId },
           {
@@ -193,18 +163,14 @@ function initializeSocket(server) {
       }
     });
 
-    //handleVideo call events
     handleVideoCallEvent(socket, io, onlineUsers);
 
-    // 🔹 DISCONNECT
     const handleDisconnected = async () => {
       if (!userId) return;
 
       try {
         onlineUsers.delete(userId);
-
         const lastSeen = new Date().toISOString();
-
         await User.findByIdAndUpdate(userId, {
           isOnline: false,
           lastSeen,
@@ -213,7 +179,7 @@ function initializeSocket(server) {
         io.emit("user_status", {
           userId,
           isOnline: false,
-          lastSeen, //  correct
+          lastSeen,
         });
 
         socket.leave(userId);
@@ -224,10 +190,7 @@ function initializeSocket(server) {
 
     socket.on("disconnect", handleDisconnected);
   });
-
-  // FIXED (outside connection)
   io.socketUserMap = onlineUsers;
-
   return io;
 }
 

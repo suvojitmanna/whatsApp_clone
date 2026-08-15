@@ -4,9 +4,14 @@ const Message = require("../models/message.js");
 const Conversation = require("../models/ConverSation.js");
 
 exports.sendMessage = async (req, res) => {
-  // Implementation for sending a message
   try {
-    const { senderId, receiverId, content, messageStatus } = req.body;
+    const {
+      senderId,
+      receiverId,
+      content,
+      messageStatus,
+      statusId,
+    } = req.body;
     const participants = [senderId, receiverId].sort();
     const file = req.file;
     const timestamp = new Date();
@@ -14,12 +19,10 @@ exports.sendMessage = async (req, res) => {
     let conversation = await Conversation.findOne({
       participants: participants,
     });
-
     if (!conversation) {
       conversation = new Conversation({ participants: participants });
       await conversation.save();
     }
-
     let imageOrVideoUrl = null;
     let contentType = null;
 
@@ -52,6 +55,7 @@ exports.sendMessage = async (req, res) => {
       messageStatus,
       timestamp,
       reactions: [],
+      statusId: statusId || null,
     });
     await message.save();
     if (message?.content) {
@@ -62,14 +66,23 @@ exports.sendMessage = async (req, res) => {
 
     const populatedMessage = await Message.findOne(message._id)
       .populate("sender", "username profilePicture")
-      .populate("receiver", "username profilePicture");
+      .populate("receiver", "username profilePicture")
+      .populate({
+        path: "statusId",
+        populate: {
+          path: "user",
+          select: "username profilePicture",
+        },
+      });
 
     if (req.io && req.socketUserMap) {
       const receiverSocketId = req.socketUserMap.get(receiverId);
+
       if (receiverSocketId) {
-        req.io.to(receiverSocketId).emit("receive_message", populatedMessage);
-        message.messageStatus = "delivered";
-        await message.save();
+        req.io.to(receiverSocketId).emit("receive_message", {
+          ...populatedMessage.toObject(),
+          unreadCount: conversation.unreadCount,
+        });
       }
     }
 
@@ -95,13 +108,7 @@ exports.getConversation = async (req, res) => {
         },
       })
       .sort({ updatedAt: -1 });
-
-    return response(
-      res,
-      201,
-      "Conversation retrieved successfully",
-      conversation,
-    );
+    return response(res, 201, "Conversation retrieved successfully", conversation);
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");
@@ -111,22 +118,28 @@ exports.getConversation = async (req, res) => {
 exports.getMessages = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId } = req.params;
-
   try {
     const conversation = await Conversation.findById(conversationId);
-
     if (!conversation) {
       return response(res, 404, "Conversation not found");
     }
     if (!conversation.participants.includes(userId)) {
       return response(res, 403, "Not Authorized  Access denied");
     }
-    const messages = await Message.find({ conversation: conversationId })
+    const messages = await Message.find({
+      conversation: conversationId,
+    })
       .populate("sender", "username profilePicture")
       .populate("receiver", "username profilePicture")
-      .populate("reactions.userId", "username profilePicture") // ADD THIS
+      .populate("reactions.userId", "username profilePicture")
+      .populate({
+        path: "statusId",
+        populate: {
+          path: "user",
+          select: "username profilePicture",
+        },
+      })
       .sort({ createdAt: 1 });
-
     await Message.updateMany(
       {
         conversation: conversationId,
@@ -168,7 +181,6 @@ exports.markAsRead = async (req, res) => {
         $set: { messageStatus: "read" },
       }
     );
-
     messages = messages.map((msg) => ({
       ...msg._doc,
       messageStatus: "read",
@@ -179,7 +191,6 @@ exports.markAsRead = async (req, res) => {
         const senderSocketId = req.socketUserMap.get(
           message.sender.toString()
         );
-
         if (senderSocketId) {
           req.io.to(senderSocketId).emit("message_read", {
             _id: message._id,
@@ -188,7 +199,6 @@ exports.markAsRead = async (req, res) => {
         }
       }
     }
-
     return response(res, 200, "Messages marked as read", messages);
 
   } catch (error) {
@@ -200,36 +210,73 @@ exports.markAsRead = async (req, res) => {
 exports.deleteMessage = async (req, res) => {
   const userId = req.user.userId;
   const { messageId } = req.params;
+  const { deleteFor } = req.body;
 
   try {
-    const message = await Message.findOneAndDelete({
-      _id: messageId,
-      sender: userId,
-    });
+    const message = await Message.findById(messageId);
 
     if (!message) {
-      return response(res, 404, "Message not found or unauthorized");
+      return response(res, 404, "Message not found");
     }
-
-    if (req.io && req.socketUserMap instanceof Map) {
-      const receiverSocketId = req.socketUserMap.get(
-        message.receiver.toString(),
+    if (deleteFor === "me") {
+      await Message.updateOne(
+        { _id: messageId },
+        {
+          $addToSet: {
+            deletedFor: userId,
+          },
+        }
       );
 
-      if (receiverSocketId) {
-        req.io.to(receiverSocketId).emit("message_deleted", messageId);
-      }
-
-      // optional: update sender UI
-      const senderSocketId = req.socketUserMap.get(userId);
-      if (senderSocketId) {
-        req.io.to(senderSocketId).emit("message_deleted", messageId);
-      }
+      return response(res, 200, "Message deleted for you");
     }
+    if (deleteFor === "everyone") {
+      if (message.sender.toString() !== userId) {
+        return response(res, 403, "Only sender can delete for everyone");
+      }
+      await Message.deleteOne({ _id: messageId, });
 
-    return response(res, 200, "Message deleted successfully");
+      const previousMessage = await Message.findOne({
+        conversation: message.conversation,
+      })
+        .sort({ createdAt: -1 })
+        .populate("sender", "username profilePicture")
+        .populate("receiver", "username profilePicture");
+
+      await Conversation.findByIdAndUpdate(
+        message.conversation,
+        {
+          lastMessage: previousMessage?._id || null,
+        },
+        { new: true }
+      );
+      const payload = {
+        deletedMessageId: messageId,
+        conversationId: message.conversation.toString(),
+        lastMessage: previousMessage,
+      };
+      if (req.io && req.socketUserMap instanceof Map) {
+        const receiverSocketId = req.socketUserMap.get(
+          message.receiver.toString()
+        );
+        if (receiverSocketId) {
+          req.io
+            .to(receiverSocketId)
+            .emit("message_deleted", payload);
+        }
+        const senderSocketId = req.socketUserMap.get(userId);
+        if (senderSocketId) {
+          req.io
+            .to(senderSocketId)
+            .emit("message_deleted", payload);
+        }
+      }
+
+      return response(res, 200, "Message deleted for everyone");
+    }
+    return response(res, 400, "Invalid delete option");
   } catch (error) {
-    console.error(error);
-    return response(res, 500, "Internal server error");
+    console.error("DELETE MESSAGE ERROR:", error);
+    return response(res, 500, error.message || "Internal server error");
   }
 };

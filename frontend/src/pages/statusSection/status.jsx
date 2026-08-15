@@ -28,19 +28,15 @@ const status = () => {
   const modalRef = useRef(null);
 
   const {
-    statuses,
     loading,
     error,
     fetchStatuses,
     createStatus,
     viewStatus,
     deleteStatus,
-    getStatusViewer,
-    getGroupStatus,
     getOtherStatuses,
     getUserStatuses,
     clearError,
-    reset,
     initializeSocket,
     cleanupSocket,
   } = useStatusStore();
@@ -123,18 +119,32 @@ const status = () => {
   const handlePreviewPrev = () => {
     setCurrentStatusIndex((prev) => Math.max(prev - 1, 0));
   };
-
   const handleStatusPreview = (contact, statusIndex = 0) => {
     setPreviewContact(contact);
     setCurrentStatusIndex(statusIndex);
-
-    const status = contact.statuses[statusIndex];
-
+    const status = contact?.statuses?.[statusIndex];
     if (status) {
       handleViewStatus(contact.id, status.id);
     }
   };
+  const handleStatusClick = (statusId) => {
+    if (!statusId) return;
+    const grouped = useStatusStore.getState().getGroupStatus();
+    const clickedStatusId = String(statusId);
+    for (const contact of Object.values(grouped || {})) {
+      const statuses = contact?.statuses || [];
+      const index = statuses.findIndex(
+        (item) => String(item.id) === clickedStatusId,
+      );
 
+      if (index !== -1) {
+        console.log("FOUND STATUS:", contact, index);
+
+        handleStatusPreview(contact, index);
+        return;
+      }
+    }
+  };
   const handlePreviewClose = () => {
     setPreviewContact(null);
     setCurrentStatusIndex(0);
@@ -142,6 +152,7 @@ const status = () => {
 
   return (
     <Layout
+      handleStatusClick={handleStatusClick}
       isStatusPreviewOpen={!!previewContact}
       statusPreviewContent={
         previewContact && (
@@ -151,10 +162,9 @@ const status = () => {
             onClose={handlePreviewClose}
             onNext={handlePreviewNext}
             onPrev={handlePreviewPrev}
-            onDelete={handleDeleteStatus}
-            theme={theme}
+            theme={useUserStore.getState().theme}
             currentUser={user}
-            loading={loading}
+            loading={false}
           />
         )
       }
@@ -307,7 +317,7 @@ const status = () => {
                 className={`mt-5 border-t pt-4 grid grid-cols-2 gap-3 ${theme === "dark" ? "border-white/5" : "border-gray-100"}`}
               >
                 <button
-                  className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-green-500/10 text-green-500 font-bold text-sm transition-all hover:bg-green-500/20"
+                  className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-green-500/10 text-green-500 font-bold text-sm transition-all hover:bg-green-500/20 cursor-pointer"
                   onClick={() => {
                     setShowCreateModal(true);
                     setShowOption(false);
@@ -316,7 +326,7 @@ const status = () => {
                   <FaCamera size={14} /> Add New
                 </button>
                 <button
-                  className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-500/10 text-blue-500 font-bold text-sm transition-all hover:bg-blue-500/20"
+                  className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-500/10 text-blue-500 font-bold text-sm transition-all hover:bg-blue-500/20 cursor-pointer"
                   onClick={() => {
                     handleStatusPreview(userStatuses);
                     setShowOption(false);
@@ -344,7 +354,7 @@ const status = () => {
               <div className="flex-1 h-[1px] ml-3 bg-gradient-to-r from-transparent via-gray-500/20 to-transparent" />
             </div>
 
-            {/* 🔄 Loading */}
+            {/* Loading */}
             {loading ? (
               <div className="flex flex-col items-center py-24">
                 <div className="relative">
@@ -357,7 +367,6 @@ const status = () => {
                 </p>
               </div>
             ) : otherStatuses.length > 0 ? (
-              /* 📦 Status List Container */
               <div
                 className={`rounded-[2.5rem] overflow-hidden border shadow-2xl backdrop-blur-xl transition-all ${
                   theme === "dark"
@@ -387,7 +396,7 @@ const status = () => {
                 ))}
               </div>
             ) : (
-              /* 😶 Empty State */
+              /* Empty State */
               <div className="text-center py-24 px-6 rounded-[2.5rem] border border-dashed backdrop-blur-md bg-black/5 dark:bg-white/5 dark:border-white/10 border-gray-300 transition-all">
                 <div className="text-6xl mb-5 opacity-20 animate-pulse">✨</div>
 

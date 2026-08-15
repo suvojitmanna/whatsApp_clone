@@ -14,9 +14,7 @@ const ChatList = ({ contacts }) => {
 
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-
   const [searchTerms, setSearchTerms] = useState("");
-
   const filteredContact =
     contacts
       ?.filter((contact) =>
@@ -148,18 +146,11 @@ const ChatList = ({ contacts }) => {
                         : contact.conversation.lastMessage.content
                       : "No messages yet"}
                   </p>
-                  {contact?.conversation &&
-                    contact?.conversation?.unreadCount > 0 &&
-                    contact?.conversation?.lastMessage?.receiver?._id?.toString() ===
-                      user?._id?.toString() && (
-                      <p
-                        className={`text-sm font-semibold w-6 h-6 flex items-center justify-center bg-yellow-500 ${
-                          theme === "dark" ? "text-gray-800" : "text-gray-500"
-                        } truncate rounded-full`}
-                      >
-                        {contact?.conversation?.unreadCount}
-                      </p>
-                    )}
+                  {contact?.conversation?.unreadCount > 0 && (
+                    <p className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-sm font-semibold">
+                      {contact.conversation.unreadCount}
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>

@@ -17,6 +17,7 @@ import {
   FaTimes,
   FaVideo,
 } from "react-icons/fa";
+import { BsEmojiFrown } from "react-icons/bs";
 import { FaEllipsis } from "react-icons/fa6";
 import { object } from "yup";
 import MessageBuble from "./MessageBuble";
@@ -35,7 +36,7 @@ import { RxCross2 } from "react-icons/rx";
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
 };
-const ChatWindow = ({ selectedContact, setSelectedContact }) => {
+const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -59,9 +60,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const { socket } = getSocket();
   const {
     messages,
-    loading,
     sendMessage,
-    receiveMessage,
     fetchMessages,
     fetchConversations,
     conversations,
@@ -70,7 +69,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
     stopTying,
     getUserLastSeen,
     isUserOnline,
-    cleanup,
     deleteMessage,
     addReaction,
   } = useChatStore();
@@ -84,6 +82,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
   const setShowContactInfo = useLayoutStore(
     (state) => state.setShowContactInfo,
+  );
+
+  const setCurrentConversation = useChatStore(
+    (state) => state.setCurrentConversation,
   );
 
   useEffect(() => {
@@ -208,7 +210,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
       </div>
     );
   };
-
+  
   const groupedMessages = Array.isArray(messages)
     ? messages.reduce((acc, message) => {
         if (!message.createdAt) return acc;
@@ -243,12 +245,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
     : groupedMessages;
 
   const resultCount = Object.values(filteredGroupedMessages).flat().length;
-
   const highlightText = (text, term) => {
     if (!term) return text;
 
     const parts = text.split(new RegExp(`(${term})`, "gi"));
-
     return parts.map((part, i) =>
       part.toLowerCase() === term.toLowerCase() ? (
         <span key={i} className="bg-yellow-300 text-black px-1 rounded">
@@ -267,9 +267,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const handleVideoCall = () => {
     if (selectedContact && online) {
       const { initiateCall } = useVideoCallStore.getState();
-
       const avatar = selectedContact?.profilePicture;
-
       initiateCall(
         selectedContact?._id,
         selectedContact?.username,
@@ -284,9 +282,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   const handleAudioCall = () => {
     if (selectedContact && online) {
       const { initiateCall } = useVideoCallStore.getState();
-
       const avatar = selectedContact?.profilePicture;
-
       initiateCall(
         selectedContact?._id,
         selectedContact?.username,
@@ -314,7 +310,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
   useEffect(() => {
     if (isSearchOpen) {
-      // so the browser accepts the focus command
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -324,11 +319,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
   useEffect(() => {
     if (!searchTerm) return;
-
     const elements = document.querySelectorAll("[data-match='true']");
-
     if (elements.length === 0) return;
-
     const el = elements[currentIndex];
 
     if (el) {
@@ -352,6 +344,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
   useEffect(() => {
     setCurrentIndex(0);
   }, [searchTerm]);
+  
   useEffect(() => {
     const handleKey = (e) => {
       if (!searchTerm) return;
@@ -368,12 +361,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
 
       if (e.key === "Enter") {
         e.preventDefault();
-        goNext(); // WhatsApp behavior
+        goNext();
       }
     };
-
     window.addEventListener("keydown", handleKey);
-
     return () => window.removeEventListener("keydown", handleKey);
   }, [searchTerm, resultCount]);
 
@@ -415,8 +406,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
               : "bg-[rgb(229,230,232)] text-gray-600"
           } flex items-center`}
         >
-          <button onClick={() => setSelectedContact(null)}>
-            <FaArrowLeft className="mr-2 focus:outline-none cursor-pointer h-full w-full " />
+          <button
+            onClick={() => {
+              setSelectedContact(null);
+              setCurrentConversation(null);
+            }}
+          >
+            <FaArrowLeft className="mr-2 focus:outline-none cursor-pointer h-full w-full" />
           </button>
 
           <div className="relative ml-4">
@@ -432,7 +428,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
               className="w-10 h-10 rounded-full cursor-pointer object-cover "
             />
 
-            {/* Real-life WhatsApp Online Dot */}
             {online && (
               <span
                 className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#111b21]" : "border-white"} bg-emerald-500 shadow-sm`}
@@ -477,33 +472,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                   isSearchOpen
                     ? "opacity-0 pointer-events-none scale-90"
                     : "opacity-100 scale-100"
-                }
-
-                group relative p-2 rounded-xl
-                transition-all duration-300
-              bg-white/30 dark:bg-zinc-800/30
-                backdrop-blur-xl
-
-                before:absolute before:inset-0 before:rounded-xl
-                before:bg-gradient-to-br before:from-white/40 before:to-transparent
-                before:opacity-60 before:pointer-events-none
-
-                border border-white/30 dark:border-white/10
-              hover:border-green-400/40
-
-                shadow-[0_2px_15px_rgba(0,0,0,0.06)]
-                hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)]
-
-                active:scale-95 cursor-pointer
-                focus:outline-none focus:ring-2 focus:ring-green-600/50`}
+                }group relative p-2 rounded-xl transition-all duration-300 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-xl before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-white/40 before:to-transparent before:opacity-60 before:pointer-events-none border border-white/30 dark:border-white/10 hover:border-green-400/40 shadow-[0_2px_15px_rgba(0,0,0,0.06)]
+                hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)] active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-600/50`}
               >
-                <FiSearch
-                  className="h-4 w-4
-                text-zinc-700 dark:text-zinc-300
-                group-hover:text-green-500
-                  group-hover:scale-110
-                  transition-all duration-300"
-                />
+                <FiSearch className="h-4 w-4text-zinc-700 dark:text-zinc-300 group-hover:text-green-500group-hover:scale-110 transition-all duration-300" />
               </button>
 
               {/* Expandable Input */}
@@ -518,7 +490,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                   {/* Input Wrapper */}
                   <div className="relative w-full rounded-xl overflow-hidden group transition-all duration-300">
                     {/* Glass Overlay */}
-                    <div className=" absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br from-white/40 to-transparent opacity-60 group-focus-within:opacity-80 transition-all duration-300" />
+                    <div
+                      className={`absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br opacity-60 group-focus-within:opacity-80 transition-all duration-300 
+                        ${
+                          theme === "dark"
+                            ? "from-white/10 via-white/5 to-transparent"
+                            : "from-white/60 via-white/30 to-transparent"
+                        }`}
+                    />
 
                     <input
                       autoFocus
@@ -527,11 +506,22 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                       placeholder="Search..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className={`w-full pl-8 pr-8 py-1.5 rounded-xl outline-none text-xs relative z-10 backdrop-blur-xl bg-white/30 dark:bg-zinc-800/30 border border-white/30 dark:border-white/10 group-focus-within:border-emerald-400/60 ${theme === "dark" ? "text-white" : "text-gray-900"} shadow-[0_4px_15px_rgba(0,0,0,0.05)] group-focus-within:shadow-[0_6px_20px_rgba(0,255,150,0.2)]  transition-all duration-300 `}
+                      className={`w-full pl-8 pr-8 py-1.5 rounded-xl outline-none text-xs relative z-10 backdrop-blur-xl border transition-all duration-300
+                      ${
+                        theme === "dark"
+                          ? "bg-zinc-800/70 text-white placeholder:text-gray-500 border-white/10 focus:border-emerald-400/60 focus:bg-zinc-800/90"
+                          : "bg-white/70 text-gray-900 placeholder:text-gray-400 border-gray-200/80 focus:border-emerald-400/60 focus:bg-white/90"
+                      }shadow-[0_4px_15px_rgba(0,0,0,0.05)] focus:shadow-[0_6px_20px_rgba(0,255,150,0.2)]`}
                     />
 
                     {/* Left Icon */}
-                    <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 text-gray-400 group-focus-within:text-emerald-400 transition-all duration-300" />
+                    <FiSearch
+                      className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 transition-all duration-300 ${
+                        theme === "dark"
+                          ? "text-gray-500 group-focus-within:text-emerald-400"
+                          : "text-gray-400 group-focus-within:text-emerald-500"
+                      }`}
+                    />
 
                     {/* Close Button */}
                     <button
@@ -539,9 +529,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                         setIsSearchOpen(false);
                         setSearchTerm("");
                       }}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20"
+                      className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-20 transition-all duration-300${
+                        theme === "dark"
+                          ? "text-gray-500 hover:text-emerald-400"
+                          : "text-gray-400 hover:text-emerald-500"
+                      }`}
                     >
-                      <RxCross2 className=" h-3.5 w-3.5 text-gray-500 group-focus-within:text-emerald-400 hover:text-emerald-500 transition-all duration-300 " />
+                      <RxCross2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
@@ -694,6 +688,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                         currentUser={user}
                         onReact={handleReaction}
                         deleteMessage={deleteMessage}
+                        onStatusClick={onStatusClick}
                         searchTerm={searchTerm}
                         highlightText={highlightText}
                         dataMatch={isMatch}
@@ -752,7 +747,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
             className="focus:outline-none"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           >
-            <FaSmile
+            <BsEmojiFrown
               className={`h-6 w-6 cursor-pointer ${theme === "dark" ? "text-gray-400" : "text-gray-500"} ml-2 `}
             />
           </button>
@@ -824,8 +819,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact }) => {
                 handleSendMessage();
               }
             }}
-            placeholder="Type a message 
-        "
+            placeholder="Type a message "
             className={`flex-grow px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 ${theme === "dark" ? "bg-gray-700 text-white border-gray-600" : "bg-white text-black border-gray-300"}`}
           />
           <button onClick={handleSendMessage} className="focus:outline-none">

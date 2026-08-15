@@ -18,7 +18,7 @@ const statusSchema = new mongoose.Schema(
       enum: ["text", "image", "video"],
       default: "text",
     },
-    
+
     viewers: [
       {
         user: {
@@ -41,6 +41,11 @@ const statusSchema = new mongoose.Schema(
       type: Date,
       required: true,
       index: { expires: 0 },
+    },
+    statusId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Status",
+      default: null,
     },
   },
   { timestamps: true }
