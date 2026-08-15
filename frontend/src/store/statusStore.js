@@ -3,7 +3,6 @@ import { getSocket } from "../services/chatService";
 import axiosInstance from "../services/url.services";
 
 const useStatusStore = create((set, get) => ({
-  //state
   statuses: [],
   loading: false,
   error: null,
@@ -18,33 +17,43 @@ const useStatusStore = create((set, get) => ({
     const socket = getSocket();
     if (!socket) return;
 
-    //Real-time status events
-    (socket.on("new_status", (newStatus) => {
+    socket.on("new_status", (newStatus) => {
       set((state) => ({
-        statuses: state.statuses.some((s) => s._id === newStatus._id)
+        statuses: state.statuses.some(
+          (status) => status._id === newStatus._id
+        )
           ? state.statuses
           : [newStatus, ...state.statuses],
       }));
-    }),
-      socket.on("new_deleted", (statusId) => {
-        set((state) => ({
-          statuses: state.statuses.filter((s) => s._id !== statusId),
-        }));
-      }),
-      socket.on("status_viewed", (statusId, viewers) => {
-        set((state) => ({
-          statuses: state.statuses.map((status) =>
-            status._id === statusId ? { ...status, viewers } : status,
-          ),
-        }));
+    });
+
+    socket.on("status_deleted", (statusId) => {
+      set((state) => ({
+        statuses: state.statuses.filter(
+          (status) => status._id !== statusId
+        ),
       }));
+    });
+
+    socket.on("status_viewed", ({ statusId, viewers }) => {
+      set((state) => ({
+        statuses: state.statuses.map((status) =>
+          status._id === statusId
+            ? {
+              ...status,
+              viewers,
+            }
+            : status
+        ),
+      }));
+    });
   },
 
   cleanupSocket: () => {
     const socket = getSocket();
     if (socket) {
       socket.off("new_status");
-      socket.off("new_deleted");
+      socket.off("status_deleted");
       socket.off("status_viewed");
     }
   },
@@ -63,43 +72,38 @@ const useStatusStore = create((set, get) => ({
 
   //Create Status
   createStatus: async (statusData) => {
-  set({ loading: true, error: null });
+    set({ loading: true, error: null });
 
-  try {
-    const formData = new FormData();
+    try {
+      const formData = new FormData();
+      if (statusData.media) {
+        formData.append("media", statusData.media);
+      }
+      if (statusData.content?.trim()) {
+        formData.append("content", statusData.content.trim());
+      }
+      const { data } = await axiosInstance.post("/status", formData);
+      if (data.data) {
+        set((state) => ({
+          statuses: state.statuses.some(
+            (s) => s._id === data.data._id
+          )
+            ? state.statuses
+            : [data.data, ...state.statuses],
+        }));
+      }
 
-    if (statusData.media) {
-      formData.append("media", statusData.media);
+      set({ loading: false });
+      return data.data;
+    } catch (error) {
+      console.log("STATUS CREATE ERROR:", error.response?.data);
+      set({
+        error: error.response?.data?.message || error.message,
+        loading: false,
+      });
+      throw error;
     }
-
-    if (statusData.content?.trim()) {
-      formData.append("content", statusData.content.trim());
-    }
-
-    const { data } = await axiosInstance.post("/status", formData);
-
-    if (data.data) {
-      set((state) => ({
-        statuses: state.statuses.some(
-          (s) => s._id === data.data._id
-        )
-          ? state.statuses
-          : [data.data, ...state.statuses],
-      }));
-    }
-
-    set({ loading: false });
-
-    return data.data;
-  } catch (error) {
-    console.log("STATUS CREATE ERROR:", error.response?.data);
-    set({
-      error: error.response?.data?.message || error.message,
-      loading: false,
-    });
-    throw error;
-  }
-},
+  },
 
   //view status
   viewStatus: async (statusId) => {

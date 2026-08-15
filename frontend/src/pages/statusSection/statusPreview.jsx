@@ -154,22 +154,22 @@ const StatusPreview = ({
               {currentStatus.contentType === "text" ? (
                 <div className="text-white text-center p-8">
                   <p className="text-2xl font-medium">
-                    {currentStatus.content}{" "}
+                    {currentStatus.content}
                   </p>
                 </div>
               ) : currentStatus.contentType === "image" ? (
                 <img
                   src={currentStatus.media}
-                  alt="image"
-                  className="max-w-full max-h-full object-contain "
+                  alt="status"
+                  className="max-w-full max-h-full object-contain"
                 />
               ) : currentStatus.contentType === "video" ? (
                 <video
                   src={currentStatus.media}
-                  lassName="max-w-full max-h-full object-contain "
+                  className="max-w-full max-h-full object-contain"
                   controls
-                  muted
                   autoPlay
+                  muted
                 />
               ) : null}
             </div>

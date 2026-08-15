@@ -8,13 +8,12 @@ exports.createStatus = async (req, res) => {
     const { content, contentType, expireAt: inputExpireAt } = req.body;
     const file = req.file;
     const userId = req.user.userId;
-
     let mediaUrl = null;
     let finalContentType = contentType || "text";
+
     if (file) {
       const uploadFile = await uploadFileToCloudinary(file);
       mediaUrl = uploadFile?.secure_url;
-
       if (file.mimetype.startsWith("image")) {
         finalContentType = "image";
       } else if (file.mimetype.startsWith("video")) {
@@ -30,8 +29,7 @@ exports.createStatus = async (req, res) => {
     const expireAt = inputExpireAt
       ? new Date(inputExpireAt)
       : new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    const status = new Status({
+    const status = await Status.create({
       user: userId,
       content: mediaUrl ? null : content,
       mediaUrl,
@@ -39,10 +37,11 @@ exports.createStatus = async (req, res) => {
       expireAt,
     });
 
-    await status.save();
     const populatedStatus = await Status.findById(status._id)
       .populate("user", "username profilePicture")
-      .populate("viewers", "username profilePicture");
+      .populate("viewers.user", "username profilePicture");
+
+    // Socket
     if (req.io && req.socketUserMap) {
       for (const [connectedUserId, socketId] of req.socketUserMap) {
         if (connectedUserId !== userId) {
@@ -50,9 +49,10 @@ exports.createStatus = async (req, res) => {
         }
       }
     }
+
     return response(res, 201, "Status created successfully", populatedStatus);
   } catch (error) {
-    console.error(error);
+    console.error("createStatus error:", error);
     return response(res, 500, "Internal server error");
   }
 };
@@ -76,38 +76,50 @@ exports.getStatuses = async (req, res) => {
 exports.viewStatus = async (req, res) => {
   const { statusId } = req.params;
   const userId = req.user.userId;
+
   try {
     const status = await Status.findById(statusId);
-
     if (!status) {
       return response(res, 404, "Status not found");
     }
-    const alreadyViewed = status.viewers.some(
-      (v) => v.user.toString() === userId,
-    );
-    if (!alreadyViewed) {
-      status.viewers.push({ user: userId });
-      await status.save();
-    }
-    const updatedStatus = await Status.findById(statusId)
-      .populate("user", "username profilePicture")
-      .populate("viewers.user", "username profilePicture");
-    if (req.io && req.socketUserMap) {
-      const statusOwnerSocketId = req.socketUserMap.get(status.user.toString());
-
-      if (statusOwnerSocketId) {
-        req.io.to(statusOwnerSocketId).emit("status_view", {
-          statusId,
-          viewerId: userId,
-          totalViews: updatedStatus.viewers.length,
-          viewers: updatedStatus.viewers,
+    if (status.user.toString() !== userId) {
+      const alreadyViewed = status.viewers.some(
+        (v) => v.user.toString() === userId
+      );
+      if (!alreadyViewed) {
+        status.viewers.push({
+          user: userId,
+          viewedAt: new Date(),
         });
+
+        await status.save();
+        const updatedStatus = await Status.findById(statusId)
+          .populate("user", "username profilePicture")
+          .populate("viewers.user", "username profilePicture");
+        if (req.io && req.socketUserMap) {
+          const statusOwnerSocketId = req.socketUserMap.get(
+            status.user.toString()
+          );
+          if (statusOwnerSocketId) {
+            req.io.to(statusOwnerSocketId).emit("status_viewed", {
+              statusId,
+              viewerId: userId,
+              totalViews: updatedStatus.viewers.length,
+              viewers: updatedStatus.viewers,
+            });
+          }
+        }
+
+        return response(res, 200, "Status viewed successfully", updatedStatus);
       }
     }
+    const finalStatus = await Status.findById(statusId)
+      .populate("user", "username profilePicture")
+      .populate("viewers.user", "username profilePicture");
 
-    return response(res, 200, "Status viewed successfully", updatedStatus);
+    return response(res, 200, "Status viewed successfully", finalStatus);
   } catch (error) {
-    console.error(error);
+    console.error("viewStatus error:", error);
     return response(res, 500, "Internal server error");
   }
 };
