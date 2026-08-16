@@ -127,26 +127,26 @@ exports.viewStatus = async (req, res) => {
 exports.deleteStatus = async (req, res) => {
   const { statusId } = req.params;
   const userId = req.user.userId;
-
   try {
     const status = await Status.findById(statusId);
     if (!status) {
       return response(res, 404, "Status not found");
     }
-    if (status.user.toString() !== userId) {
+    if (String(status.user) !== String(userId)) {
       return response(res, 403, "Unauthorized to delete this status");
     }
     await Status.deleteOne({ _id: statusId });
-    if (req.io && req.socketUserMap) {
+    if (req.io && req.socketUserMap instanceof Map) {
       for (const [connectedUserId, socketId] of req.socketUserMap) {
-        if (connectedUserId !== userId) {
+        if (String(connectedUserId) !== String(userId)) {
           req.io.to(socketId).emit("status_deleted", statusId);
         }
       }
     }
+
     return response(res, 200, "Status deleted successfully");
   } catch (error) {
-    console.error(error);
+    console.error("DELETE STATUS ERROR:", error);
     return response(res, 500, "Internal server error");
   }
 };

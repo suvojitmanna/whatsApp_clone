@@ -52,7 +52,6 @@ const status = () => {
     };
   }, [user?._id]);
 
-  //clear the error When page is mounts
   useEffect(() => {
     return () => {
       clearError();
@@ -75,7 +74,6 @@ const status = () => {
 
   const handleCreateStatus = async () => {
     if (!newStatus.trim() && !selectedFile) return;
-
     try {
       await createStatus({
         content: newStatus,
@@ -98,15 +96,16 @@ const status = () => {
     }
   };
 
-  const handleDeleteStatus = async (statusId) => {
-    try {
-      await deleteStatus(statusId);
-      setShowOption(false);
-      handlePreviewClose();
-    } catch (error) {
-      console.log("Error to deleted status", error);
-    }
-  };
+const handleDeleteStatus = async (statusId) => {
+  try {
+    await deleteStatus(String(statusId));
+    setShowOption(false);
+    return true;
+  } catch (error) {
+    console.error("Error deleting status:", error);
+    throw error;
+  }
+};
 
   const handlePreviewNext = () => {
     if (currentStatusIndex < previewContact.statuses.length - 1) {
@@ -162,6 +161,7 @@ const status = () => {
             onClose={handlePreviewClose}
             onNext={handlePreviewNext}
             onPrev={handlePreviewPrev}
+            onDelete={handleDeleteStatus}
             theme={useUserStore.getState().theme}
             currentUser={user}
             loading={false}

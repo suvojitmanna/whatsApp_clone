@@ -17,10 +17,14 @@ const useStatusStore = create((set, get) => ({
     const socket = getSocket();
     if (!socket) return;
 
+    socket.off("new_status");
+    socket.off("status_deleted");
+    socket.off("status_viewed");
+
     socket.on("new_status", (newStatus) => {
       set((state) => ({
         statuses: state.statuses.some(
-          (status) => status._id === newStatus._id
+          (status) => String(status._id) === String(newStatus._id)
         )
           ? state.statuses
           : [newStatus, ...state.statuses],
@@ -30,7 +34,7 @@ const useStatusStore = create((set, get) => ({
     socket.on("status_deleted", (statusId) => {
       set((state) => ({
         statuses: state.statuses.filter(
-          (status) => status._id !== statusId
+          (status) => String(status._id) !== String(statusId)
         ),
       }));
     });
@@ -38,11 +42,8 @@ const useStatusStore = create((set, get) => ({
     socket.on("status_viewed", ({ statusId, viewers }) => {
       set((state) => ({
         statuses: state.statuses.map((status) =>
-          status._id === statusId
-            ? {
-              ...status,
-              viewers,
-            }
+          String(status._id) === String(statusId)
+            ? { ...status, viewers }
             : status
         ),
       }));
@@ -125,14 +126,28 @@ const useStatusStore = create((set, get) => ({
   deleteStatus: async (statusId) => {
     try {
       set({ loading: true, error: null });
-      await axiosInstance.delete(`status/${statusId}`);
+
+      const id = String(statusId);
+
+      await axiosInstance.delete(`/status/${id}`);
+
       set((state) => ({
-        statuses: state.statuses.filter((s) => s._id !== statusId),
+        statuses: state.statuses.filter(
+          (status) => String(status._id) !== id
+        ),
+        loading: false,
       }));
-      set({ loading: false });
     } catch (error) {
-      console.log("error Deleting status", error);
-      set({ error: error.message, loading: false });
+      console.error(
+        "ERROR DELETING STATUS:",
+        error.response?.data || error.message
+      );
+
+      set({
+        error: error.response?.data?.message || error.message,
+        loading: false,
+      });
+
       throw error;
     }
   },
