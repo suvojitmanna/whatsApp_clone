@@ -7,7 +7,6 @@ const useStatusStore = create((set, get) => ({
   loading: false,
   error: null,
 
-  //Active
   setStatuses: (statuses) => set({ statuses }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
@@ -20,6 +19,7 @@ const useStatusStore = create((set, get) => ({
     socket.off("new_status");
     socket.off("status_deleted");
     socket.off("status_viewed");
+    socket.off("status_reaction_updated");
 
     socket.on("new_status", (newStatus) => {
       set((state) => ({
@@ -48,26 +48,62 @@ const useStatusStore = create((set, get) => ({
         ),
       }));
     });
-  },
 
+    socket.on("status_reaction_updated", ({ statusId, reactions }) => {
+      set((state) => ({
+        statuses: state.statuses.map((status) =>
+          String(status._id) === String(statusId)
+            ? { ...status, reactions }
+            : status
+        ),
+      }));
+    });
+  },
+  
   cleanupSocket: () => {
     const socket = getSocket();
+
     if (socket) {
       socket.off("new_status");
       socket.off("status_deleted");
       socket.off("status_viewed");
+      socket.off("status_reaction_updated");
     }
   },
 
   //Fetch Status
   fetchStatuses: async () => {
     set({ loading: true, error: null });
+
     try {
       const { data } = await axiosInstance.get("/status");
-      set({ statuses: data.data || [], loading: false });
+      const fetchedStatuses = data.data || [];
+
+      set((state) => {
+        const map = new Map();
+
+        // Keep existing realtime statuses
+        state.statuses.forEach((status) => {
+          map.set(String(status._id), status);
+        });
+
+        // Add/update API statuses
+        fetchedStatuses.forEach((status) => {
+          map.set(String(status._id), status);
+        });
+
+        return {
+          statuses: Array.from(map.values()),
+          loading: false,
+        };
+      });
     } catch (error) {
       console.log("error fetched status", error);
-      set({ error: error.message, loading: false });
+
+      set({
+        error: error.message,
+        loading: false,
+      });
     }
   },
 
@@ -126,11 +162,8 @@ const useStatusStore = create((set, get) => ({
   deleteStatus: async (statusId) => {
     try {
       set({ loading: true, error: null });
-
       const id = String(statusId);
-
       await axiosInstance.delete(`/status/${id}`);
-
       set((state) => ({
         statuses: state.statuses.filter(
           (status) => String(status._id) !== id
@@ -170,7 +203,12 @@ const useStatusStore = create((set, get) => ({
   getGroupStatus: () => {
     const { statuses } = get();
 
-    return statuses.reduce((acc, status) => {
+    const sortedStatuses = [...statuses].sort(
+      (a, b) =>
+        new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    return sortedStatuses.reduce((acc, status) => {
       const statusUserId = status.user?._id;
 
       if (!acc[statusUserId]) {
@@ -189,6 +227,7 @@ const useStatusStore = create((set, get) => ({
         contentType: status.contentType,
         timeStamp: status.createdAt,
         viewers: status.viewers || [],
+        reactions: status.reactions || [],
       });
 
       return acc;
@@ -205,6 +244,34 @@ const useStatusStore = create((set, get) => ({
     return Object.values(groupedStatus).filter(
       (contact) => contact.id !== userId,
     );
+  },
+
+  statusReaction: async (statusId, like) => {
+    try {
+      const { data } = await axiosInstance.put(
+        `/status/${statusId}/reaction`,
+        { like }
+      );
+
+      set((state) => ({
+        statuses: state.statuses.map((status) =>
+          String(status._id) === String(statusId)
+            ? {
+              ...status,
+              reactions: data.data.reactions,
+            }
+            : status
+        ),
+      }));
+
+      return data.data;
+    } catch (error) {
+      console.error(
+        "STATUS REACTION ERROR:",
+        error.response?.data || error
+      );
+      throw error;
+    }
   },
 
   //clear error

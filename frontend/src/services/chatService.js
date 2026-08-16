@@ -34,7 +34,6 @@ export const initializeSocket = () => {
   return socket;
 };
 
-// IMPORTANT: separate function (fixes refresh/login issue)
 export const emitUserConnected = () => {
   if (!socket) return;
 
