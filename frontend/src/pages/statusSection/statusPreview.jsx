@@ -228,13 +228,7 @@ const StatusPreview = ({
       ...user,
       id: user._id,
     };
-
-    console.log("💬 Selecting viewer:", selectedUser);
-
-    // Set the viewer as the active chat
     setSelectedContact(selectedUser);
-
-    // Close status viewer
     setShowViewers(false);
     onClose();
   };
@@ -248,6 +242,7 @@ const StatusPreview = ({
   const likeCount =
     currentStatus?.reactions?.filter((reaction) => reaction.like === true)
       .length || 0;
+
   const spawnHeartBurst = (originX, originY) => {
     const burst = Array.from({ length: 10 }).map((_, i) => ({
       id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,

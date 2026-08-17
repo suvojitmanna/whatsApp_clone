@@ -214,7 +214,6 @@ exports.deleteMessage = async (req, res) => {
 
   try {
     const message = await Message.findById(messageId);
-
     if (!message) {
       return response(res, 404, "Message not found");
     }
