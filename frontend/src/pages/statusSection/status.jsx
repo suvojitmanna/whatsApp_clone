@@ -39,26 +39,35 @@ const status = () => {
     clearError,
     initializeSocket,
     cleanupSocket,
+    statusReaction,
+    statuses,
   } = useStatusStore();
 
   const userStatuses = getUserStatuses(user?._id);
   const otherStatuses = getOtherStatuses(user?._id);
 
   useEffect(() => {
-    fetchStatuses();
     initializeSocket();
+    fetchStatuses();
     return () => {
       cleanupSocket();
     };
   }, [user?._id]);
 
-  //clear the error When page is mounts
   useEffect(() => {
     return () => {
       clearError();
     };
   }, []);
+  useEffect(() => {
+    if (!previewContact) return;
+    const grouped = useStatusStore.getState().getGroupStatus();
+    const updatedContact = grouped?.[String(previewContact.id)];
 
+    if (updatedContact) {
+      setPreviewContact(updatedContact);
+    }
+  }, [statuses]);
   useOutsideClick(modalRef, () => {
     if (showCreateModal) setShowCreateModal(false);
   });
@@ -75,7 +84,6 @@ const status = () => {
 
   const handleCreateStatus = async () => {
     if (!newStatus.trim() && !selectedFile) return;
-
     try {
       await createStatus({
         content: newStatus,
@@ -100,11 +108,12 @@ const status = () => {
 
   const handleDeleteStatus = async (statusId) => {
     try {
-      await deleteStatus(statusId);
+      await deleteStatus(String(statusId));
       setShowOption(false);
-      handlePreviewClose();
+      return true;
     } catch (error) {
-      console.log("Error to deleted status", error);
+      console.error("Error deleting status:", error);
+      throw error;
     }
   };
 
@@ -119,6 +128,7 @@ const status = () => {
   const handlePreviewPrev = () => {
     setCurrentStatusIndex((prev) => Math.max(prev - 1, 0));
   };
+
   const handleStatusPreview = (contact, statusIndex = 0) => {
     setPreviewContact(contact);
     setCurrentStatusIndex(statusIndex);
@@ -127,6 +137,7 @@ const status = () => {
       handleViewStatus(contact.id, status.id);
     }
   };
+
   const handleStatusClick = (statusId) => {
     if (!statusId) return;
     const grouped = useStatusStore.getState().getGroupStatus();
@@ -145,10 +156,13 @@ const status = () => {
       }
     }
   };
+
   const handlePreviewClose = () => {
     setPreviewContact(null);
     setCurrentStatusIndex(0);
   };
+
+  const latestMyStatus = userStatuses?.statuses?.[0];
 
   return (
     <Layout
@@ -162,6 +176,8 @@ const status = () => {
             onClose={handlePreviewClose}
             onNext={handlePreviewNext}
             onPrev={handlePreviewPrev}
+            onDelete={handleDeleteStatus}
+            onReact={statusReaction}
             theme={useUserStore.getState().theme}
             currentUser={user}
             loading={false}
@@ -178,7 +194,6 @@ const status = () => {
             : "bg-slate-50 text-gray-900"
         }`}
       >
-        {/* Header - Premium Glassmorphism */}
         <header
           className={`sticky top-0 z-20 backdrop-blur-xl border-b transition-all ${
             theme === "dark"
@@ -195,7 +210,6 @@ const status = () => {
         </header>
 
         <div className="max-w-2xl mx-auto w-full px-4 pb-24">
-          {/* Error Toast - Animated */}
           {error && (
             <motion.div
               initial={{ y: -20, opacity: 0 }}
@@ -212,7 +226,6 @@ const status = () => {
             </motion.div>
           )}
 
-          {/* User Status Section - Card Style */}
           <section
             className={`mt-6 rounded-3xl shadow-xl border transition-all hover:shadow-2xl ${
               theme === "dark"
@@ -287,10 +300,11 @@ const status = () => {
                   className={`text-sm font-medium ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
                 >
                   {userStatuses
-                    ? `${userStatuses.statuses.length} updates • ${formatTimestamp(
-                        userStatuses.statuses[userStatuses.statuses.length - 1]
-                          .timeStamp,
-                      )}`
+                    ? `${userStatuses.statuses.length} updates • ${
+                        latestMyStatus
+                          ? formatTimestamp(latestMyStatus.timeStamp)
+                          : ""
+                      }`
                     : "Tap to share your moment"}
                 </p>
               </div>
@@ -309,7 +323,6 @@ const status = () => {
               )}
             </div>
 
-            {/* Floating Options Menu - Improved Grid */}
             {showOption && userStatuses && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
@@ -338,9 +351,7 @@ const status = () => {
             )}
           </section>
 
-          {/* Others' Updates Section */}
           <div className="mt-12">
-            {/*  Section Header */}
             <div className="flex items-center justify-between px-2 mb-4">
               <h3
                 className={`text-[11px] font-black uppercase tracking-[0.25em] ${
@@ -374,7 +385,6 @@ const status = () => {
                     : "bg-white/80 border-gray-100"
                 }`}
               >
-                {/* soft glow */}
                 <div className="absolute inset-0 pointer-events-none rounded-[2.5rem] ring-1 ring-white/5" />
 
                 {otherStatuses.map((contact, index) => (
@@ -396,7 +406,6 @@ const status = () => {
                 ))}
               </div>
             ) : (
-              /* Empty State */
               <div className="text-center py-24 px-6 rounded-[2.5rem] border border-dashed backdrop-blur-md bg-black/5 dark:bg-white/5 dark:border-white/10 border-gray-300 transition-all">
                 <div className="text-6xl mb-5 opacity-20 animate-pulse">✨</div>
 
@@ -413,7 +422,7 @@ const status = () => {
           </div>
         </div>
 
-        {/* Create Status Modal - Responsive Premium UI */}
+        {/* Create Status Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-xl bg-black/80">
             <motion.div

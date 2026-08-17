@@ -20,6 +20,7 @@ const sendOtp = async (req, res) => {
         user = new User({
           email,
           username: email.split("@")[0],
+          about: "Hey there! I am using WhatsApp.",
         });
       }
       user.emailOtp = otp;
@@ -40,6 +41,7 @@ const sendOtp = async (req, res) => {
       user = new User({
         phoneNumber: fullPhoneNumber,
         username: "user_" + fullPhoneNumber.slice(-6),
+        about: "Hey there! I am using WhatsApp.",
       });
     }
 
@@ -123,7 +125,14 @@ const updateProfile = async (req, res) => {
 
   try {
     const user = await User.findById(userId);
+
+    if (!user) {
+      return response(res, 404, "User not found");
+    }
+    console.log("REQ BODY:", req.body);
+    console.log("ABOUT:", req.body.about);
     const file = req.file;
+
     if (file) {
       const uploadResult = await uploadFileToCloudinary(file);
       user.profilePicture = uploadResult.secure_url;
@@ -131,15 +140,52 @@ const updateProfile = async (req, res) => {
       user.profilePicture = req.body.profilePicture;
     }
 
-    if (username) user.username = username;
-    if (agreed !== undefined) user.agreed = agreed; //
-    if (about) user.about = about;
+    if (username !== undefined) {
+      user.username = username;
+    }
+
+    if (agreed !== undefined) {
+      user.agreed = agreed;
+    }
+
+    if (about !== undefined && about !== null) {
+      user.about = String(about).trim();
+    }
+
+    // If old user doesn't have about
+    if (!user.about) {
+      user.about = "Hey there! I am using WhatsApp.";
+    }
 
     await user.save();
-    return response(res, 200, "Profile updated successfully", { user });
+
+    const io = req.app.get("io");
+
+    if (io) {
+      io.emit("profile_updated", {
+        userId: user._id.toString(),
+        username: user.username,
+        about: user.about,
+        profilePicture: user.profilePicture,
+      });
+    }
+
+    return response(
+      res,
+      200,
+      "Profile updated successfully",
+      {
+        user,
+      }
+    );
   } catch (error) {
-    console.error(error);
-    return response(res, 500, "Internal server error");
+    console.error("UPDATE PROFILE ERROR:", error);
+
+    return response(
+      res,
+      500,
+      "Internal server error"
+    );
   }
 };
 

@@ -6,13 +6,10 @@ let socket = null;
 
 export const initializeSocket = () => {
   if (socket) {
-    socket.disconnect(); // force fresh connection
+    socket.disconnect();
   }
-
   const BACKEND_URL = import.meta.env.VITE_API_URL;
-
   socket = io(BACKEND_URL, {
-    // withCredentials: true,
     transports: ["websocket", "polling"],
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
@@ -34,7 +31,6 @@ export const initializeSocket = () => {
   return socket;
 };
 
-// IMPORTANT: separate function (fixes refresh/login issue)
 export const emitUserConnected = () => {
   if (!socket) return;
 

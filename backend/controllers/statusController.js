@@ -7,13 +7,20 @@ exports.createStatus = async (req, res) => {
   try {
     const { content, contentType, expireAt: inputExpireAt } = req.body;
     const file = req.file;
-    const userId = req.user.userId;
+    const userId = String(req.user.userId);
+
     let mediaUrl = null;
     let finalContentType = contentType || "text";
 
     if (file) {
       const uploadFile = await uploadFileToCloudinary(file);
-      mediaUrl = uploadFile?.secure_url;
+
+      if (!uploadFile?.secure_url) {
+        return response(res, 400, "Failed to upload file");
+      }
+
+      mediaUrl = uploadFile.secure_url;
+
       if (file.mimetype.startsWith("image")) {
         finalContentType = "image";
       } else if (file.mimetype.startsWith("video")) {
@@ -26,12 +33,14 @@ exports.createStatus = async (req, res) => {
     } else {
       return response(res, 400, "Content is required");
     }
+
     const expireAt = inputExpireAt
       ? new Date(inputExpireAt)
       : new Date(Date.now() + 24 * 60 * 60 * 1000);
+
     const status = await Status.create({
       user: userId,
-      content: mediaUrl ? null : content,
+      content: mediaUrl ? null : content.trim(),
       mediaUrl,
       contentType: finalContentType,
       expireAt,
@@ -41,18 +50,25 @@ exports.createStatus = async (req, res) => {
       .populate("user", "username profilePicture")
       .populate("viewers.user", "username profilePicture");
 
-    // Socket
-    if (req.io && req.socketUserMap) {
-      for (const [connectedUserId, socketId] of req.socketUserMap) {
-        if (connectedUserId !== userId) {
-          req.io.to(socketId).emit("new_status", populatedStatus);
+    if (req.io && req.socketUserMap instanceof Map) {
+      for (const [connectedUserId, socketId] of req.socketUserMap.entries()) {
+        if (String(connectedUserId) !== userId) {
+          req.io.to(socketId).emit(
+            "new_status",
+            populatedStatus.toObject()
+          );
         }
       }
     }
 
-    return response(res, 201, "Status created successfully", populatedStatus);
+    return response(
+      res,
+      201,
+      "Status created successfully",
+      populatedStatus
+    );
   } catch (error) {
-    console.error("createStatus error:", error);
+    console.error("CREATE STATUS ERROR:", error);
     return response(res, 500, "Internal server error");
   }
 };
@@ -127,26 +143,89 @@ exports.viewStatus = async (req, res) => {
 exports.deleteStatus = async (req, res) => {
   const { statusId } = req.params;
   const userId = req.user.userId;
-
   try {
     const status = await Status.findById(statusId);
     if (!status) {
       return response(res, 404, "Status not found");
     }
-    if (status.user.toString() !== userId) {
+    if (String(status.user) !== String(userId)) {
       return response(res, 403, "Unauthorized to delete this status");
     }
     await Status.deleteOne({ _id: statusId });
-    if (req.io && req.socketUserMap) {
+    if (req.io && req.socketUserMap instanceof Map) {
       for (const [connectedUserId, socketId] of req.socketUserMap) {
-        if (connectedUserId !== userId) {
+        if (String(connectedUserId) !== String(userId)) {
           req.io.to(socketId).emit("status_deleted", statusId);
         }
       }
     }
+
     return response(res, 200, "Status deleted successfully");
   } catch (error) {
-    console.error(error);
+    console.error("DELETE STATUS ERROR:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.statusReaction = async (req, res) => {
+  try {
+    const { statusId } = req.params;
+    const { like } = req.body;
+    const userId = req.user.userId;
+
+    if (typeof like !== "boolean") {
+      return response(res, 400, "like must be true or false");
+    }
+
+    const status = await Status.findById(statusId);
+
+    if (!status) {
+      return response(res, 404, "Status not found");
+    }
+
+    const existingReaction = status.reactions.find(
+      (reaction) =>
+        String(reaction.user) === String(userId)
+    );
+
+    if (existingReaction) {
+      existingReaction.like = like;
+      existingReaction.reactedAt = new Date();
+    } else {
+      status.reactions.push({
+        user: userId,
+        like,
+      });
+    }
+
+    await status.save();
+
+    const updatedStatus = await Status.findById(statusId).populate(
+      "reactions.user",
+      "username profilePicture"
+    );
+
+    if (req.io && req.socketUserMap instanceof Map) {
+      const ownerSocketId = req.socketUserMap.get(
+        String(status.user)
+      );
+
+      if (ownerSocketId) {
+        req.io.to(ownerSocketId).emit("status_reaction_updated", {
+          statusId,
+          reactions: updatedStatus.reactions,
+        });
+      }
+    }
+
+    return response(
+      res,
+      200,
+      "Reaction updated",
+      updatedStatus
+    );
+  } catch (error) {
+    console.error("STATUS REACTION ERROR:", error);
     return response(res, 500, "Internal server error");
   }
 };

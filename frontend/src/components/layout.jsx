@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ChatWindow from "../pages/chatSection/ChatWindow";
 import ContactInfo from "../components/ContactInfo";
 import ProfilePicture from "../components/profilePicture";
+import { useLocation } from "react-router-dom";
 
 const Layout = ({
   children,
@@ -23,9 +24,15 @@ const Layout = ({
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const { theme, setTheme } = useThemeStore();
   const showContactInfo = useLayoutStore((state) => state.showContactInfo);
-  const showProfilePicture = useLayoutStore((state) => state.showProfilePicture);
+  const showProfilePicture = useLayoutStore(
+    (state) => state.showProfilePicture,
+  );
+  const location = useLocation();
+  const isStatusPage = location.pathname === "/status";
 
-  const setShowProfilePicture = useLayoutStore((state) => state.setShowProfilePicture);
+  const setShowProfilePicture = useLayoutStore(
+    (state) => state.setShowProfilePicture,
+  );
 
   useEffect(() => {
     const handleResize = () => {
@@ -97,7 +104,7 @@ const Layout = ({
       </div>
 
       {/* Mobile Sidebar */}
-      {isMobile && <SideBar />}
+      {isMobile && !isStatusPreviewOpen && <SideBar />}
       {/* Theme Dialog */}
       {isThemeDialogOpen && (
         <div

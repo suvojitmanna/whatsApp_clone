@@ -32,6 +32,23 @@ const statusSchema = new mongoose.Schema(
       },
     ],
 
+    reactions: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        like: {
+          type: Boolean,
+          default: false,
+        },
+        reactedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     visibility: {
       type: String,
       enum: ["public", "contacts", "private"],

@@ -58,10 +58,10 @@ export const useChatStore = create((set, get) => ({
       }));
     });
 
-    socket.on("message_read", ({ _id, messageStatus }) => {
+    socket.on("message_read", ({ messageIds, messageStatus }) => {
       set((state) => ({
         messages: state.messages.map((msg) =>
-          msg._id === _id
+          messageIds?.includes(msg._id)
             ? {
               ...msg,
               messageStatus: messageStatus || "read",

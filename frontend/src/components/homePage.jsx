@@ -114,7 +114,6 @@ const HomePage = () => {
       return;
     }
 
-    // Fallback: search status store
     const grouped = useStatusStore.getState().getGroupStatus();
     const clickedStatusId = String(statusId);
 
@@ -136,20 +135,23 @@ const HomePage = () => {
   };
 
   const handlePreviewNext = () => {
-    if (
-      previewContact &&
-      currentStatusIndex < previewContact.statuses.length - 1
-    ) {
-      const nextIndex = currentStatusIndex + 1;
-      setCurrentStatusIndex(nextIndex);
-      const nextStatus = previewContact.statuses[nextIndex];
-      if (nextStatus) {
-        useStatusStore.getState().viewStatus(nextStatus.id);
-      }
-    } else {
-      handlePreviewClose();
-    }
-  };
+  if (!previewContact) return;
+
+  const nextIndex = currentStatusIndex + 1;
+
+  if (nextIndex >= previewContact.statuses.length) {
+    handlePreviewClose();
+    return;
+  }
+
+  setCurrentStatusIndex(nextIndex);
+
+  const nextStatus = previewContact.statuses[nextIndex];
+
+  if (nextStatus) {
+    useStatusStore.getState().viewStatus(nextStatus.id);
+  }
+};
 
   // Previous status
   const handlePreviewPrev = () => {

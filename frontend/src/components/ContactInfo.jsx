@@ -21,7 +21,6 @@ const ContactInfo = () => {
   useOutsideClick(contactInfoRef, () => {
     setShowContactInfo(false);
   });
-
     const setShowProfilePicture = useLayoutStore(
     (state) => state.setShowProfilePicture,
   );
@@ -61,7 +60,6 @@ const ContactInfo = () => {
     }
   };
 
-  /* Helper Component for Premium Buttons */
   const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
     <button
       onClick={!disabled ? onClick : undefined}
@@ -71,7 +69,6 @@ const ContactInfo = () => {
           : "cursor-pointer active:scale-95"
       }`}
     >
-      {/* Icon Glass Circle */}
       <div
         className={`relative w-14 h-14 flex items-center justify-center rounded-2xl 
       /* The Frosting */
@@ -87,7 +84,6 @@ const ContactInfo = () => {
       group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10
       transition-all duration-500 overflow-hidden`}
       >
-        {/* Inner Shine Effect */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
         <div className="text-emerald-500 group-hover:text-emerald-400 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-all">
@@ -95,7 +91,6 @@ const ContactInfo = () => {
         </div>
       </div>
 
-      {/* Label */}
       <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 group-hover:text-emerald-500 transition-colors">
         {label}
       </span>
@@ -107,7 +102,6 @@ const ContactInfo = () => {
       {showContactInfo && (
         <motion.div
           ref={contactInfoRef}
-          // Premium Animation: Slides in from the right
           initial={{ x: "100%", opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
@@ -123,7 +117,6 @@ const ContactInfo = () => {
           <div
             className={`h-[70px] px-4 flex items-center justify-between border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
           >
-            {/* Left Section: Back/Close + Title */}
             <div className="flex items-center gap-4">
               <motion.button
                 whileHover={{
@@ -142,7 +135,6 @@ const ContactInfo = () => {
               </h2>
             </div>
 
-            {/* Right Section: Action Menu */}
             <motion.button
               whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
               className="p-2 rounded-full text-gray-500 dark:text-gray-400 transition-colors"
@@ -153,7 +145,7 @@ const ContactInfo = () => {
 
           {/* Profile Section */}
           <div className="flex flex-col items-center py-4 px-6 overflow-y-auto flex-1 scrollbar-hide">
-            {/* Profile Picture with soft glow */}
+            
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -167,13 +159,11 @@ const ContactInfo = () => {
                 onClick={() => setShowProfilePicture(true)}
                 className="w-40 h-40 rounded-full object-cover border-4 border-white/10 shadow-[0_20px_50px_rgba(16,185,129,0.3)] cursor-pointer"
               />
-              {/* Online Status Indicator Dot */}
               {online && (
                 <span className="absolute bottom-3 right-3 w-5 h-5 bg-emerald-500 border-4 border-[#111b21] rounded-full shadow-lg"></span>
               )}
             </motion.div>
 
-            {/* Identity Section */}
             <div className="text-center mb-6">
               <h2
                 className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300${theme === "dark" ? "text-white/95" : "text-gray-900"}`}
@@ -181,7 +171,6 @@ const ContactInfo = () => {
                 {selectedContact?.username}
               </h2>
 
-              {/* Contact detail with light opacity to create hierarchy */}
               <div className="flex flex-col items-center gap-1">
                 {selectedContact?.email && (
                   <p
@@ -230,7 +219,6 @@ const ContactInfo = () => {
                 transition={{ delay: 0.4, type: "spring", stiffness: 100 }}
                 className={`relative p-3 rounded-[28px] overflow-hidden transition-all duration-500 backdrop-blur-2xl border${theme === "dark" ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]" : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"}`}
               >
-                {/* Subtle Inner Glow (Premium Touch) */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
 
                 {/* Section Header */}
@@ -248,7 +236,6 @@ const ContactInfo = () => {
                   {selectedContact?.about || "Hey there! I am using WhatsApp."}
                 </p>
 
-                {/* Optional: Subtle Date/Status footer */}
                 <p className="text-[10px] mt-0 opacity-40 font-medium">
                   Updated recently
                 </p>
