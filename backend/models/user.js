@@ -26,7 +26,13 @@ const userSchema = new mongoose.Schema(
     },
 
     profilePicture: { type: String },
-    about: { type: String },
+
+    about: {
+      type: String,
+      default: "Hey there! I am using WhatsApp.",
+      maxlength: 139,
+      trim: true,
+    },
 
     lastSeen: { type: Date, default: Date.now },
 

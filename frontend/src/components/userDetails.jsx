@@ -37,11 +37,9 @@ const userDetails = () => {
   const aboutWrapperRef = useRef(null);
 
   useEffect(() => {
-    if (user) {
-      setName(user.username || "");
-      setAbout(user.about || "");
-    }
-  }, [user]);
+    setAbout(user?.about || "Hey there! I am using WhatsApp.");
+    setName(user?.username || "");
+  }, [user?.about, user?.username]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -51,34 +49,68 @@ const userDetails = () => {
     }
   };
 
-  const handleSave = async (field) => {
-    try {
-      setLoading(true);
-      const formData = new FormData();
+const handleSave = async (field) => {
+  try {
+    setLoading(true);
 
-      if (field === "name") {
-        formData.append("username", name);
-        setIsEditingName(false);
-        setShowNameEmoji(false);
-      } else if (field === "about") {
-        formData.append("about", about);
-        setIsEditingAbout(false);
-        setShowAboutEmoji(false);
-      }
-      if (profilePicture && field === "profile") {
-        formData.append("media", profilePicture);
-      }
-      const updated = await updateUserProfile(formData);
-      setUser(updated?.data);
-      setProfilePicture(null);
-      setPreview(null);
-      toast.success("Profile Updated");
-      setLoading(false);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to Update Profile");
+    console.log("🔥 HANDLE SAVE FIELD:", field);
+    console.log("🔥 ABOUT VALUE:", about);
+    console.log("🔥 NAME VALUE:", name);
+
+    const formData = new FormData();
+
+    if (field === "name") {
+      formData.append("username", name);
     }
-  };
+
+    if (field === "about") {
+      formData.append("about", about);
+    }
+
+    if (profilePicture && field === "profile") {
+      formData.append("media", profilePicture);
+    }
+
+    const updated = await updateUserProfile(formData);
+
+    console.log("UPDATE RESPONSE:", updated);
+
+    // IMPORTANT
+    const updatedUser = updated?.data?.data?.user;
+
+    console.log("UPDATED USER:", updatedUser);
+
+    if (!updatedUser) {
+      throw new Error("Updated user not found in response");
+    }
+
+    // Update Zustand
+    setUser(updatedUser);
+
+    // Update local state immediately
+    if (field === "about") {
+      setAbout(updatedUser.about || "");
+      setIsEditingAbout(false);
+      setShowAboutEmoji(false);
+    }
+
+    if (field === "name") {
+      setName(updatedUser.username || "");
+      setIsEditingName(false);
+      setShowNameEmoji(false);
+    }
+
+    setProfilePicture(null);
+    setPreview(null);
+
+    toast.success("Profile Updated");
+  } catch (error) {
+    console.error("PROFILE UPDATE ERROR:", error);
+    toast.error("Failed to Update Profile");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleEmojiSelect = (emoji, fileld) => {
     if (fileld === "name") {
@@ -94,9 +126,11 @@ const userDetails = () => {
     if (showNameEmoji) setShowNameEmoji(false);
     if (showAboutEmoji) setShowAboutEmoji(false);
   });
+
   useOutsideClick(nameWrapperRef, () => {
     if (isEditingName) setIsEditingName(false);
   });
+  
   useOutsideClick(aboutWrapperRef, () => {
     if (isEditingAbout) setIsEditingAbout(false);
   });
@@ -171,8 +205,6 @@ const userDetails = () => {
 
           {/* FORM */}
           <div className="grid gap-3">
-            {/* EMAIL / PHONE SECTION */}
-            {/* EMAIL FIELD */}
             {user?.email && (
               <div
                 className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${

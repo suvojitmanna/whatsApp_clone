@@ -27,14 +27,17 @@ export const verifyOtp = async (phoneNumber, phoneSuffix, otp, email) => {
   }
 };
 
-export const updateUserProfile = async (updateData) => {
+export const updateUserProfile = async (formData) => {
   try {
-    const response = await axiosInstance.put("/auth/update-profile", {
-      updateData,
-    });
-    return response.data;
+    const response = await axiosInstance.put("/auth/update-profile",
+      formData
+    );
+
+    return response;
   } catch (error) {
-    throw error.response ? error.response.data : error.message;
+    throw error.response
+      ? error.response.data
+      : error.message;
   }
 };
 
@@ -52,7 +55,6 @@ export const checkUserAuth = async () => {
     if (data?.status === "error") {
       return { isAuthenticated: false };
     }
-
     return data;
   } catch (error) {
     if (error.response) {

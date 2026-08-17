@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { getSocket } from "../services/chatService";
+import { getSocket, initializeSocket } from "../services/chatService";
 import axiosInstance from "../services/url.services";
+import useLayoutStore from "./layoutStore";
 
 export const useChatStore = create((set, get) => ({
   users: [],
@@ -14,6 +15,37 @@ export const useChatStore = create((set, get) => ({
   error: null,
   onlineUsers: new Map(),
   typingUsers: new Map(),
+
+  updateUserProfile: (updatedUser) => {
+    set((state) => ({
+      users: state.users.map((user) =>
+        String(user._id) === String(updatedUser.userId)
+          ? {
+            ...user,
+            username: updatedUser.username,
+            about: updatedUser.about,
+            profilePicture: updatedUser.profilePicture,
+          }
+          : user
+      ),
+    }));
+
+    // Update currently opened ContactInfo
+    const selectedContact =
+      useLayoutStore.getState().selectedContact;
+
+    if (
+      selectedContact &&
+      String(selectedContact._id) === String(updatedUser.userId)
+    ) {
+      useLayoutStore.getState().setSelectedContact({
+        ...selectedContact,
+        username: updatedUser.username,
+        about: updatedUser.about,
+        profilePicture: updatedUser.profilePicture,
+      });
+    }
+  },
 
   initSocketListener: () => {
     const socket = getSocket();
@@ -29,6 +61,16 @@ export const useChatStore = create((set, get) => ({
     socket.off("message_read");
     socket.off("reaction_update");
     socket.off("message_status_update_bulk");
+    socket.off("profile_updated");
+
+    socket.on("profile_updated", (updatedUser) => {
+
+      get().updateUserProfile(updatedUser);
+
+      useLayoutStore
+        .getState()
+        .updateSelectedContact(updatedUser);
+    });
 
     socket.on("receive_message", (message) => {
       get().receiveMessage(message);
@@ -129,7 +171,6 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
-    // emit status for all users in conversation List
     const { conversations } = get();
 
     if (conversations?.data?.length > 0) {
@@ -285,6 +326,7 @@ export const useChatStore = create((set, get) => ({
     const messageExists = messages.some(
       (msg) => msg._id === message._id
     );
+    
     if (messageExists) return;
     const conversationId =
       message.conversation?._id || message.conversation;
