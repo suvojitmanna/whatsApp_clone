@@ -11,29 +11,7 @@ const useLayoutStore = create(
       setSelectedContact: (contact) => {
         set({ selectedContact: contact });
       },
-      updateSelectedContact: (updatedUser) => {
-        set((state) => {
-          if (!state.selectedContact) {
-            return state;
-          }
 
-          if (
-            String(state.selectedContact._id) !==
-            String(updatedUser.userId)
-          ) {
-            return state;
-          }
-
-          return {
-            selectedContact: {
-              ...state.selectedContact,
-              username: updatedUser.username,
-              about: updatedUser.about,
-              profilePicture: updatedUser.profilePicture,
-            },
-          };
-        });
-      },
       setActiveTab: (tab) => {
         set({ activeTab: tab });
       },
