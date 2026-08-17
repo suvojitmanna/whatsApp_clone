@@ -21,6 +21,9 @@ import useOutsideClick from "../../hook/useOutsideClick";
 import EmojiPicker from "emoji-picker-react";
 import { useChatStore } from "../../store/chatStore";
 import { FiHeart } from "react-icons/fi";
+import { BiSolidMessageRoundedDetail } from "react-icons/bi";
+import { useNavigate } from "react-router-dom";
+import useLayoutStore from "../../store/layoutStore";
 
 const StatusPreview = ({
   contact,
@@ -53,6 +56,9 @@ const StatusPreview = ({
   const ownerBadgeRef = useRef(null);
   const prevLikeCountRef = useRef(0);
   const hasMountedLikeEffectRef = useRef(false);
+
+  const navigate = useNavigate();
+  const { setSelectedContact } = useLayoutStore();
 
   const isDark = theme === "dark";
   const currentStatus = contact?.statuses?.[currentIndex];
@@ -208,6 +214,29 @@ const StatusPreview = ({
     } catch (error) {
       console.error("Status reply failed:", error);
     }
+  };
+
+  const handleMessageViewer = (viewer) => {
+    const user = viewer?.user;
+
+    if (!user?._id) {
+      console.log("❌ No viewer user:", viewer);
+      return;
+    }
+
+    const selectedUser = {
+      ...user,
+      id: user._id,
+    };
+
+    console.log("💬 Selecting viewer:", selectedUser);
+
+    // Set the viewer as the active chat
+    setSelectedContact(selectedUser);
+
+    // Close status viewer
+    setShowViewers(false);
+    onClose();
   };
 
   const currentReaction = currentStatus?.reactions?.find(
@@ -678,9 +707,52 @@ const StatusPreview = ({
                                   )}
                                 </div>
                               </div>
-                              {viewerLiked && (
-                                <FiHeart className="w-4 h-4 text-green-500 fill-green-500 shrink-0" />
-                              )}
+                              <div className="flex flex-row items-center gap-2">
+                                {/* Message */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMessageViewer(viewer);
+                                  }}
+                                  className="
+      w-9 h-9
+      rounded-full
+      flex items-center justify-center
+      bg-green-500
+      text-white
+      shadow-sm
+      transition-all duration-200
+      hover:bg-green-600
+      hover:scale-105
+      active:scale-90
+    "
+                                  aria-label={`Message ${viewer?.user?.username || "viewer"}`}
+                                >
+                                  <BiSolidMessageRoundedDetail size={20} />
+                                </button>
+
+                                {/* Like */}
+                                {viewerLiked && (
+                                  <div
+                                    className="
+        w-9 h-9
+        rounded-full
+        flex items-center justify-center
+        bg-green-500/10
+      "
+                                    aria-label="Liked"
+                                  >
+                                    <FiHeart
+                                      className="
+          w-[20px] h-[20px]
+          text-green-500
+          fill-green-500
+        "
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           );
                         })
@@ -811,7 +883,7 @@ const StatusPreview = ({
                   disabled={likeBusy}
                   aria-pressed={isLiked}
                   aria-label={isLiked ? "Unlike status" : "Like status"}
-                  className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full shrink-0 shadow-lg transition-all duration-200 active:scale-90 ${
+                  className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full shrink-0 shadow-lg transition-all duration-200 active:scale-90 cursor-pointer ${
                     isLiked
                       ? "bg-green-50 dark:bg-green-500/15"
                       : "bg-white dark:bg-[#202c33]"

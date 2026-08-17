@@ -6,7 +6,7 @@ let socket = null;
 
 export const initializeSocket = () => {
   if (socket) {
-    socket.disconnect(); // force fresh connection
+    socket.disconnect();
   }
 
   const BACKEND_URL = import.meta.env.VITE_API_URL;
