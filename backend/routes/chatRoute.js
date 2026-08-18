@@ -10,5 +10,6 @@ router.get("/conversation", authMiddleware, chatController.getConversation);
 router.get("/conversation/:conversationId/messages", authMiddleware, chatController.getMessages,);
 router.put("/messages/read", authMiddleware, chatController.markAsRead);
 router.delete("/messages/:messageId", authMiddleware, chatController.deleteMessage,);
+router.put("/messages/:messageId", authMiddleware, chatController.editMessage);
 
 module.exports = router;

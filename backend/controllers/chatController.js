@@ -295,3 +295,71 @@ exports.deleteMessage = async (req, res) => {
     return response(res, 500, error.message || "Internal server error");
   }
 };
+
+exports.editMessage = async (req, res) => {
+  const userId = req.user.userId;
+  const { messageId } = req.params;
+  const { content } = req.body;
+
+  try {
+    if (!content || !content.trim()) {
+      return response(res, 400, "Message cannot be empty");
+    }
+
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return response(res, 404, "Message not found");
+    }
+    if (message.sender.toString() !== userId.toString()) {
+      return response(res, 403, "You can only edit your own messages");
+    }
+
+    if (message.contentType !== "text") {
+      return response(res, 400, "Only text messages can be edited");
+    }
+
+    message.content = content.trim();
+    message.edited = true;
+    message.editedAt = new Date();
+
+    await message.save();
+
+    const updatedMessage = await Message.findById(messageId)
+      .populate("sender", "username profilePicture")
+      .populate("receiver", "username profilePicture");
+
+    if (req.io && req.socketUserMap instanceof Map) {
+      const payload = {
+        message: updatedMessage,
+        messageId: messageId,
+        conversationId: message.conversation.toString(),
+      };
+
+      const receiverSocketId = req.socketUserMap.get(
+        message.receiver.toString()
+      );
+
+      const senderSocketId = req.socketUserMap.get(
+        userId.toString()
+      );
+
+      if (receiverSocketId) {
+        req.io
+          .to(receiverSocketId)
+          .emit("message_edited", payload);
+      }
+
+      if (senderSocketId) {
+        req.io
+          .to(senderSocketId)
+          .emit("message_edited", payload);
+      }
+    }
+
+    return response(res, 200, "Message edited successfully", updatedMessage);
+  } catch (error) {
+    console.error("EDIT MESSAGE ERROR:", error);
+    return response(res, 500, "Internal server error");
+  }
+};

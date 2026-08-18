@@ -71,6 +71,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     isUserOnline,
     deleteMessage,
     addReaction,
+    editMessage,
   } = useChatStore();
 
   let matchCounter = -1;
@@ -688,6 +689,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                         currentUser={user}
                         onReact={handleReaction}
                         deleteMessage={deleteMessage}
+                        onEdit={editMessage}
                         onStatusClick={onStatusClick}
                         searchTerm={searchTerm}
                         highlightText={highlightText}

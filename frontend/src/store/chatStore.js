@@ -100,6 +100,16 @@ export const useChatStore = create((set, get) => ({
     }
     );
 
+    socket.on("message_edited", ({ message }) => {
+      set((state) => ({
+        messages: state.messages.map((oldMessage) =>
+          oldMessage._id === message._id
+            ? message
+            : oldMessage
+        ),
+      }));
+    });
+
     socket.on("message_error", (error) => {
       console.error("Message error:", error);
       set({ error: error.message });
@@ -157,8 +167,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   // set current user conversation
-  setCurrentUser: (user) => set({ currentUser: user }),
-  fetchConversations: async () => {
+  setCurrentUser: (user) => set({ currentUser: user }), fetchConversations: async () => {
     set({ loading: true, error: null });
     try {
       const { data } = await axiosInstance.get("/chat/conversation");
@@ -296,8 +305,7 @@ export const useChatStore = create((set, get) => ({
     const isForCurrentUser =
       String(message.receiver?._id) ===
       String(currentUser?._id);
-
-    // Current open chat
+      
     if (isCurrentConversation) {
       set((state) => ({
         messages: [...state.messages, message],
@@ -414,6 +422,20 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  editMessage: async (messageId, content) => {
+    try {
+      const response = await axiosInstance.put(
+        `/chat/messages/${messageId}`,
+        { content }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error("EDIT MESSAGE ERROR:", error.response?.data || error.message);
+      throw error.response?.data || error;
+    }
+  },
+
   addReaction: async (messageId, emoji) => {
     let socket = getSocket();
     const { currentUser } = get();
@@ -459,15 +481,15 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-isUserTyping: (conversationId, userId) => {
-  const { typingUsers } = get();
+  isUserTyping: (conversationId, userId) => {
+    const { typingUsers } = get();
 
-  if (!conversationId || !typingUsers.has(conversationId) || !userId) {
-    return false;
-  }
+    if (!conversationId || !typingUsers.has(conversationId) || !userId) {
+      return false;
+    }
 
-  return typingUsers.get(conversationId)?.has(userId) || false;
-},
+    return typingUsers.get(conversationId)?.has(userId) || false;
+  },
 
   isUserOnline: (userId) => {
     if (!userId) return null;

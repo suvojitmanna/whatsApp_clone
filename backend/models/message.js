@@ -32,6 +32,15 @@ const messageSchema = new mongoose.Schema(
       enum: ["text", "image", "video"],
       default: "text",
     },
+    edited: {
+      type: Boolean,
+      default: false,
+    },
+
+    editedAt: {
+      type: Date,
+      default: null,
+    },
 
     reactions: [
       {
