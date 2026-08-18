@@ -128,6 +128,9 @@ exports.getMessages = async (req, res) => {
     }
     const messages = await Message.find({
       conversation: conversationId,
+      deletedFor: {
+        $ne: userId,
+      },
     })
       .populate("sender", "username profilePicture")
       .populate("receiver", "username profilePicture")
@@ -227,8 +230,21 @@ exports.deleteMessage = async (req, res) => {
         }
       );
 
+      // Tell ONLY the user who deleted it
+      if (req.io && req.socketUserMap instanceof Map) {
+        const userSocketId = req.socketUserMap.get(userId.toString());
+
+        if (userSocketId) {
+          req.io.to(userSocketId).emit("message_deleted_for_me", {
+            deletedMessageId: messageId,
+            conversationId: message.conversation.toString(),
+          });
+        }
+      }
+
       return response(res, 200, "Message deleted for you");
     }
+
     if (deleteFor === "everyone") {
       if (message.sender.toString() !== userId) {
         return response(res, 403, "Only sender can delete for everyone");

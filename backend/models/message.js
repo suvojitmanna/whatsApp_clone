@@ -17,6 +17,12 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    deletedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
 
     content: String,
     imageOrVideoUrl: String,
@@ -43,14 +49,13 @@ const messageSchema = new mongoose.Schema(
       default: "send",
     },
     statusId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Status",
-  default: null,
-},
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Status",
+      default: null,
+    },
   },
   { timestamps: true },
 );
 
-// prevent overwrite error
 module.exports =
   mongoose.models.Message || mongoose.model("Message", messageSchema);

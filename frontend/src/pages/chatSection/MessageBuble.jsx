@@ -420,18 +420,16 @@ const MessageBuble = ({
               <span>Copy</span>
             </button>
             <div className="" />
-            {isUserMessage && (
-              <button
-                onClick={() => {
-                  setDeleteModal(message);
-                  setShowOptions(false);
-                }}
-                className={`border-t flex items-center px-4 py-2 gap-3 rounded-lg text-red-600 cursor-pointer ${theme === "dark" ? "hover:bg-gray-500" : "hover:bg-gray-200"}`}
-              >
-                <RiDeleteBin6Line className="text-red-600" size={14} />
-                <span>Delete</span>
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setDeleteModal(message);
+                setShowOptions(false);
+              }}
+              className={`border-t flex items-center px-4 py-2 gap-3 rounded-lg text-red-600 cursor-pointer ${theme === "dark" ? "hover:bg-gray-500" : "hover:bg-gray-200"}`}
+            >
+              <RiDeleteBin6Line className="text-red-600" size={14} />
+              <span>Delete</span>
+            </button>
           </div>
         )}
 
@@ -441,48 +439,88 @@ const MessageBuble = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className={`fixed inset-0 z-[1000] flex items-center justify-center px-4 backdrop-blur-md ${
-                theme === "dark" ? "bg-black/60" : "bg-gray-900/30"
+              transition={{ duration: 0.25 }}
+              className={`fixed inset-0 z-[1000] flex items-center justify-center px-4 backdrop-blur-xl ${
+                theme === "dark" ? "bg-black/70" : "bg-black/30"
               }`}
               onClick={() => setDeleteModal(null)}
             >
               <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                initial={{ opacity: 0, scale: 0.92, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 15 }}
+                exit={{ opacity: 0, scale: 0.92, y: 20 }}
                 transition={{
                   type: "spring",
-                  duration: 0.5,
-                  bounce: 0.3,
+                  stiffness: 280,
+                  damping: 22,
                 }}
-                className={`w-full max-w-sm rounded-[24px] border p-6 backdrop-blur-xl ${
+                className={`relative w-full max-w-sm overflow-hidden rounded-[28px] border p-6 shadow-2xl backdrop-blur-2xl ${
                   theme === "dark"
-                    ? "bg-[#202c33]/60 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]"
-                    : "bg-white/70 border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.1)]"
+                    ? ` border-white/[0.08] bg-gradient-to-br from-[#202c33]/95 via-[#111b21]/95 to-[#0b141a]/95shadow-black/50`
+                    : `border-white/70 bg-gradient-to-br from-white/95 via-white/90 to-zinc-100/95shadow-black/10`
                 }`}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex flex-col items-center text-center">
-                  <div
-                    className={`mb-4 flex h-14 w-14 items-center justify-center rounded-full ring-4 backdrop-blur-md ${
+                <div
+                  className={`pointer-events-none absolute -top-24 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full blur-3xl ${
+                    theme === "dark" ? "bg-red-500/10" : "bg-red-400/10"
+                  }`}
+                />
+
+                {/* Top highlight */}
+                <div
+                  className={`pointer-events-none absolute left-8 right-8 top-0 h-px ${
+                    theme === "dark"
+                      ? "bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                      : "bg-gradient-to-r from-transparent via-black/10 to-transparent"
+                  }`}
+                />
+
+                {/* Close button */}
+                <button
+                  type="button"
+                  onClick={() => setDeleteModal(null)}
+                  className={`absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 hover:rotate-90 ${
+                    theme === "dark"
+                      ? "bg-white/[0.05] text-gray-400 hover:bg-white/10 hover:text-white"
+                      : "bg-black/[0.04] text-gray-500 hover:bg-black/[0.08] hover:text-gray-900"
+                  }`}
+                >
+                  <RxCross2 size={16} />
+                </button>
+
+                <div className="relative flex flex-col items-center text-center">
+                  <motion.div
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{
+                      delay: 0.1,
+                      type: "spring",
+                      stiffness: 300,
+                    }}
+                    className={`relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border shadow-lg ${
                       theme === "dark"
-                        ? "bg-red-500/20 text-red-400 ring-red-500/10"
-                        : "bg-red-500/10 text-red-500 ring-red-500/20"
+                        ? `border-red-400/10 bg-gradient-to-br from-red-500/20 to-red-600/5 text-red-400 shadow-red-500/10`
+                        : `border-red-500/10 bg-gradient-to-br from-red-500/10 to-red-500/5 text-red-500 shadow-red-500/10`
                     }`}
                   >
-                    <RiDeleteBin6Line size={24} />
-                  </div>
+                    <RiDeleteBin6Line size={27} />
+                    <div
+                      className={`absolute inset-0 -z-10 rounded-2xl blur-xl ${
+                        theme === "dark" ? "bg-red-500/20" : "bg-red-500/10"
+                      }`}
+                    />
+                  </motion.div>
                   <h2
-                    className={`text-xl font-semibold tracking-tight ${
-                      theme === "dark" ? "text-white" : "text-gray-900"
+                    className={`text-xl font-bold tracking-tight ${
+                      theme === "dark" ? "text-white" : "text-zinc-900"
                     }`}
                   >
                     Delete message?
                   </h2>
                   <p
-                    className={`mt-2 text-sm leading-relaxed ${
-                      theme === "dark" ? "text-gray-300" : "text-gray-600"
+                    className={`mt-2 max-w-[290px] text-sm leading-6 ${
+                      theme === "dark" ? "text-zinc-400" : "text-zinc-500"
                     }`}
                   >
                     Choose how you want to delete this message. This action
@@ -490,27 +528,48 @@ const MessageBuble = ({
                   </p>
                 </div>
 
-                <div className="mt-7 flex flex-col gap-2.5">
-                  <button
-                    onClick={async () => {
-                      try {
-                        await deleteMessage(deleteModal._id, "everyone");
-                        toast.success("Message deleted for everyone");
-                      } catch (error) {
-                        toast.error("Failed to delete message");
-                      } finally {
-                        setDeleteModal(null);
-                      }
-                    }}
-                    className="w-full rounded-xl bg-red-500/90 backdrop-blur-sm py-3.5 font-medium text-white shadow-sm shadow-red-500/20 transition-all duration-200 hover:bg-red-500 active:scale-[0.98] cursor-pointer border border-red-400/20"
-                  >
-                    Delete for everyone
-                  </button>
+                {/* Buttons */}
+                <div className="relative mt-7 flex flex-col gap-3">
+                  {/* DELETE FOR EVERYONE */}
+                  {isUserMessage && (
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.97 }}
+                      onClick={async () => {
+                        try {
+                          await deleteMessage(deleteModal._id, "everyone");
 
-                  <button
+                          toast.success("Message deleted for everyone");
+                        } catch (error) {
+                          toast.error("Failed to delete message");
+                        } finally {
+                          setDeleteModal(null);
+                        }
+                      }}
+                      className={`group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 ${
+                        theme === "dark"
+                          ? `border-red-400/10 bg-gradient-to-r from-red-500/90 to-rose-600/90 text-white shadow-lg shadow-red-500/10 hover:border-red-300/20 hover:from-red-500 hover:to-rose-500 hover:shadow-xl hover:shadow-red-500/20`
+                          : `border-red-500/10bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20 hover:from-red-600 hover:to-rose-500 hover:shadow-xl hover:shadow-red-500/25`
+                      }`}
+                    >
+                      <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+
+                      <span className="relative z-10 flex items-center justify-center gap-2.5">
+                        <RiDeleteBin6Line size={17} />
+
+                        <span>Delete for everyone</span>
+                      </span>
+                    </motion.button>
+                  )}
+
+                  {/* DELETE FOR ME */}
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.97 }}
                     onClick={async () => {
                       try {
                         await deleteMessage(deleteModal._id, "me");
+
                         toast.success("Message deleted for me");
                       } catch (error) {
                         toast.error("Failed to delete message");
@@ -518,25 +577,47 @@ const MessageBuble = ({
                         setDeleteModal(null);
                       }
                     }}
-                    className={`w-full rounded-xl py-3.5 font-medium transition-all duration-200 active:scale-[0.98] cursor-pointer backdrop-blur-sm border ${
+                    className={`group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 ${
                       theme === "dark"
-                        ? "bg-white/5 text-white hover:bg-white/10 border-white/5"
-                        : "bg-white/40 text-gray-900 hover:bg-white/60 border-white/50 shadow-sm"
+                        ? `border-white/[0.08] bg-gradient-to-r from-zinc-800/90 to-zinc-900/90 text-zinc-100 shadow-lg shadow-black/10 hover:border-emerald-400/20 hover:from-zinc-700/90 hover:to-zinc-800/90 hover:text-emerald-300 hover:shadow-xl hover:shadow-emerald-500/5`
+                        : `border-black/[0.06] bg-gradient-to-r from-zinc-100 to-white text-zinc-800 shadow-md shadow-black/5 hover:border-emerald-500/20 hover:from-emerald-50 hover:to-white hover:text-emerald-700 hover:shadow-lg`
                     }`}
                   >
-                    Delete for me
-                  </button>
+                    {/* Shine */}
+                    <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
 
-                  <button
+                    <span className="relative z-10 flex items-center justify-center gap-2.5">
+                      <RiDeleteBin6Line
+                        size={17}
+                        className="transition-transform duration-300 group-hover:scale-110"
+                      />
+
+                      <span>Delete for me</span>
+                    </span>
+                  </motion.button>
+
+                  {/* CANCEL */}
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => setDeleteModal(null)}
-                    className={`mt-1 w-full rounded-xl py-3 font-medium transition-colors duration-200 cursor-pointer ${
+                    className={`mt-1 w-full rounded-2xl border py-3 text-sm font-medium transition-all duration-300 ${
                       theme === "dark"
-                        ? "text-gray-400 hover:text-gray-200 hover:bg-white/5"
-                        : "text-gray-500 hover:text-gray-900 hover:bg-white/40"
+                        ? `border-transparent text-zinc-400 hover:border-white/[0.06] hover:bg-white/[0.04] hover:text-white`
+                        : `border-transparent text-zinc-500 hover:border-black/[0.05] hover:bg-black/[0.03] hover:text-zinc-90`
                     }`}
                   >
                     Cancel
-                  </button>
+                  </motion.button>
+                </div>
+
+                {/* Bottom hint */}
+                <div
+                  className={`mt-5 text-center text-[11px] ${
+                    theme === "dark" ? "text-zinc-600" : "text-zinc-400"
+                  }`}
+                >
+                  Deleted messages cannot be recovered
                 </div>
               </motion.div>
             </motion.div>
