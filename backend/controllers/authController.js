@@ -152,13 +152,11 @@ const updateProfile = async (req, res) => {
       user.about = String(about).trim();
     }
 
-    // If old user doesn't have about
     if (!user.about) {
       user.about = "Hey there! I am using WhatsApp.";
     }
 
     await user.save();
-
     const io = req.app.get("io");
 
     if (io) {
@@ -170,22 +168,14 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    return response(
-      res,
-      200,
-      "Profile updated successfully",
-      {
-        user,
-      }
+    return response(res, 200, "Profile updated successfully", {
+      user,
+    }
     );
   } catch (error) {
     console.error("UPDATE PROFILE ERROR:", error);
 
-    return response(
-      res,
-      500,
-      "Internal server error"
-    );
+    return response(res, 500, "Internal server error");
   }
 };
 

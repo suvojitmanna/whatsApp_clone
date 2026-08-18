@@ -78,7 +78,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   //get online status and last seen
   const online = isUserOnline(selectedContact?._id);
   const lastSeen = getUserLastSeen(selectedContact?._id);
-  const isTyping = isUserTyping(selectedContact?._id);
+  const conversationId = selectedContact?.conversation?._id;
+  const isTyping = isUserTyping(conversationId, selectedContact?._id);
 
   const setShowContactInfo = useLayoutStore(
     (state) => state.setShowContactInfo,
@@ -210,7 +211,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       </div>
     );
   };
-  
+
   const groupedMessages = Array.isArray(messages)
     ? messages.reduce((acc, message) => {
         if (!message.createdAt) return acc;
@@ -294,7 +295,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
   };
 
-  // Close on outside click
   useOutsideClick(emojiPickerRef, () => {
     if (showEmojiPicker) setShowEmojiPicker(false);
   });
@@ -344,7 +344,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   useEffect(() => {
     setCurrentIndex(0);
   }, [searchTerm]);
-  
+
   useEffect(() => {
     const handleKey = (e) => {
       if (!searchTerm) return;

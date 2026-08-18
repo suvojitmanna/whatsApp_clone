@@ -5,8 +5,10 @@ import useLayoutStore from "../../store/layoutStore";
 import { FaPlus, FaSearch } from "react-icons/fa";
 import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
+import { useChatStore } from "../../store/chatStore";
 
 const ChatList = ({ contacts }) => {
+  const { isUserTyping } = useChatStore();
   const selectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedContact = useLayoutStore(
     (state) => state.setSelectedContact,
@@ -98,63 +100,74 @@ const ChatList = ({ contacts }) => {
             </p>
           </motion.div>
         ) : (
-          filteredContact.map((contact) => (
-            <motion.div
-              key={contact._id}
-              onClick={() => setSelectedContact(contact)}
-              className={`p-3 flex items-center cursor-pointer transition-colors ${
-                theme === "dark"
-                  ? selectedContact?._id === contact._id
-                    ? "bg-gray-700"
-                    : "hover:bg-gray-800"
-                  : selectedContact?._id === contact._id
-                    ? "bg-gray-200"
-                    : "hover:bg-gray-100"
-              }`}
-            >
-              <img
-                src={contact?.profilePicture}
-                alt={contact?.username}
-                className="w-12 h-12 rounded-full"
-              />
+          filteredContact.map((contact) => {
+            const conversationId = contact?.conversation?._id;
+            const isTyping = isUserTyping(conversationId, contact?._id);
 
-              <div className="ml-3 flex-1">
-                <div className="flex justify-between items-baseline">
-                  <h2 className="font-semibold">{contact?.username}</h2>
-                  {contact?.conversation && (
-                    <span
-                      className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
+            return (
+              <motion.div
+                key={contact._id}
+                onClick={() => setSelectedContact(contact)}
+                className={`p-3 flex items-center cursor-pointer transition-colors ${
+                  theme === "dark"
+                    ? selectedContact?._id === contact._id
+                      ? "bg-gray-700"
+                      : "hover:bg-gray-800"
+                    : selectedContact?._id === contact._id
+                      ? "bg-gray-200"
+                      : "hover:bg-gray-100"
+                }`}
+              >
+                <img
+                  src={contact?.profilePicture}
+                  alt={contact?.username}
+                  className="w-12 h-12 rounded-full"
+                />
+
+                <div className="ml-3 flex-1">
+                  <div className="flex justify-between items-baseline">
+                    <h2 className="font-semibold">{contact?.username}</h2>
+                    {contact?.conversation && (
+                      <span
+                        className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
+                      >
+                        {formatTimestamp(
+                          contact?.conversation?.lastMessage?.createdAt,
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <p
+                      className={`text-sm ${
+                        theme === "dark" ? "text-gray-400" : "text-gray-500"
+                      } max-w-[220px] break-all`}
                     >
-                      {formatTimestamp(
-                        contact?.conversation?.lastMessage?.createdAt,
-                      )}
-                    </span>
-                  )}
-                </div>
-                <div className="flex justify-between items-baseline">
-                  <p
-                    className={`text-sm ${
-                      theme === "dark" ? "text-gray-400" : "text-gray-500"
-                    } max-w-[220px] break-all`}
-                  >
-                    {contact?.conversation?.lastMessage?.content
-                      ? contact.conversation.lastMessage.content.length > 30
-                        ? contact.conversation.lastMessage.content.slice(
+                      {isTyping ? (
+                        <span className="text-green-500">Typing...</span>
+                      ) : contact?.conversation?.lastMessage?.content ? (
+                        contact.conversation.lastMessage.content.length > 30 ? (
+                          contact.conversation.lastMessage.content.slice(
                             0,
                             30,
                           ) + "..."
-                        : contact.conversation.lastMessage.content
-                      : "No messages yet"}
-                  </p>
-                  {contact?.conversation?.unreadCount > 0 && (
-                    <p className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-sm font-semibold">
-                      {contact.conversation.unreadCount}
+                        ) : (
+                          contact.conversation.lastMessage.content
+                        )
+                      ) : (
+                        "No messages yet"
+                      )}
                     </p>
-                  )}
+                    {contact?.conversation?.unreadCount > 0 && (
+                      <p className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-sm font-semibold">
+                        {contact.conversation.unreadCount}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))
+              </motion.div>
+            );
+          })
         )}
       </div>
     </div>

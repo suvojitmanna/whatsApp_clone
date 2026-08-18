@@ -308,7 +308,6 @@ export const useChatStore = create((set, get) => ({
       }
     }
 
-    // Update ChatList
     set((state) => ({
       conversations: {
         ...state.conversations,
@@ -460,16 +459,15 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  isUserTyping: (userId) => {
-    const { typingUsers, currentConversation } = get();
-    const conversationId = currentConversation?._id;
+isUserTyping: (conversationId, userId) => {
+  const { typingUsers } = get();
 
-    if (!conversationId || !typingUsers.has(conversationId) || !userId) {
-      return false;
-    }
+  if (!conversationId || !typingUsers.has(conversationId) || !userId) {
+    return false;
+  }
 
-    return typingUsers.get(conversationId)?.has(userId) || false;
-  },
+  return typingUsers.get(conversationId)?.has(userId) || false;
+},
 
   isUserOnline: (userId) => {
     if (!userId) return null;
