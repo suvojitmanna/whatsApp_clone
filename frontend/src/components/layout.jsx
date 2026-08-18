@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import ChatWindow from "../pages/chatSection/ChatWindow";
 import ContactInfo from "../components/ContactInfo";
 import ProfilePicture from "../components/profilePicture";
-import { useLocation } from "react-router-dom";
 
 const Layout = ({
   children,
@@ -20,15 +19,13 @@ const Layout = ({
   const setSelectedContact = useLayoutStore(
     (state) => state.setSelectedContact,
   );
-
+    
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const { theme, setTheme } = useThemeStore();
   const showContactInfo = useLayoutStore((state) => state.showContactInfo);
   const showProfilePicture = useLayoutStore(
     (state) => state.showProfilePicture,
   );
-  const location = useLocation();
-  const isStatusPage = location.pathname === "/status";
 
   const setShowProfilePicture = useLayoutStore(
     (state) => state.setShowProfilePicture,

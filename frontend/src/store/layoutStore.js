@@ -11,7 +11,15 @@ const useLayoutStore = create(
       setSelectedContact: (contact) => {
         set({ selectedContact: contact });
       },
-
+      updateSelectedContact: (updates) =>
+        set((state) => ({
+          selectedContact: state.selectedContact
+            ? {
+              ...state.selectedContact,
+              ...updates,
+            }
+            : null,
+        })),
       setActiveTab: (tab) => {
         set({ activeTab: tab });
       },

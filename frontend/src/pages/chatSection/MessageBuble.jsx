@@ -63,7 +63,6 @@ const MessageBuble = ({
       setShowReactions(true);
     }, 400);
   };
-
   const handleTouchEnd = () => {
     clearTimeout(pressTimer.current);
   };
@@ -98,7 +97,6 @@ const MessageBuble = ({
   });
 
   if (!message) return null;
-
   return (
     <div
       className={`chat ${bubbleClass} transition-all duration-300 ${
@@ -130,7 +128,6 @@ const MessageBuble = ({
                 if (!onStatusClick) return;
 
                 onStatusClick(message.statusId);
-
                 const statusId =
                   typeof message.statusId === "object"
                     ? message.statusId?._id
@@ -155,7 +152,6 @@ const MessageBuble = ({
                 >
                   {message.statusId?.user?.username || "Status"}
                 </p>
-
                 {message.statusId?.contentType === "text" && (
                   <div className="pt-2">
                     <div className="flex items-center gap-1.5 mb-1">
@@ -163,7 +159,6 @@ const MessageBuble = ({
                         size={11}
                         className={isDark ? "text-gray-400" : "text-gray-500"}
                       />
-
                       <span
                         className={`text-[11px] font-medium uppercase tracking-wide ${
                           isDark ? "text-gray-400" : "text-gray-500"
@@ -337,9 +332,11 @@ const MessageBuble = ({
         </div>
 
         {/* TIME */}
-        <div className="flex items-center justify-end gap-1 text-[11px] opacity-60 mt-1.5 select-none">
+        <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-60 mt-1.5 select-none">
+          {message.edited && (
+            <span className="italic opacity-80 mr-0.5">Edited</span>
+          )}
           <span>{format(new Date(message.createdAt), "HH:mm")}</span>
-
           {isUserMessage && (
             <>
               {message.messageStatus === "send" && <FiCheck size={15} />}

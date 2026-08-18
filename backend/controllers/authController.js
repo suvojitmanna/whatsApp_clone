@@ -149,7 +149,12 @@ const updateProfile = async (req, res) => {
     }
 
     if (about !== undefined && about !== null) {
-      user.about = String(about).trim();
+      const newAbout = String(about).trim();
+
+      if (newAbout !== user.about) {
+        user.about = newAbout;
+        user.aboutUpdatedAt = new Date();
+      }
     }
 
     if (!user.about) {
@@ -165,6 +170,7 @@ const updateProfile = async (req, res) => {
         username: user.username,
         about: user.about,
         profilePicture: user.profilePicture,
+        aboutUpdatedAt: user.aboutUpdatedAt,
       });
     }
 
@@ -223,7 +229,7 @@ const getAllUsers = async (req, res) => {
       _id: { $ne: loggedInUserId },
     })
       .select(
-        "username profilePicture lastSeen isOnline phoneSuffix phoneNumber phoneSuffix about email",
+        "username profilePicture lastSeen isOnline phoneSuffix phoneNumber phoneSuffix about aboutUpdatedAt email",
       )
       .lean();
 

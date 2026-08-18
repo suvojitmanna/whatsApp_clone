@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema(
       maxlength: 139,
       trim: true,
     },
+    aboutUpdatedAt: {
+      type: Date,
+      default: Date.now,
+    },
 
     lastSeen: { type: Date, default: Date.now },
 

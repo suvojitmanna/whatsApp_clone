@@ -1,13 +1,14 @@
 import { io } from "socket.io-client";
 import useUserStore from "../store/useUserStore";
+import useLayoutStore from "../store/layoutStore";
 
 let socket = null;
-
 
 export const initializeSocket = () => {
   if (socket) {
     socket.disconnect();
   }
+
   const BACKEND_URL = import.meta.env.VITE_API_URL;
   socket = io(BACKEND_URL, {
     transports: ["websocket", "polling"],
@@ -18,6 +19,35 @@ export const initializeSocket = () => {
   socket.on("connect", () => {
     console.log(" Connected:", socket.id);
     emitUserConnected();
+  });
+
+  socket.on("profile_updated", (data) => {
+    console.log("PROFILE UPDATED:", data);
+
+    // Update logged-in user's profile
+    const currentUser = useUserStore.getState().user;
+
+    if (currentUser?._id === data.userId) {
+      useUserStore.getState().updateUser({
+        username: data.username,
+        about: data.about,
+        aboutUpdatedAt: data.aboutUpdatedAt,
+        profilePicture: data.profilePicture,
+      });
+    }
+
+    // Update currently opened contact
+    const selectedContact =
+      useLayoutStore.getState().selectedContact;
+
+    if (selectedContact?._id === data.userId) {
+      useLayoutStore.getState().updateSelectedContact({
+        username: data.username,
+        about: data.about,
+        aboutUpdatedAt: data.aboutUpdatedAt,
+        profilePicture: data.profilePicture,
+      });
+    }
   });
 
   socket.on("disconnect", (reason) => {

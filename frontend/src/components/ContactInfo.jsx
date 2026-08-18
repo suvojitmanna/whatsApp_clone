@@ -21,10 +21,9 @@ const ContactInfo = () => {
   useOutsideClick(contactInfoRef, () => {
     setShowContactInfo(false);
   });
-    const setShowProfilePicture = useLayoutStore(
+  const setShowProfilePicture = useLayoutStore(
     (state) => state.setShowProfilePicture,
   );
-
 
   const handleVideoCall = () => {
     if (selectedContact && online) {
@@ -96,7 +95,6 @@ const ContactInfo = () => {
       </span>
     </button>
   );
-
   return (
     <AnimatePresence>
       {showContactInfo && (
@@ -145,7 +143,6 @@ const ContactInfo = () => {
 
           {/* Profile Section */}
           <div className="flex flex-col items-center py-4 px-6 overflow-y-auto flex-1 scrollbar-hide">
-            
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -236,8 +233,19 @@ const ContactInfo = () => {
                   {selectedContact?.about || "Hey there! I am using WhatsApp."}
                 </p>
 
-                <p className="text-[10px] mt-0 opacity-40 font-medium">
-                  Updated recently
+                <p
+                  className={`text-[10px] mt-1 ${
+                    theme === "dark" ? "text-gray-500" : "text-gray-400"
+                  }`}
+                >
+                  {selectedContact?.aboutUpdatedAt
+                    ? `Updated ${new Date(
+                        selectedContact.aboutUpdatedAt,
+                      ).toLocaleString([], {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}`
+                    : ""}
                 </p>
               </motion.div>
             </div>

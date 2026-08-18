@@ -30,10 +30,8 @@ const ChatList = ({ contacts }) => {
         const timeB = b?.conversation?.lastMessage?.createdAt
           ? new Date(b.conversation.lastMessage.createdAt)
           : 0;
-
         return timeB - timeA;
       }) || [];
-
   return (
     <div
       className={`h-full border-r relative z-10 transition-all duration-300 
@@ -139,23 +137,36 @@ const ChatList = ({ contacts }) => {
                   </div>
                   <div className="flex justify-between items-baseline">
                     <p
-                      className={`text-sm ${
+                      className={`text-sm flex items-center gap-1.5 w-full ${
                         theme === "dark" ? "text-gray-400" : "text-gray-500"
-                      } max-w-[220px] break-all`}
+                      }`}
                     >
                       {isTyping ? (
-                        <span className="text-green-500">Typing...</span>
+                        <span className="font-medium text-emerald-500 flex-shrink-0">
+                          typing...
+                        </span>
                       ) : contact?.conversation?.lastMessage?.content ? (
-                        contact.conversation.lastMessage.content.length > 30 ? (
-                          contact.conversation.lastMessage.content.slice(
-                            0,
-                            30,
-                          ) + "..."
-                        ) : (
-                          contact.conversation.lastMessage.content
-                        )
+                        <>
+                          <span className="truncate">
+                            {contact.conversation.lastMessage.content}
+                          </span>
+
+                          {contact.conversation.lastMessage.edited && (
+                            <span
+                              className={`flex-shrink-0 text-[11px] italic mt-0.5 ${
+                                theme === "dark"
+                                  ? "text-gray-500/80"
+                                  : "text-gray-400"
+                              }`}
+                            >
+                              edited
+                            </span>
+                          )}
+                        </>
                       ) : (
-                        "No messages yet"
+                        <span className="italic opacity-70">
+                          No messages yet
+                        </span>
                       )}
                     </p>
                     {contact?.conversation?.unreadCount > 0 && (
