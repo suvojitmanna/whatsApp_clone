@@ -19,7 +19,7 @@ const CameraModal = ({ onClose, onCapture }) => {
   const [flash, setFlash] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
 
-  // --- CAMERA ENGINE ---
+  //CAMERA ENGINE
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -57,7 +57,7 @@ const CameraModal = ({ onClose, onCapture }) => {
     }
   }, [facingMode, stopCamera]);
 
-  // --- RECORDING LOGIC ---
+  //RECORDING LOGIC
 
   useEffect(() => {
     let interval;
@@ -108,7 +108,7 @@ const CameraModal = ({ onClose, onCapture }) => {
     }
   };
 
-  // --- PHOTO LOGIC ---
+  // PHOTO LOGIC
 
   const capturePhoto = () => {
     const video = videoRef.current;
@@ -143,7 +143,7 @@ const CameraModal = ({ onClose, onCapture }) => {
     );
   };
 
-  // --- INTERACTION HANDLERS ---
+  // INTERACTION HANDLERS
 
   const handlePressStart = (e) => {
     e.preventDefault();
@@ -176,14 +176,11 @@ const CameraModal = ({ onClose, onCapture }) => {
 
   return (
     <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center font-sans select-none overflow-hidden">
-      {/* FLASH EFFECT */}
       {flash && (
         <div className="absolute inset-0 bg-white z-[300] animate-pulse" />
       )}
 
-      {/*TOP BAR - Adjusted Positioning */}
       <div className="absolute top-0 w-full flex justify-between items-start p-6 z-50 pt-10 px-8">
-        {/* CLOSE BUTTON - Left Aligned */}
         <button
           onClick={handleClose}
           className="p-3 rounded-full bg-black/30 backdrop-blur-xl border border-white/10 text-white hover:bg-black/50 transition-all shadow-xl active:scale-90"
@@ -191,7 +188,6 @@ const CameraModal = ({ onClose, onCapture }) => {
           <RxCross2 size={22} />
         </button>
 
-        {/* STATUS INDICATOR - Center Aligned */}
         <div className="flex flex-col items-center mt-2">
           <div
             className={`px-4 py-1.5 rounded-full border ${
@@ -215,7 +211,6 @@ const CameraModal = ({ onClose, onCapture }) => {
           )}
         </div>
 
-        {/* ROTATE BUTTON - Right Aligned */}
         <button
           onClick={() =>
             setFacingMode((prev) =>
@@ -228,7 +223,6 @@ const CameraModal = ({ onClose, onCapture }) => {
         </button>
       </div>
 
-      {/* CAMERA VIEWPORT */}
       <div className="relative w-full h-full flex items-center justify-center bg-[#0a0a0a]">
         <video
           ref={videoRef}
@@ -238,7 +232,6 @@ const CameraModal = ({ onClose, onCapture }) => {
           className={`w-full h-full object-cover transition-opacity duration-700 ${isCameraReady ? "opacity-100" : "opacity-0"} ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
         />
 
-        {/* Rule of Thirds Grid (Made brighter) */}
         {!isRecording && (
           <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-30">
             {[...Array(9)].map((_, i) => (
@@ -248,7 +241,6 @@ const CameraModal = ({ onClose, onCapture }) => {
         )}
       </div>
 
-      {/* BOTTOM CONTROLS (Removed Gradient Background) */}
       <div className="absolute bottom-0 w-full pb-10 pt-20 flex flex-col items-center gap-6 z-50">
         <div className="flex gap-8 text-[11px] font-black uppercase tracking-[0.3em] drop-shadow-lg">
           <span className={isRecording ? "text-white/30" : "text-yellow-400"}>
@@ -259,9 +251,7 @@ const CameraModal = ({ onClose, onCapture }) => {
           </span>
         </div>
 
-        {/* Shutter Button Container */}
         <div className="relative flex items-center justify-center">
-          {/* Outer Pulsing Ring (Recording) */}
           {isRecording && (
             <div className="absolute w-28 h-28 rounded-full border-2 border-red-600 animate-ping opacity-60" />
           )}
@@ -271,7 +261,6 @@ const CameraModal = ({ onClose, onCapture }) => {
             onMouseUp={handlePressEnd}
             onTouchStart={handlePressStart}
             onTouchEnd={handlePressEnd}
-            // Modified: Added subtle background and shadow to button for separation
             className={`
               relative z-10 w-20 h-20 rounded-full border-4 transition-all duration-500 flex items-center justify-center bg-black/10 backdrop-blur-sm shadow-2xl
               ${isRecording ? "border-red-500 scale-110" : "border-white hover:scale-105 active:scale-95"}
@@ -290,7 +279,6 @@ const CameraModal = ({ onClose, onCapture }) => {
           </button>
         </div>
 
-        {/* Instruction text (added shadow for visibility) */}
         <p className="text-white/60 text-[10px] font-medium tracking-widest uppercase drop-shadow-lg">
           {isRecording ? "Release to Finish" : "Tap for Photo • Hold for Video"}
         </p>

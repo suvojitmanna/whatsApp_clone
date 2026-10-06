@@ -39,12 +39,9 @@ const App = () => {
       <ToastContainer position="top-right" autoClose={3000} />
       <BrowserRouter>
         <Routes>
-          {/* Public */}
           <Route element={<PublicRoute />}>
             <Route path="/user-login" element={<Login />} />
           </Route>
-
-          {/* Protected */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Home />} />
             <Route path="/user-profile" element={<UserDetails />} />

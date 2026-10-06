@@ -24,7 +24,6 @@ const ContactSupport = () => {
         isDark ? "bg-[#0b141a] text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
-      {/* Header */}
       <div className={`p-4 flex items-center gap-4 border-b sticky top-0 z-20 transition-colors ${
         isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200 shadow-sm"
       }`}>
@@ -47,7 +46,6 @@ const ContactSupport = () => {
           </p>
         </div>
 
-        {/* Contact Method Icons */}
         <div className="flex justify-center gap-6 mb-12">
           {contactMethods.map((method, index) => (
             <motion.div
@@ -63,7 +61,6 @@ const ContactSupport = () => {
           ))}
         </div>
 
-        {/* Message Form */}
         <div className="space-y-4">
           <div className="flex flex-col gap-2">
             <label className={`text-sm font-semibold ml-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
@@ -97,7 +94,6 @@ const ContactSupport = () => {
           </motion.button>
         </div>
 
-        {/* FAQ Shortcut */}
         <div className="mt-12 text-center">
           <p className={`text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
             Prefer to solve it yourself?

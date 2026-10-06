@@ -129,8 +129,6 @@ const updateProfile = async (req, res) => {
     if (!user) {
       return response(res, 404, "User not found");
     }
-    console.log("REQ BODY:", req.body);
-    console.log("ABOUT:", req.body.about);
     const file = req.file;
 
     if (file) {

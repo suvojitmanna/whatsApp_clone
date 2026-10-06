@@ -59,7 +59,6 @@ const HelpPage = () => {
       className={`min-h-screen w-full flex flex-col font-sans transition-colors duration-300
       ${isDark ? "bg-[#0b141a] text-gray-100" : "bg-gray-100 text-gray-900"}`}
     >
-      {/* Header */}
       <header
         className={`p-6 sticky top-0 z-10 border-b shadow-xl transition-colors
         ${isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200"}`}
@@ -79,7 +78,6 @@ const HelpPage = () => {
           <h1 className="text-2xl font-bold tracking-tight">Help Center</h1>
         </div>
 
-        {/* Search */}
         <div className="relative group">
           <FaSearch
             className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors
@@ -100,7 +98,6 @@ const HelpPage = () => {
         </div>
       </header>
 
-      {/* Main */}
       <main className="flex-1 p-4 max-w-2xl mx-auto w-full">
         <div className="grid gap-3">
           <AnimatePresence mode="popLayout">
@@ -155,7 +152,6 @@ const HelpPage = () => {
             ))}
           </AnimatePresence>
 
-          {/* Empty State */}
           {filteredItems.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -169,12 +165,10 @@ const HelpPage = () => {
         </div>
       </main>
 
-      {/* Footer */}
       <footer
         className={`p-6 text-center border-t transition-colors
         ${isDark ? "border-gray-800" : "border-gray-200"}`}
       >
-        {/* Footer / Quick Help */}
         <footer className="p-6 text-center border-t border-gray-800">
           <button
             onClick={() => navigate("/help/contact-support")}

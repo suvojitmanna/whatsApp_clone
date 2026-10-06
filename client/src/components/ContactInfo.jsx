@@ -111,7 +111,6 @@ const ContactInfo = () => {
                 : "bg-white/90 backdrop-blur-xl border-gray-200 text-gray-800"
             } shadow-2xl`}
         >
-          {/* Header */}
           <div
             className={`h-[70px] px-4 flex items-center justify-between border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
           >
@@ -141,7 +140,6 @@ const ContactInfo = () => {
             </motion.button>
           </div>
 
-          {/* Profile Section */}
           <div className="flex flex-col items-center py-4 px-6 overflow-y-auto flex-1 scrollbar-hide">
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -189,7 +187,6 @@ const ContactInfo = () => {
               </div>
             </div>
 
-            {/* Premium Action Buttons */}
             <div className="flex justify-center gap-8">
               <ActionButton icon={<FaSearch size={18} />} label="Search" />
 
@@ -208,7 +205,6 @@ const ContactInfo = () => {
               />
             </div>
 
-            {/* About Section - Glassmorphism Card */}
             <div className="w-full space-y-4 pt-4">
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
@@ -218,7 +214,6 @@ const ContactInfo = () => {
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
 
-                {/* Section Header */}
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
                   <p className="text-[11px] text-emerald-500 font-bold uppercase tracking-[0.15em]">
@@ -226,7 +221,6 @@ const ContactInfo = () => {
                   </p>
                 </div>
 
-                {/* About Text */}
                 <p
                   className={`text-[15px] leading-relaxed relative z-10${theme === "dark" ? "text-gray-200" : "text-gray-700"}`}
                 >
