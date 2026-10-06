@@ -15,7 +15,6 @@ const conversationSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// FIXED MODEL EXPORT
 const Conversation =
   mongoose.models.Conversation ||
   mongoose.model("Conversation", conversationSchema);

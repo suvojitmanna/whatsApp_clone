@@ -76,7 +76,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   let matchCounter = -1;
 
-  //get online status and last seen
   const online = isUserOnline(selectedContact?._id);
   const lastSeen = getUserLastSeen(selectedContact?._id);
   const conversationId = selectedContact?.conversation?._id;
@@ -198,7 +197,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
 
     return (
-      // timestamp
       <div className="sticky top-0 z-10 flex justify-center mb-4">
         <span
           className={`px-4 py-1.5 text-xs font-semibold rounded-full backdrop-blur-md shadow-sm border transition-colors duration-300 ${theme === "dark"

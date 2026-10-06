@@ -1,5 +1,4 @@
 const handleVideoCallEvent = (socket, io, onlineUsers) => {
-  // Incoming Call
   socket.on(
     "initiate_call",
     ({ callerId, receiverId, callType, callerInfo }) => {

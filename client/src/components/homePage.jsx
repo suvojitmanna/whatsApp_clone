@@ -33,7 +33,6 @@ const HomePage = () => {
   const conversations = useChatStore((state) => state.conversations);
   const fetchConversations = useChatStore((state) => state.fetchConversations);
 
-  // Fetch users and conversations
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -84,7 +83,6 @@ const HomePage = () => {
     }
   };
 
-  // Status card clicked from MessageBuble
   const handleStatusClick = (statusData) => {
     if (!statusData) return;
     const statusId =
@@ -92,7 +90,6 @@ const HomePage = () => {
 
     if (!statusId) return;
 
-    // If backend already populated the status
     if (typeof statusData === "object") {
       const status = {
         id: statusData._id,
@@ -153,7 +150,6 @@ const HomePage = () => {
   }
 };
 
-  // Previous status
   const handlePreviewPrev = () => {
     setCurrentStatusIndex((prev) => Math.max(prev - 1, 0));
   };

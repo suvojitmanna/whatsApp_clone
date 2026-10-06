@@ -11,7 +11,6 @@ const useStatusStore = create((set, get) => ({
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
 
-  //Initilize the socket listeners
   initializeSocket: () => {
     const socket = getSocket();
     if (!socket) return;
@@ -71,7 +70,6 @@ const useStatusStore = create((set, get) => ({
     }
   },
 
-  //Fetch Status
   fetchStatuses: async () => {
     set({ loading: true, error: null });
 
@@ -82,12 +80,10 @@ const useStatusStore = create((set, get) => ({
       set((state) => {
         const map = new Map();
 
-        // Keep existing realtime statuses
         state.statuses.forEach((status) => {
           map.set(String(status._id), status);
         });
 
-        // Add/update API statuses
         fetchedStatuses.forEach((status) => {
           map.set(String(status._id), status);
         });
@@ -107,7 +103,6 @@ const useStatusStore = create((set, get) => ({
     }
   },
 
-  //Create Status
   createStatus: async (statusData) => {
     set({ loading: true, error: null });
 
@@ -142,7 +137,6 @@ const useStatusStore = create((set, get) => ({
     }
   },
 
-  //view status
   viewStatus: async (statusId) => {
     try {
       set({ loading: true, error: null });
@@ -158,7 +152,6 @@ const useStatusStore = create((set, get) => ({
     }
   },
 
-  //deleteStatus
   deleteStatus: async (statusId) => {
     try {
       set({ loading: true, error: null });
@@ -185,7 +178,6 @@ const useStatusStore = create((set, get) => ({
     }
   },
 
-  //get status viewers
   getStatusViewer: async (statusId) => {
     try {
       set({ loading: true, error: null });
@@ -199,7 +191,6 @@ const useStatusStore = create((set, get) => ({
     }
   },
 
-  //helper function for group status
   getGroupStatus: () => {
     const { statuses } = get();
 
@@ -274,7 +265,6 @@ const useStatusStore = create((set, get) => ({
     }
   },
 
-  //clear error
   clearError: () => set({ error: null }),
   reset: () =>
     set({

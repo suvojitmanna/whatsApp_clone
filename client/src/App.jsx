@@ -19,7 +19,7 @@ import ContactSupport from "./components/contact-support.jsx";
 
 const App = () => {
   const { user } = useUserStore();
-  const { setUser, initSocketListener, cleanup } = useUserStore(); // fixed name
+  const { setUser, initSocketListener, cleanup } = useUserStore();
 
   useEffect(() => {
     if (user?._id) {

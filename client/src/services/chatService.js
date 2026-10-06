@@ -23,8 +23,6 @@ export const initializeSocket = () => {
 
   socket.on("profile_updated", (data) => {
     console.log("PROFILE UPDATED:", data);
-
-    // Update logged-in user's profile
     const currentUser = useUserStore.getState().user;
 
     if (currentUser?._id === data.userId) {
@@ -35,8 +33,6 @@ export const initializeSocket = () => {
         profilePicture: data.profilePicture,
       });
     }
-
-    // Update currently opened contact
     const selectedContact =
       useLayoutStore.getState().selectedContact;
 

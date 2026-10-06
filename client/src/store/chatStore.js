@@ -138,8 +138,6 @@ export const useChatStore = create((set, get) => ({
         return { onlineUsers: newOnlineUsers };
       });
     });
-
-    // emit status for all users in conversation List
     const { conversations } = get();
 
     if (conversations?.data?.length > 0) {
@@ -165,8 +163,6 @@ export const useChatStore = create((set, get) => ({
       });
     }
   },
-
-  // set current user conversation
   setCurrentUser: (user) => set({ currentUser: user }), fetchConversations: async () => {
     set({ loading: true, error: null });
     try {
@@ -182,8 +178,6 @@ export const useChatStore = create((set, get) => ({
       return null;
     }
   },
-
-  //fetch messages for a conversation
   fetchMessages: async (conversationId) => {
     if (!conversationId) return;
     set({ loading: true, error: null });
@@ -207,8 +201,6 @@ export const useChatStore = create((set, get) => ({
       return [];
     }
   },
-
-  //send message in real time using socket
   sendMessage: async (formData) => {
     const senderId = formData.get("senderId");
     const receiverId = formData.get("receiverId");

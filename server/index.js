@@ -43,8 +43,6 @@ app.use("/api/chat", chatRoute);
 app.use("/api/status", statusRoute);
 
 connectDb();
-
-// PORT
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {

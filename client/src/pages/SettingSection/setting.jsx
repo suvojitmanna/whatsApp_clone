@@ -61,7 +61,6 @@ const Settings = () => {
   };
 
   useEffect(() => {
-    // and any opening animations have completed.
     const timer = setTimeout(() => {
       inputRef.current?.focus();
     }, 100);
@@ -69,7 +68,6 @@ const Settings = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Shadow Loader (chat style)
   const Loader = () => (
     <motion.div
       initial={{ opacity: 0 }}

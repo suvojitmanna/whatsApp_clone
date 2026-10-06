@@ -3,7 +3,6 @@ import { RxCross2 } from "react-icons/rx";
 import { FaSync } from "react-icons/fa";
 
 const CameraModal = ({ onClose, onCapture }) => {
-  // Refs
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -11,15 +10,11 @@ const CameraModal = ({ onClose, onCapture }) => {
   const chunksRef = useRef([]);
   const pressTimer = useRef(null);
   const isLongPress = useRef(false);
-
-  // State
   const [facingMode, setFacingMode] = useState("environment");
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [flash, setFlash] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
-
-  //CAMERA ENGINE
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -56,8 +51,6 @@ const CameraModal = ({ onClose, onCapture }) => {
       alert("Please allow camera and microphone access.");
     }
   }, [facingMode, stopCamera]);
-
-  //RECORDING LOGIC
 
   useEffect(() => {
     let interval;
@@ -108,8 +101,6 @@ const CameraModal = ({ onClose, onCapture }) => {
     }
   };
 
-  // PHOTO LOGIC
-
   const capturePhoto = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -121,8 +112,6 @@ const CameraModal = ({ onClose, onCapture }) => {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
-
-    // Mirror if using front camera
     if (facingMode === "user") {
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
@@ -142,8 +131,6 @@ const CameraModal = ({ onClose, onCapture }) => {
       0.9,
     );
   };
-
-  // INTERACTION HANDLERS
 
   const handlePressStart = (e) => {
     e.preventDefault();

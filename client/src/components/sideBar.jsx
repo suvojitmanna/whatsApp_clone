@@ -28,7 +28,6 @@ const sideBar = () => {
 
   if (isMobile && selectedContact) return null;
 
-  // Premium Icon Wrapper Logic
   const getIconClass = (tabName) => {
     const isActive = activeTab === tabName;
     return `relative transition-all duration-300 ease-in-out p-3 rounded-2xl flex items-center justify-center

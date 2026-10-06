@@ -200,11 +200,7 @@ const Login = () => {
         const user = response.data?.user;
 
         console.log("USER AFTER OTP:", user);
-
-        // Save user
         setUser(user);
-
-        // ALWAYS GO TO STEP 3
         setStep(3);
       } else {
         toast.error(response.data.message || "Invalid OTP");
@@ -250,8 +246,6 @@ const Login = () => {
 
       const result = await checkUserAuth();
       console.log("STEP 4: checkUserAuth result:", result);
-
-      // FIXED
       setUser(result.data.user);
 
       console.log("STEP 5: User set in Zustand:", result.data.user);
@@ -278,14 +272,10 @@ const Login = () => {
     if (!/^\d?$/.test(value)) return;
 
     const newOtp = [...otp];
-
-    // Replace value (important for overwrite)
     newOtp[index] = value;
     setOtp(newOtp);
 
     setOtpValue("otp", newOtp.join(""));
-
-    // Move forward
     if (value && index < 5) {
       const nextInput = document.getElementById(`otp-${index + 1}`);
       nextInput?.focus();
@@ -297,11 +287,9 @@ const Login = () => {
       const newOtp = [...otp];
 
       if (otp[index]) {
-        // clear current
         newOtp[index] = "";
         setOtp(newOtp);
       } else if (index > 0) {
-        // go back
         const prevInput = document.getElementById(`otp-${index - 1}`);
         prevInput?.focus();
 

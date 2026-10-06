@@ -74,7 +74,6 @@ const MessageBuble = ({
     setShowReactions(false);
   };
 
-  // Close on outside click
   useOutsideClick(emojiPickerRef, () => {
     if (showEmojiPicker) setShowEmojiPicker(false);
   });

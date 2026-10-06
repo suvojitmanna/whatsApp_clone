@@ -75,7 +75,6 @@ const userDetails = () => {
 
       console.log("UPDATE RESPONSE:", updated);
 
-      // IMPORTANT
       const updatedUser = updated?.data?.data?.user;
 
       console.log("UPDATED USER:", updatedUser);
@@ -83,11 +82,7 @@ const userDetails = () => {
       if (!updatedUser) {
         throw new Error("Updated user not found in response");
       }
-
-      // Update Zustand
       setUser(updatedUser);
-
-      // Update local state immediately
       if (field === "about") {
         setAbout(updatedUser.about || "");
         setIsEditingAbout(false);

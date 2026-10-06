@@ -57,7 +57,6 @@ const VideoCallModel = ({ socket }) => {
     ],
   };
 
-  //Memorize display the user info and it is prevent the unnecessary re-render
   const displayInfo = useMemo(() => {
     if (incomingCall && !isCallActive) {
       return {
@@ -73,7 +72,6 @@ const VideoCallModel = ({ socket }) => {
     return null;
   }, [incomingCall, currentCall, isCallActive]);
 
-  //Connection Detection
   useEffect(() => {
     if (peerConnection && remoteStream) {
       console.log("both peer connection ");
@@ -81,22 +79,18 @@ const VideoCallModel = ({ socket }) => {
       setCallActive(true);
     }
   }, [peerConnection, remoteStream, setCallStatus, setCallActive]);
-
-  //setup local video stream when local stream change
   useEffect(() => {
     if (localStream && localVideoRef.current) {
       localVideoRef.current.srcObject = localStream;
     }
   }, [localStream]);
 
-  //setup the remote video stream
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
   }, [remoteStream]);
 
-  //Timer function
   useEffect(() => {
     let interval;
 
@@ -119,8 +113,6 @@ const VideoCallModel = ({ socket }) => {
       setCallTime(0);
     }
   }, [callStatus, isCallActive]);
-
-  //Initialize media stream
   const InitializeMedia = async (video = true) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -143,8 +135,6 @@ const VideoCallModel = ({ socket }) => {
       const sender = peerConnection
         ?.getSenders()
         .find((s) => s.track?.kind === "video");
-
-      //STOP SCREEN SHARE
       if (isScreenSharing) {
         const sender = peerConnection
           ?.getSenders()
@@ -161,8 +151,6 @@ const VideoCallModel = ({ socket }) => {
 
         return;
       }
-
-      //START SCREEN SHARE
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
       });
@@ -175,8 +163,6 @@ const VideoCallModel = ({ socket }) => {
 
       setLocalStream(screenStream);
       setIsScreenSharing(true);
-
-      //ONLY switch back when screen ENDS
       screenTrack.onended = () => {
         const sender = peerConnection
           ?.getSenders()
@@ -195,8 +181,6 @@ const VideoCallModel = ({ socket }) => {
       console.error("Screen share toggle error:", err);
     }
   };
-
-  //create peer connection
   const createPeerConnection = (stream, role) => {
     const pc = new RTCPeerConnection(rtcConfiguration);
 
@@ -206,8 +190,6 @@ const VideoCallModel = ({ socket }) => {
         pc.addTrack(track, stream);
       });
     }
-
-    // handle ice candidates
     pc.onicecandidate = (event) => {
       if (event.candidate && socket?.connected) {
         const participantId =
@@ -223,8 +205,6 @@ const VideoCallModel = ({ socket }) => {
         }
       }
     };
-
-    // handle remote stream
     pc.ontrack = (event) => {
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
@@ -280,8 +260,6 @@ const VideoCallModel = ({ socket }) => {
       setTimeout(handleEndCall, 2000);
     }
   };
-
-  //Receiver : Answer Call
   const handleAnswerCall = async () => {
     try {
       setCallStatus("connecting");
@@ -313,8 +291,6 @@ const VideoCallModel = ({ socket }) => {
       handleEndCall();
     }
   };
-
-  // Reject call
   const handleRejectCall = () => {
     if (incomingCall) {
       socket.emit("reject_call", {
@@ -326,25 +302,18 @@ const VideoCallModel = ({ socket }) => {
   };
 
   const cleanupCall = () => {
-    //stop sender tracks
     if (peerConnection) {
       peerConnection.getSenders().forEach((s) => {
         if (s.track) s.track.stop();
         s.replaceTrack(null);
       });
     }
-
-    //stop screen stream
     if (isScreenSharing && localStream) {
       localStream.getTracks().forEach((t) => t.stop());
     }
-
-    //stop camera stream (IMPORTANT)
     if (cameraStream) {
       cameraStream.getTracks().forEach((t) => t.stop());
     }
-
-    //fallback
     if (localStream) {
       localStream.getTracks().forEach((t) => t.stop());
     }
@@ -365,8 +334,6 @@ const VideoCallModel = ({ socket }) => {
 
     endCall();
   };
-
-  //Handle end call
   const handleEndCall = () => {
     setCallTime(0);
     const participantId = currentCall?.participantId || incomingCall?.callerId;
@@ -381,15 +348,11 @@ const VideoCallModel = ({ socket }) => {
 
     cleanupCall();
   };
-
-  // Time format function
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
-
-  // socket event listeners
   useEffect(() => {
     if (!socket) return;
 
@@ -434,8 +397,6 @@ const VideoCallModel = ({ socket }) => {
         console.error("Receiver offer error", error);
       }
     };
-
-    // receiver answer (caller)
     const handleWebRTCAnswer = async ({ answer, senderId, callId }) => {
       if (!peerConnection) return;
       if (peerConnection.signalingState === "closed") {
@@ -456,8 +417,6 @@ const VideoCallModel = ({ socket }) => {
         console.error("Caller answer error", error);
       }
     };
-
-    // Receiver ICE candidate
     const handleWebRTCIceCandidates = async ({ candidate, senderId }) => {
       if (peerConnection && peerConnection.signalingState !== "closed") {
         if (peerConnection.remoteDescription) {
@@ -475,8 +434,6 @@ const VideoCallModel = ({ socket }) => {
         }
       }
     };
-
-    // register all event listener
     socket.on("call_accepted", handleCallAccepted);
     socket.on("call_rejected", handleCallRejected);
     socket.on("call_ended", handleCallEnded);

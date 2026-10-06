@@ -229,8 +229,6 @@ exports.deleteMessage = async (req, res) => {
           },
         }
       );
-
-      // Tell ONLY the user who deleted it
       if (req.io && req.socketUserMap instanceof Map) {
         const userSocketId = req.socketUserMap.get(userId.toString());
 
