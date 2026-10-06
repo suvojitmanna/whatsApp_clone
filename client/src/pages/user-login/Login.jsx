@@ -341,11 +341,10 @@ const Login = () => {
 
   return (
     <div
-      className={`min-h-screen ${
-        theme === "dark"
+      className={`min-h-screen ${theme === "dark"
           ? "bg-gray-900"
           : "bg-gradient-to-br from-green-400 to-blue-500"
-      } flex items-center justify-center overflow-hidden`}
+        } flex items-center justify-center overflow-hidden`}
     >
       <motion.div
         initial={{ opacity: 0, y: -50 }}
@@ -368,9 +367,8 @@ const Login = () => {
           <FaWhatsapp className="h-16 w-16 text-white" />
         </motion.div>
         <h1
-          className={`text-3xl font-bold text-center mb-6 ${
-            theme === "dark" ? "text-white" : "text-gray-800"
-          }`}
+          className={`text-3xl font-bold text-center mb-6 ${theme === "dark" ? "text-white" : "text-gray-800"
+            }`}
         >
           WhatsApp Login
         </h1>
@@ -393,11 +391,10 @@ const Login = () => {
                   <button
                     type="button"
                     onClick={() => setShowDropDown(!showDropDown)}
-                    className={`flex-shrink-0 z-10 inline-flex items-center py-2.5 px-4 text-sm font-medium text-center ${
-                      theme === "dark"
+                    className={`flex-shrink-0 z-10 inline-flex items-center py-2.5 px-4 text-sm font-medium text-center ${theme === "dark"
                         ? "text-white bg-gray-700 border-gray-600"
                         : "text-gray-900 bg-gray-100 border-gray-300"
-                    } border rounded-s-lg hover:bg-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 cursor-pointer`}
+                      } border rounded-s-lg hover:bg-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 cursor-pointer`}
                   >
                     <span className="flex items-center gap-2">
                       <ReactCountryFlag
@@ -415,11 +412,10 @@ const Login = () => {
                   </button>
                   {showDropDown && (
                     <div
-                      className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-60 overflow-auto ${
-                        theme === "dark"
+                      className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-60 overflow-auto ${theme === "dark"
                           ? "bg-gray-700 border-gray-600"
                           : "bg-white border-gray-300"
-                      }`}
+                        }`}
                     >
                       <div
                         className={`sticky top-0 ${theme === "dark" ? "bg-gray-700" : "bg-white"} p-2`}
@@ -429,11 +425,10 @@ const Login = () => {
                           placeholder="Country..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className={`w-full px-2 py-1 border ${
-                            theme === "dark"
+                          className={`w-full px-2 py-1 border ${theme === "dark"
                               ? "bg-gray-600 border-gray-500 text-white"
                               : "bg-white border-gray-300 text-gray-900"
-                          } rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500`}
+                            } rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500`}
                         />
                       </div>
                       {filterCountries.map((country) => (
@@ -445,15 +440,12 @@ const Login = () => {
                           }}
                           className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600"
                         >
-                          {/* Top Row → Flag + Code */}
                           <div className="flex items-center gap-2">
                             <span className="text-lg">{country.flag}</span>
                             <span className="text-sm text-gray-600 dark:text-gray-300">
                               ({country.dialCode})
                             </span>
                           </div>
-
-                          {/* Bottom Row → Country Name */}
                           <div className="text-sm font-medium text-gray-900 dark:text-white ml-7 leading-tight">
                             {country.name}
                           </div>
@@ -541,17 +533,15 @@ const Login = () => {
           >
             <div className="space-y-2 text-center mb-8">
               <h2
-                className={`text-2xl font-semibold tracking-tight ${
-                  theme === "dark" ? "text-white" : "text-slate-900"
-                }`}
+                className={`text-2xl font-semibold tracking-tight ${theme === "dark" ? "text-white" : "text-slate-900"
+                  }`}
               >
                 Verify your identity
               </h2>
 
               <p
-                className={`text-sm leading-relaxed max-w-xs mx-auto ${
-                  theme === "dark" ? "text-slate-400" : "text-slate-500"
-                }`}
+                className={`text-sm leading-relaxed max-w-xs mx-auto ${theme === "dark" ? "text-slate-400" : "text-slate-500"
+                  }`}
               >
                 Please enter the 6-digit OTP sent to{" "}
                 <span
@@ -627,11 +617,10 @@ const Login = () => {
             <button
               type="button"
               onClick={handleBack}
-              className={`w-full mt-2 cursor-pointer ${
-                theme === "dark"
+              className={`w-full mt-2 cursor-pointer ${theme === "dark"
                   ? "bg-gray-700 text-gray-300"
                   : "bg-gray-200 text-gray-700"
-              } py-2 rounded-md hover:font-bold transition flex items-center justify-center`}
+                } py-2 rounded-md hover:font-bold transition flex items-center justify-center`}
             >
               <FaArrowLeft className="mr-2" />
               Wrong Number? Go Back
@@ -677,16 +666,14 @@ const Login = () => {
                     src={avatar}
                     key={index}
                     alt={`avatar ${index + 1}`}
-                    className={`w-12 h-12 rounded-full cursor-pointer transition duration-300 ease-in-out transform hover:scale-110 ${
-                      selectedAvatar === avatar ? "ring-2 ring-green-500" : ""
-                    }`}
+                    className={`w-12 h-12 rounded-full cursor-pointer transition duration-300 ease-in-out transform hover:scale-110 ${selectedAvatar === avatar ? "ring-2 ring-green-500" : ""
+                      }`}
                     onClick={() => setSelectedAvatar(avatar)}
                   />
                 ))}
               </div>
             </div>
 
-            {/* Username Field */}
             <div className="relative">
               <FaUser
                 className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme === "dark" ? "text-gray-400" : "text-gray-400"}`}
@@ -704,7 +691,6 @@ const Login = () => {
               )}
             </div>
 
-            {/* Terms & Conditions Field */}
             <div className="flex flex-col space-y-1">
               <div className="flex items-center space-x-2">
                 <input
@@ -730,7 +716,6 @@ const Login = () => {
               )}
             </div>
 
-            {/* Submit Button - Moved outside of the checkbox div */}
             <button
               type="submit"
               disabled={!watch("agreed") || loading}

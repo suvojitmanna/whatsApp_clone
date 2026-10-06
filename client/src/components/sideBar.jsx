@@ -48,7 +48,6 @@ const sideBar = () => {
       <div
         className={`${isMobile ? "flex flex-row justify-around w-full" : "flex flex-col gap-6 items-center"}`}
       >
-        {/* WhatsApp Icon */}
         <Link to="/">
           <motion.div
             whileHover={{ scale: 1.1 }}
@@ -59,7 +58,6 @@ const sideBar = () => {
           </motion.div>
         </Link>
 
-        {/* Status */}
         <Link to="/status">
           <motion.div
             whileHover={{ scale: 1.1 }}
@@ -80,7 +78,6 @@ const sideBar = () => {
             : "flex flex-col gap-6 items-center"
         }`}
       >
-        {/* User Profile */}
         <Link to="/user-profile">
           <motion.div
             whileHover={{ scale: 1.1 }}
@@ -100,7 +97,6 @@ const sideBar = () => {
           </motion.div>
         </Link>
 
-        {/* Settings */}
         <Link to="/setting">
           <motion.div
             whileHover={{ rotate: 90 }}

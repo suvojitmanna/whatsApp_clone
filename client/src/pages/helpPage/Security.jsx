@@ -30,7 +30,6 @@ const securityOptions = [
 
 const Security = () => {
   const navigate = useNavigate();
-  // Call the hook inside the component
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
 
@@ -39,12 +38,10 @@ const Security = () => {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      // Dynamic background and text colors
       className={`min-h-screen flex flex-col transition-colors duration-500 ${
         isDark ? "bg-[#0b141a] text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
-      {/* Header */}
       <div className={`p-4 flex items-center gap-4 border-b sticky top-0 z-20 transition-colors ${
         isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200 shadow-sm"
       }`}>
@@ -60,7 +57,6 @@ const Security = () => {
       </div>
 
       <div className="flex-1 p-6 max-w-2xl mx-auto w-full">
-        {/* Security Badge Section */}
         <div className="flex flex-col items-center mb-10">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
@@ -80,7 +76,6 @@ const Security = () => {
           </p>
         </div>
 
-        {/* Security Options List */}
         <div className="space-y-4">
           {securityOptions.map((option, index) => (
             <motion.div
@@ -129,7 +124,6 @@ const Security = () => {
           ))}
         </div>
 
-        {/* Bottom Alert Box */}
         <div className={`mt-8 p-4 border rounded-2xl flex gap-4 transition-colors ${
           isDark 
             ? "bg-yellow-500/5 border-yellow-500/20" 

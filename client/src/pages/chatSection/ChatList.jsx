@@ -37,11 +37,10 @@ const ChatList = ({ contacts }) => {
       className={`h-full border-r relative z-10 transition-all duration-300 
     /* Mobile: full width | Large screen: fixed width */
     w-full lg:w-[350px] lg:min-w-[350px] 
-    ${
-      theme === "dark"
-        ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
-        : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
-    }`}
+    ${theme === "dark"
+          ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
+          : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
+        }`}
     >
       <div className="p-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold">Chats</h2>
@@ -53,18 +52,16 @@ const ChatList = ({ contacts }) => {
         <div className="relative">
           {" "}
           <FaSearch
-            className={`absolute left-3 top-1/2 transform -translate-y-1/2 z-10 ${
-              theme === "dark" ? "text-gray-400" : "text-gray-800"
-            }`}
+            className={`absolute left-3 top-1/2 transform -translate-y-1/2 z-10 ${theme === "dark" ? "text-gray-400" : "text-gray-800"
+              }`}
           />
           <input
             type="text"
             placeholder="search or start new chat"
-            className={`w-full pl-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${
-              theme === "dark"
+            className={`w-full pl-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${theme === "dark"
                 ? "bg-gray-800 text-white border-gray-700 placeholder-gray-500"
                 : "bg-gray-100 text-black border-gray-200 placeholder-gray-400"
-            }`}
+              }`}
             value={searchTerms}
             onChange={(e) => setSearchTerms(e.target.value)}
           />
@@ -78,7 +75,6 @@ const ChatList = ({ contacts }) => {
             transition={{ duration: 0.3 }}
             className="flex flex-col items-center justify-center h-full text-center px-6"
           >
-            {/* Glow Circle */}
             <div className="relative mb-5">
               <div className="absolute inset-0 rounded-full blur-xl bg-green-500/20"></div>
 
@@ -87,12 +83,10 @@ const ChatList = ({ contacts }) => {
               </div>
             </div>
 
-            {/* Title */}
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-1">
               No chats found
             </h2>
 
-            {/* Subtitle */}
             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[220px] leading-relaxed">
               Try searching with a different name or start a new conversation.
             </p>
@@ -106,15 +100,14 @@ const ChatList = ({ contacts }) => {
               <motion.div
                 key={contact._id}
                 onClick={() => setSelectedContact(contact)}
-                className={`p-3 flex items-center cursor-pointer transition-colors ${
-                  theme === "dark"
+                className={`p-3 flex items-center cursor-pointer transition-colors ${theme === "dark"
                     ? selectedContact?._id === contact._id
                       ? "bg-gray-700"
                       : "hover:bg-gray-800"
                     : selectedContact?._id === contact._id
                       ? "bg-gray-200"
                       : "hover:bg-gray-100"
-                }`}
+                  }`}
               >
                 <img
                   src={contact?.profilePicture}
@@ -137,9 +130,8 @@ const ChatList = ({ contacts }) => {
                   </div>
                   <div className="flex justify-between items-baseline">
                     <p
-                      className={`text-sm flex items-center gap-1.5 w-full ${
-                        theme === "dark" ? "text-gray-400" : "text-gray-500"
-                      }`}
+                      className={`text-sm flex items-center gap-1.5 w-full ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                        }`}
                     >
                       {isTyping ? (
                         <span className="font-medium text-emerald-500 flex-shrink-0">
@@ -153,11 +145,10 @@ const ChatList = ({ contacts }) => {
 
                           {contact.conversation.lastMessage.edited && (
                             <span
-                              className={`flex-shrink-0 text-[11px] italic mt-0.5 ${
-                                theme === "dark"
+                              className={`flex-shrink-0 text-[11px] italic mt-0.5 ${theme === "dark"
                                   ? "text-gray-500/80"
                                   : "text-gray-400"
-                              }`}
+                                }`}
                             >
                               edited
                             </span>

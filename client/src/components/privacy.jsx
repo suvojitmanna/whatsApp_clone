@@ -49,7 +49,6 @@ const Privacy = () => {
         isDark ? "bg-[#0b141a] text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
-      {/* Header */}
       <div className={`p-4 flex items-center gap-4 border-b sticky top-0 z-20 transition-colors ${
         isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200 shadow-sm"
       }`}>
@@ -65,7 +64,6 @@ const Privacy = () => {
       </div>
 
       <div className="flex-1 p-6 max-w-2xl mx-auto w-full">
-        {/* Privacy Policy Callout */}
         <motion.div 
           whileHover={{ scale: 1.01 }}
           className={`mb-8 p-5 rounded-2xl border flex items-center justify-between cursor-pointer ${
@@ -90,7 +88,6 @@ const Privacy = () => {
           Personal Info
         </h3>
 
-        {/* Settings List */}
         <div className="space-y-3">
           {privacySettings.map((setting, index) => (
             <motion.div
@@ -129,7 +126,6 @@ const Privacy = () => {
           ))}
         </div>
 
-        {/* Disclaimer Footer */}
         <p className={`mt-8 px-4 text-xs leading-relaxed text-center ${
           isDark ? "text-gray-500" : "text-gray-400"
         }`}>

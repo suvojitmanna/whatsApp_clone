@@ -49,68 +49,68 @@ const userDetails = () => {
     }
   };
 
-const handleSave = async (field) => {
-  try {
-    setLoading(true);
+  const handleSave = async (field) => {
+    try {
+      setLoading(true);
 
-    console.log("🔥 HANDLE SAVE FIELD:", field);
-    console.log("🔥 ABOUT VALUE:", about);
-    console.log("🔥 NAME VALUE:", name);
+      console.log("🔥 HANDLE SAVE FIELD:", field);
+      console.log("🔥 ABOUT VALUE:", about);
+      console.log("🔥 NAME VALUE:", name);
 
-    const formData = new FormData();
+      const formData = new FormData();
 
-    if (field === "name") {
-      formData.append("username", name);
+      if (field === "name") {
+        formData.append("username", name);
+      }
+
+      if (field === "about") {
+        formData.append("about", about);
+      }
+
+      if (profilePicture && field === "profile") {
+        formData.append("media", profilePicture);
+      }
+
+      const updated = await updateUserProfile(formData);
+
+      console.log("UPDATE RESPONSE:", updated);
+
+      // IMPORTANT
+      const updatedUser = updated?.data?.data?.user;
+
+      console.log("UPDATED USER:", updatedUser);
+
+      if (!updatedUser) {
+        throw new Error("Updated user not found in response");
+      }
+
+      // Update Zustand
+      setUser(updatedUser);
+
+      // Update local state immediately
+      if (field === "about") {
+        setAbout(updatedUser.about || "");
+        setIsEditingAbout(false);
+        setShowAboutEmoji(false);
+      }
+
+      if (field === "name") {
+        setName(updatedUser.username || "");
+        setIsEditingName(false);
+        setShowNameEmoji(false);
+      }
+
+      setProfilePicture(null);
+      setPreview(null);
+
+      toast.success("Profile Updated");
+    } catch (error) {
+      console.error("PROFILE UPDATE ERROR:", error);
+      toast.error("Failed to Update Profile");
+    } finally {
+      setLoading(false);
     }
-
-    if (field === "about") {
-      formData.append("about", about);
-    }
-
-    if (profilePicture && field === "profile") {
-      formData.append("media", profilePicture);
-    }
-
-    const updated = await updateUserProfile(formData);
-
-    console.log("UPDATE RESPONSE:", updated);
-
-    // IMPORTANT
-    const updatedUser = updated?.data?.data?.user;
-
-    console.log("UPDATED USER:", updatedUser);
-
-    if (!updatedUser) {
-      throw new Error("Updated user not found in response");
-    }
-
-    // Update Zustand
-    setUser(updatedUser);
-
-    // Update local state immediately
-    if (field === "about") {
-      setAbout(updatedUser.about || "");
-      setIsEditingAbout(false);
-      setShowAboutEmoji(false);
-    }
-
-    if (field === "name") {
-      setName(updatedUser.username || "");
-      setIsEditingName(false);
-      setShowNameEmoji(false);
-    }
-
-    setProfilePicture(null);
-    setPreview(null);
-
-    toast.success("Profile Updated");
-  } catch (error) {
-    console.error("PROFILE UPDATE ERROR:", error);
-    toast.error("Failed to Update Profile");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleEmojiSelect = (emoji, fileld) => {
     if (fileld === "name") {
@@ -130,7 +130,7 @@ const handleSave = async (field) => {
   useOutsideClick(nameWrapperRef, () => {
     if (isEditingName) setIsEditingName(false);
   });
-  
+
   useOutsideClick(aboutWrapperRef, () => {
     if (isEditingAbout) setIsEditingAbout(false);
   });
@@ -142,13 +142,11 @@ const handleSave = async (field) => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className={`w-full min-h-screen flex flex-col items-center transition-all duration-500 ${
-          theme === "dark"
+        className={`w-full min-h-screen flex flex-col items-center transition-all duration-500 ${theme === "dark"
             ? "bg-gradient-to-br from-[#0b141a] via-[#0f1f25] to-[#0b141a] text-gray-100"
             : "bg-gradient-to-br from-[#f0f2f5] via-white to-[#f0f2f5] text-gray-900"
-        }`}
+          }`}
       >
-        {/* Header */}
         <div className="w-full px-8 py-2 max-w-2xl">
           <h1 className="text-3xl font-extrabold bg-gradient-to-r from-green-500 to-emerald-400 bg-clip-text text-transparent">
             Profile Settings
@@ -156,7 +154,6 @@ const handleSave = async (field) => {
         </div>
 
         <div className="w-full max-w-2xl px-6 pb-20 space-y-8">
-          {/* Profile Image */}
           <section className="flex flex-col items-center px-8 py-6 rounded-2xl backdrop-blur-xl bg-white/5 border border-white/10 shadow-xl">
             <div className="relative group">
               <div className="absolute -inset-2 bg-gradient-to-tr from-green-400 to-emerald-500 rounded-full blur-xl opacity-30 group-hover:opacity-60 transition"></div>
@@ -203,15 +200,13 @@ const handleSave = async (field) => {
             </AnimatePresence>
           </section>
 
-          {/* FORM */}
           <div className="grid gap-3">
             {user?.email && (
               <div
-                className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${
-                  theme === "dark"
+                className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${theme === "dark"
                     ? "bg-white/5 border-white/10 hover:border-blue-400/40"
                     : "bg-white/70 border-gray-200 hover:border-blue-400/40"
-                } shadow-lg`}
+                  } shadow-lg`}
               >
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-blue-500 uppercase tracking-widest">
@@ -222,7 +217,6 @@ const handleSave = async (field) => {
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
                       Verified
                     </span>
-                    {/* The lock icon added to show it's non-editable */}
                     <FaLock className="text-blue-500/40 size-2.5" />
                   </div>
                 </div>
@@ -242,14 +236,12 @@ const handleSave = async (field) => {
               </div>
             )}
 
-            {/* PHONE FIELD */}
             {user?.phoneNumber && (
               <div
-                className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${
-                  theme === "dark"
+                className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${theme === "dark"
                     ? "bg-white/5 border-white/10 hover:border-emerald-400/40"
                     : "bg-white/70 border-gray-200 hover:border-emerald-400/40"
-                } shadow-lg`}
+                  } shadow-lg`}
               >
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-emerald-500 uppercase tracking-widest">
@@ -260,7 +252,6 @@ const handleSave = async (field) => {
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
                       Primary
                     </span>
-                    {/* Matched the lock color to the emerald theme for a cleaner look */}
                     <FaLock className="text-emerald-500/30 size-2.5" />
                   </div>
                 </div>
@@ -280,13 +271,11 @@ const handleSave = async (field) => {
               </div>
             )}
 
-            {/* NAME */}
             <div
-              className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${
-                theme === "dark"
+              className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${theme === "dark"
                   ? "bg-white/5 border-white/10 hover:border-green-400/40"
                   : "bg-white/70 border-gray-200 hover:border-green-400/40"
-              } shadow-lg`}
+                } shadow-lg`}
             >
               <label className="text-xs font-bold text-green-500 uppercase tracking-widest">
                 Your Name
@@ -341,7 +330,6 @@ const handleSave = async (field) => {
                 </div>
               </div>
 
-              {/* Emoji Picker (FIXED MOBILE) */}
               {showNameEmoji && (
                 <div
                   ref={emojiPickerRef}
@@ -355,13 +343,11 @@ const handleSave = async (field) => {
               )}
             </div>
 
-            {/* ABOUT */}
             <div
-              className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${
-                theme === "dark"
+              className={`group rounded-2xl px-4 py-6 backdrop-blur-xl border transition-all ${theme === "dark"
                   ? "bg-white/5 border-white/10 hover:border-green-400/40"
                   : "bg-white/70 border-gray-200 hover:border-green-400/40"
-              } shadow-lg`}
+                } shadow-lg`}
             >
               <label className="text-xs font-bold text-green-500 uppercase tracking-widest">
                 About
@@ -418,7 +404,6 @@ const handleSave = async (field) => {
                 </div>
               </div>
 
-              {/* Emoji Picker FIX */}
               {showAboutEmoji && (
                 <div
                   ref={emojiPickerRef}

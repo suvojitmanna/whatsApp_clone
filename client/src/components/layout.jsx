@@ -45,17 +45,14 @@ const Layout = ({
         theme === "dark" ? "bg-[#111b21] text-white" : "bg-gray-100 text-black"
       }`}
     >
-      {/* Sidebar (FIXED WIDTH) */}
       {!isMobile && (
         <div className="w-20 flex-shrink-0">
           <SideBar />
         </div>
       )}
 
-      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         <AnimatePresence initial={false}>
-          {/* Chat List */}
           {(!selectedContact || !isMobile) && (
             <motion.div
               key="chatList"
@@ -69,7 +66,6 @@ const Layout = ({
             </motion.div>
           )}
 
-          {/* Chat Window */}
           {(selectedContact || !isMobile) && (
             <motion.div
               key="chatWindow"
@@ -100,9 +96,7 @@ const Layout = ({
         )}
       </div>
 
-      {/* Mobile Sidebar */}
       {isMobile && !isStatusPreviewOpen && <SideBar />}
-      {/* Theme Dialog */}
       {isThemeDialogOpen && (
         <div
           className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-[100]"
@@ -119,7 +113,6 @@ const Layout = ({
             <h2 className="text-xl font-medium mb-6">Choose Theme</h2>
 
             <div className="space-y-4">
-              {/* Light Theme Option */}
               <label className="flex items-center justify-between cursor-pointer group">
                 <span className="text-md">Light</span>
                 <input
@@ -131,7 +124,6 @@ const Layout = ({
                 />
               </label>
 
-              {/* Dark Theme Option */}
               <label className="flex items-center justify-between cursor-pointer group">
                 <span className="text-md">Dark</span>
                 <input
@@ -144,7 +136,6 @@ const Layout = ({
               </label>
             </div>
 
-            {/* Action Buttons */}
             <div className="mt-8 flex justify-end gap-2">
               <button
                 onClick={toggleThemeDialoge}

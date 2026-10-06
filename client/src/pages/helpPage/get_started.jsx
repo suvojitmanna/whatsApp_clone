@@ -33,7 +33,6 @@ const GetStarted = () => {
         isDark ? "bg-[#0b141a] text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
-      {/* Top Navigation */}
       <div className={`p-4 flex items-center gap-4 border-b sticky top-0 z-20 transition-colors ${
         isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200 shadow-sm"
       }`}>
@@ -61,7 +60,6 @@ const GetStarted = () => {
           </p>
         </header>
 
-        {/* Progress Steps */}
         <div className="space-y-6">
           {steps.map((step, index) => (
             <motion.div
@@ -102,7 +100,6 @@ const GetStarted = () => {
           ))}
         </div>
 
-        {/* Footer Action */}
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}

@@ -30,7 +30,6 @@ const ProfilePicture = ({ isOpen, onClose, image, username }) => {
           }}
           className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex flex-col "
         >
-          {/* Top Navbar */}
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -41,7 +40,6 @@ const ProfilePicture = ({ isOpen, onClose, image, username }) => {
             }}
             className="flex justify-between items-center px-4 md:px-10 py-3 "
           >
-            {/* Left */}
             <div className="flex items-center gap-3">
               <img
                 layoutId="profile-image"
@@ -55,7 +53,6 @@ const ProfilePicture = ({ isOpen, onClose, image, username }) => {
               </h2>
             </div>
 
-            {/* Close Button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -67,7 +64,6 @@ const ProfilePicture = ({ isOpen, onClose, image, username }) => {
             </button>
           </motion.div>
 
-          {/* Image */}
           <div className="flex-1 flex items-center justify-center p-4 md:p-10 overflow-hidden ">
             <motion.img
               layoutId="profile-image"

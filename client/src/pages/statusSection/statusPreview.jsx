@@ -409,7 +409,6 @@ const StatusPreview = ({
             </AnimatePresence>
           </div>
 
-          {/* Top Gradient & Progress Bars */}
           <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/60 to-transparent pt-2 sm:pt-3 pb-6 sm:pb-8 px-1.5 sm:px-2">
             <div className="flex justify-between gap-1 mb-2 sm:mb-3 px-1.5 sm:px-2">
               {contact?.statuses.map((_, index) => (
@@ -436,7 +435,6 @@ const StatusPreview = ({
               ))}
             </div>
 
-            {/* Header Info */}
             <div className="flex items-center justify-between px-1.5 sm:px-2">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button
@@ -460,7 +458,6 @@ const StatusPreview = ({
                 </div>
               </div>
 
-              {/* Top Right Controls */}
               <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
                 {isOwner && (
                   <button
@@ -530,7 +527,6 @@ const StatusPreview = ({
             </div>
           </div>
 
-          {/* Content Display */}
           <div
             className="w-full h-full flex items-center justify-center bg-black cursor-pointer"
             onClick={() => setIsPaused(!isPaused)}
@@ -573,7 +569,6 @@ const StatusPreview = ({
             ) : null}
           </div>
 
-          {/* Navigation Arrows */}
           {currentIndex > 0 && (
             <button
               onClick={(e) => {
@@ -597,7 +592,6 @@ const StatusPreview = ({
             </button>
           )}
 
-          {/* Bottom Actions */}
           {isOwner ? (
             <div className="absolute bottom-1 left-0 right-0 max-w-sm mx-1 mb-2 p-2 sm:p-4 flex flex-col">
               {!showViewers && (
@@ -703,7 +697,6 @@ const StatusPreview = ({
                                 </div>
                               </div>
                               <div className="flex flex-row items-center gap-2">
-                                {/* Message */}
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -726,8 +719,6 @@ const StatusPreview = ({
                                 >
                                   <BiSolidMessageRoundedDetail size={20} />
                                 </button>
-
-                                {/* Like */}
                                 {viewerLiked && (
                                   <div
                                     className="
@@ -803,7 +794,6 @@ const StatusPreview = ({
                   className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 bg-white dark:bg-[#202c33] rounded-full px-3 sm:px-4 py-2 sm:py-2.5 shadow-lg"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Left Icons */}
                   <div className="flex items-center text-[#54656f] dark:text-[#aebac1] relative shrink-0">
                     <button
                       type="button"
@@ -850,7 +840,6 @@ const StatusPreview = ({
                     className="flex-1 min-w-0 bg-transparent outline-none text-[14px] sm:text-[15px] text-[#111b21] dark:text-[#d1d7db] placeholder:text-[#8696a0] px-1"
                   />
 
-                  {/* Send/Attachment Icon */}
                   <div className="flex items-center shrink-0">
                     {!message.trim() ? (
                       <button

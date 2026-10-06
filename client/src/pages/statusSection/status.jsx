@@ -361,11 +361,8 @@ const status = () => {
                 Recent Updates
               </h3>
 
-              {/* subtle line */}
               <div className="flex-1 h-[1px] ml-3 bg-gradient-to-r from-transparent via-gray-500/20 to-transparent" />
             </div>
-
-            {/* Loading */}
             {loading ? (
               <div className="flex flex-col items-center py-24">
                 <div className="relative">
@@ -422,7 +419,6 @@ const status = () => {
           </div>
         </div>
 
-        {/* Create Status Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-xl bg-black/80">
             <motion.div
@@ -433,7 +429,6 @@ const status = () => {
                 theme === "dark" ? "bg-[#1f2c33]" : "bg-white"
               }`}
             >
-              {/* Mobile Handle */}
               <div className="w-12 h-1.5 bg-gray-500/20 rounded-full mx-auto mt-4 sm:hidden" />
 
               <div className="p-6 sm:p-8 overflow-y-auto">
@@ -532,7 +527,6 @@ const status = () => {
                     </button>
                   </div>
 
-                  {/* Action Buttons - Responsive Stack */}
                   <div className="flex flex-col-reverse sm:flex-row gap-3">
                     <button
                       onClick={() => {

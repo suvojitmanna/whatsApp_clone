@@ -61,13 +61,13 @@ const Settings = () => {
   };
 
   useEffect(() => {
-  // and any opening animations have completed.
-  const timer = setTimeout(() => {
-    inputRef.current?.focus();
-  }, 100);
+    // and any opening animations have completed.
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
 
-  return () => clearTimeout(timer);
-}, []);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Shadow Loader (chat style)
   const Loader = () => (
@@ -88,53 +88,44 @@ const Settings = () => {
       toggleThemeDialoge={toggleThemeDialoge}
     >
       <div
-        className={`flex flex-col md:flex-row min-h-screen ${
-          theme === "dark"
+        className={`flex flex-col md:flex-row min-h-screen ${theme === "dark"
             ? "bg-gradient-to-br from-[#0f2027] via-[#203a43] to-[#2c5364] text-white"
             : "bg-gray-100 text-black"
-        }`}
+          }`}
       >
-        {/* IMPORTANT: relative added */}
         <div className="relative max-w-[1400px] mx-auto w-full flex flex-col md:flex-row my-2 md:my-4 rounded-2xl overflow-hidden shadow-2xl">
-          {/* Loader inside card */}
           {loading && <Loader />}
 
-          {/* SIDEBAR */}
           <motion.div
             initial={{ opacity: 0, x: -40 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4 }}
-            className={`w-full md:w-[400px] flex flex-col backdrop-blur-xl border-r ${
-              theme === "dark"
+            className={`w-full md:w-[400px] flex flex-col backdrop-blur-xl border-r ${theme === "dark"
                 ? "bg-white/5 border-white/10"
                 : "bg-white border-gray-200"
-            }`}
+              }`}
           >
-            {/* HEADER */}
             <div className="p-4 md:p-6 pb-2">
               <h1 className="text-xl md:text-2xl font-bold mb-3">Settings</h1>
 
               <div className="h-[2px] w-full bg-gradient-to-r from-[#00a884] via-blue-500 to-purple-500 rounded-full mb-4" />
 
-              {/* SEARCH */}
               <div className="relative mb-6 group">
                 <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#00a884] transition-colors" />
 
                 <input
-                ref={inputRef}
+                  ref={inputRef}
                   type="text"
                   placeholder="Search settings"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full py-2.5 pl-12 pr-4 outline-none transition-all rounded-full focus:ring-2 focus:ring-green-500 focus:outline-none ${
-                    theme === "dark"
+                  className={`w-full py-2.5 pl-12 pr-4 outline-none transition-all rounded-full focus:ring-2 focus:ring-green-500 focus:outline-none ${theme === "dark"
                       ? "bg-[#202c33] focus:bg-[#2a3942] text-white"
                       : "bg-gray-100 focus:bg-gray-200 text-gray-900"
-                  }`}
+                    }`}
                 />
               </div>
 
-              {/* PROFILE */}
               <motion.div
                 whileHover={{ scale: 1.03 }}
                 className="flex items-center gap-4 p-3 rounded-xl cursor-pointer 
@@ -156,17 +147,13 @@ const Settings = () => {
               </motion.div>
             </div>
 
-            {/* MENU */}
             <div className="flex flex-col flex-1 px-2 min-h-0">
               <div className="space-y-1">
                 {filteredItems.length === 0 && searchTerm ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    {/* Icon Container */}
                     <div className="relative mb-6">
-                      {/* Soft Glow (no pulse) */}
                       <div className="absolute inset-0 rounded-full blur-2xl bg-green-500/20"></div>
 
-                      {/* Floating Icon (smooth, not blinking) */}
                       <motion.div
                         animate={{ y: [0, -6, 0] }}
                         transition={{
@@ -180,7 +167,6 @@ const Settings = () => {
                       </motion.div>
                     </div>
 
-                    {/* Text */}
                     <div className="space-y-1">
                       <h2 className="text-sm font-semibold text-gray-800 dark:text-white tracking-tight">
                         No results found
@@ -228,23 +214,18 @@ const Settings = () => {
                   ))
                 )}
 
-                {/* THEME */}
               </div>
-
-              {/* LOGOUT */}
               <div className="mt-auto pt-2 border-t border-gray-200 dark:border-[#2a3942] flex justify-start">
                 <motion.button
                   whileHover={{ scale: loading ? 1 : 1.05 }}
                   whileTap={{ scale: loading ? 1 : 0.95 }}
                   onClick={handleLogout}
                   disabled={loading}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
-                    loading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-                  } ${
-                    theme === "dark"
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${loading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                    } ${theme === "dark"
                       ? "text-white hover:bg-[#202c33]"
                       : "text-black hover:bg-gray-100"
-                  }`}
+                    }`}
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />

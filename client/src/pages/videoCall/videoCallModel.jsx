@@ -501,23 +501,18 @@ const VideoCallModel = ({ socket }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-2xl p-4">
       <div
-        className={`relative w-full h-full max-w-5xl max-h-[90vh] rounded-3xl overflow-hidden border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.6)] ${
-          theme === "dark"
-            ? "bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-900/90"
-            : "bg-white/90"
-        }`}
+        className={`relative w-full h-full max-w-5xl max-h-[90vh] rounded-3xl overflow-hidden border border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.6)] ${theme === "dark"
+          ? "bg-gradient-to-br from-gray-900/90 via-black/80 to-gray-900/90"
+          : "bg-white/90"
+          }`}
       >
-        {/*BACKGROUND GLOW */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute w-[500px] h-[500px] bg-emerald-500/20 blur-[120px] rounded-full top-[-100px] left-[-100px] animate-pulse"></div>
           <div className="absolute w-[400px] h-[400px] bg-blue-500/20 blur-[120px] rounded-full bottom-[-100px] right-[-100px] animate-pulse"></div>
         </div>
-
-        {/* ================= INCOMING CALL ================= */}
         {incomingCall && !isCallActive && (
           <div className="flex flex-col items-center justify-center h-full p-8 animate-in fade-in zoom-in duration-500">
             <div className="text-center mb-12">
-              {/* Avatar Glow */}
               <div className="relative inline-block mb-6">
                 <div className="absolute -inset-2 bg-gradient-to-r from-emerald-400 to-blue-500 rounded-full blur-xl opacity-30 animate-pulse"></div>
                 <div className="relative w-36 h-36 rounded-full border-4 border-white/20 overflow-hidden shadow-xl">
@@ -539,7 +534,6 @@ const VideoCallModel = ({ socket }) => {
             </div>
 
             <div className="flex space-x-12">
-              {/* Reject */}
               <button
                 onClick={handleRejectCall}
                 className="group flex flex-col items-center gap-2 cursor-pointer"
@@ -549,8 +543,6 @@ const VideoCallModel = ({ socket }) => {
                 </div>
                 <span className="text-xs text-gray-400">Decline</span>
               </button>
-
-              {/* Accept */}
               <button
                 onClick={handleAnswerCall}
                 className="group flex flex-col items-center gap-2 cursor-pointer"
@@ -564,22 +556,18 @@ const VideoCallModel = ({ socket }) => {
           </div>
         )}
 
-        {/* ================= ACTIVE CALL ================= */}
         {shouldShowActiveCall && (
           <div className="relative w-full h-full bg-black">
-            {/* Remote Video */}
             {callType === "video" && (
               <video
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className={`w-full h-full object-cover transition-all duration-1000 ${
-                  remoteStream ? "opacity-100 scale-100" : "opacity-0 scale-110"
-                }`}
+                className={`w-full h-full object-cover transition-all duration-1000 ${remoteStream ? "opacity-100 scale-100" : "opacity-0 scale-110"
+                  }`}
               />
             )}
 
-            {/* AUDIO (IMPORTANT) */}
             <audio
               autoPlay
               ref={(audio) => {
@@ -589,7 +577,6 @@ const VideoCallModel = ({ socket }) => {
               }}
             />
 
-            {/* Avatar fallback */}
             {(!remoteStream || callType !== "video") && (
               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-gray-900 to-black">
                 <div className="text-center">
@@ -613,7 +600,6 @@ const VideoCallModel = ({ socket }) => {
               </div>
             )}
 
-            {/* Local Video */}
             {callType === "video" && localStream && (
               <div className="absolute top-6 right-6 w-40 h-52 rounded-2xl overflow-hidden border border-white/20 shadow-2xl">
                 <video
@@ -626,11 +612,9 @@ const VideoCallModel = ({ socket }) => {
               </div>
             )}
 
-            {/* Status */}
             <div className="absolute top-6 left-6">
               <div className="px-4 py-2 rounded-2xl bg-black/30 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-500">
                 <div className="flex items-center gap-3">
-                  {/* Live Status Indicator */}
                   <div className="flex items-center gap-2">
                     {callStatus === "connected" && (
                       <span className="relative flex h-2 w-2">
@@ -645,12 +629,10 @@ const VideoCallModel = ({ socket }) => {
                     </p>
                   </div>
 
-                  {/* Divider - Only shows when connected */}
                   {callStatus === "connected" && (
                     <div className="h-3 w-[1px] bg-white/20"></div>
                   )}
 
-                  {/* Call Timer */}
                   {callStatus === "connected" && (
                     <p className="text-[11px] text-white/90 font-mono font-medium tabular-nums tracking-wider">
                       {formatTime(callTime)}
@@ -660,10 +642,8 @@ const VideoCallModel = ({ socket }) => {
               </div>
             </div>
 
-            {/* Controls */}
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2">
               <div className="flex items-center space-x-6 px-8 py-4 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_8px_40px_rgba(0,0,0,0.5)]">
-                {/*When NOT connected → only End Call */}
                 {callStatus !== "connected" ? (
                   <button
                     onClick={handleEndCall}
@@ -673,17 +653,14 @@ const VideoCallModel = ({ socket }) => {
                   </button>
                 ) : (
                   <>
-                    {/* Video */}
                     {callType === "video" && (
                       <button
                         onClick={toggleVideo}
-                        className={`group relative w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 cursor-pointer overflow-hidden ${
-                          isVideoEnabled
-                            ? "hover:bg-green-600/20 hover:border-green-400/50 hover:shadow-[0_0_20px_rgba(37,99,235,0. 2)] border text-white"
-                            : "bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] border border-red-400/50"
-                        }`}
+                        className={`group relative w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 cursor-pointer overflow-hidden ${isVideoEnabled
+                          ? "hover:bg-green-600/20 hover:border-green-400/50 hover:shadow-[0_0_20px_rgba(37,99,235,0. 2)] border text-white"
+                          : "bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)] border border-red-400/50"
+                          }`}
                       >
-                        {/* Subtle inner light effect for premium depth */}
                         <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
                         <div className="relative transform transition-transform duration-300 group-hover:scale-110">
@@ -696,20 +673,17 @@ const VideoCallModel = ({ socket }) => {
                       </button>
                     )}
 
-                    {/* Share Screen */}
                     {callType === "video" && (
                       <button
                         onClick={toggleScreenShare}
-                        className={`group relative w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 cursor-pointer overflow-hidden ${
-                          isScreenSharing
-                            ? "bg-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.4)] border border-emerald-300/50"
-                            : " hover:bg-blue-600/20 hover:border-blue-400/50 hover:shadow-[0_0_20px_rgba(37,99,235,0.2)] border text-white"
-                        }`}
+                        className={`group relative w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 cursor-pointer overflow-hidden ${isScreenSharing
+                          ? "bg-emerald-500 shadow-[0_0_25px_rgba(16,185,129,0.4)] border border-emerald-300/50"
+                          : " hover:bg-blue-600/20 hover:border-blue-400/50 hover:shadow-[0_0_20px_rgba(37,99,235,0.2)] border text-white"
+                          }`}
                         title={
                           isScreenSharing ? "Stop Sharing" : "Share Screen"
                         }
                       >
-                        {/* Background pulse for active sharing */}
                         {isScreenSharing && (
                           <span className="absolute inset-0 rounded-2xl bg-emerald-400 animate-pulse opacity-20" />
                         )}
@@ -722,7 +696,6 @@ const VideoCallModel = ({ socket }) => {
                           )}
                         </div>
 
-                        {/* Premium indicator dot */}
                         {isScreenSharing && (
                           <span className="absolute top-2 right-2 flex h-2 w-2">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
@@ -732,14 +705,12 @@ const VideoCallModel = ({ socket }) => {
                       </button>
                     )}
 
-                    {/* Audio */}
                     <button
                       onClick={toggleAudio}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${
-                        isAudioEnabled
-                          ? "bg-white/10 text-white"
-                          : "bg-red-500 text-white"
-                      }`}
+                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer ${isAudioEnabled
+                        ? "bg-white/10 text-white"
+                        : "bg-red-500 text-white"
+                        }`}
                     >
                       {isAudioEnabled ? (
                         <FaMicrophone className="size-5" />
@@ -748,7 +719,6 @@ const VideoCallModel = ({ socket }) => {
                       )}
                     </button>
 
-                    {/* End */}
                     <button
                       onClick={handleEndCall}
                       className="w-14 h-14 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-red-500/50 transition-all duration-200 hover:scale-110 active:scale-90 cursor-pointer"

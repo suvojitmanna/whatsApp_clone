@@ -201,11 +201,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       // timestamp
       <div className="sticky top-0 z-10 flex justify-center mb-4">
         <span
-          className={`px-4 py-1.5 text-xs font-semibold rounded-full backdrop-blur-md shadow-sm border transition-colors duration-300 ${
-            theme === "dark"
-              ? "bg-[#202c33]/80 text-slate-300 border-white/5"
-              : "bg-white/80 text-slate-600 border-black/5"
-          }`}
+          className={`px-4 py-1.5 text-xs font-semibold rounded-full backdrop-blur-md shadow-sm border transition-colors duration-300 ${theme === "dark"
+            ? "bg-[#202c33]/80 text-slate-300 border-white/5"
+            : "bg-white/80 text-slate-600 border-black/5"
+            }`}
         >
           {dateString}
         </span>
@@ -215,19 +214,19 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const groupedMessages = Array.isArray(messages)
     ? messages.reduce((acc, message) => {
-        if (!message.createdAt) return acc;
-        const date = new Date(message.createdAt);
-        if (isValidate(date)) {
-          const dateString = format(date, "yyyy-MM-dd");
-          if (!acc[dateString]) {
-            acc[dateString] = [];
-          }
-          acc[dateString].push(message);
-        } else {
-          console.error("Invalid date for message", message);
+      if (!message.createdAt) return acc;
+      const date = new Date(message.createdAt);
+      if (isValidate(date)) {
+        const dateString = format(date, "yyyy-MM-dd");
+        if (!acc[dateString]) {
+          acc[dateString] = [];
         }
-        return acc;
-      }, {})
+        acc[dateString].push(message);
+      } else {
+        console.error("Invalid date for message", message);
+      }
+      return acc;
+    }, {})
     : {};
 
   const filteredGroupedMessages = Object.fromEntries(
@@ -399,13 +398,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       <div
         className={`flex h-screen w-full flex-col {theme === "dark" ? "bg-[#303430] text-white" : "bg-[rgb(230,235,240)] text-gray-600"}`}
       >
-        {/* upper part ui */}
         <div
-          className={`p-4 ${
-            theme === "dark"
-              ? "bg-[#303430] text-white"
-              : "bg-[rgb(229,230,232)] text-gray-600"
-          } flex items-center`}
+          className={`p-4 ${theme === "dark"
+            ? "bg-[#303430] text-white"
+            : "bg-[rgb(229,230,232)] text-gray-600"
+            } flex items-center`}
         >
           <button
             onClick={() => {
@@ -417,7 +414,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           </button>
 
           <div className="relative ml-4">
-            {/* Profile Picture */}
             <motion.img
               layoutId="profile-image"
               src={selectedContact?.profilePicture || "/default-avatar.png"}
@@ -437,7 +433,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             )}
           </div>
 
-          {/* contact image and userName */}
           <div
             className="ml-3 flex-grow cursor-pointer"
             onClick={() => setShowContactInfo(true)}
@@ -450,9 +445,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               <div>Typing...</div>
             ) : (
               <p
-                className={`text-sm ${
-                  theme === "dark" ? "text-gray-400" : "text-gray-500"
-                }`}
+                className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                  }`}
               >
                 {online
                   ? "Online"
@@ -463,40 +457,33 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             )}
           </div>
 
-          {/* search icon */}
           <div className="px-4 py-2" ref={searchIconRef}>
             <div className="relative flex items-center justify-end">
-              {/* Search Icon Trigger */}
               <button
                 onClick={() => setIsSearchOpen(true)}
-                className={`${
-                  isSearchOpen
-                    ? "opacity-0 pointer-events-none scale-90"
-                    : "opacity-100 scale-100"
-                }group relative p-2 rounded-xl transition-all duration-300 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-xl before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-white/40 before:to-transparent before:opacity-60 before:pointer-events-none border border-white/30 dark:border-white/10 hover:border-green-400/40 shadow-[0_2px_15px_rgba(0,0,0,0.06)]
+                className={`${isSearchOpen
+                  ? "opacity-0 pointer-events-none scale-90"
+                  : "opacity-100 scale-100"
+                  }group relative p-2 rounded-xl transition-all duration-300 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-xl before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-white/40 before:to-transparent before:opacity-60 before:pointer-events-none border border-white/30 dark:border-white/10 hover:border-green-400/40 shadow-[0_2px_15px_rgba(0,0,0,0.06)]
                 hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)] active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-600/50`}
               >
                 <FiSearch className="h-4 w-4text-zinc-700 dark:text-zinc-300 group-hover:text-green-500group-hover:scale-110 transition-all duration-300" />
               </button>
 
-              {/* Expandable Input */}
               <div
-                className={`absolute right-0 origin-righttransition-all duration-300 ${
-                  isSearchOpen
-                    ? "w-60 sm:w-64 scale-100 opacity-100"
-                    : "w-0 scale-95 opacity-0 pointer-events-none"
-                }`}
+                className={`absolute right-0 origin-righttransition-all duration-300 ${isSearchOpen
+                  ? "w-60 sm:w-64 scale-100 opacity-100"
+                  : "w-0 scale-95 opacity-0 pointer-events-none"
+                  }`}
               >
                 <div className="relative flex flex-col">
-                  {/* Input Wrapper */}
                   <div className="relative w-full rounded-xl overflow-hidden group transition-all duration-300">
-                    {/* Glass Overlay */}
+
                     <div
                       className={`absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br opacity-60 group-focus-within:opacity-80 transition-all duration-300 
-                        ${
-                          theme === "dark"
-                            ? "from-white/10 via-white/5 to-transparent"
-                            : "from-white/60 via-white/30 to-transparent"
+                        ${theme === "dark"
+                          ? "from-white/10 via-white/5 to-transparent"
+                          : "from-white/60 via-white/30 to-transparent"
                         }`}
                     />
 
@@ -508,44 +495,37 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className={`w-full pl-8 pr-8 py-1.5 rounded-xl outline-none text-xs relative z-10 backdrop-blur-xl border transition-all duration-300
-                      ${
-                        theme === "dark"
+                      ${theme === "dark"
                           ? "bg-zinc-800/70 text-white placeholder:text-gray-500 border-white/10 focus:border-emerald-400/60 focus:bg-zinc-800/90"
                           : "bg-white/70 text-gray-900 placeholder:text-gray-400 border-gray-200/80 focus:border-emerald-400/60 focus:bg-white/90"
-                      }shadow-[0_4px_15px_rgba(0,0,0,0.05)] focus:shadow-[0_6px_20px_rgba(0,255,150,0.2)]`}
+                        }shadow-[0_4px_15px_rgba(0,0,0,0.05)] focus:shadow-[0_6px_20px_rgba(0,255,150,0.2)]`}
                     />
 
-                    {/* Left Icon */}
                     <FiSearch
-                      className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 transition-all duration-300 ${
-                        theme === "dark"
-                          ? "text-gray-500 group-focus-within:text-emerald-400"
-                          : "text-gray-400 group-focus-within:text-emerald-500"
-                      }`}
+                      className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 transition-all duration-300 ${theme === "dark"
+                        ? "text-gray-500 group-focus-within:text-emerald-400"
+                        : "text-gray-400 group-focus-within:text-emerald-500"
+                        }`}
                     />
 
-                    {/* Close Button */}
                     <button
                       onClick={() => {
                         setIsSearchOpen(false);
                         setSearchTerm("");
                       }}
-                      className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-20 transition-all duration-300${
-                        theme === "dark"
-                          ? "text-gray-500 hover:text-emerald-400"
-                          : "text-gray-400 hover:text-emerald-500"
-                      }`}
+                      className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-20 transition-all duration-300${theme === "dark"
+                        ? "text-gray-500 hover:text-emerald-400"
+                        : "text-gray-400 hover:text-emerald-500"
+                        }`}
                     >
                       <RxCross2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
-                  {/* RESULTS / NOT FOUND LOGIC */}
                   {searchTerm.trim() !== "" && (
                     <div className="flex items-center justify-end animate-in fade-in slide-in-from-top-1 duration-300 pt-2">
                       {resultCount > 0 ? (
                         <div className="flex items-center gap-1.5 px-1.5 py-1 rounded-full bg-white/60 dark:bg-zinc-900/60  backdrop-blur-md  border border-white/20 dark:border-white/10  shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
-                          {/* RESULT COUNTER */}
                           <span className="px-3 text-[11px] font-semibold tracking-tight text-gray-600 dark:text-zinc-300 tabular-nums">
                             <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                               {currentIndex + 1}
@@ -553,13 +533,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             <span className="mx-1 opacity-40">/</span>
                             <span className="opacity-80">{resultCount}</span>
                           </span>
-
-                          {/* DIVIDER */}
                           <div className="h-4 w-px bg-gradient-to-b from-transparent via-gray-300/40 to-transparent dark:via-zinc-700/40" />
 
-                          {/* BUTTONS */}
                           <div className="flex items-center gap-0.5">
-                            {/* PREV */}
                             <button
                               onClick={goPrev}
                               aria-label="Previous"
@@ -580,7 +556,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                               </svg>
                             </button>
 
-                            {/* NEXT */}
                             <button
                               onClick={goNext}
                               aria-label="Next"
@@ -603,7 +578,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           </div>
                         </div>
                       ) : (
-                        /* PREMIUM EMPTY STATE */
                         <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-rose-500/10 to-transparent border border-rose-500/20 text-[11px] font-medium text-rose-500/90">
                           <span className="relative flex h-1.5 w-1.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
@@ -619,9 +593,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             </div>
           </div>
 
-          {/* Calling Button */}
           <div className="flex items-center space-x-4">
-            {/* VIDEO CALL */}
             <button
               className="focus:outline-none cursor-pointer"
               onClick={handleVideoCall}
@@ -630,7 +602,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               <FaVideo className="h-7 w-7 text-green-500 hover:text-green-600" />
             </button>
 
-            {/* AUDIO CALL */}
             <button
               className="focus:outline-none cursor-pointer"
               onClick={handleAudioCall}
@@ -645,11 +616,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           </div>
         </div>
 
-        {/* message part seen */}
         <div
-          className={`flex-1 p-4 overflow-y-auto scroll-smooth custom-scrollbar relative transition-colors duration-500 ${
-            theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
-          }`}
+          className={`flex-1 p-4 overflow-y-auto scroll-smooth custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
+            }`}
           style={{
             backgroundImage:
               theme === "dark"
@@ -659,7 +628,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             backgroundSize: "400px",
           }}
         >
-          {/* The grouping logic is solid, let's just ensure the rendering is clean */}
           <div className="max-w-4xl mx-auto flex flex-col space-y-2">
             {Object.entries(finalMessagesToRender).map(([date, msgs]) => {
               if (msgs.length === 0) return null;
@@ -711,7 +679,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           <div ref={messageEndRef} className="h-4" />
         </div>
 
-        {/* file */}
         {filePreview && (
           <div className="relative p-2">
             {selectedFile?.type.startsWith("video/") ? (
@@ -740,11 +707,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           </div>
         )}
 
-        {/* down part ui */}
         <div
           className={`p-4 ${theme === "dark" ? "bg-[#303430]" : "bg-white"} flex items-center space-x-2 relative`}
         >
-          {/* emoji icon ui */}
           <button
             className="focus:outline-none"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -770,8 +735,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               />
             </div>
           )}
-
-          {/*file menu ui */}
           <div className="relative" ref={fileMenuRef}>
             <button
               className="focus:outline-none"
@@ -811,7 +774,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             )}
           </div>
 
-          {/* //send message ui */}
           <input
             type="text"
             value={message}
