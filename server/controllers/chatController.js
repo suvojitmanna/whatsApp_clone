@@ -11,6 +11,12 @@ exports.sendMessage = async (req, res) => {
       content,
       messageStatus,
       statusId,
+      contentType: customContentType,
+      pollData,
+      contactData,
+      eventData,
+      fileName,
+      fileSize,
     } = req.body;
     const participants = [senderId, receiverId].sort();
     const file = req.file;
@@ -24,7 +30,28 @@ exports.sendMessage = async (req, res) => {
       await conversation.save();
     }
     let imageOrVideoUrl = null;
-    let contentType = null;
+    let contentType = customContentType || null;
+
+    let parsedPoll = pollData;
+    if (typeof pollData === "string") {
+      try {
+        parsedPoll = JSON.parse(pollData);
+      } catch (e) {}
+    }
+
+    let parsedContact = contactData;
+    if (typeof contactData === "string") {
+      try {
+        parsedContact = JSON.parse(contactData);
+      } catch (e) {}
+    }
+
+    let parsedEvent = eventData;
+    if (typeof eventData === "string") {
+      try {
+        parsedEvent = JSON.parse(eventData);
+      } catch (e) {}
+    }
 
     if (file) {
       const uploadFile = await uploadFileToCloudinary(file);
@@ -32,12 +59,24 @@ exports.sendMessage = async (req, res) => {
         return response(res, 400, "Failed to upload file");
       }
       imageOrVideoUrl = uploadFile?.secure_url;
-      if (file.mimetype.startsWith("image")) {
+      if (customContentType) {
+        contentType = customContentType;
+      } else if (file.mimetype.startsWith("image")) {
         contentType = "image";
       } else if (file.mimetype.startsWith("video")) {
         contentType = "video";
+      } else if (file.mimetype.startsWith("audio")) {
+        contentType = "audio";
       } else {
-        return response(res, 400, "Unsupported file type");
+        contentType = "document";
+      }
+    } else if (
+      customContentType &&
+      ["poll", "contact", "event", "sticker"].includes(customContentType)
+    ) {
+      contentType = customContentType;
+      if (req.body.imageOrVideoUrl) {
+        imageOrVideoUrl = req.body.imageOrVideoUrl;
       }
     } else if (content?.trim()) {
       contentType = "text";
@@ -49,9 +88,15 @@ exports.sendMessage = async (req, res) => {
       conversation: conversation._id,
       sender: senderId,
       receiver: receiverId,
-      content,
+      content: content || "",
       contentType,
       imageOrVideoUrl,
+      fileName: fileName || file?.originalname,
+      fileSize:
+        fileSize || (file ? `${(file.size / 1024).toFixed(1)} KB` : null),
+      pollData: parsedPoll,
+      contactData: parsedContact,
+      eventData: parsedEvent,
       messageStatus,
       timestamp,
       reactions: [],
@@ -358,6 +403,84 @@ exports.editMessage = async (req, res) => {
     return response(res, 200, "Message edited successfully", updatedMessage);
   } catch (error) {
     console.error("EDIT MESSAGE ERROR:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.votePoll = async (req, res) => {
+  const { messageId } = req.params;
+  const { optionIndex } = req.body;
+  const userId = req.user?._id;
+
+  try {
+    const message = await Message.findById(messageId);
+    if (!message || message.contentType !== "poll" || !message.pollData) {
+      return response(res, 404, "Poll message not found");
+    }
+
+    const voterObjectId = new mongoose.Types.ObjectId(userId);
+    const targetIdx = Number(optionIndex);
+
+    if (
+      isNaN(targetIdx) ||
+      targetIdx < 0 ||
+      targetIdx >= (message.pollData.options?.length || 0)
+    ) {
+      return response(res, 400, "Invalid option index");
+    }
+
+    if (!message.pollData.allowMultiple) {
+      message.pollData.options.forEach((opt, idx) => {
+        if (idx !== targetIdx) {
+          opt.votes = (opt.votes || []).filter(
+            (v) => (v?._id || v)?.toString() !== userId.toString()
+          );
+        }
+      });
+    }
+
+    const targetOption = message.pollData.options[targetIdx];
+    if (targetOption) {
+      targetOption.votes = targetOption.votes || [];
+      const alreadyVoted = targetOption.votes.some(
+        (v) => (v?._id || v)?.toString() === userId.toString()
+      );
+      if (alreadyVoted) {
+        targetOption.votes = targetOption.votes.filter(
+          (v) => (v?._id || v)?.toString() !== userId.toString()
+        );
+      } else {
+        targetOption.votes.push(voterObjectId);
+      }
+    }
+
+    message.markModified("pollData");
+    await message.save();
+
+    const payload = {
+      messageId: message._id.toString(),
+      pollData: message.pollData,
+    };
+
+    if (req.io && req.socketUserMap) {
+      const senderSocketId = req.socketUserMap.get(message.sender.toString());
+      const receiverSocketId = req.socketUserMap.get(
+        message.receiver.toString()
+      );
+
+      if (senderSocketId) {
+        req.io.to(senderSocketId).emit("poll_update", payload);
+      }
+      if (receiverSocketId) {
+        req.io.to(receiverSocketId).emit("poll_update", payload);
+      }
+      req.io.to(message.sender.toString()).emit("poll_update", payload);
+      req.io.to(message.receiver.toString()).emit("poll_update", payload);
+    }
+
+    return response(res, 200, "Vote updated successfully", message);
+  } catch (error) {
+    console.error("VOTE POLL CONTROLLER ERROR:", error);
     return response(res, 500, "Internal server error");
   }
 };

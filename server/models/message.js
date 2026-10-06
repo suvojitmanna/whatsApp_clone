@@ -29,8 +29,51 @@ const messageSchema = new mongoose.Schema(
 
     contentType: {
       type: String,
-      enum: ["text", "image", "video"],
+      enum: [
+        "text",
+        "image",
+        "video",
+        "document",
+        "audio",
+        "contact",
+        "poll",
+        "event",
+        "sticker",
+      ],
       default: "text",
+    },
+    fileName: String,
+    fileSize: String,
+    pollData: {
+      question: String,
+      options: [
+        {
+          text: String,
+          votes: [
+            {
+              type: mongoose.Schema.Types.ObjectId,
+              ref: "User",
+            },
+          ],
+        },
+      ],
+      allowMultiple: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    contactData: {
+      name: String,
+      phoneNumber: String,
+      email: String,
+      avatar: String,
+    },
+    eventData: {
+      title: String,
+      eventDate: String,
+      eventTime: String,
+      location: String,
+      description: String,
     },
     edited: {
       type: Boolean,

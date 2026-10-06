@@ -83,7 +83,6 @@ const Layout = ({
               />
             </motion.div>
           )}
-          {isStatusPreviewOpen && statusPreviewContent}
         </AnimatePresence>
         {showContactInfo && <ContactInfo />}
         {showProfilePicture && (
@@ -95,6 +94,10 @@ const Layout = ({
           />
         )}
       </div>
+
+      <AnimatePresence>
+        {isStatusPreviewOpen && statusPreviewContent}
+      </AnimatePresence>
 
       {isMobile && !isStatusPreviewOpen && <SideBar />}
       {isThemeDialogOpen && (

@@ -9,8 +9,12 @@ import { RxCross2 } from "react-icons/rx";
 import useOutsideClick from "../../hook/useOutsideClick";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
-import { FaRegImage, FaVideo } from "react-icons/fa";
-import { FaRegFileAlt } from "react-icons/fa";
+import { FaRegImage, FaVideo, FaDownload, FaHeadphones, FaFileAlt } from "react-icons/fa";
+import { FaSquarePollHorizontal } from "react-icons/fa6";
+import { MdEventNote, MdLocationOn } from "react-icons/md";
+import { RiContactsFill } from "react-icons/ri";
+import { useChatStore } from "../../store/chatStore";
+import useUserStore from "../../store/useUserStore";
 
 const MessageBuble = ({
   message,
@@ -39,18 +43,26 @@ const MessageBuble = ({
   const isLongPress = useRef(false);
   const editRef = useRef(null);
 
+  const votePoll = useChatStore((state) => state.votePoll);
+  const storeUser = useUserStore((state) => state.user);
+  const effectiveUser = currentUser || storeUser;
+  const currentUserId = (effectiveUser?._id || effectiveUser?.id)?.toString();
+
   const isDark = theme === "dark";
-  const isUserMessage = message.sender?._id === currentUser?._id;
+  const isUserMessage = (message.sender?._id || message.sender)?.toString() === currentUserId;
+  const isSticker = message.contentType === "sticker";
 
   const bubbleClass = isUserMessage ? "chat-end" : "chat-start";
 
-  const bubbleContentClass = isUserMessage
-    ? `chat-bubble md:max-w-[50%] min-w-[130px] ${theme === "dark" ? "bg-[#144d38] text-white" : "bg-[#d8fdd3] text-black"
-    }`
-    : `chat-bubble md:max-w-[50%] min-w-[130px] ${theme === "dark"
-      ? "bg-[#374151] text-white"
-      : "bg-white text-black shadow-sm"
-    }`;
+  const bubbleContentClass = isSticker
+    ? "relative group !py-1 !px-1 bg-transparent shadow-none"
+    : isUserMessage
+      ? `chat-bubble md:max-w-[55%] min-w-[130px] ${theme === "dark" ? "bg-[#144d38] text-white" : "bg-[#d8fdd3] text-black"
+      }`
+      : `chat-bubble md:max-w-[55%] min-w-[130px] ${theme === "dark"
+        ? "bg-[#374151] text-white"
+        : "bg-white text-black shadow-sm"
+      }`;
 
   const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
@@ -96,15 +108,15 @@ const MessageBuble = ({
   if (!message) return null;
   return (
     <div
-      className={`chat ${bubbleClass} transition-all duration-300 ${isActive ? "scale-[1.02]" : ""
-        }`}
+      className={`chat ${bubbleClass} ${isActive ? "z-10" : ""}`}
       data-match={dataMatch ? "true" : "false"}
     >
       <div
-        className={`${bubbleContentClass} relative group !py-2.5 !px-3 transition-all duration-300 ${isActive
+        className={`${bubbleContentClass} relative group !py-2.5 !px-3 ${
+          isActive
             ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
             : "shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-          }`}
+        }`}
       >
         <div
           onTouchStart={handleTouchStart}
@@ -119,23 +131,14 @@ const MessageBuble = ({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-
-                if (!onStatusClick) return;
-
+                if (!onStatusClick || !message.statusId) return;
                 onStatusClick(message.statusId);
-                const statusId =
-                  typeof message.statusId === "object"
-                    ? message.statusId?._id
-                    : message.statusId;
-
-                if (statusId) {
-                  onStatusClick(String(statusId));
-                }
               }}
-              className={`mb-2 w-full text-left overflow-hidden rounded-xl border-l-[3px] cursor-pointer transition-all duration-200 hover:brightness-[1.08] active:scale-[0.99] ${isDark
+              className={`mb-2 w-full text-left overflow-hidden rounded-xl border-l-[3px] cursor-pointer transition-colors duration-150 hover:brightness-105 active:opacity-90 ${
+                isDark
                   ? "bg-white/[0.04] border-purple-400"
                   : "bg-black/[0.03] border-purple-500"
-                }`}
+              }`}
             >
               <div className="px-3 py-2">
                 <p
@@ -309,6 +312,225 @@ const MessageBuble = ({
                     {message.content}
                   </p>
                 )}
+              </div>
+            )}
+            {message.contentType === "document" && (
+              <div className="flex flex-col gap-1 min-w-[220px] max-w-[320px]">
+                <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                  isDark ? "bg-white/[0.04] border-white/10" : "bg-black/[0.03] border-black/5"
+                }`}>
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                    <FaFileAlt size={20} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate leading-tight">
+                      {message.fileName || message.content || "Document"}
+                    </p>
+                    <p className="text-[11px] opacity-60 mt-0.5">
+                      {message.fileSize || "File"}
+                    </p>
+                  </div>
+                  {message.imageOrVideoUrl && (
+                    <a
+                      href={message.imageOrVideoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={message.fileName || "document"}
+                      className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
+                      title="Download"
+                    >
+                      <FaDownload size={14} className="opacity-80" />
+                    </a>
+                  )}
+                </div>
+                {message.content && message.content !== message.fileName && (
+                  <p className="mt-1 break-words text-[14px] leading-relaxed">
+                    {message.content}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {message.contentType === "audio" && (
+              <div className="flex flex-col gap-1 min-w-[240px] max-w-[320px] py-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <FaHeadphones className="text-amber-500 shrink-0" size={14} />
+                  <span className="text-xs font-medium opacity-75 truncate">
+                    {message.fileName || "Voice / Audio message"}
+                  </span>
+                </div>
+                <audio
+                  src={message.imageOrVideoUrl}
+                  controls
+                  className="w-full h-9 rounded-lg"
+                />
+              </div>
+            )}
+
+            {message.contentType === "contact" && (
+              <div className="min-w-[230px] max-w-[300px]">
+                <div className={`flex items-center gap-3 p-3 rounded-2xl border ${
+                  isDark ? "bg-white/[0.05] border-white/10" : "bg-white/80 border-black/5 shadow-sm"
+                }`}>
+                  <div className="w-11 h-11 rounded-full bg-cyan-500/20 text-cyan-500 flex items-center justify-center shrink-0 overflow-hidden font-bold">
+                    {message.contactData?.avatar ? (
+                      <img
+                        src={message.contactData.avatar}
+                        alt="Contact"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <RiContactsFill size={24} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-bold truncate">
+                      {message.contactData?.name || message.content}
+                    </p>
+                    <p className="text-xs opacity-70 truncate font-mono">
+                      {message.contactData?.phoneNumber || "No number"}
+                    </p>
+                    {message.contactData?.email && (
+                      <p className="text-[11px] opacity-60 truncate">
+                        {message.contactData.email}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {message.contentType === "poll" && (
+              <div className="flex flex-col gap-2.5 min-w-[240px] max-w-[320px] py-1 select-none">
+                <div className="flex items-start gap-2">
+                  <FaSquarePollHorizontal className="text-yellow-500 shrink-0 mt-0.5" size={17} />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-[14.5px] leading-snug">
+                      {message.pollData?.question || message.content}
+                    </h3>
+                    <p className="text-[11px] opacity-60 mt-0.5 font-medium">
+                      {message.pollData?.allowMultiple
+                        ? "Select one or more"
+                        : "Select one"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mt-1">
+                  {message.pollData?.options?.map((option, idx) => {
+                    const totalVotes =
+                      message.pollData.options.reduce(
+                        (sum, o) => sum + (o.votes?.length || 0),
+                        0
+                      ) || 0;
+                    const optionVotes = option.votes?.length || 0;
+                    const percentage =
+                      totalVotes > 0
+                        ? Math.round((optionVotes / totalVotes) * 100)
+                        : 0;
+                    const hasVoted = option.votes?.some((v) => {
+                      const vId = (v?._id || v)?.toString();
+                      return vId && currentUserId && vId === currentUserId;
+                    });
+
+                    return (
+                      <div
+                        key={idx}
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          votePoll(message._id, idx);
+                        }}
+                        className={`relative overflow-hidden rounded-xl p-2.5 border cursor-pointer select-none transition-all active:scale-[0.99] ${
+                          hasVoted
+                            ? "border-emerald-500/70 bg-emerald-500/15 shadow-sm shadow-emerald-500/10"
+                            : isDark
+                            ? "border-white/10 hover:bg-white/[0.06]"
+                            : "border-black/10 hover:bg-black/[0.04]"
+                        }`}
+                      >
+                        <div
+                          className="absolute left-0 top-0 bottom-0 bg-emerald-500/25 transition-all duration-300 pointer-events-none"
+                          style={{ width: `${percentage}%` }}
+                        />
+                        <div className="relative z-10 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <span
+                              className={`w-4 h-4 ${
+                                message.pollData?.allowMultiple
+                                  ? "rounded-md"
+                                  : "rounded-full"
+                              } border flex items-center justify-center shrink-0 transition-colors ${
+                                hasVoted
+                                  ? "border-emerald-500 bg-emerald-500 text-white"
+                                  : isDark
+                                  ? "border-gray-500"
+                                  : "border-gray-400"
+                              }`}
+                            >
+                              {hasVoted && (
+                                <span className="text-[10px] font-black leading-none">✓</span>
+                              )}
+                            </span>
+                            <span className="text-xs font-semibold truncate leading-tight">
+                              {option.text}
+                            </span>
+                          </div>
+                          <span className="text-xs font-bold shrink-0 opacity-80 tabular-nums">
+                            {optionVotes}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {message.contentType === "event" && (
+              <div className="flex flex-col gap-2 min-w-[240px] max-w-[320px]">
+                <div className={`p-3 rounded-2xl border ${
+                  isDark ? "bg-white/[0.05] border-white/10" : "bg-white/80 border-black/5 shadow-sm"
+                }`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                      <MdEventNote size={22} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-[14px] font-bold truncate">
+                        {message.eventData?.title || message.content}
+                      </h4>
+                      <p className="text-[11px] opacity-70 font-medium">
+                        {message.eventData?.eventDate || "Date TBD"}{" "}
+                        {message.eventData?.eventTime && `• ${message.eventData.eventTime}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {message.eventData?.location && (
+                    <div className="flex items-center gap-1 text-xs opacity-80 mt-1">
+                      <MdLocationOn size={14} className="text-red-400 shrink-0" />
+                      <span className="truncate">{message.eventData.location}</span>
+                    </div>
+                  )}
+
+                  {message.eventData?.description && (
+                    <p className="text-xs opacity-75 mt-1.5 leading-relaxed">
+                      {message.eventData.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {message.contentType === "sticker" && (
+              <div className="relative p-1">
+                <img
+                  src={message.imageOrVideoUrl}
+                  alt="Sticker"
+                  className="w-36 h-36 object-contain select-none filter drop-shadow-md transition-transform hover:scale-105"
+                />
               </div>
             )}
           </div>

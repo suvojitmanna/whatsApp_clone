@@ -15,9 +15,11 @@ const uploadFileToCloudinary = (file) => {
   }
 
   const isVideo = file.mimetype.startsWith("video");
+  const isAudio = file.mimetype.startsWith("audio");
+  const isImage = file.mimetype.startsWith("image");
 
   const options = {
-    resource_type: isVideo ? "video" : "image",
+    resource_type: isVideo || isAudio ? "video" : (isImage ? "image" : "auto"),
   };
 
   return new Promise((resolve, reject) => {

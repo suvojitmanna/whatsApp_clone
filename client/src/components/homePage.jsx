@@ -90,6 +90,22 @@ const HomePage = () => {
 
     if (!statusId) return;
 
+    // Check grouped statuses first for full contact status flow
+    const grouped = useStatusStore.getState().getGroupStatus();
+    const clickedStatusId = String(statusId);
+
+    for (const contact of Object.values(grouped || {})) {
+      const index = contact?.statuses?.findIndex(
+        (item) => String(item.id) === clickedStatusId,
+      );
+
+      if (index !== -1) {
+        handleStatusPreview(contact, index);
+        return;
+      }
+    }
+
+    // Fallback if not found in grouped
     if (typeof statusData === "object") {
       const status = {
         id: statusData._id,
@@ -108,21 +124,6 @@ const HomePage = () => {
       };
 
       handleStatusPreview(contact, 0);
-      return;
-    }
-
-    const grouped = useStatusStore.getState().getGroupStatus();
-    const clickedStatusId = String(statusId);
-
-    for (const contact of Object.values(grouped || {})) {
-      const index = contact?.statuses?.findIndex(
-        (item) => String(item.id) === clickedStatusId,
-      );
-
-      if (index !== -1) {
-        handleStatusPreview(contact, index);
-        return;
-      }
     }
   };
 

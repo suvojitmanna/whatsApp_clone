@@ -6,20 +6,25 @@ import { isToday, isYesterday, format } from "date-fns";
 import whatsappImage from "../../assets/whatsapp_image.png";
 import {
   FaArrowLeft,
-  FaEllipsisV,
+  FaCamera,
   FaFile,
+  FaFileAlt,
+  FaHeadphones,
   FaImage,
   FaLock,
   FaPaperclip,
   FaPaperPlane,
   FaPhone,
-  FaSmile,
+  FaPlus,
   FaTimes,
+  FaTrash,
+  FaUser,
   FaVideo,
 } from "react-icons/fa";
+import { FaSquarePollHorizontal } from "react-icons/fa6";
 import { BsEmojiFrown } from "react-icons/bs";
-import { FaEllipsis } from "react-icons/fa6";
-import { object } from "yup";
+import { MdEventNote, MdLocationOn } from "react-icons/md";
+import { MdAddReaction } from "react-icons/md";
 import MessageBuble from "./MessageBuble";
 import EmojiPicker from "emoji-picker-react";
 import useOutsideClick from "../../hook/useOutsideClick";
@@ -30,8 +35,10 @@ import useVideoCallStore from "../../store/videoCallStore";
 import useLayoutStore from "../../store/layoutStore";
 import { HiDotsVertical } from "react-icons/hi";
 import { FiSearch } from "react-icons/fi";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
+import { RiContactsFill } from "react-icons/ri";
+import CameraModal from "../../components/CameraModal";
 
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -46,10 +53,21 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // Attachment Modals & Modes
+  const [showCamera, setShowCamera] = useState(false);
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [showStickerModal, setShowStickerModal] = useState(false);
+  const [isStickerMode, setIsStickerMode] = useState(false);
+
   const typingTimeOutRef = useRef(null);
   const messageEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const documentInputRef = useRef(null);
+  const audioInputRef = useRef(null);
+  const stickerInputRef = useRef(null);
   const fileMenuRef = useRef(null);
   const searchIconRef = useRef(null);
   const inputRef = useRef(null);
@@ -144,20 +162,37 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     messageRefs.current = [];
   }, [searchTerm]);
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
+  useOutsideClick(fileMenuRef, () => {
+    if (showFileMenu) setShowFileMenu(false);
+  });
+
+  useOutsideClick(emojiPickerRef, () => {
+    if (showEmojiPicker) setShowEmojiPicker(false);
+  });
+
+  const handleFileChange = (e, typeHint = null) => {
+    const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
       setShowFileMenu(false);
+      if (typeHint === "sticker") {
+        setIsStickerMode(true);
+      } else {
+        setIsStickerMode(false);
+      }
+
       if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
         setFilePreview(URL.createObjectURL(file));
+      } else if (file.type.startsWith("audio/")) {
+        setFilePreview("audio:" + file.name);
+      } else {
+        setFilePreview("doc:" + file.name);
       }
     }
   };
 
   const handleSendMessage = async () => {
     if (!selectedContact) return;
-    setFilePreview(null);
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
@@ -169,16 +204,120 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
       if (selectedFile) {
         formData.append("media", selectedFile);
+        formData.append("fileName", selectedFile.name);
+        formData.append(
+          "fileSize",
+          `${(selectedFile.size / 1024).toFixed(1)} KB`
+        );
+
+        if (isStickerMode) {
+          formData.append("contentType", "sticker");
+        } else if (selectedFile.type.startsWith("image/")) {
+          formData.append("contentType", "image");
+        } else if (selectedFile.type.startsWith("video/")) {
+          formData.append("contentType", "video");
+        } else if (selectedFile.type.startsWith("audio/")) {
+          formData.append("contentType", "audio");
+        } else {
+          formData.append("contentType", "document");
+        }
       }
+
       if (!message.trim() && !selectedFile) return;
+
       await sendMessage(formData);
 
       setMessage("");
       setFilePreview(null);
       setSelectedFile(null);
+      setIsStickerMode(false);
       setShowFileMenu(false);
     } catch (error) {
       console.error("Failed to send message", error);
+    }
+  };
+
+  const handleSendPoll = async ({ question, options, allowMultiple }) => {
+    if (!selectedContact || !question.trim()) return;
+    try {
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", selectedContact?._id);
+      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("contentType", "poll");
+      formData.append("content", question.trim());
+      formData.append(
+        "pollData",
+        JSON.stringify({
+          question: question.trim(),
+          options: options.map((opt) => ({ text: opt.trim(), votes: [] })),
+          allowMultiple: !!allowMultiple,
+        })
+      );
+
+      await sendMessage(formData);
+      setShowPollModal(false);
+    } catch (error) {
+      console.error("Failed to send poll", error);
+    }
+  };
+
+  const handleSendContact = async (contactInfo) => {
+    if (!selectedContact || !contactInfo.name) return;
+    try {
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", selectedContact?._id);
+      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("contentType", "contact");
+      formData.append("content", `Contact: ${contactInfo.name}`);
+      formData.append("contactData", JSON.stringify(contactInfo));
+
+      await sendMessage(formData);
+      setShowContactModal(false);
+    } catch (error) {
+      console.error("Failed to send contact", error);
+    }
+  };
+
+  const handleSendEvent = async (eventInfo) => {
+    if (!selectedContact || !eventInfo.title) return;
+    try {
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", selectedContact?._id);
+      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("contentType", "event");
+      formData.append("content", `Event: ${eventInfo.title}`);
+      formData.append("eventData", JSON.stringify(eventInfo));
+
+      await sendMessage(formData);
+      setShowEventModal(false);
+    } catch (error) {
+      console.error("Failed to send event", error);
+    }
+  };
+
+  const handleSendSticker = async (stickerUrlOrFile) => {
+    if (!selectedContact || !stickerUrlOrFile) return;
+    try {
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", selectedContact?._id);
+      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("contentType", "sticker");
+      formData.append("content", "Sticker");
+
+      if (stickerUrlOrFile instanceof File) {
+        formData.append("media", stickerUrlOrFile);
+      } else {
+        formData.append("imageOrVideoUrl", stickerUrlOrFile);
+      }
+
+      await sendMessage(formData);
+      setShowStickerModal(false);
+    } catch (error) {
+      console.error("Failed to send sticker", error);
     }
   };
 
@@ -676,51 +815,105 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
           <div ref={messageEndRef} className="h-4" />
         </div>
-
         {filePreview && (
-          <div className="relative p-2">
-            {selectedFile?.type.startsWith("video/") ? (
-              <video
-                src={filePreview}
-                controls
-                className="w-80 object-cover rounded shadow-lg mx-auto "
-              />
-            ) : (
-              <img
-                src={filePreview}
-                alt="file-preview"
-                className="w-80 object-cover rounded shadow-lg mx-auto"
-              />
-            )}
+          <div
+            className={`p-3 border-t flex items-center justify-between transition-colors ${
+              theme === "dark"
+                ? "bg-[#1f2c33] border-white/10 text-white"
+                : "bg-gray-100 border-gray-200 text-gray-800"
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              {filePreview.startsWith("doc:") ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-[#7f66ff]/20 text-[#7f66ff] flex items-center justify-center shrink-0">
+                    <FaFileAlt size={22} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
+                      {selectedFile?.name}
+                    </p>
+                    <p className="text-xs opacity-60">
+                      {(selectedFile?.size / 1024).toFixed(1)} KB • Document
+                    </p>
+                  </div>
+                </div>
+              ) : filePreview.startsWith("audio:") ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-[#f2790f]/20 text-[#f2790f] flex items-center justify-center shrink-0">
+                    <FaHeadphones size={22} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
+                      {selectedFile?.name}
+                    </p>
+                    <p className="text-xs opacity-60">
+                      {(selectedFile?.size / 1024).toFixed(1)} KB • Audio
+                    </p>
+                  </div>
+                </div>
+              ) : selectedFile?.type?.startsWith("video/") ? (
+                <div className="relative">
+                  <video
+                    src={filePreview}
+                    className="w-16 h-16 rounded-xl object-cover"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-xl">
+                    <FaVideo className="text-white text-xs" />
+                  </div>
+                </div>
+              ) : (
+                <div className="relative">
+                  <img
+                    src={filePreview}
+                    alt="preview"
+                    className="w-16 h-16 rounded-xl object-cover ring-1 ring-black/10"
+                  />
+                  {isStickerMode && (
+                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#02b875] text-white shadow">
+                      Sticker
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
             <button
+              type="button"
               onClick={() => {
                 setSelectedFile(null);
                 setFilePreview(null);
+                setIsStickerMode(false);
               }}
-              className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1"
+              className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-red-500 cursor-pointer transition"
+              title="Remove"
             >
-              <FaTimes className="h-4 w-4" />
+              <RxCross2 size={18} />
             </button>
           </div>
         )}
 
         <div
-          className={`p-4 ${theme === "dark" ? "bg-[#303430]" : "bg-white"} flex items-center space-x-2 relative`}
+          className={`p-3 sm:p-4 ${
+            theme === "dark" ? "bg-[#202c33]" : "bg-[#f0f2f5]"
+          } flex items-center space-x-2 relative transition-colors`}
         >
           <button
-            className="focus:outline-none"
+            type="button"
+            className="focus:outline-none p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           >
             <BsEmojiFrown
-              className={`h-6 w-6 cursor-pointer ${theme === "dark" ? "text-gray-400" : "text-gray-500"} ml-2 `}
+              className={`h-6 w-6 ${
+                theme === "dark" ? "text-gray-400" : "text-gray-500"
+              }`}
             />
           </button>
 
           {showEmojiPicker && (
             <div
               ref={emojiPickerRef}
-              className="absolute left-4 bottom-20 z-50"
+              className="absolute left-4 bottom-20 z-50 shadow-2xl"
             >
               <EmojiPicker
                 onEmojiClick={(emojiObject) => {
@@ -733,43 +926,189 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               />
             </div>
           )}
+
           <div className="relative" ref={fileMenuRef}>
             <button
-              className="focus:outline-none"
+              type="button"
+              className={`focus:outline-none p-1.5 rounded-full transition cursor-pointer ${
+                showFileMenu
+                  ? "bg-black/10 dark:bg-white/15"
+                  : "hover:bg-black/5 dark:hover:bg-white/10"
+              }`}
               onClick={() => setShowFileMenu(!showFileMenu)}
+              title="Attach"
             >
               <FaPaperclip
-                className={`h-5.5 w-5.5 ${theme === "dark" ? "text-gray-400" : "text-gray-500"} mt-2 ml-2 cursor-pointer `}
+                className={`h-5 w-5 transform transition-transform duration-200 ${
+                  showFileMenu ? "rotate-45" : ""
+                } ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
               />
             </button>
 
-            {showFileMenu && (
-              <div
-                className={`absolute bottom-full left-0 mb-2 ${theme === "dark" ? "bg-gray-700" : "bg-white"} rounded-lg shadow-lg `}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*,video/*"
-                  className="hidden"
-                />
-                <button
-                  onClick={() => fileInputRef.current.click()}
-                  className={`flex items-center px-4 py-2 w-full transition-colors ${theme === "dark" ? "hover:bg-gray-500" : "hover:bg-gray-100"} cursor-pointer`}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => handleFileChange(e, "media")}
+              accept="image/*,video/*"
+              className="hidden"
+            />
+            <input
+              type="file"
+              ref={documentInputRef}
+              onChange={(e) => handleFileChange(e, "document")}
+              accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,application/*"
+              className="hidden"
+            />
+            <input
+              type="file"
+              ref={audioInputRef}
+              onChange={(e) => handleFileChange(e, "audio")}
+              accept="audio/*"
+              className="hidden"
+            />
+            <input
+              type="file"
+              ref={stickerInputRef}
+              onChange={(e) => handleFileChange(e, "sticker")}
+              accept="image/png,image/webp,image/gif,image/jpeg"
+              className="hidden"
+            />
+            <AnimatePresence>
+              {showFileMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.85, y: 15 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.85, y: 15 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
+                  className={`absolute bottom-full left-0 mb-3 w-56 rounded-2xl p-2 z-50 border shadow-2xl backdrop-blur-xl ${
+                    theme === "dark"
+                      ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/70"
+                      : "bg-white border-gray-100 text-[#3b4a54] shadow-black/15"
+                  }`}
                 >
-                  <FaImage className="mr-2" />
-                  Image/Video
-                </button>
-                <button
-                  onClick={() => fileInputRef.current.click()}
-                  className={`flex items-center px-4 py-2 w-full transition-colors ${theme === "dark" ? "hover:bg-gray-500" : "hover:bg-gray-100"} cursor-pointer`}
-                >
-                  <FaFile className="mr-2" />
-                  Document
-                </button>
-              </div>
-            )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFileMenu(false);
+                      documentInputRef.current?.click();
+                    }}
+                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                      <FaFileAlt className="text-white text-[16px]" />
+                    </div>
+                    <span className="text-[14px] font-medium tracking-tight">
+                      Document
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFileMenu(false);
+                      fileInputRef.current?.click();
+                    }}
+                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                      <FaImage className="text-white text-[16px]" />
+                    </div>
+                    <span className="text-[14px] font-medium tracking-tight">
+                      Photos & videos
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFileMenu(false);
+                      setShowCamera(true);
+                    }}
+                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                      <FaCamera className="text-white text-[16px]" />
+                    </div>
+                    <span className="text-[14px] font-medium tracking-tight">
+                      Camera
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFileMenu(false);
+                      audioInputRef.current?.click();
+                    }}
+                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                      <FaHeadphones className="text-white text-[16px]" />
+                    </div>
+                    <span className="text-[14px] font-medium tracking-tight">
+                      Audio
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFileMenu(false);
+                      setShowContactModal(true);
+                    }}
+                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                      <RiContactsFill className="text-white text-[17px]" />
+                    </div>
+                    <span className="text-[14px] font-medium tracking-tight">
+                      Contact
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFileMenu(false);
+                      setShowPollModal(true);
+                    }}
+                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                      <FaSquarePollHorizontal className="text-white text-[17px]" />
+                    </div>
+                    <span className="text-[14px] font-medium tracking-tight">
+                      Poll
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFileMenu(false);
+                      setShowEventModal(true);
+                    }}
+                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                      <MdEventNote className="text-white text-[17px]" />
+                    </div>
+                    <span className="text-[14px] font-medium tracking-tight">
+                      Event
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFileMenu(false);
+                      setShowStickerModal(true);
+                    }}
+                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                      <MdAddReaction className="text-white text-[17px]" />
+                    </div>
+                    <span className="text-[14px] font-medium tracking-tight">
+                      New sticker
+                    </span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <input
@@ -781,16 +1120,697 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                 handleSendMessage();
               }
             }}
-            placeholder="Type a message "
-            className={`flex-grow px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 ${theme === "dark" ? "bg-gray-700 text-white border-gray-600" : "bg-white text-black border-gray-300"}`}
+            placeholder="Type a message"
+            className={`flex-grow px-4 py-2.5 border rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500 transition ${
+              theme === "dark"
+                ? "bg-[#2a3942] text-white border-transparent placeholder-gray-400"
+                : "bg-white text-black border-transparent placeholder-gray-500 shadow-sm"
+            }`}
           />
-          <button onClick={handleSendMessage} className="focus:outline-none">
-            <FaPaperPlane className="h-6 w-6 text-green-500 cursor-pointer" />
+          <button
+            type="button"
+            onClick={handleSendMessage}
+            className="p-2 rounded-full text-emerald-500 hover:text-emerald-600 active:scale-95 transition cursor-pointer"
+            title="Send"
+          >
+            <FaPaperPlane className="h-5 w-5" />
           </button>
         </div>
       </div>
+      {showCamera && (
+        <CameraModal
+          onClose={() => setShowCamera(false)}
+          onCapture={(file) => {
+            setSelectedFile(file);
+            setFilePreview(URL.createObjectURL(file));
+            setShowCamera(false);
+          }}
+        />
+      )}
+      {showPollModal && (
+        <PollModal
+          onClose={() => setShowPollModal(false)}
+          onSend={handleSendPoll}
+          theme={theme}
+        />
+      )}
+      {showContactModal && (
+        <ContactModal
+          onClose={() => setShowContactModal(false)}
+          onSend={handleSendContact}
+          conversations={conversations}
+          theme={theme}
+        />
+      )}
+      {showEventModal && (
+        <EventModal
+          onClose={() => setShowEventModal(false)}
+          onSend={handleSendEvent}
+          theme={theme}
+        />
+      )}
+      {showStickerModal && (
+        <StickerModal
+          onClose={() => setShowStickerModal(false)}
+          onSend={handleSendSticker}
+          onUploadClick={() => {
+            setShowStickerModal(false);
+            stickerInputRef.current?.click();
+          }}
+          theme={theme}
+        />
+      )}
+
       <VideoCallManager socket={socket} />
     </>
+  );
+};
+
+// =================== ATTACHMENT MODAL COMPONENTS ===================
+
+const PollModal = ({ onClose, onSend, theme }) => {
+  const [question, setQuestion] = useState("");
+  const [options, setOptions] = useState(["", ""]);
+  const [allowMultiple, setAllowMultiple] = useState(false);
+  const isDark = theme === "dark";
+
+  const handleOptionChange = (val, idx) => {
+    const updated = [...options];
+    updated[idx] = val;
+    setOptions(updated);
+  };
+
+  const addOption = () => {
+    if (options.length < 12) {
+      setOptions([...options, ""]);
+    }
+  };
+
+  const removeOption = (idx) => {
+    if (options.length > 2) {
+      setOptions(options.filter((_, i) => i !== idx));
+    }
+  };
+
+  const validOptions = options.filter((o) => o.trim() !== "");
+  const canSubmit = question.trim() !== "" && validOptions.length >= 2;
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${
+          isDark
+            ? "bg-[#111b21] border-white/10 text-white"
+            : "bg-white border-gray-200 text-gray-900"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
+          <div className="flex items-center gap-2">
+            <FaSquarePollHorizontal className="text-yellow-500" size={20} />
+            <h2 className="text-lg font-bold">Create poll</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+          >
+            <RxCross2 size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div>
+            <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+              Question
+            </label>
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Ask a question..."
+              className={`mt-1.5 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition ${
+                isDark
+                  ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
+                  : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+              }`}
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+              Options
+            </label>
+            <div className="space-y-2.5 mt-1.5">
+              {options.map((opt, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="text-xs opacity-50 font-bold w-4">
+                    {idx + 1}
+                  </span>
+                  <input
+                    type="text"
+                    value={opt}
+                    onChange={(e) => handleOptionChange(e.target.value, idx)}
+                    placeholder={`Option ${idx + 1}`}
+                    className={`flex-1 px-3 py-2 rounded-xl border text-sm outline-none transition ${
+                      isDark
+                        ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
+                        : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+                    }`}
+                  />
+                  {options.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => removeOption(idx)}
+                      className="p-2 text-red-400 hover:text-red-500 cursor-pointer"
+                    >
+                      <FaTrash size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {options.length < 12 && (
+              <button
+                type="button"
+                onClick={addOption}
+                className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-500 hover:text-emerald-400 transition cursor-pointer"
+              >
+                <FaPlus size={10} /> Add option
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-black/10 dark:border-white/10">
+            <div>
+              <p className="text-sm font-medium">Allow multiple answers</p>
+              <p className="text-[11px] opacity-60">
+                People can select more than one option
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAllowMultiple(!allowMultiple)}
+              className={`w-11 h-6 rounded-full transition-colors p-0.5 relative cursor-pointer ${
+                allowMultiple
+                  ? "bg-emerald-500"
+                  : isDark
+                  ? "bg-gray-700"
+                  : "bg-gray-300"
+              }`}
+            >
+              <div
+                className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                  allowMultiple ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className={`px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition ${
+              isDark
+                ? "hover:bg-white/10 text-gray-300"
+                : "hover:bg-black/5 text-gray-600"
+            }`}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() =>
+              onSend({ question, options: validOptions, allowMultiple })
+            }
+            className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-md shadow-emerald-500/20 cursor-pointer"
+          >
+            Send Poll
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const ContactModal = ({ onClose, onSend, conversations, theme }) => {
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
+  const [activeTab, setActiveTab] = useState("chats");
+  const isDark = theme === "dark";
+
+  const allContacts =
+    conversations?.data?.flatMap((c) => c.participants) || [];
+  const uniqueContacts = Array.from(
+    new Map(allContacts.map((c) => [c._id, c])).values()
+  );
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${
+          isDark
+            ? "bg-[#111b21] border-white/10 text-white"
+            : "bg-white border-gray-200 text-gray-900"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
+          <div className="flex items-center gap-2">
+            <RiContactsFill className="text-cyan-500" size={20} />
+            <h2 className="text-lg font-bold">Share Contact</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+          >
+            <RxCross2 size={18} />
+          </button>
+        </div>
+
+        <div className="flex gap-2 my-4 p-1 rounded-xl bg-black/5 dark:bg-white/5">
+          <button
+            type="button"
+            onClick={() => setActiveTab("chats")}
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+              activeTab === "chats"
+                ? "bg-emerald-500 text-white shadow-sm"
+                : "opacity-70 hover:opacity-100"
+            }`}
+          >
+            From Chats
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("manual")}
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+              activeTab === "manual"
+                ? "bg-emerald-500 text-white shadow-sm"
+                : "opacity-70 hover:opacity-100"
+            }`}
+          >
+            Enter Details
+          </button>
+        </div>
+
+        {activeTab === "chats" ? (
+          <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+            {uniqueContacts.length > 0 ? (
+              uniqueContacts.map((contact) => (
+                <div
+                  key={contact._id}
+                  onClick={() =>
+                    onSend({
+                      name: contact.username || "User",
+                      phoneNumber: contact.phoneNumber || "",
+                      email: contact.email || "",
+                      avatar: contact.profilePicture || "",
+                    })
+                  }
+                  className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition ${
+                    isDark
+                      ? "border-white/5 hover:bg-white/10"
+                      : "border-black/5 hover:bg-black/5"
+                  }`}
+                >
+                  <img
+                    src={contact.profilePicture || "/default-avatar.png"}
+                    alt={contact.username}
+                    className="w-10 h-10 rounded-full object-cover shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">
+                      {contact.username}
+                    </p>
+                    <p className="text-xs opacity-60 truncate">
+                      {contact.phoneNumber || contact.email || "Contact"}
+                    </p>
+                  </div>
+                  <span className="text-xs text-emerald-500 font-semibold">
+                    Share
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-center py-8 text-xs opacity-60">
+                No contacts found
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3.5">
+            <div>
+              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+                Name *
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Full name"
+                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${
+                  isDark
+                    ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
+                    : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+                }`}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+                Phone Number *
+              </label>
+              <input
+                type="text"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+1 234 567 8900"
+                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${
+                  isDark
+                    ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
+                    : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+                }`}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+                Email (Optional)
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${
+                  isDark
+                    ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
+                    : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+                }`}
+              />
+            </div>
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl text-sm font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!name.trim() || !phoneNumber.trim()}
+                onClick={() => onSend({ name, phoneNumber, email })}
+                className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 transition cursor-pointer"
+              >
+                Share
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
+const EventModal = ({ onClose, onSend, theme }) => {
+  const [title, setTitle] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
+  const isDark = theme === "dark";
+
+  const canSubmit = title.trim() !== "" && eventDate !== "";
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${
+          isDark
+            ? "bg-[#111b21] border-white/10 text-white"
+            : "bg-white border-gray-200 text-gray-900"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
+          <div className="flex items-center gap-2">
+            <MdEventNote className="text-purple-500" size={22} />
+            <h2 className="text-lg font-bold">Create event</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+          >
+            <RxCross2 size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
+          <div>
+            <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+              Event Name *
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Birthday Party, Team Catchup"
+              className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${
+                isDark
+                  ? "bg-[#202c33] border-white/10 focus:border-purple-500"
+                  : "bg-gray-50 border-gray-300 focus:border-purple-600"
+              }`}
+              autoFocus
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+                Date *
+              </label>
+              <input
+                type="date"
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+                className={`mt-1 w-full px-3 py-2 rounded-xl border text-sm outline-none ${
+                  isDark
+                    ? "bg-[#202c33] border-white/10 focus:border-purple-500"
+                    : "bg-gray-50 border-gray-300 focus:border-purple-600"
+                }`}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+                Time
+              </label>
+              <input
+                type="time"
+                value={eventTime}
+                onChange={(e) => setEventTime(e.target.value)}
+                className={`mt-1 w-full px-3 py-2 rounded-xl border text-sm outline-none ${
+                  isDark
+                    ? "bg-[#202c33] border-white/10 focus:border-purple-500"
+                    : "bg-gray-50 border-gray-300 focus:border-purple-600"
+                }`}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+              Location
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Add location (optional)"
+              className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${
+                isDark
+                  ? "bg-[#202c33] border-white/10 focus:border-purple-500"
+                  : "bg-gray-50 border-gray-300 focus:border-purple-600"
+              }`}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+              Description
+            </label>
+            <textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add description (optional)"
+              className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none resize-none ${
+                isDark
+                  ? "bg-[#202c33] border-white/10 focus:border-purple-500"
+                  : "bg-gray-50 border-gray-300 focus:border-purple-600"
+              }`}
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm font-medium cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() =>
+              onSend({ title, eventDate, eventTime, location, description })
+            }
+            className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-40 transition shadow-md shadow-purple-500/20 cursor-pointer"
+          >
+            Create Event
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const StickerModal = ({ onClose, onSend, onUploadClick, theme }) => {
+  const isDark = theme === "dark";
+
+  const presetStickers = [
+    {
+      name: "Thumbs Up",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.webp",
+    },
+    {
+      name: "Heart Fire",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.webp",
+    },
+    {
+      name: "Joy Tears",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp",
+    },
+    {
+      name: "Party Popper",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.webp",
+    },
+    {
+      name: "Fire",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp",
+    },
+    {
+      name: "Star Struck",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f929/512.webp",
+    },
+    {
+      name: "Clapping Hands",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.webp",
+    },
+    {
+      name: "100",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4af/512.webp",
+    },
+    {
+      name: "Mind Blown",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92f/512.webp",
+    },
+    {
+      name: "Cool Sunglasses",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60e/512.webp",
+    },
+    {
+      name: "Folded Hands",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f64f/512.webp",
+    },
+    {
+      name: "Rocket",
+      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.webp",
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${
+          isDark
+            ? "bg-[#111b21] border-white/10 text-white"
+            : "bg-white border-gray-200 text-gray-900"
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
+          <div className="flex items-center gap-2">
+            <MdAddReaction className="text-emerald-500" size={22} />
+            <h2 className="text-lg font-bold">Stickers</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+          >
+            <RxCross2 size={18} />
+          </button>
+        </div>
+
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={onUploadClick}
+            className={`w-full py-2.5 px-4 rounded-xl border border-dashed flex items-center justify-center gap-2 font-semibold text-sm transition cursor-pointer ${
+              isDark
+                ? "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                : "border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+            }`}
+          >
+            <FaPlus size={12} /> Upload Custom Sticker (PNG / WebP / Image)
+          </button>
+
+          <p className="text-xs font-semibold opacity-60 uppercase tracking-wider mt-5 mb-3">
+            Popular Stickers
+          </p>
+
+          <div className="grid grid-cols-4 gap-3 max-h-60 overflow-y-auto p-1">
+            {presetStickers.map((s, idx) => (
+              <motion.button
+                key={idx}
+                type="button"
+                whileHover={{ scale: 1.15 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => onSend(s.url)}
+                className={`p-2 rounded-2xl flex items-center justify-center transition cursor-pointer ${
+                  isDark ? "hover:bg-white/10" : "hover:bg-black/5"
+                }`}
+                title={s.name}
+              >
+                <img
+                  src={s.url}
+                  alt={s.name}
+                  className="w-14 h-14 object-contain"
+                />
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </div>
   );
 };
 

@@ -28,6 +28,7 @@ export const useChatStore = create((set, get) => ({
     socket.off("message_status_update");
     socket.off("message_read");
     socket.off("reaction_update");
+    socket.off("poll_update");
     socket.off("message_status_update_bulk");
 
     socket.on("receive_message", (message) => {
@@ -75,6 +76,14 @@ export const useChatStore = create((set, get) => ({
       set((state) => ({
         messages: state.messages.map((msg) =>
           msg._id === messageId ? { ...msg, reactions } : msg,
+        ),
+      }));
+    });
+
+    socket.on("poll_update", ({ messageId, pollData }) => {
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          msg._id === messageId ? { ...msg, pollData } : msg,
         ),
       }));
     });
@@ -448,6 +457,88 @@ export const useChatStore = create((set, get) => ({
         emoji,
         reactionUserId: currentUser._id,
       });
+    }
+  },
+
+  votePoll: async (messageId, optionIndex) => {
+    let socket = getSocket();
+    if (!socket) {
+      socket = initializeSocket();
+    }
+    const currentUser = get().currentUser || useUserStore.getState().user;
+    const voterId = (currentUser?._id || currentUser?.id)?.toString();
+    if (!voterId || !messageId) return;
+
+    // 1. Instant Optimistic UI Update (0ms latency)
+    set((state) => {
+      const updatedMessages = state.messages.map((msg) => {
+        if (msg._id !== messageId || msg.contentType !== "poll" || !msg.pollData) {
+          return msg;
+        }
+
+        const pollData = JSON.parse(JSON.stringify(msg.pollData));
+        const allowMultiple = !!pollData.allowMultiple;
+
+        // If single-choice, clear user's vote from all other options
+        if (!allowMultiple) {
+          pollData.options.forEach((opt, idx) => {
+            if (idx !== optionIndex) {
+              opt.votes = (opt.votes || []).filter(
+                (v) => (v?._id || v)?.toString() !== voterId
+              );
+            }
+          });
+        }
+
+        // Toggle vote on the chosen option
+        const targetOption = pollData.options[optionIndex];
+        if (targetOption) {
+          targetOption.votes = targetOption.votes || [];
+          const alreadyVoted = targetOption.votes.some(
+            (v) => (v?._id || v)?.toString() === voterId
+          );
+
+          if (alreadyVoted) {
+            targetOption.votes = targetOption.votes.filter(
+              (v) => (v?._id || v)?.toString() !== voterId
+            );
+          } else {
+            targetOption.votes.push(voterId);
+          }
+        }
+
+        return { ...msg, pollData };
+      });
+
+      return { messages: updatedMessages };
+    });
+
+    // 2. Real-time Socket Emission
+    if (socket) {
+      socket.emit("vote_poll", {
+        messageId,
+        optionIndex,
+        voterId,
+      });
+    }
+
+    // 3. Fallback REST API DB Synchronization
+    try {
+      const { data } = await axiosInstance.post(
+        `/chat/messages/${messageId}/vote`,
+        { optionIndex }
+      );
+      if (data?.data?.pollData) {
+        set((state) => ({
+          messages: state.messages.map((m) =>
+            m._id === messageId
+              ? { ...m, pollData: data.data.pollData }
+              : m
+          ),
+        }));
+      }
+    } catch (err) {
+      console.error("VOTE POLL REST SYNC ERROR:", err);
     }
   },
 
