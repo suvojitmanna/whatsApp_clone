@@ -516,7 +516,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                         : "text-gray-400 hover:text-emerald-500"
                         }`}
                     >
-                      <RxCross2 className="h-3.5 w-3.5" />
+                      <RxCross2 className="h-3.5 w-3.5 cursor-pointer" />
                     </button>
                   </div>
 

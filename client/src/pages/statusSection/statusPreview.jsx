@@ -5,7 +5,6 @@ import {
   FaChevronDown,
   FaChevronLeft,
   FaChevronRight,
-  FaChevronUp,
   FaEye,
   FaPause,
   FaPlay,
@@ -441,7 +440,7 @@ const StatusPreview = ({
                   onClick={onClose}
                   className="text-white md:hidden p-1 mr-0.5 sm:mr-1 shrink-0"
                 >
-                  <FaChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 drop-shadow-md" />
+                  <FaChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 drop-shadow-md cursor-pointer" />
                 </button>
                 <img
                   src={contact?.avatar}
@@ -468,7 +467,7 @@ const StatusPreview = ({
                     className="group relative flex items-center justify-center p-2 sm:p-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all duration-300 hover:bg-green-500/20 hover:border-green-500/30 hover:text-green-400 hover:scale-105 active:scale-95"
                     title="Delete Status"
                   >
-                    <FaTrash className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md transition-transform" />
+                    <FaTrash className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md transition-transform cursor-pointer" />
                   </button>
                 )}
 
@@ -484,9 +483,9 @@ const StatusPreview = ({
                     className="flex items-center justify-center p-2 sm:p-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all duration-300 hover:bg-white/20 hover:border-white/30 hover:scale-105 active:scale-95"
                   >
                     {isMuted ? (
-                      <FaVolumeMute className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md" />
+                      <FaVolumeMute className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md cursor-pointer" />
                     ) : (
-                      <FaVolumeUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md" />
+                      <FaVolumeUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md cursor-pointer" />
                     )}
                   </button>
                 )}
@@ -511,9 +510,9 @@ const StatusPreview = ({
                   className="flex items-center justify-center p-2 sm:p-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all duration-300 hover:bg-white/20 hover:border-white/30 hover:scale-105 active:scale-95"
                 >
                   {isPaused ? (
-                    <FaPlay className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md translate-x-[1px]" />
+                    <FaPlay className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md translate-x-[1px] cursor-pointer" />
                   ) : (
-                    <FaPause className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md" />
+                    <FaPause className="h-3.5 w-3.5 sm:h-4 sm:w-4 drop-shadow-md cursor-pointer" />
                   )}
                 </button>
 

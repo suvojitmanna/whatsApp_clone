@@ -443,7 +443,7 @@ const status = () => {
                     }}
                     className="p-2 rounded-full bg-gray-500/10 hover:bg-gray-500/20 transition-colors"
                   >
-                    <RxCross2 className="w-6 h-6" />
+                    <RxCross2 className="w-6 h-6 cursor-pointer" />
                   </button>
                 </div>
 
