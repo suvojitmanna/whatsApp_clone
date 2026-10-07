@@ -159,7 +159,7 @@ const ChatList = ({ contacts }) => {
                       )}
                     </p>
                     {contact?.conversation?.unreadCount > 0 && (
-                      <p className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center text-sm font-semibold">
+                      <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white">
                         {contact.conversation.unreadCount}
                       </p>
                     )}

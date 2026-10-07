@@ -12,17 +12,16 @@ import {
   FaImage,
   FaLock,
   FaPaperclip,
-  FaPaperPlane,
   FaPhone,
   FaPlus,
   FaTrash,
   FaVideo,
 } from "react-icons/fa";
+import { IoSend } from "react-icons/io5";
 import { BiSolidSend } from "react-icons/bi";
 import { FaRegFaceSmile, FaSquarePollHorizontal } from "react-icons/fa6";
-import { BsEmojiFrown } from "react-icons/bs";
 import { MdEventNote } from "react-icons/md";
-import { TfiLineDouble } from "react-icons/tfi";
+import { TfiClip, TfiLineDouble } from "react-icons/tfi";
 import { MdAddReaction } from "react-icons/md";
 import MessageBuble from "./MessageBuble";
 import EmojiPicker from "emoji-picker-react";
@@ -36,7 +35,7 @@ import { HiDotsVertical } from "react-icons/hi";
 import { FiSearch } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
-import { RiContactsFill } from "react-icons/ri";
+import { RiContactsFill, RiEmojiStickerLine } from "react-icons/ri";
 import CameraModal from "../../components/CameraModal";
 
 const isValidate = (date) => {
@@ -530,12 +529,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   return (
     <>
       <div
-        className={`flex h-screen w-full flex-col ${theme === "dark" ? "bg-[#303430] text-white" : "bg-[rgb(230,235,240)] text-gray-600"}`}
+        className={`flex h-screen w-full flex-col ${theme === "dark" ? "bg-[#0b141a] text-white" : "bg-[#efe7de] text-gray-900"}`}
       >
         <div
-          className={`p-4 ${theme === "dark"
-            ? "bg-[#303430] text-white"
-            : "bg-[rgb(229,230,232)] text-gray-600"
+          className={`p-3 sm:p-4 border-b ${theme === "dark"
+            ? "bg-[#202c33] border-gray-700/60 text-white"
+            : "bg-[#f0f2f5] border-gray-200 text-gray-900"
             } flex items-center`}
         >
           <button
@@ -543,11 +542,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               setSelectedContact(null);
               setCurrentConversation(null);
             }}
+            className="mr-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
           >
-            <FaArrowLeft className="mr-2 focus:outline-none cursor-pointer h-full w-full" />
+            <FaArrowLeft className="h-5 w-5" />
           </button>
 
-          <div className="relative ml-4">
+          <div className="relative ml-2 sm:ml-4">
             <motion.img
               layoutId="profile-image"
               src={selectedContact?.profilePicture || "/default-avatar.png"}
@@ -561,25 +561,26 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
             {online && (
               <span
-                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#111b21]" : "border-white"} bg-emerald-500 shadow-sm`}
+                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#202c33]" : "border-white"} bg-emerald-500 shadow-sm`}
                 title="Online"
               ></span>
             )}
           </div>
 
           <div
-            className="ml-3 flex-grow cursor-pointer"
+            className="ml-3 flex-grow cursor-pointer min-w-0"
             onClick={() => setShowContactInfo(true)}
           >
-            <h2 className="font-semibold text-start">
+            <h2 className={`font-semibold text-start text-base sm:text-lg truncate ${theme === "dark" ? "text-white" : "text-gray-900"
+              }`}>
               {selectedContact?.username}
             </h2>
 
             {isTyping ? (
-              <div>Typing...</div>
+              <div className="text-xs sm:text-sm text-emerald-500 font-medium">Typing...</div>
             ) : (
               <p
-                className={`text-sm ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                className={`text-xs sm:text-sm truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
                   }`}
               >
                 {online
@@ -591,7 +592,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             )}
           </div>
 
-          <div className="px-4 py-2" ref={searchIconRef}>
+          <div className="px-2 sm:px-4 py-2" ref={searchIconRef}>
             <div className="relative flex items-center justify-end">
               <button
                 onClick={() => setIsSearchOpen(true)}
@@ -727,24 +728,24 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <button
-              className="focus:outline-none cursor-pointer"
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
               onClick={handleVideoCall}
               title={online ? "Start video call" : "user is offline"}
             >
-              <FaVideo className="h-7 w-7 text-green-500 hover:text-green-600" />
+              <FaVideo className="h-5 w-5 text-emerald-500 hover:text-emerald-600" />
             </button>
 
             <button
-              className="focus:outline-none cursor-pointer"
+              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
               onClick={handleAudioCall}
               title={online ? "Start audio call" : "user is offline"}
             >
-              <FaPhone className="h-5 w-5 text-green-500 hover:text-green-600" />
+              <FaPhone className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />
             </button>
 
-            <button className="focus:outline-none cursor-pointer">
+            <button className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer">
               <HiDotsVertical className="h-5 w-5" />
             </button>
           </div>
@@ -769,7 +770,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               return (
                 <React.Fragment key={date}>
                   <div className="flex justify-center my-4">
-                    <span className="px-4 py-1.5 text-xs text-gray-400">
+                    <span className={`px-4 py-1.5 text-xs rounded-lg shadow-sm font-medium ${theme === "dark" ? "bg-[#182229] text-[#8696a0]" : "bg-white text-[#54656f]"
+                      }`}>
                       {renderDateSeparator(new Date(date))}
                     </span>
                   </div>
@@ -896,243 +898,301 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         )}
 
         <div
-          className={`p-3 sm:p-4 ${theme === "dark" ? "bg-[#202c33]" : "bg-[#f0f2f5]"
-            } flex items-center space-x-2 relative transition-colors`}
+          className={`p-3 sm:p-4 ${theme === "dark" ? "" : ""
+            } flex items-center relative transition-colors`}
         >
-          <button
-            type="button"
-            className="focus:outline-none p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          <div
+            className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 ${theme === "dark"
+              ? "bg-[#2a3942]"
+              : "bg-white shadow-sm"
+              }`}
           >
-            <BsEmojiFrown
-              className={`h-6 w-6 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+            <div className="relative shrink-0" ref={fileMenuRef}>
+              <button
+                type="button"
+                className={`focus:outline-none p-2 rounded-full transition cursor-pointer ${showFileMenu
+                  ? "bg-black/10 dark:bg-white/15"
+                  : "hover:bg-black/5 dark:hover:bg-white/10"
+                  }`}
+                onClick={() => setShowFileMenu(!showFileMenu)}
+                title="Attach"
+              >
+                <TfiClip
+                  className={`h-5 w-5 transform transition-transform duration-200 ${showFileMenu ? "rotate-45" : ""
+                    } ${theme === "dark"
+                      ? "text-gray-400"
+                      : "text-gray-500"
+                    }`}
+                />
+              </button>
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={(e) => handleFileChange(e, "media")}
+                accept="image/*,video/*"
+                className="hidden"
+              />
+
+              <input
+                type="file"
+                ref={documentInputRef}
+                onChange={(e) => handleFileChange(e, "document")}
+                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,application/*"
+                className="hidden"
+              />
+
+              <input
+                type="file"
+                ref={audioInputRef}
+                onChange={(e) => handleFileChange(e, "audio")}
+                accept="audio/*"
+                className="hidden"
+              />
+
+              <input
+                type="file"
+                ref={stickerInputRef}
+                onChange={(e) => handleFileChange(e, "sticker")}
+                accept="image/png,image/webp,image/gif,image/jpeg"
+                className="hidden"
+              />
+
+              <AnimatePresence>
+                {showFileMenu && (
+                  <motion.div
+                    initial={{
+                      opacity: 0,
+                      scale: 0.85,
+                      y: 15,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      scale: 1,
+                      y: 0,
+                    }}
+                    exit={{
+                      opacity: 0,
+                      scale: 0.85,
+                      y: 15,
+                    }}
+                    transition={{
+                      duration: 0.16,
+                      ease: "easeOut",
+                    }}
+                    className={`absolute bottom-full left-0 sm:-left-6 mb-4 sm:mb-7 w-[230px] sm:w-56 rounded-2xl p-2 z-50 border shadow-2xl backdrop-blur-xl ${theme === "dark"
+                      ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/70"
+                      : "bg-white border-gray-100 text-[#3b4a54] shadow-black/15"
+                      }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        documentInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <FaFileAlt className="text-white text-[16px]" />
+                      </div>
+
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Document
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <FaImage className="text-white text-[16px]" />
+                      </div>
+
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Photos & videos
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowCamera(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <FaCamera className="text-white text-[16px]" />
+                      </div>
+
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Camera
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        audioInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <FaHeadphones className="text-white text-[16px]" />
+                      </div>
+
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Audio
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowContactModal(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <RiContactsFill className="text-white text-[17px]" />
+                      </div>
+
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Contact
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowPollModal(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <FaSquarePollHorizontal className="text-white text-[17px]" />
+                      </div>
+
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Poll
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowEventModal(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <MdEventNote className="text-white text-[17px]" />
+                      </div>
+
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Event
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowStickerModal(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <MdAddReaction className="text-white text-[17px]" />
+                      </div>
+
+                      <span className="text-[14px] font-medium tracking-tight">
+                        New sticker
+                      </span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                className="focus:outline-none p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                onClick={() =>
+                  setShowEmojiPicker(!showEmojiPicker)
+                }
+                title="Emoji"
+              >
+                <RiEmojiStickerLine
+                  className={`h-5 w-5 sm:h-6 sm:w-6 ${theme === "dark"
+                    ? "text-gray-400"
+                    : "text-gray-500"
+                    }`}
+                />
+              </button>
+
+
+              {showEmojiPicker && (
+                <div
+                  ref={emojiPickerRef}
+                  className="absolute left-0 sm:left-4 bottom-14 sm:bottom-16 z-50 shadow-2xl"
+                >
+                  <EmojiPicker
+                    onEmojiClick={(emojiObject) => {
+                      if (emojiObject?.emoji) {
+                        setMessage(
+                          (prev) => prev + emojiObject.emoji
+                        );
+                      }
+
+                      setShowEmojiPicker(false);
+                    }}
+                    theme={theme}
+                  />
+                </div>
+              )}
+            </div>
+
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              placeholder="Type a message"
+              className={`flex-1 min-w-0 w-full  bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm sm:text-base ${theme === "dark"
+                ? "text-white placeholder-gray-400"
+                : "text-black placeholder-gray-500"
                 }`}
             />
-          </button>
 
-          {showEmojiPicker && (
-            <div
-              ref={emojiPickerRef}
-              className="absolute left-4 bottom-20 z-50 shadow-2xl"
-            >
-              <EmojiPicker
-                onEmojiClick={(emojiObject) => {
-                  if (emojiObject?.emoji) {
-                    setMessage((prev) => prev + emojiObject.emoji);
-                  }
-                  setShowEmojiPicker(false);
-                }}
-                theme={theme}
-              />
-            </div>
-          )}
-
-          <div className="relative" ref={fileMenuRef}>
             <button
               type="button"
-              className={`focus:outline-none p-1.5 rounded-full transition cursor-pointer ${showFileMenu
-                ? "bg-black/10 dark:bg-white/15"
-                : "hover:bg-black/5 dark:hover:bg-white/10"
-                }`}
-              onClick={() => setShowFileMenu(!showFileMenu)}
-              title="Attach"
+              onClick={handleSendMessage}
+              className="shrink-0 p-2 rounded-full bg-green-500 hover:bg-green-600 active:scale-95 transition cursor-pointer"
+              title="Send"
             >
-              <FaPaperclip
-                className={`h-5 w-5 transform transition-transform duration-200 ${showFileMenu ? "rotate-45" : ""
-                  } ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
-              />
+              <IoSend className="h-4 w-4 sm:h-5 sm:w-5 text-black" />
             </button>
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={(e) => handleFileChange(e, "media")}
-              accept="image/*,video/*"
-              className="hidden"
-            />
-            <input
-              type="file"
-              ref={documentInputRef}
-              onChange={(e) => handleFileChange(e, "document")}
-              accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,application/*"
-              className="hidden"
-            />
-            <input
-              type="file"
-              ref={audioInputRef}
-              onChange={(e) => handleFileChange(e, "audio")}
-              accept="audio/*"
-              className="hidden"
-            />
-            <input
-              type="file"
-              ref={stickerInputRef}
-              onChange={(e) => handleFileChange(e, "sticker")}
-              accept="image/png,image/webp,image/gif,image/jpeg"
-              className="hidden"
-            />
-            <AnimatePresence>
-              {showFileMenu && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.85, y: 15 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.85, y: 15 }}
-                  transition={{ duration: 0.16, ease: "easeOut" }}
-                  className={`absolute bottom-full -left-15 mb-6 w-56 rounded-2xl p-2 z-50 border shadow-2xl backdrop-blur-xl ${theme === "dark"
-                    ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/70"
-                    : "bg-white border-gray-100 text-[#3b4a54] shadow-black/15"
-                    }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      documentInputRef.current?.click();
-                    }}
-                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                      <FaFileAlt className="text-white text-[16px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Document
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      fileInputRef.current?.click();
-                    }}
-                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                      <FaImage className="text-white text-[16px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Photos & videos
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowCamera(true);
-                    }}
-                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                      <FaCamera className="text-white text-[16px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Camera
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      audioInputRef.current?.click();
-                    }}
-                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                      <FaHeadphones className="text-white text-[16px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Audio
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowContactModal(true);
-                    }}
-                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                      <RiContactsFill className="text-white text-[17px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Contact
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowPollModal(true);
-                    }}
-                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                      <FaSquarePollHorizontal className="text-white text-[17px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Poll
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowEventModal(true);
-                    }}
-                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                      <MdEventNote className="text-white text-[17px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Event
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowStickerModal(true);
-                    }}
-                    className="w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                      <MdAddReaction className="text-white text-[17px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      New sticker
-                    </span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
-
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === "Enter") {
-                handleSendMessage();
-              }
-            }}
-            placeholder="Type a message"
-            className={`flex-grow px-4 py-2.5 border rounded-full focus:outline-none focus:ring-2 focus:ring-emerald-500 transition ${theme === "dark"
-              ? "bg-[#2a3942] text-white border-transparent placeholder-gray-400"
-              : "bg-white text-black border-transparent placeholder-gray-500 shadow-sm"
-              }`}
-          />
-          <button
-            type="button"
-            onClick={handleSendMessage}
-            className="p-2 rounded-full text-emerald-500 hover:text-emerald-600 active:scale-95 transition cursor-pointer"
-            title="Send"
-          >
-            <FaPaperPlane className="h-5 w-5" />
-          </button>
         </div>
       </div>
+
       {showCamera && (
         <CameraModal
           onClose={() => setShowCamera(false)}
@@ -1298,7 +1358,7 @@ const PollModal = ({ onClose, onSend, theme }) => {
 
           <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
             <div>
-              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 Question
               </label>
 
@@ -1309,8 +1369,8 @@ const PollModal = ({ onClose, onSend, theme }) => {
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder="Ask a question..."
                   className={`w-full px-3.5 py-2.5 pr-11 rounded-xl border text-sm outline-none transition ${isDark
-                    ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
-                    : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+                    ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 focus:border-emerald-500"
+                    : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-emerald-600"
                     }`}
                   autoFocus
                 />
@@ -1328,10 +1388,10 @@ const PollModal = ({ onClose, onSend, theme }) => {
                 >
                   <FaRegFaceSmile
                     className={`transition ${activeEmojiTarget === "question"
-                        ? "text-emerald-500 scale-110"
-                        : isDark
-                          ? "text-gray-400 hover:text-emerald-400"
-                          : "text-gray-500 hover:text-emerald-600"
+                      ? "text-emerald-500 scale-110"
+                      : isDark
+                        ? "text-gray-400 hover:text-emerald-400"
+                        : "text-gray-500 hover:text-emerald-600"
                       }`}
                   />
                 </button>
@@ -1339,7 +1399,7 @@ const PollModal = ({ onClose, onSend, theme }) => {
             </div>
 
             <div>
-              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                 Options
               </label>
               <div className="space-y-2.5 mt-1.5">
@@ -1349,14 +1409,14 @@ const PollModal = ({ onClose, onSend, theme }) => {
                     onDragOver={(e) => handleDragOver(e, idx)}
                     onDrop={(e) => handleDrop(e, idx)}
                     className={`flex items-center gap-2 rounded-xl transition-all duration-150 ${draggedIdx === idx
-                        ? "opacity-35 scale-[0.98]"
-                        : "opacity-100"
+                      ? "opacity-35 scale-[0.98]"
+                      : "opacity-100"
                       } ${dragOverIdx === idx && draggedIdx !== idx
                         ? "ring-2 ring-emerald-500 bg-emerald-500/10 p-0.5"
                         : ""
                       }`}
                   >
-                    <span className="text-xs opacity-50 font-bold w-4 shrink-0 text-center select-none">
+                    <span className="text-xs font-bold w-4 shrink-0 text-center select-none text-gray-500 dark:text-gray-400">
                       {idx + 1}
                     </span>
                     <div className="relative flex-1">
@@ -1366,8 +1426,8 @@ const PollModal = ({ onClose, onSend, theme }) => {
                         onChange={(e) => handleOptionChange(e.target.value, idx)}
                         placeholder={`Option ${idx + 1}`}
                         className={`w-full px-3 py-2 pr-16 rounded-xl border text-sm outline-none transition ${isDark
-                          ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
-                          : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+                          ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 focus:border-emerald-500"
+                          : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-emerald-600"
                           }`}
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
@@ -1384,10 +1444,10 @@ const PollModal = ({ onClose, onSend, theme }) => {
                         >
                           <FaRegFaceSmile
                             className={`transition ${activeEmojiTarget === idx
-                                ? "text-emerald-500 scale-110"
-                                : isDark
-                                  ? "text-gray-400 hover:text-emerald-400"
-                                  : "text-gray-500 hover:text-emerald-600"
+                              ? "text-emerald-500 scale-110"
+                              : isDark
+                                ? "text-gray-400 hover:text-emerald-400"
+                                : "text-gray-500 hover:text-emerald-600"
                               }`}
                           />
                         </button>
@@ -1435,8 +1495,8 @@ const PollModal = ({ onClose, onSend, theme }) => {
 
             <div className="flex items-center justify-between pt-2 border-t border-black/10 dark:border-white/10">
               <div>
-                <p className="text-sm font-medium">Allow multiple answers</p>
-                <p className="text-[11px] opacity-60">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Allow multiple answers</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
                   People can select more than one option
                 </p>
               </div>
@@ -1491,8 +1551,8 @@ const PollModal = ({ onClose, onSend, theme }) => {
               exit={{ opacity: 0, x: -15, scale: 0.95 }}
               transition={{ duration: 0.15 }}
               className={`w-[320px] xs:w-[340px] sm:w-[350px] max-w-[92vw] h-[490px] max-h-[85vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col shrink-0 ${isDark
-                  ? "bg-[#111b21] border-white/10 text-white"
-                  : "bg-white border-gray-200 text-gray-900"
+                ? "bg-[#111b21] border-white/10 text-white"
+                : "bg-white border-gray-200 text-gray-900"
                 }`}
               onClick={(e) => e.stopPropagation()}
             >

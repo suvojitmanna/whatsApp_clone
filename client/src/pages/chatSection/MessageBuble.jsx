@@ -467,22 +467,22 @@ const MessageBuble = ({
                       e.stopPropagation();
                       setShowOptions((prev) => !prev);
                     }}
-                    className="text-[#8696a0] hover:text-white p-0.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                    className="text-gray-500 dark:text-[#8696a0] hover:text-gray-900 dark:hover:text-white p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
                     title="Menu"
                   >
                     <FiChevronDown size={19} />
                   </button>
                 </div>
-                <h3 className="font-bold text-[15px] leading-snug tracking-tight text-white dark:text-white mb-1">
+                <h3 className="font-bold text-[15px] leading-snug tracking-tight text-gray-900 dark:text-white mb-1">
                   {message.pollData?.question || message.content}
                 </h3>
-                <div className="flex items-center gap-1.5 text-[12px] text-[#8696a0] font-normal mb-3">
+                <div className="flex items-center gap-1.5 text-[12px] text-gray-500 dark:text-[#8696a0] font-normal mb-3">
                   {message.pollData?.isClosed ? (
-                    <MdAccessTime size={13} className="shrink-0 text-[#8696a0]" />
+                    <MdAccessTime size={13} className="shrink-0 text-gray-500 dark:text-[#8696a0]" />
                   ) : message.pollData?.allowMultiple ? (
-                    <FaCheckDouble size={12} className="shrink-0 text-[#8696a0] rounded-full" />
+                    <FaCheckDouble size={12} className="shrink-0 text-gray-500 dark:text-[#8696a0] rounded-full" />
                   ) : (
-                    <FiCheck size={14} className="shrink-0 text-[#8696a0]" />
+                    <FiCheck size={14} className="shrink-0 text-gray-500 dark:text-[#8696a0]" />
                   )}
                   <span>
                     {message.pollData?.isClosed
@@ -524,16 +524,16 @@ const MessageBuble = ({
                         <div className="flex items-center justify-between gap-3 text-sm">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             {hasVoted ? (
-                              <span className="w-5 h-5 rounded-full bg-[#00a884] text-[#111b21] flex items-center justify-center text-[11px] font-black shrink-0 shadow-sm">
+                              <span className="w-5 h-5 rounded-full bg-[#00a884] text-white dark:text-[#111b21] flex items-center justify-center text-[11px] font-black shrink-0 shadow-sm">
                                 ✓
                               </span>
                             ) : (
-                              <span className="w-5 h-5 rounded-full border-2 border-[#8696a0]/80 shrink-0"></span>
+                              <span className="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-[#8696a0]/80 shrink-0"></span>
                             )}
                             <span
-                              className={`text-[14.5px] leading-snug text-white/95 break-words ${hasVoted
-                                ? "font-semibold text-white"
-                                : "font-normal"
+                              className={`text-[14.5px] leading-snug break-words ${hasVoted
+                                ? "font-semibold text-gray-900 dark:text-white"
+                                : "font-normal text-gray-800 dark:text-white/95"
                                 }`}
                             >
                               {option.text}
@@ -551,12 +551,12 @@ const MessageBuble = ({
                                       key={vIdx}
                                       src={avatar}
                                       alt={name}
-                                      className="w-5 h-5 rounded-full border border-[#202c33] object-cover"
+                                      className="w-5 h-5 rounded-full border border-gray-200 dark:border-[#202c33] object-cover"
                                     />
                                   ) : (
                                     <div
                                       key={vIdx}
-                                      className="w-5 h-5 rounded-full border border-[#202c33] bg-[#7c3aed] text-[9px] text-white font-bold flex items-center justify-center"
+                                      className="w-5 h-5 rounded-full border border-gray-200 dark:border-[#202c33] bg-[#7c3aed] text-[9px] text-white font-bold flex items-center justify-center"
                                     >
                                       {name.charAt(0).toUpperCase()}
                                     </div>
@@ -564,13 +564,13 @@ const MessageBuble = ({
                                 })}
                               </div>
                             )}
-                            <span className="text-[13px] font-normal text-[#8696a0] tabular-nums">
+                            <span className="text-[13px] font-normal text-gray-500 dark:text-[#8696a0] tabular-nums">
                               {optionVotes}
                             </span>
                           </div>
                         </div>
 
-                        <div className="w-full h-[6px] rounded-full bg-[#2a3942] overflow-hidden">
+                        <div className="w-full h-[6px] rounded-full bg-black/10 dark:bg-[#2a3942] overflow-hidden">
                           <div
                             className="h-full bg-[#00a884] rounded-full transition-all duration-300"
                             style={{ width: `${percentage}%` }}

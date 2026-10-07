@@ -15,7 +15,7 @@ import {
 } from "react-icons/fa";
 import { BsEmojiSmile } from "react-icons/bs";
 import { VscFileSubmodule } from "react-icons/vsc";
-import { MdSend } from "react-icons/md";
+import { IoSend } from "react-icons/io5";
 import useOutsideClick from "../../hook/useOutsideClick";
 import EmojiPicker from "emoji-picker-react";
 import { useChatStore } from "../../store/chatStore";
@@ -353,9 +353,8 @@ const StatusPreview = ({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
       exit={{ opacity: 0 }}
-      className={`fixed inset-0 h-full w-full z-50 flex items-center justify-center backdrop-blur-sm ${
-        isDark ? "bg-[#0b141a]/95" : "bg-black/80"
-      }`}
+      className={`fixed inset-0 h-full w-full z-50 flex items-center justify-center backdrop-blur-sm ${isDark ? "bg-[#0b141a]/95" : "bg-black/80"
+        }`}
       onClick={onClose}
     >
       <div
@@ -520,7 +519,7 @@ const StatusPreview = ({
                   onClick={onClose}
                   className="hidden md:flex items-center justify-center p-2.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/90 shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all duration-300 hover:bg-white/20 hover:border-white/30 hover:scale-105 active:scale-95"
                 >
-                  <FaTimes className="h-[18px] w-[18px] drop-shadow-md" />
+                  <FaTimes className="h-[18px] w-[18px] drop-shadow-md cursor-pointer" />
                 </button>
               </div>
             </div>
@@ -669,7 +668,7 @@ const StatusPreview = ({
                           const viewerLiked = currentStatus?.reactions?.some(
                             (r) =>
                               String(r.user?._id || r.user) ===
-                                String(viewer?.user?._id || viewer?._id) &&
+                              String(viewer?.user?._id || viewer?._id) &&
                               r.like === true,
                           );
                           return (
@@ -702,39 +701,17 @@ const StatusPreview = ({
                                     e.stopPropagation();
                                     handleMessageViewer(viewer);
                                   }}
-                                  className="
-      w-9 h-9
-      rounded-full
-      flex items-center justify-center
-      bg-green-500
-      text-white
-      shadow-sm
-      transition-all duration-200
-      hover:bg-green-600
-      hover:scale-105
-      active:scale-90
-    "
+                                  className="w-9 h-9 rounded-full flex items-center justify-center bg-green-500 text-white shadow-sm transition-all duration-200 hover:bg-green-600 hover:scale-105 active:scale-90"
                                   aria-label={`Message ${viewer?.user?.username || "viewer"}`}
                                 >
                                   <BiSolidMessageRoundedDetail size={20} />
                                 </button>
                                 {viewerLiked && (
                                   <div
-                                    className="
-        w-9 h-9
-        rounded-full
-        flex items-center justify-center
-        bg-green-500/10
-      "
+                                    className="w-9 h-9rounded-full flex items-center justify-center bg-green-500/10"
                                     aria-label="Liked"
                                   >
-                                    <FiHeart
-                                      className="
-          w-[20px] h-[20px]
-          text-green-500
-          fill-green-500
-        "
-                                    />
+                                    <FiHeart className="w-[20px] h-[20px] text-green-500 fill-green-500" />
                                   </div>
                                 )}
                               </div>
@@ -851,9 +828,9 @@ const StatusPreview = ({
                       <button
                         type="button"
                         onClick={() => handleSendReply(message)}
-                        className="p-1 text-[#00a884] transition-colors"
+                        className="p-1 cursor-pointer text-green-600 transition-colors"
                       >
-                        <MdSend className="h-5 w-5 sm:h-[22px] sm:w-[22px]" />
+                        <IoSend className="h-5 w-5 sm:h-[22px] sm:w-[22px]" />
                       </button>
                     )}
                   </div>
@@ -866,18 +843,16 @@ const StatusPreview = ({
                   disabled={likeBusy}
                   aria-pressed={isLiked}
                   aria-label={isLiked ? "Unlike status" : "Like status"}
-                  className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full shrink-0 shadow-lg transition-all duration-200 active:scale-90 cursor-pointer ${
-                    isLiked
-                      ? "bg-green-50 dark:bg-green-500/15"
-                      : "bg-white dark:bg-[#202c33]"
-                  } ${likeBusy ? "opacity-60" : ""}`}
+                  className={`flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full shrink-0 shadow-lg transition-all duration-200 active:scale-90 cursor-pointer ${isLiked
+                    ? "bg-green-50 dark:bg-green-500/15"
+                    : "bg-white dark:bg-[#202c33]"
+                    } ${likeBusy ? "opacity-60" : ""}`}
                 >
                   <FiHeart
-                    className={`h-5 w-5 sm:h-[22px] sm:w-[22px] transition-transform duration-200 ${
-                      isLiked
-                        ? "text-green-500 fill-green-500 scale-110"
-                        : "text-[#54656f] dark:text-[#aebac1]"
-                    }`}
+                    className={`h-5 w-5 sm:h-[22px] sm:w-[22px] transition-transform duration-200 ${isLiked
+                      ? "text-green-500 fill-green-500 scale-110"
+                      : "text-[#54656f] dark:text-[#aebac1]"
+                      }`}
                   />
                 </button>
               </div>

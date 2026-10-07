@@ -74,7 +74,7 @@ const Settings = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
       className="absolute inset-0 z-40 flex items-center justify-center 
-      bg-black/20 backdrop-blur-sm rounded-2xl"
+      bg-black/20 backdrop-blur-sm"
     >
       <div className="w-10 h-10 border-4 border-[#00a884] border-t-transparent rounded-full animate-spin" />
     </motion.div>
@@ -86,158 +86,162 @@ const Settings = () => {
       toggleThemeDialoge={toggleThemeDialoge}
     >
       <div
-        className={`flex flex-col md:flex-row min-h-screen ${theme === "dark"
-            ? "bg-gradient-to-br from-[#0f2027] via-[#203a43] to-[#2c5364] text-white"
-            : "bg-gray-100 text-black"
-          }`}
+        className={`h-full w-full flex flex-col border-r relative z-10 transition-all duration-300 ${
+          theme === "dark"
+            ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
+            : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
+        }`}
       >
-        <div className="relative max-w-[1400px] mx-auto w-full flex flex-col md:flex-row my-2 md:my-4 rounded-2xl overflow-hidden shadow-2xl">
-          {loading && <Loader />}
+        {loading && <Loader />}
 
-          <motion.div
-            initial={{ opacity: 0, x: -40 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4 }}
-            className={`w-full md:w-[400px] flex flex-col backdrop-blur-xl border-r ${theme === "dark"
-                ? "bg-white/5 border-white/10"
-                : "bg-white border-gray-200"
+        {/* Top Header Section */}
+        <div className="p-4 md:p-5 pb-2 shrink-0">
+          <h1 className="text-xl md:text-2xl font-bold mb-3">Settings</h1>
+
+          <div className="h-[2px] w-full bg-gradient-to-r from-[#00a884] via-blue-500 to-purple-500 rounded-full mb-4" />
+
+          <div className="relative mb-4 group">
+            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#00a884] transition-colors" />
+
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Search settings"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full py-2.5 pl-12 pr-4 outline-none transition-all rounded-full focus:ring-2 focus:ring-green-500 focus:outline-none ${
+                theme === "dark"
+                  ? "bg-[#202c33] focus:bg-[#2a3942] text-white"
+                  : "bg-gray-100 focus:bg-gray-200 text-gray-900"
               }`}
-          >
-            <div className="p-4 md:p-6 pb-2">
-              <h1 className="text-xl md:text-2xl font-bold mb-3">Settings</h1>
+            />
+          </div>
 
-              <div className="h-[2px] w-full bg-gradient-to-r from-[#00a884] via-blue-500 to-purple-500 rounded-full mb-4" />
-
-              <div className="relative mb-6 group">
-                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#00a884] transition-colors" />
-
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="Search settings"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full py-2.5 pl-12 pr-4 outline-none transition-all rounded-full focus:ring-2 focus:ring-green-500 focus:outline-none ${theme === "dark"
-                      ? "bg-[#202c33] focus:bg-[#2a3942] text-white"
-                      : "bg-gray-100 focus:bg-gray-200 text-gray-900"
-                    }`}
-                />
+          <Link to="/user-profile">
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-300 ${
+                theme === "dark"
+                  ? "hover:bg-white/10 hover:shadow-lg"
+                  : "hover:bg-gray-100 hover:shadow-sm"
+              }`}
+            >
+              <img
+                src={user?.profilePicture}
+                alt="profile"
+                className="w-12 h-12 md:w-14 md:h-14 rounded-full object-cover"
+              />
+              <div className="flex-1 min-w-0">
+                <h2 className="font-medium text-base md:text-lg truncate">
+                  {user?.username}
+                </h2>
+                <p className="text-xs md:text-sm text-gray-400 truncate">
+                  {user?.about || "Available"}
+                </p>
               </div>
+            </motion.div>
+          </Link>
+        </div>
 
-              <motion.div
-                whileHover={{ scale: 1.03 }}
-                className="flex items-center gap-4 p-3 rounded-xl cursor-pointer 
-                hover:bg-white/10 hover:shadow-lg transition-all duration-300"
-              >
-                <img
-                  src={user?.profilePicture}
-                  alt="profile"
-                  className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover"
-                />
-                <div className="flex-1">
-                  <h2 className="font-medium text-base md:text-lg">
-                    {user?.username}
-                  </h2>
-                  <p className="text-xs md:text-sm text-gray-400">
-                    {user?.about || "Available"}
-                  </p>
-                </div>
-              </motion.div>
-            </div>
+        {/* Scrollable Menu Items */}
+        <div className="flex-1 overflow-y-auto px-3 py-1 space-y-1 min-h-0">
+          {filteredItems.length === 0 && searchTerm ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="relative mb-6">
+                <div className="absolute inset-0 rounded-full blur-2xl bg-green-500/20"></div>
 
-            <div className="flex flex-col flex-1 px-2 min-h-0">
-              <div className="space-y-1">
-                {filteredItems.length === 0 && searchTerm ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="relative mb-6">
-                      <div className="absolute inset-0 rounded-full blur-2xl bg-green-500/20"></div>
-
-                      <motion.div
-                        animate={{ y: [0, -6, 0] }}
-                        transition={{
-                          duration: 2.5,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                        }}
-                        className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-500 shadow-lg animate-bounce"
-                      >
-                        <FaSearch className="text-white text-xl" />
-                      </motion.div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <h2 className="text-sm font-semibold text-gray-800 dark:text-white tracking-tight">
-                        No results found
-                      </h2>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 max-w-[220px] leading-relaxed">
-                        Try a different keyword or check spelling.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  filteredItems.map((item, i) => (
-                    <motion.div
-                      key={item.label}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.08 }}
-                    >
-                      {item.action === "theme" ? (
-                        <motion.button
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={toggleThemeDialoge}
-                          className="w-full flex items-center gap-4 px-4 py-3 rounded-xl mt-2 bg-gradient-to-r from-[#00a884]/10 to-blue-500/10 hover:from-[#00a884]/20 hover:to-blue-500/20 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer"
-                        >
-                          {theme === "dark" ? <FaMoon /> : <FaSun />}
-                          <span className="text-sm md:text-base">Theme</span>
-                          <span className="ml-auto text-xs md:text-sm text-gray-400 capitalize">
-                            {theme}
-                          </span>
-                        </motion.button>
-                      ) : (
-                        <Link
-                          to={item.href}
-                          className="flex items-center gap-4 px-4 py-3 rounded-xl 
-          hover:bg-white/10 hover:shadow-md hover:translate-x-1 
-          transition-all duration-300 group"
-                        >
-                          <item.icon className="opacity-70 group-hover:text-[#00a884]" />
-                          <span className="text-sm md:text-base">
-                            {item.label}
-                          </span>
-                        </Link>
-                      )}
-                    </motion.div>
-                  ))
-                )}
-
-              </div>
-              <div className="mt-auto pt-2 border-t border-gray-200 dark:border-[#2a3942] flex justify-start">
-                <motion.button
-                  whileHover={{ scale: loading ? 1 : 1.05 }}
-                  whileTap={{ scale: loading ? 1 : 0.95 }}
-                  onClick={handleLogout}
-                  disabled={loading}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${loading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-                    } ${theme === "dark"
-                      ? "text-white hover:bg-[#202c33]"
-                      : "text-black hover:bg-gray-100"
-                    }`}
+                <motion.div
+                  animate={{ y: [0, -6, 0] }}
+                  transition={{
+                    duration: 2.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                  className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-500 shadow-lg animate-bounce"
                 >
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <FaSignInAlt className="h-5 w-5 shrink-0 text-red-500" />
-                  )}
+                  <FaSearch className="text-white text-xl" />
+                </motion.div>
+              </div>
 
-                  <span className="text-sm md:text-base font-medium">
-                    {loading ? "Logging out..." : "Logout"}
-                  </span>
-                </motion.button>
+              <div className="space-y-1">
+                <h2 className="text-sm font-semibold text-gray-800 dark:text-white tracking-tight">
+                  No results found
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-[220px] leading-relaxed">
+                  Try a different keyword or check spelling.
+                </p>
               </div>
             </div>
-          </motion.div>
+          ) : (
+            filteredItems.map((item, i) => (
+              <motion.div
+                key={item.label}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.08 }}
+              >
+                {item.action === "theme" ? (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={toggleThemeDialoge}
+                    className="w-full flex items-center gap-4 px-4 py-3 rounded-xl mt-1 bg-gradient-to-r from-[#00a884]/10 to-blue-500/10 hover:from-[#00a884]/20 hover:to-blue-500/20 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer"
+                  >
+                    {theme === "dark" ? <FaMoon /> : <FaSun />}
+                    <span className="text-sm md:text-base">Theme</span>
+                    <span className="ml-auto text-xs md:text-sm text-gray-400 capitalize">
+                      {theme}
+                    </span>
+                  </motion.button>
+                ) : (
+                  <Link
+                    to={item.href}
+                    className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${
+                      theme === "dark"
+                        ? "hover:bg-white/10 hover:shadow-md"
+                        : "hover:bg-gray-100 hover:shadow-sm"
+                    } hover:translate-x-1`}
+                  >
+                    <item.icon className="opacity-70 group-hover:text-[#00a884]" />
+                    <span className="text-sm md:text-base">
+                      {item.label}
+                    </span>
+                  </Link>
+                )}
+              </motion.div>
+            ))
+          )}
+        </div>
+
+        {/* Bottom Logout Section */}
+        <div
+          className={`p-3 md:p-4 border-t mt-auto shrink-0 ${
+            theme === "dark" ? "border-gray-700/60" : "border-gray-200"
+          }`}
+        >
+          <motion.button
+            whileHover={{ scale: loading ? 1 : 1.02 }}
+            whileTap={{ scale: loading ? 1 : 0.98 }}
+            onClick={handleLogout}
+            disabled={loading}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
+              loading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+            } ${
+              theme === "dark"
+                ? "text-red-400 hover:bg-red-500/10"
+                : "text-red-600 hover:bg-red-50"
+            }`}
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <FaSignInAlt className="h-5 w-5 shrink-0 text-red-500" />
+            )}
+
+            <span className="text-sm md:text-base font-medium">
+              {loading ? "Logging out..." : "Logout"}
+            </span>
+          </motion.button>
         </div>
       </div>
     </Layout>

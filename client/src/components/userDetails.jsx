@@ -286,7 +286,9 @@ const userDetails = () => {
                       <input
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full bg-transparent border-b border-gray-400 focus:border-green-500 outline-none text-lg"
+                        className={`w-full bg-transparent border-b border-gray-400 focus:border-green-500 outline-none text-lg ${
+                          theme === "dark" ? "text-white" : "text-gray-900"
+                        }`}
                       />
                     </div>
                   ) : (
@@ -357,7 +359,9 @@ const userDetails = () => {
                     <input
                       value={about}
                       onChange={(e) => setAbout(e.target.value)}
-                      className="w-full bg-transparent border-b border-gray-400 focus:border-green-500 outline-none text-lg"
+                      className={`w-full bg-transparent border-b border-gray-400 focus:border-green-500 outline-none text-lg ${
+                        theme === "dark" ? "text-white" : "text-gray-900"
+                      }`}
                     />
                   ) : (
                     <p className="italic opacity-80">

@@ -17,9 +17,22 @@ import ChatMedia from "./pages/helpPage/chat-media.jsx";
 import Privacy from "./components/privacy.jsx";
 import ContactSupport from "./components/contact-support.jsx";
 
+import useThemeStore from "./store/themeStore.js";
+
 const App = () => {
   const { user } = useUserStore();
   const { setUser, initSocketListener, cleanup } = useUserStore();
+  const { theme } = useThemeStore();
+
+  useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+      document.documentElement.setAttribute("data-theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (user?._id) {

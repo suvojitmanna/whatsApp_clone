@@ -282,7 +282,7 @@ const status = () => {
                 )}
 
                 <button
-                  className="absolute bottom-0 right-0 bg-green-500 text-white p-2 rounded-full border-4 border-[#0b141a] dark:border-[#111b21] hover:scale-110 active:scale-90 transition-all shadow-xl"
+                  className="absolute bottom-0 right-0 bg-green-500 text-white p-2 rounded-full border-4 border-white dark:border-[#111b21] hover:scale-110 active:scale-90 transition-all shadow-xl"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowCreateModal(true);
