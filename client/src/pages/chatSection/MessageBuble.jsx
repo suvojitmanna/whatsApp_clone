@@ -717,7 +717,8 @@ const MessageBuble = ({
                       e.stopPropagation();
                       setSelectedPollDetails(message);
                     }}
-                    className={`w-full py-2 text-center text-[14px] font-semibold text-emerald-500 hover:text-emerald-400 transition-colors cursor-pointer ${isDark ? "hover:bg-white/5" : "hover:bg-black/5"
+                    title="View poll votes"
+                    className={`w-full py-2 text-center text-[14px] font-semibold text-emerald-500 hover:text-emerald-400 active:scale-98 transition-all cursor-pointer ${isDark ? "hover:bg-white/5" : "hover:bg-black/5"
                       }`}
                   >
                     View votes
@@ -888,7 +889,8 @@ const MessageBuble = ({
                           onEditEvent(message);
                         }
                       }}
-                      className={`w-full py-2.5 text-center text-[15px] font-medium text-[#00a884] dark:text-[#25d366] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer`}
+                      title="Edit or cancel event"
+                      className={`w-full py-2.5 text-center text-[15px] font-medium text-[#00a884] dark:text-[#25d366] hover:bg-black/5 dark:hover:bg-white/5 active:scale-98 transition-all cursor-pointer`}
                     >
                       Edit event
                     </button>

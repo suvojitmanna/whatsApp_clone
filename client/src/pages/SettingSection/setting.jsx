@@ -13,13 +13,13 @@ import {
   FaSun,
   FaUser,
 } from "react-icons/fa";
+import { RxCross2 } from "react-icons/rx";
 import { Link, useNavigate } from "react-router-dom";
 import useLoginStore from "../../store/useLoginStore";
 
 const Settings = () => {
   const [isThemeDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const navigate = useNavigate();
@@ -46,12 +46,9 @@ const Settings = () => {
   const handleLogout = async () => {
     try {
       setLoading(true);
-
       await logoutUser();
-
       useLoginStore.getState().resetLoginStates();
       useUserStore.getState().setUser(null);
-
       navigate("/user-login");
     } catch (error) {
       console.error("Failed to logout", error);
@@ -108,17 +105,28 @@ const Settings = () => {
               placeholder="Search settings"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full py-2.5 pl-12 pr-4 outline-none transition-all rounded-full focus:ring-2 focus:ring-green-500 focus:outline-none ${
+              className={`w-full py-2.5 pl-12 pr-10 outline-none transition-all duration-200 rounded-full border ${
                 theme === "dark"
-                  ? "bg-[#202c33] focus:bg-[#2a3942] text-white"
-                  : "bg-gray-100 focus:bg-gray-200 text-gray-900"
+                  ? "bg-[#202c33] border-white/10 hover:border-emerald-500/50 focus:border-[#00a884] focus:bg-[#2a3942] text-white focus:ring-2 focus:ring-[#00a884]/30"
+                  : "bg-gray-100 border-gray-200 hover:border-emerald-500/50 focus:border-[#00a884] focus:bg-gray-200 text-gray-900 focus:ring-2 focus:ring-[#00a884]/30"
               }`}
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-all cursor-pointer"
+                title="Clear search"
+              >
+                <RxCross2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <Link to="/user-profile">
+          <Link to="/user-profile" title="View Profile">
             <motion.div
               whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               className={`flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all duration-300 ${
                 theme === "dark"
                   ? "hover:bg-white/10 hover:shadow-lg"
@@ -183,6 +191,7 @@ const Settings = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={toggleThemeDialoge}
+                    title="Change Theme"
                     className="w-full flex items-center gap-4 px-4 py-3 rounded-xl mt-1 bg-gradient-to-r from-[#00a884]/10 to-blue-500/10 hover:from-[#00a884]/20 hover:to-blue-500/20 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer"
                   >
                     {theme === "dark" ? <FaMoon /> : <FaSun />}
@@ -194,11 +203,12 @@ const Settings = () => {
                 ) : (
                   <Link
                     to={item.href}
+                    title={item.label}
                     className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${
                       theme === "dark"
                         ? "hover:bg-white/10 hover:shadow-md"
                         : "hover:bg-gray-100 hover:shadow-sm"
-                    } hover:translate-x-1`}
+                    } hover:translate-x-1 active:scale-98`}
                   >
                     <item.icon className="opacity-70 group-hover:text-[#00a884]" />
                     <span className="text-sm md:text-base">
@@ -221,6 +231,7 @@ const Settings = () => {
             whileTap={{ scale: loading ? 1 : 0.98 }}
             onClick={handleLogout}
             disabled={loading}
+            title="Log out of account"
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
               loading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
             } ${

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import useThemeStore from "../../store/themeStore";
 import useLayoutStore from "../../store/layoutStore";
 import { FaPlus, FaSearch } from "react-icons/fa";
+import { RxCross2 } from "react-icons/rx";
 import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
@@ -61,27 +62,43 @@ const ChatList = ({ contacts }) => {
     >
       <div className="p-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold">Chats</h2>
-        <button className="p-2 bg-green-500 text-white rounded-full shadow-md cursor-pointer transition-all duration-300 ease-in-out hover:bg-green-600 hover:scale-110 hover:rotate-90 active:scale-90 animate-bounce-slow">
+        <button
+          title="New chat"
+          className="p-2 bg-green-500 text-white rounded-full shadow-md cursor-pointer transition-all duration-300 ease-in-out hover:bg-green-600 hover:scale-110 hover:rotate-90 active:scale-90 animate-bounce-slow"
+        >
           <FaPlus />
         </button>
       </div>
       <div className="p-2">
-        <div className="relative">
-          {" "}
+        <div className="relative group">
           <FaSearch
-            className={`absolute left-3 top-1/2 transform -translate-y-1/2 z-10 ${theme === "dark" ? "text-gray-400" : "text-gray-800"
-              }`}
+            className={`absolute left-3 top-1/2 transform -translate-y-1/2 z-10 transition-colors ${
+              theme === "dark"
+                ? "text-gray-400 group-focus-within:text-green-500"
+                : "text-gray-500 group-focus-within:text-green-600"
+            }`}
           />
           <input
             type="text"
-            placeholder="search or start new chat"
-            className={`w-full pl-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${theme === "dark"
-                ? "bg-gray-800 text-white border-gray-700 placeholder-gray-500"
-                : "bg-gray-100 text-black border-gray-200 placeholder-gray-400"
-              }`}
+            placeholder="Search or start new chat"
+            className={`w-full pl-10 pr-9 py-2 border rounded-lg outline-none transition-all duration-200 ${
+              theme === "dark"
+                ? "bg-gray-800 text-white border-gray-700 placeholder-gray-500 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
+                : "bg-gray-100 text-black border-gray-200 placeholder-gray-400 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
+            }`}
             value={searchTerms}
             onChange={(e) => setSearchTerms(e.target.value)}
           />
+          {searchTerms && (
+            <button
+              type="button"
+              onClick={() => setSearchTerms("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all cursor-pointer"
+              title="Clear search"
+            >
+              <RxCross2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
       <div
@@ -121,6 +138,8 @@ const ChatList = ({ contacts }) => {
               <motion.div
                 key={contact._id}
                 data-contact-id={contact._id}
+                title={`Chat with ${contact?.username || "user"}`}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setSelectedContact(contact)}
                 className={`p-3 flex items-center cursor-pointer transition-colors ${theme === "dark"
                     ? selectedContact?._id === contact._id

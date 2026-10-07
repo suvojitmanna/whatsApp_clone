@@ -26,16 +26,17 @@ const sideBar = () => {
     setActiveTab(path === "user-profile" ? "profile" : path);
   }, [location, setActiveTab]);
 
-  if (isMobile && selectedContact) return null;
+  const isChatRoute = location.pathname === "/";
+  if (isMobile && selectedContact && isChatRoute) return null;
 
   const getIconClass = (tabName) => {
     const isActive = activeTab === tabName;
-    return `relative transition-all duration-300 ease-in-out p-3 rounded-2xl flex items-center justify-center
+    return `relative transition-all duration-300 ease-in-out p-3 rounded-2xl flex items-center justify-center cursor-pointer
       ${
         isActive
           ? theme === "dark"
-            ? "bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-            : "bg-emerald-50 text-emerald-600 shadow-sm"
+            ? "bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500/30"
+            : "bg-emerald-50 text-emerald-600 shadow-sm ring-1 ring-emerald-500/20"
           : theme === "dark"
             ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
             : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
@@ -47,21 +48,23 @@ const sideBar = () => {
       <div
         className={`${isMobile ? "flex flex-row justify-around w-full" : "flex flex-col gap-6 items-center"}`}
       >
-        <Link to="/">
+        <Link to="/" title="Chats" aria-label="Chats">
           <motion.div
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             className={getIconClass("chats")}
+            title="Chats"
           >
             <FaWhatsapp className="h-6 w-6" />
           </motion.div>
         </Link>
 
-        <Link to="/status">
+        <Link to="/status" title="Status" aria-label="Status">
           <motion.div
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             className={getIconClass("status")}
+            title="Status"
           >
             <MdRadioButtonChecked className="h-6 w-6" />
           </motion.div>
@@ -77,10 +80,12 @@ const sideBar = () => {
             : "flex flex-col gap-6 items-center"
         }`}
       >
-        <Link to="/user-profile">
+        <Link to="/user-profile" title="Profile" aria-label="Profile">
           <motion.div
             whileHover={{ scale: 1.1 }}
-            className={`overflow-hidden rounded-full border-2 transition-all duration-300 ${activeTab === "profile" ? "border-emerald-500 shadow-md" : "border-transparent"}`}
+            whileTap={{ scale: 0.95 }}
+            className={`overflow-hidden rounded-full border-2 transition-all duration-300 cursor-pointer ${activeTab === "profile" ? "border-emerald-500 shadow-md ring-2 ring-emerald-500/30" : "border-transparent hover:border-gray-400/50"}`}
+            title="Profile"
           >
             {user?.profilePicture ? (
               <img
@@ -96,11 +101,13 @@ const sideBar = () => {
           </motion.div>
         </Link>
 
-        <Link to="/setting">
+        <Link to="/setting" title="Settings" aria-label="Settings">
           <motion.div
-            whileHover={{ rotate: 90 }}
+            whileHover={{ rotate: 90, scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 200 }}
             className={getIconClass("setting")}
+            title="Settings"
           >
             <FaCog className="h-6 w-6" />
           </motion.div>

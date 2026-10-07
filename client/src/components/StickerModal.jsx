@@ -77,7 +77,8 @@ const StickerModal = ({ onClose, onSend, onUploadClick, theme }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 hover:text-red-500 active:scale-95 transition-all cursor-pointer"
+            title="Close"
           >
             <RxCross2 size={18} />
           </button>
@@ -87,9 +88,10 @@ const StickerModal = ({ onClose, onSend, onUploadClick, theme }) => {
           <button
             type="button"
             onClick={onUploadClick}
-            className={`w-full py-2.5 px-4 rounded-xl border border-dashed flex items-center justify-center gap-2 font-semibold text-sm transition cursor-pointer ${isDark
-              ? "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
-              : "border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+            title="Upload custom sticker from device"
+            className={`w-full py-2.5 px-4 rounded-xl border border-dashed flex items-center justify-center gap-2 font-semibold text-sm transition-all duration-150 cursor-pointer active:scale-98 ${isDark
+              ? "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/60"
+              : "border-emerald-500 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-600"
               }`}
           >
             <FaPlus size={12} /> Upload Custom Sticker (PNG / WebP / Image)

@@ -47,7 +47,7 @@ const EventModal = ({
   const [location, setLocation] = useState(initialEvent?.location || "");
   const [description, setDescription] = useState(initialEvent?.description || "");
   const [hasCallLink, setHasCallLink] = useState(Boolean(initialEvent?.hasCallLink));
-  const [activeEmojiTarget, setActiveEmojiTarget] = useState(null); // "question" | "description"
+  const [activeEmojiTarget, setActiveEmojiTarget] = useState(null);
   const emojiPickerRef = useRef(null);
   const isDark = theme === "dark";
 
@@ -97,7 +97,6 @@ const EventModal = ({
           }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Floating Emoji Picker */}
         {activeEmojiTarget && (
           <div
             ref={emojiPickerRef}
@@ -114,7 +113,6 @@ const EventModal = ({
           </div>
         )}
 
-        {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
           <div className="flex items-center gap-2">
             <MdEventNote className="text-emerald-500" size={22} />
@@ -122,16 +120,14 @@ const EventModal = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 hover:text-red-500 active:scale-95 transition-all cursor-pointer"
             title="Close"
           >
             <RxCross2 size={18} />
           </button>
         </div>
 
-        {/* Form Fields */}
         <div className="mt-4 space-y-3.5 max-h-[62vh] overflow-y-auto pr-1 custom-scrollbar">
-          {/* Event Name / Question */}
           <div>
             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Event Name *
@@ -143,9 +139,9 @@ const EventModal = ({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Event name"
-                className={`w-full px-3.5 py-2.5 pr-11 rounded-xl border text-sm outline-none transition ${isDark
-                  ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 focus:border-emerald-500"
-                  : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-emerald-600"
+                className={`w-full px-3.5 py-2.5 pr-11 rounded-xl border text-sm outline-none transition-all duration-200 ${isDark
+                  ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                  : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30"
                   }`}
                 autoFocus
               />
@@ -158,22 +154,21 @@ const EventModal = ({
                     prev === "question" ? null : "question"
                   )
                 }
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-                title="Add emoji"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
+                title="Add emoji to event name"
               >
                 <FaRegFaceSmile
-                  className={`text-base transition ${activeEmojiTarget === "question"
+                  className={`text-base transition-transform duration-200 ${activeEmojiTarget === "question"
                     ? "text-emerald-500 scale-110"
                     : isDark
-                      ? "text-gray-400 hover:text-emerald-400"
-                      : "text-gray-500 hover:text-emerald-600"
+                      ? "text-gray-400 hover:text-emerald-400 hover:scale-110"
+                      : "text-gray-500 hover:text-emerald-600 hover:scale-110"
                     }`}
                 />
               </button>
             </div>
           </div>
 
-          {/* Description */}
           <div>
             <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
               Description
@@ -184,9 +179,9 @@ const EventModal = ({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Add description (optional)"
-                className={`w-full px-3.5 py-2.5 pr-11 rounded-xl border text-sm outline-none resize-none transition ${isDark
-                  ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 focus:border-emerald-500"
-                  : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-emerald-600"
+                className={`w-full px-3.5 py-2.5 pr-11 rounded-xl border text-sm outline-none resize-none transition-all duration-200 ${isDark
+                  ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                  : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30"
                   }`}
               />
               <button
@@ -197,22 +192,21 @@ const EventModal = ({
                     prev === "description" ? null : "description"
                   )
                 }
-                className="absolute right-3 top-3 p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                className="absolute right-2.5 top-3 p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
                 title="Add emoji to description"
               >
                 <FaRegFaceSmile
-                  className={`text-base transition ${activeEmojiTarget === "description"
+                  className={`text-base transition-transform duration-200 ${activeEmojiTarget === "description"
                     ? "text-emerald-500 scale-110"
                     : isDark
-                      ? "text-gray-400 hover:text-emerald-400"
-                      : "text-gray-500 hover:text-emerald-600"
+                      ? "text-gray-400 hover:text-emerald-400 hover:scale-110"
+                      : "text-gray-500 hover:text-emerald-600 hover:scale-110"
                     }`}
                 />
               </button>
             </div>
           </div>
 
-          {/* Start Date & Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
@@ -222,10 +216,11 @@ const EventModal = ({
                 type="date"
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
-                className={`mt-1.5 w-full px-3 py-2 rounded-xl border text-sm outline-none transition ${isDark
-                  ? "bg-[#202c33] border-white/10 text-white focus:border-emerald-500"
-                  : "bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-600"
+                className={`mt-1.5 w-full px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer transition-all duration-200 ${isDark
+                  ? "bg-[#202c33] border-white/10 text-white hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                  : "bg-gray-50 border-gray-300 text-gray-900 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30"
                   }`}
+                title="Select start date"
               />
             </div>
             <div>
@@ -236,21 +231,22 @@ const EventModal = ({
                 type="time"
                 value={eventTime}
                 onChange={(e) => setEventTime(e.target.value)}
-                className={`mt-1.5 w-full px-3 py-2 rounded-xl border text-sm outline-none transition ${isDark
-                  ? "bg-[#202c33] border-white/10 text-white focus:border-emerald-500"
-                  : "bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-600"
+                className={`mt-1.5 w-full px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer transition-all duration-200 ${isDark
+                  ? "bg-[#202c33] border-white/10 text-white hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                  : "bg-gray-50 border-gray-300 text-gray-900 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30"
                   }`}
+                title="Select start time"
               />
             </div>
           </div>
 
-          {/* End Date & Time Toggle */}
           {!showEndTime ? (
             <div>
               <button
                 type="button"
                 onClick={() => setShowEndTime(true)}
-                className="text-xs font-semibold text-emerald-500 hover:text-emerald-400 flex items-center gap-1.5 transition cursor-pointer"
+                className="text-xs font-semibold text-emerald-500 hover:text-emerald-400 active:scale-95 flex items-center gap-1.5 transition-all cursor-pointer py-1 px-2 -ml-2 rounded-lg hover:bg-emerald-500/10"
+                title="Add end date and time"
               >
                 <span className="text-base leading-none font-bold">+</span>
                 <span>Add end time</span>
@@ -266,10 +262,11 @@ const EventModal = ({
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className={`mt-1.5 w-full px-3 py-2 rounded-xl border text-sm outline-none transition ${isDark
-                    ? "bg-[#202c33] border-white/10 text-white focus:border-emerald-500"
-                    : "bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-600"
+                  className={`mt-1.5 w-full px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer transition-all duration-200 ${isDark
+                    ? "bg-[#202c33] border-white/10 text-white hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                    : "bg-gray-50 border-gray-300 text-gray-900 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30"
                     }`}
+                  title="Select end date"
                 />
               </div>
               <div>
@@ -280,7 +277,8 @@ const EventModal = ({
                   <button
                     type="button"
                     onClick={() => setShowEndTime(false)}
-                    className="text-[11px] font-semibold text-red-500 hover:text-red-400 transition cursor-pointer"
+                    className="text-[11px] font-semibold text-red-500 hover:text-red-400 active:scale-95 transition-all cursor-pointer hover:underline"
+                    title="Remove end time"
                   >
                     Remove
                   </button>
@@ -289,16 +287,16 @@ const EventModal = ({
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
-                  className={`mt-1.5 w-full px-3 py-2 rounded-xl border text-sm outline-none transition ${isDark
-                    ? "bg-[#202c33] border-white/10 text-white focus:border-emerald-500"
-                    : "bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-600"
+                  className={`mt-1.5 w-full px-3 py-2 rounded-xl border text-sm outline-none cursor-pointer transition-all duration-200 ${isDark
+                    ? "bg-[#202c33] border-white/10 text-white hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                    : "bg-gray-50 border-gray-300 text-gray-900 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30"
                     }`}
+                  title="Select end time"
                 />
               </div>
             </div>
           )}
 
-          {/* Location */}
           <div>
             <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
               Location
@@ -310,39 +308,37 @@ const EventModal = ({
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Add location (optional)"
-                className={`w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm outline-none transition ${isDark
-                    ? "bg-[#202c33] border-white/10 focus:border-emerald-500 text-white placeholder-gray-500"
-                    : "bg-gray-50 border-gray-300 focus:border-emerald-600 text-gray-900 placeholder-gray-400"
+                className={`w-full px-3.5 py-2.5 pr-10 rounded-xl border text-sm outline-none transition-all duration-200 ${isDark
+                  ? "bg-[#202c33] border-white/10 text-white placeholder-gray-500 hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                  : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30"
                   }`}
               />
 
               <MdOutlineLocationOn
-                className={`absolute right-3 top-1/2 -translate-y-1/2 text-lg pointer-events-none transition ${isDark
-                    ? "text-gray-400"
-                    : "text-gray-500"
+                className={`absolute right-3 top-1/2 -translate-y-1/2 text-lg pointer-events-none transition-colors duration-200 ${isDark
+                  ? "text-gray-400 group-hover:text-emerald-400"
+                  : "text-gray-500 group-hover:text-emerald-600"
                   }`}
+                title="Location"
               />
             </div>
           </div>
 
-          {/* WhatsApp Call Link Toggle Switch */}
           <div
-            className={`p-3 rounded-2xl border transition-colors ${
-              isDark
-                ? "bg-[#202c33]/60 border-white/10"
-                : "bg-gray-50 border-gray-200"
-            }`}
+            className={`p-3 rounded-2xl border transition-all duration-200 hover:border-emerald-500/30 ${isDark
+              ? "bg-[#202c33]/60 border-white/10"
+              : "bg-gray-50 border-gray-200"
+              }`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    hasCallLink
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : isDark
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 ${hasCallLink
+                    ? "bg-emerald-500/20 text-emerald-400 scale-105"
+                    : isDark
                       ? "bg-white/5 text-gray-400"
                       : "bg-gray-200 text-gray-500"
-                  }`}
+                    }`}
                 >
                   <FaVideo size={16} />
                 </div>
@@ -359,21 +355,19 @@ const EventModal = ({
                 role="switch"
                 aria-checked={hasCallLink}
                 onClick={() => setHasCallLink((prev) => !prev)}
-                className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 cursor-pointer ${
-                  hasCallLink ? "bg-emerald-500" : isDark ? "bg-gray-600" : "bg-gray-300"
-                }`}
+                className={`w-11 h-6 flex items-center rounded-full p-1 transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 ${hasCallLink ? "bg-emerald-500" : isDark ? "bg-gray-600 hover:bg-gray-500" : "bg-gray-300 hover:bg-gray-400"
+                  }`}
+                title={hasCallLink ? "Disable WhatsApp call link" : "Enable WhatsApp call link"}
               >
                 <div
-                  className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
-                    hasCallLink ? "translate-x-5" : "translate-x-0"
-                  }`}
+                  className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${hasCallLink ? "translate-x-5" : "translate-x-0"
+                    }`}
                 />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Footer Actions */}
         <div className="mt-6 flex items-center justify-between pt-3 border-t border-black/10 dark:border-white/10">
           {isEdit ? (
             <button
@@ -383,7 +377,8 @@ const EventModal = ({
                   onCancelEvent();
                 }
               }}
-              className="text-sm font-semibold text-red-500 hover:text-red-400 py-2 px-3 rounded-xl hover:bg-red-500/10 transition cursor-pointer"
+              className="text-sm font-semibold text-red-500 hover:text-red-400 active:scale-95 py-2 px-3 rounded-xl hover:bg-red-500/10 transition-all cursor-pointer"
+              title="Cancel this event"
             >
               Cancel event
             </button>
@@ -395,7 +390,8 @@ const EventModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+              className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              title="Cancel"
             >
               Cancel
             </button>
@@ -403,7 +399,8 @@ const EventModal = ({
               type="button"
               disabled={!canSubmit}
               onClick={handleSubmit}
-              className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 transition shadow-md shadow-emerald-500/20 cursor-pointer"
+              className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 active:scale-95 disabled:opacity-40 transition-all shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30 cursor-pointer"
+              title={isEdit ? "Save changes" : "Create Event"}
             >
               {isEdit ? "Save changes" : "Create Event"}
             </button>

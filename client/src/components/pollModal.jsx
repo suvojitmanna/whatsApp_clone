@@ -116,13 +116,14 @@ const PollModal = ({ onClose, onSend, theme }) => {
                         </div>
                         <button
                             onClick={onClose}
-                            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 hover:text-red-500 active:scale-95 transition-all cursor-pointer"
+                            title="Close"
                         >
                             <RxCross2 size={18} />
                         </button>
                     </div>
 
-                    <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                    <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
                         <div>
                             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                                 Question
@@ -134,9 +135,9 @@ const PollModal = ({ onClose, onSend, theme }) => {
                                     value={question}
                                     onChange={(e) => setQuestion(e.target.value)}
                                     placeholder="Ask a question..."
-                                    className={`w-full px-3.5 py-2.5 pr-11 rounded-xl border text-sm outline-none transition ${isDark
-                                        ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 focus:border-emerald-500"
-                                        : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-emerald-600"
+                                    className={`w-full px-3.5 py-2.5 pr-11 rounded-xl border text-sm outline-none transition-all duration-200 ${isDark
+                                        ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                                        : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30"
                                         }`}
                                     autoFocus
                                 />
@@ -149,15 +150,15 @@ const PollModal = ({ onClose, onSend, theme }) => {
                                             prev === "question" ? null : "question"
                                         )
                                     }
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-                                    title="Add emoji"
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
+                                    title="Add emoji to question"
                                 >
                                     <FaRegFaceSmile
-                                        className={`transition ${activeEmojiTarget === "question"
+                                        className={`transition-transform duration-200 ${activeEmojiTarget === "question"
                                             ? "text-emerald-500 scale-110"
                                             : isDark
-                                                ? "text-gray-400 hover:text-emerald-400"
-                                                : "text-gray-500 hover:text-emerald-600"
+                                                ? "text-gray-400 hover:text-emerald-400 hover:scale-110"
+                                                : "text-gray-500 hover:text-emerald-600 hover:scale-110"
                                             }`}
                                     />
                                 </button>
@@ -191,12 +192,12 @@ const PollModal = ({ onClose, onSend, theme }) => {
                                                 value={opt}
                                                 onChange={(e) => handleOptionChange(e.target.value, idx)}
                                                 placeholder={`Option ${idx + 1}`}
-                                                className={`w-full px-3 py-2 pr-16 rounded-xl border text-sm outline-none transition ${isDark
-                                                    ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 focus:border-emerald-500"
-                                                    : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-emerald-600"
+                                                className={`w-full px-3 py-2 pr-16 rounded-xl border text-sm outline-none transition-all duration-200 ${isDark
+                                                    ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30"
+                                                    : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30"
                                                     }`}
                                             />
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                                                 <button
                                                     type="button"
                                                     data-emoji-trigger="true"
@@ -205,15 +206,15 @@ const PollModal = ({ onClose, onSend, theme }) => {
                                                             prev === idx ? null : idx
                                                         )
                                                     }
-                                                    className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-                                                    title="Add emoji"
+                                                    className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/15 active:scale-95 transition-all cursor-pointer"
+                                                    title={`Add emoji to option ${idx + 1}`}
                                                 >
                                                     <FaRegFaceSmile
-                                                        className={`transition ${activeEmojiTarget === idx
+                                                        className={`transition-transform duration-200 ${activeEmojiTarget === idx
                                                             ? "text-emerald-500 scale-110"
                                                             : isDark
-                                                                ? "text-gray-400 hover:text-emerald-400"
-                                                                : "text-gray-500 hover:text-emerald-600"
+                                                                ? "text-gray-400 hover:text-emerald-400 hover:scale-110"
+                                                                : "text-gray-500 hover:text-emerald-600 hover:scale-110"
                                                             }`}
                                                     />
                                                 </button>
@@ -222,11 +223,11 @@ const PollModal = ({ onClose, onSend, theme }) => {
                                                     draggable
                                                     onDragStart={(e) => handleDragStart(e, idx)}
                                                     onDragEnd={handleDragEnd}
-                                                    className="p-1 cursor-grab active:cursor-grabbing hover:bg-black/10 dark:hover:bg-white/10 rounded transition flex items-center justify-center select-none"
+                                                    className="p-1 cursor-grab active:cursor-grabbing hover:bg-black/10 dark:hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center select-none"
                                                     title="Drag to reorder option"
                                                 >
                                                     <TfiLineDouble
-                                                        className={`pointer-events-none transition ${isDark
+                                                        className={`pointer-events-none transition-colors ${isDark
                                                             ? "text-gray-500 hover:text-emerald-400"
                                                             : "text-gray-400 hover:text-emerald-600"
                                                             }`}
@@ -239,7 +240,8 @@ const PollModal = ({ onClose, onSend, theme }) => {
                                             <button
                                                 type="button"
                                                 onClick={() => removeOption(idx)}
-                                                className="p-2 text-red-400 hover:text-red-500 cursor-pointer shrink-0"
+                                                className="p-2 text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded-full active:scale-90 transition-all cursor-pointer shrink-0"
+                                                title={`Remove option ${idx + 1}`}
                                             >
                                                 <FaTrash size={12} />
                                             </button>
@@ -252,7 +254,8 @@ const PollModal = ({ onClose, onSend, theme }) => {
                                 <button
                                     type="button"
                                     onClick={addOption}
-                                    className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-500 hover:text-emerald-400 transition cursor-pointer"
+                                    title="Add another option"
+                                    className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-500 hover:text-emerald-400 active:scale-95 px-2 py-1 -ml-2 rounded-lg hover:bg-emerald-500/10 transition-all cursor-pointer"
                                 >
                                     <FaPlus size={10} /> Add option
                                 </button>
@@ -268,16 +271,19 @@ const PollModal = ({ onClose, onSend, theme }) => {
                             </div>
                             <button
                                 type="button"
+                                role="switch"
+                                aria-checked={allowMultiple}
                                 onClick={() => setAllowMultiple(!allowMultiple)}
-                                className={`w-11 h-6 rounded-full transition-colors p-0.5 relative cursor-pointer ${allowMultiple
+                                title={allowMultiple ? "Disable multiple answers" : "Allow multiple answers"}
+                                className={`w-11 h-6 rounded-full transition-all duration-200 p-0.5 relative cursor-pointer hover:scale-105 active:scale-95 ${allowMultiple
                                     ? "bg-emerald-500"
                                     : isDark
-                                        ? "bg-gray-700"
-                                        : "bg-gray-300"
+                                        ? "bg-gray-700 hover:bg-gray-600"
+                                        : "bg-gray-300 hover:bg-gray-400"
                                     }`}
                             >
                                 <div
-                                    className={`w-5 h-5 rounded-full bg-white transition-transform ${allowMultiple ? "translate-x-5" : "translate-x-0"
+                                    className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${allowMultiple ? "translate-x-5" : "translate-x-0"
                                         }`}
                                 />
                             </button>
@@ -288,10 +294,11 @@ const PollModal = ({ onClose, onSend, theme }) => {
                         <button
                             type="button"
                             onClick={onClose}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition ${isDark
+                            className={`px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition-all active:scale-95 ${isDark
                                 ? "hover:bg-white/10 text-gray-300"
                                 : "hover:bg-black/5 text-gray-600"
                                 }`}
+                            title="Cancel"
                         >
                             Cancel
                         </button>
@@ -301,9 +308,10 @@ const PollModal = ({ onClose, onSend, theme }) => {
                             onClick={() =>
                                 onSend({ question, options: validOptions, allowMultiple })
                             }
-                            className="p-3 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-md shadow-emerald-500/20 cursor-pointer rounded-full"
+                            className="p-3 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30 cursor-pointer rounded-full"
+                            title="Send poll"
                         >
-                            <BiSolidSend className="text-black" size={20} />
+                            <BiSolidSend className="text-white" size={20} />
                         </button>
                     </div>
                 </motion.div>

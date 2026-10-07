@@ -10,6 +10,7 @@ import {
   FaChevronRight,
   FaArrowLeft,
 } from "react-icons/fa";
+import { RxCross2 } from "react-icons/rx";
 import useThemeStore from "../store/themeStore";
 
 const helpItems = [
@@ -66,35 +67,44 @@ const HelpPage = () => {
         <div className="flex items-center mb-4">
           <button
             onClick={() => navigate(-1)}
-            className={`p-2 rounded-full transition-all active:scale-90 ${
-              isDark
+            title="Go back"
+            className={`p-2 rounded-full transition-all active:scale-90 ${isDark
                 ? "hover:bg-gray-700 text-white"
                 : "hover:bg-gray-100 text-gray-600"
-            }`}
+              } cursor-pointer`}
           >
-            <FaArrowLeft className="text-xl cursor-pointer" />
+            <FaArrowLeft className="text-xl" />
           </button>
 
-          <h1 className="text-2xl font-bold tracking-tight">Help Center</h1>
+          <h1 className="text-2xl font-bold tracking-tight ml-2">Help Center</h1>
         </div>
 
         <div className="relative group">
           <FaSearch
             className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors
-            ${isDark ? "text-gray-500 group-focus-within:text-green-500" : "text-gray-400"}`}
+            ${isDark ? "text-gray-500 group-focus-within:text-green-500" : "text-gray-400 group-focus-within:text-green-600"}`}
           />
           <input
             type="text"
             placeholder="Search for help..."
-            className={`w-full py-3 pl-12 pr-4 rounded-full outline-none transition-all border
-            ${
-              isDark
-                ? "bg-[#202c33] text-white border-transparent focus:ring-2 focus:ring-green-500/50"
-                : "bg-gray-200 text-black border-gray-300 focus:ring-2 focus:ring-green-400"
-            }`}
+            className={`w-full py-3 pl-12 pr-10 rounded-full outline-none transition-all duration-200 border
+            ${isDark
+                ? "bg-[#202c33] text-white border-white/10 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
+                : "bg-gray-100 text-black border-gray-200 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
+              }`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-all cursor-pointer"
+              title="Clear search"
+            >
+              <RxCross2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </header>
 
@@ -113,11 +123,10 @@ const HelpPage = () => {
                 whileTap={{ scale: 0.98 }}
                 onClick={() => navigate(item.path)}
                 className={`group flex items-center justify-between p-5 rounded-full cursor-pointer transition-all shadow-sm border
-                ${
-                  isDark
+                ${isDark
                     ? "bg-[#202c33] border-gray-800 hover:bg-[#2a3942]"
                     : "bg-white border-gray-200 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-5">
                   <div
@@ -142,11 +151,10 @@ const HelpPage = () => {
 
                 <FaChevronRight
                   className={`ml-2 transition-colors
-                  ${
-                    isDark
+                  ${isDark
                       ? "text-gray-600 group-hover:text-green-500"
                       : "text-gray-400 group-hover:text-green-600"
-                  }`}
+                    }`}
                 />
               </motion.div>
             ))}

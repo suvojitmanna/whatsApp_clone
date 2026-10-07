@@ -35,7 +35,8 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                        className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 hover:text-red-500 active:scale-95 transition-all cursor-pointer"
+                        title="Close"
                     >
                         <RxCross2 size={18} />
                     </button>
@@ -45,9 +46,10 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                     <button
                         type="button"
                         onClick={() => setActiveTab("chats")}
-                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${activeTab === "chats"
+                        title="Select from existing chat contacts"
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer active:scale-95 ${activeTab === "chats"
                             ? "bg-emerald-500 text-white shadow-sm"
-                            : "opacity-70 hover:opacity-100"
+                            : "opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
                             }`}
                     >
                         From Chats
@@ -55,9 +57,10 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                     <button
                         type="button"
                         onClick={() => setActiveTab("manual")}
-                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${activeTab === "manual"
+                        title="Enter contact details manually"
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer active:scale-95 ${activeTab === "manual"
                             ? "bg-emerald-500 text-white shadow-sm"
-                            : "opacity-70 hover:opacity-100"
+                            : "opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
                             }`}
                     >
                         Enter Details
@@ -65,11 +68,12 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                 </div>
 
                 {activeTab === "chats" ? (
-                    <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                    <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                         {uniqueContacts.length > 0 ? (
                             uniqueContacts.map((contact) => (
                                 <div
                                     key={contact._id}
+                                    title={`Share contact: ${contact.username || "User"}`}
                                     onClick={() =>
                                         onSend({
                                             name: contact.username || "User",
@@ -78,9 +82,9 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                                             avatar: contact.profilePicture || "",
                                         })
                                     }
-                                    className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition ${isDark
-                                        ? "border-white/5 hover:bg-white/10"
-                                        : "border-black/5 hover:bg-black/5"
+                                    className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-all duration-150 active:scale-98 ${isDark
+                                        ? "border-white/5 hover:bg-white/10 hover:border-white/20"
+                                        : "border-black/5 hover:bg-black/5 hover:border-black/15"
                                         }`}
                                 >
                                     <img
@@ -96,7 +100,7 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                                             {contact.phoneNumber || contact.email || "Contact"}
                                         </p>
                                     </div>
-                                    <span className="text-xs text-emerald-500 font-semibold">
+                                    <span className="text-xs text-emerald-500 font-semibold group-hover:underline">
                                         Share
                                     </span>
                                 </div>
@@ -118,9 +122,9 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder="Full name"
-                                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${isDark
-                                    ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
-                                    : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+                                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all duration-200 ${isDark
+                                    ? "bg-[#202c33] border-white/10 hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 text-white"
+                                    : "bg-gray-50 border-gray-300 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30 text-gray-900"
                                     }`}
                                 autoFocus
                             />
@@ -134,9 +138,9 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                                 value={phoneNumber}
                                 onChange={(e) => setPhoneNumber(e.target.value)}
                                 placeholder="+1 234 567 8900"
-                                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${isDark
-                                    ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
-                                    : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+                                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all duration-200 ${isDark
+                                    ? "bg-[#202c33] border-white/10 hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 text-white"
+                                    : "bg-gray-50 border-gray-300 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30 text-gray-900"
                                     }`}
                             />
                         </div>
@@ -149,9 +153,9 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 placeholder="name@example.com"
-                                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${isDark
-                                    ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
-                                    : "bg-gray-50 border-gray-300 focus:border-emerald-600"
+                                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none transition-all duration-200 ${isDark
+                                    ? "bg-[#202c33] border-white/10 hover:border-white/25 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 text-white"
+                                    : "bg-gray-50 border-gray-300 hover:border-gray-400 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30 text-gray-900"
                                     }`}
                             />
                         </div>
@@ -159,7 +163,8 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="px-4 py-2 rounded-xl text-sm font-medium cursor-pointer"
+                                className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                                title="Cancel"
                             >
                                 Cancel
                             </button>
@@ -167,7 +172,8 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                                 type="button"
                                 disabled={!name.trim() || !phoneNumber.trim()}
                                 onClick={() => onSend({ name, phoneNumber, email })}
-                                className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 transition cursor-pointer"
+                                className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-95 disabled:opacity-40 transition-all shadow-md cursor-pointer"
+                                title="Share contact"
                             >
                                 Share
                             </button>
