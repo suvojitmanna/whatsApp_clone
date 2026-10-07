@@ -588,10 +588,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   return (
     <>
       <div
-        className={`flex h-screen w-full flex-col ${theme === "dark" ? "bg-[#0b141a] text-white" : "bg-[#efe7de] text-gray-900"}`}
+        className={`h-screen flex h-full w-full flex-col overflow-hidden ${theme === "dark" ? "bg-[#0b141a] text-white" : "bg-[#efe7de] text-gray-900"}`}
       >
         <div
-          className={`p-1 border-b ${theme === "dark"
+          className={`px-3 py-2 sm:px-4 sm:py-2.5 min-h-[58px] border-b shrink-0 z-30 ${theme === "dark"
             ? "bg-[#202c33] border-gray-700/60 text-white"
             : "bg-[#f0f2f5] border-gray-200 text-gray-900"
             } flex items-center`}
@@ -810,455 +810,458 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           </div>
         </div>
 
-        <div
-          ref={messagesContainerRef}
-          onScroll={handleMessageScroll}
-          className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
-            }`}
-          style={{
-            backgroundImage:
-              theme === "dark"
-                ? `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`
-                : `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`,
-            backgroundBlendMode: theme === "dark" ? "overlay" : "soft-light",
-            backgroundSize: "400px",
-          }}
-        >
-          <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
-            {Object.entries(finalMessagesToRender).map(([date, msgs]) => {
-              if (msgs.length === 0) return null;
-
-              return (
-                <React.Fragment key={date}>
-                  {renderDateSeparator(new Date(date))}
-
-                  {msgs.map((msg, index) => {
-                    const prevMsg = index > 0 ? msgs[index - 1] : null;
-                    const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
-                    const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
-                    const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
-
-                    const isMatch =
-                      searchTerm &&
-                      (msg.content || "")
-                        .toLowerCase()
-                        .includes(searchTerm.toLowerCase());
-                    if (isMatch) {
-                      matchCounter++;
-                    }
-                    return (
-                      <MessageBuble
-                        key={msg._id || msg.temp}
-                        message={msg}
-                        theme={theme}
-                        currentUser={user}
-                        onReact={handleReaction}
-                        deleteMessage={deleteMessage}
-                        onEdit={editMessage}
-                        onStatusClick={onStatusClick}
-                        searchTerm={searchTerm}
-                        highlightText={highlightText}
-                        dataMatch={isMatch}
-                        isActive={isMatch && matchCounter === currentIndex}
-                        isFirstInSequence={isFirstInSequence}
-                        setRef={(el) => {
-                          if (isMatch && el) {
-                            messageRefs.current.push(el);
-                          }
-                        }}
-                      />
-                    );
-                  })}
-                </React.Fragment>
-              );
-            })}
-          </div>
-
-          <div ref={messageEndRef} className="h-4" />
-        </div>
-        {filePreview && (
+        {/* Message area and camera view container (below persistent contact header) */}
+        <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
           <div
-            className={`p-3 border-t flex items-center justify-between transition-colors ${theme === "dark"
-              ? "bg-[#1f2c33] border-white/10 text-white"
-              : "bg-gray-100 border-gray-200 text-gray-800"
+            ref={messagesContainerRef}
+            onScroll={handleMessageScroll}
+            className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
               }`}
+            style={{
+              backgroundImage:
+                theme === "dark"
+                  ? `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`
+                  : `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`,
+              backgroundBlendMode: theme === "dark" ? "overlay" : "soft-light",
+              backgroundSize: "400px",
+            }}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              {filePreview.startsWith("doc:") ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-[#7f66ff]/20 text-[#7f66ff] flex items-center justify-center shrink-0">
-                    <FaFileAlt size={22} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
-                      {selectedFile?.name}
-                    </p>
-                    <p className="text-xs opacity-60">
-                      {(selectedFile?.size / 1024).toFixed(1)} KB • Document
-                    </p>
-                  </div>
-                </div>
-              ) : filePreview.startsWith("audio:") ? (
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-[#f2790f]/20 text-[#f2790f] flex items-center justify-center shrink-0">
-                    <FaHeadphones size={22} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
-                      {selectedFile?.name}
-                    </p>
-                    <p className="text-xs opacity-60">
-                      {(selectedFile?.size / 1024).toFixed(1)} KB • Audio
-                    </p>
-                  </div>
-                </div>
-              ) : selectedFile?.type?.startsWith("video/") ? (
-                <div className="relative">
-                  <video
-                    src={filePreview}
-                    className="w-16 h-16 rounded-xl object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-xl">
-                    <FaVideo className="text-white text-xs" />
-                  </div>
-                </div>
-              ) : (
-                <div className="relative">
-                  <img
-                    src={filePreview}
-                    alt="preview"
-                    className="w-16 h-16 rounded-xl object-cover ring-1 ring-black/10"
-                  />
-                  {isStickerMode && (
-                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#02b875] text-white shadow">
-                      Sticker
-                    </span>
-                  )}
-                </div>
-              )}
+            <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
+              {Object.entries(finalMessagesToRender).map(([date, msgs]) => {
+                if (msgs.length === 0) return null;
+
+                return (
+                  <React.Fragment key={date}>
+                    {renderDateSeparator(new Date(date))}
+
+                    {msgs.map((msg, index) => {
+                      const prevMsg = index > 0 ? msgs[index - 1] : null;
+                      const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
+                      const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
+                      const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
+
+                      const isMatch =
+                        searchTerm &&
+                        (msg.content || "")
+                          .toLowerCase()
+                          .includes(searchTerm.toLowerCase());
+                      if (isMatch) {
+                        matchCounter++;
+                      }
+                      return (
+                        <MessageBuble
+                          key={msg._id || msg.temp}
+                          message={msg}
+                          theme={theme}
+                          currentUser={user}
+                          onReact={handleReaction}
+                          deleteMessage={deleteMessage}
+                          onEdit={editMessage}
+                          onStatusClick={onStatusClick}
+                          searchTerm={searchTerm}
+                          highlightText={highlightText}
+                          dataMatch={isMatch}
+                          isActive={isMatch && matchCounter === currentIndex}
+                          isFirstInSequence={isFirstInSequence}
+                          setRef={(el) => {
+                            if (isMatch && el) {
+                              messageRefs.current.push(el);
+                            }
+                          }}
+                        />
+                      );
+                    })}
+                  </React.Fragment>
+                );
+              })}
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedFile(null);
-                setFilePreview(null);
-                setIsStickerMode(false);
-              }}
-              className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-red-500 cursor-pointer transition"
-              title="Remove"
-            >
-              <RxCross2 size={18} />
-            </button>
+            <div ref={messageEndRef} className="h-4" />
           </div>
-        )}
+          {filePreview && (
+            <div
+              className={`p-3 border-t flex items-center justify-between transition-colors ${theme === "dark"
+                ? "bg-[#1f2c33] border-white/10 text-white"
+                : "bg-gray-100 border-gray-200 text-gray-800"
+                }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                {filePreview.startsWith("doc:") ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-[#7f66ff]/20 text-[#7f66ff] flex items-center justify-center shrink-0">
+                      <FaFileAlt size={22} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
+                        {selectedFile?.name}
+                      </p>
+                      <p className="text-xs opacity-60">
+                        {(selectedFile?.size / 1024).toFixed(1)} KB • Document
+                      </p>
+                    </div>
+                  </div>
+                ) : filePreview.startsWith("audio:") ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-[#f2790f]/20 text-[#f2790f] flex items-center justify-center shrink-0">
+                      <FaHeadphones size={22} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
+                        {selectedFile?.name}
+                      </p>
+                      <p className="text-xs opacity-60">
+                        {(selectedFile?.size / 1024).toFixed(1)} KB • Audio
+                      </p>
+                    </div>
+                  </div>
+                ) : selectedFile?.type?.startsWith("video/") ? (
+                  <div className="relative">
+                    <video
+                      src={filePreview}
+                      className="w-16 h-16 rounded-xl object-cover"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-xl">
+                      <FaVideo className="text-white text-xs" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <img
+                      src={filePreview}
+                      alt="preview"
+                      className="w-16 h-16 rounded-xl object-cover ring-1 ring-black/10"
+                    />
+                    {isStickerMode && (
+                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#02b875] text-white shadow">
+                        Sticker
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
 
-        <div
-          className={`p-3 sm:p-4 ${theme === "dark" ? "" : ""
-            } flex items-center relative transition-colors`}
-        >
-          <div
-            className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 ${theme === "dark"
-              ? "bg-[#2a3942]"
-              : "bg-white shadow-sm"
-              }`}
-          >
-            <div className="relative shrink-0" ref={fileMenuRef}>
               <button
                 type="button"
-                className={`focus:outline-none p-2 rounded-full transition cursor-pointer ${showFileMenu
-                  ? "bg-black/10 dark:bg-white/15"
-                  : "hover:bg-black/5 dark:hover:bg-white/10"
-                  }`}
-                onClick={() => setShowFileMenu(!showFileMenu)}
-                title="Attach"
+                onClick={() => {
+                  setSelectedFile(null);
+                  setFilePreview(null);
+                  setIsStickerMode(false);
+                }}
+                className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-red-500 cursor-pointer transition"
+                title="Remove"
               >
-                <TfiClip
-                  className={`h-5 w-5 transform transition-transform duration-200 ${showFileMenu ? "rotate-45" : ""
-                    } ${theme === "dark"
+                <RxCross2 size={18} />
+              </button>
+            </div>
+          )}
+
+          <div
+            className={`p-3 sm:p-4 ${theme === "dark" ? "" : ""
+              } flex items-center relative transition-colors`}
+          >
+            <div
+              className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 ${theme === "dark"
+                ? "bg-[#2a3942]"
+                : "bg-white shadow-sm"
+                }`}
+            >
+              <div className="relative shrink-0" ref={fileMenuRef}>
+                <button
+                  type="button"
+                  className={`focus:outline-none p-2 rounded-full transition cursor-pointer ${showFileMenu
+                    ? "bg-black/10 dark:bg-white/15"
+                    : "hover:bg-black/5 dark:hover:bg-white/10"
+                    }`}
+                  onClick={() => setShowFileMenu(!showFileMenu)}
+                  title="Attach"
+                >
+                  <TfiClip
+                    className={`h-5 w-5 transform transition-transform duration-200 ${showFileMenu ? "rotate-45" : ""
+                      } ${theme === "dark"
+                        ? "text-gray-400"
+                        : "text-gray-500"
+                      }`}
+                  />
+                </button>
+
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => handleFileChange(e, "media")}
+                  accept="image/*,video/*"
+                  className="hidden"
+                />
+
+                <input
+                  type="file"
+                  ref={documentInputRef}
+                  onChange={(e) => handleFileChange(e, "document")}
+                  accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,application/*"
+                  className="hidden"
+                />
+
+                <input
+                  type="file"
+                  ref={audioInputRef}
+                  onChange={(e) => handleFileChange(e, "audio")}
+                  accept="audio/*"
+                  className="hidden"
+                />
+
+                <input
+                  type="file"
+                  ref={stickerInputRef}
+                  onChange={(e) => handleFileChange(e, "sticker")}
+                  accept="image/png,image/webp,image/gif,image/jpeg"
+                  className="hidden"
+                />
+
+                <AnimatePresence>
+                  {showFileMenu && (
+                    <motion.div
+                      initial={{
+                        opacity: 0,
+                        scale: 0.85,
+                        y: 15,
+                      }}
+                      animate={{
+                        opacity: 1,
+                        scale: 1,
+                        y: 0,
+                      }}
+                      exit={{
+                        opacity: 0,
+                        scale: 0.85,
+                        y: 15,
+                      }}
+                      transition={{
+                        duration: 0.16,
+                        ease: "easeOut",
+                      }}
+                      className={`absolute bottom-full left-0 sm:-left-6 mb-4 sm:mb-7 w-[230px] sm:w-56 rounded-2xl p-2 z-50 border shadow-2xl backdrop-blur-xl ${theme === "dark"
+                        ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/70"
+                        : "bg-white border-gray-100 text-[#3b4a54] shadow-black/15"
+                        }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFileMenu(false);
+                          documentInputRef.current?.click();
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                          <FaFileAlt className="text-white text-[16px]" />
+                        </div>
+
+                        <span className="text-[14px] font-medium tracking-tight">
+                          Document
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFileMenu(false);
+                          fileInputRef.current?.click();
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                          <FaImage className="text-white text-[16px]" />
+                        </div>
+
+                        <span className="text-[14px] font-medium tracking-tight">
+                          Photos & videos
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFileMenu(false);
+                          setShowCamera(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                          <FaCamera className="text-white text-[16px]" />
+                        </div>
+
+                        <span className="text-[14px] font-medium tracking-tight">
+                          Camera
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFileMenu(false);
+                          audioInputRef.current?.click();
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                          <FaHeadphones className="text-white text-[16px]" />
+                        </div>
+
+                        <span className="text-[14px] font-medium tracking-tight">
+                          Audio
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFileMenu(false);
+                          setShowContactModal(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                          <RiContactsFill className="text-white text-[17px]" />
+                        </div>
+
+                        <span className="text-[14px] font-medium tracking-tight">
+                          Contact
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFileMenu(false);
+                          setShowPollModal(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                          <FaSquarePollHorizontal className="text-white text-[17px]" />
+                        </div>
+
+                        <span className="text-[14px] font-medium tracking-tight">
+                          Poll
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFileMenu(false);
+                          setShowEventModal(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                          <MdEventNote className="text-white text-[17px]" />
+                        </div>
+
+                        <span className="text-[14px] font-medium tracking-tight">
+                          Event
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFileMenu(false);
+                          setShowStickerModal(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                          <MdAddReaction className="text-white text-[17px]" />
+                        </div>
+
+                        <span className="text-[14px] font-medium tracking-tight">
+                          New sticker
+                        </span>
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  className="focus:outline-none p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                  onClick={() =>
+                    setShowEmojiPicker(!showEmojiPicker)
+                  }
+                  title="Emoji"
+                >
+                  <RiEmojiStickerLine
+                    className={`h-5 w-5 sm:h-6 sm:w-6 ${theme === "dark"
                       ? "text-gray-400"
                       : "text-gray-500"
-                    }`}
-                />
-              </button>
-
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={(e) => handleFileChange(e, "media")}
-                accept="image/*,video/*"
-                className="hidden"
-              />
-
-              <input
-                type="file"
-                ref={documentInputRef}
-                onChange={(e) => handleFileChange(e, "document")}
-                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,application/*"
-                className="hidden"
-              />
-
-              <input
-                type="file"
-                ref={audioInputRef}
-                onChange={(e) => handleFileChange(e, "audio")}
-                accept="audio/*"
-                className="hidden"
-              />
-
-              <input
-                type="file"
-                ref={stickerInputRef}
-                onChange={(e) => handleFileChange(e, "sticker")}
-                accept="image/png,image/webp,image/gif,image/jpeg"
-                className="hidden"
-              />
-
-              <AnimatePresence>
-                {showFileMenu && (
-                  <motion.div
-                    initial={{
-                      opacity: 0,
-                      scale: 0.85,
-                      y: 15,
-                    }}
-                    animate={{
-                      opacity: 1,
-                      scale: 1,
-                      y: 0,
-                    }}
-                    exit={{
-                      opacity: 0,
-                      scale: 0.85,
-                      y: 15,
-                    }}
-                    transition={{
-                      duration: 0.16,
-                      ease: "easeOut",
-                    }}
-                    className={`absolute bottom-full left-0 sm:-left-6 mb-4 sm:mb-7 w-[230px] sm:w-56 rounded-2xl p-2 z-50 border shadow-2xl backdrop-blur-xl ${theme === "dark"
-                      ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/70"
-                      : "bg-white border-gray-100 text-[#3b4a54] shadow-black/15"
                       }`}
+                  />
+                </button>
+
+
+                {showEmojiPicker && (
+                  <div
+                    ref={emojiPickerRef}
+                    className="absolute left-0 sm:left-4 bottom-14 sm:bottom-16 z-50 shadow-2xl"
                   >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowFileMenu(false);
-                        documentInputRef.current?.click();
+                    <EmojiPicker
+                      onEmojiClick={(emojiObject) => {
+                        if (emojiObject?.emoji) {
+                          setMessage(
+                            (prev) => prev + emojiObject.emoji
+                          );
+                        }
+
+                        setShowEmojiPicker(false);
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                        <FaFileAlt className="text-white text-[16px]" />
-                      </div>
-
-                      <span className="text-[14px] font-medium tracking-tight">
-                        Document
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowFileMenu(false);
-                        fileInputRef.current?.click();
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                        <FaImage className="text-white text-[16px]" />
-                      </div>
-
-                      <span className="text-[14px] font-medium tracking-tight">
-                        Photos & videos
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowFileMenu(false);
-                        setShowCamera(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                        <FaCamera className="text-white text-[16px]" />
-                      </div>
-
-                      <span className="text-[14px] font-medium tracking-tight">
-                        Camera
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowFileMenu(false);
-                        audioInputRef.current?.click();
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                        <FaHeadphones className="text-white text-[16px]" />
-                      </div>
-
-                      <span className="text-[14px] font-medium tracking-tight">
-                        Audio
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowFileMenu(false);
-                        setShowContactModal(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                        <RiContactsFill className="text-white text-[17px]" />
-                      </div>
-
-                      <span className="text-[14px] font-medium tracking-tight">
-                        Contact
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowFileMenu(false);
-                        setShowPollModal(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                        <FaSquarePollHorizontal className="text-white text-[17px]" />
-                      </div>
-
-                      <span className="text-[14px] font-medium tracking-tight">
-                        Poll
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowFileMenu(false);
-                        setShowEventModal(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                        <MdEventNote className="text-white text-[17px]" />
-                      </div>
-
-                      <span className="text-[14px] font-medium tracking-tight">
-                        Event
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowFileMenu(false);
-                        setShowStickerModal(true);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
-                        <MdAddReaction className="text-white text-[17px]" />
-                      </div>
-
-                      <span className="text-[14px] font-medium tracking-tight">
-                        New sticker
-                      </span>
-                    </button>
-                  </motion.div>
+                      theme={theme}
+                    />
+                  </div>
                 )}
-              </AnimatePresence>
-            </div>
+              </div>
 
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                placeholder="Type a message"
+                className={`flex-1 min-w-0 w-full  bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm sm:text-base ${theme === "dark"
+                  ? "text-white placeholder-gray-400"
+                  : "text-black placeholder-gray-500"
+                  }`}
+              />
 
-            <div className="relative shrink-0">
               <button
                 type="button"
-                className="focus:outline-none p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-                onClick={() =>
-                  setShowEmojiPicker(!showEmojiPicker)
-                }
-                title="Emoji"
+                onClick={handleSendMessage}
+                className="shrink-0 p-2 rounded-full bg-green-500 hover:bg-green-600 active:scale-95 transition cursor-pointer"
+                title="Send"
               >
-                <RiEmojiStickerLine
-                  className={`h-5 w-5 sm:h-6 sm:w-6 ${theme === "dark"
-                    ? "text-gray-400"
-                    : "text-gray-500"
-                    }`}
-                />
+                <IoSend className="h-4 w-4 sm:h-5 sm:w-5 text-black" />
               </button>
-
-
-              {showEmojiPicker && (
-                <div
-                  ref={emojiPickerRef}
-                  className="absolute left-0 sm:left-4 bottom-14 sm:bottom-16 z-50 shadow-2xl"
-                >
-                  <EmojiPicker
-                    onEmojiClick={(emojiObject) => {
-                      if (emojiObject?.emoji) {
-                        setMessage(
-                          (prev) => prev + emojiObject.emoji
-                        );
-                      }
-
-                      setShowEmojiPicker(false);
-                    }}
-                    theme={theme}
-                  />
-                </div>
-              )}
             </div>
-
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-              placeholder="Type a message"
-              className={`flex-1 min-w-0 w-full  bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm sm:text-base ${theme === "dark"
-                ? "text-white placeholder-gray-400"
-                : "text-black placeholder-gray-500"
-                }`}
-            />
-
-            <button
-              type="button"
-              onClick={handleSendMessage}
-              className="shrink-0 p-2 rounded-full bg-green-500 hover:bg-green-600 active:scale-95 transition cursor-pointer"
-              title="Send"
-            >
-              <IoSend className="h-4 w-4 sm:h-5 sm:w-5 text-black" />
-            </button>
           </div>
+
+          {showCamera && (
+            <CameraModal
+              onClose={() => setShowCamera(false)}
+              onCapture={(file) => {
+                setSelectedFile(file);
+                setFilePreview(URL.createObjectURL(file));
+                setShowCamera(false);
+              }}
+            />
+          )}
         </div>
       </div>
-
-      {showCamera && (
-        <CameraModal
-          onClose={() => setShowCamera(false)}
-          onCapture={(file) => {
-            setSelectedFile(file);
-            setFilePreview(URL.createObjectURL(file));
-            setShowCamera(false);
-          }}
-        />
-      )}
       {showPollModal && (
         <PollModal
           onClose={() => setShowPollModal(false)}

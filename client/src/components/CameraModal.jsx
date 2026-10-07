@@ -1,24 +1,39 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { RxCross2 } from "react-icons/rx";
-import { FaSync } from "react-icons/fa";
+import { FaCamera, FaSync } from "react-icons/fa";
 
-const CameraModal = ({ onClose, onCapture }) => {
+const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
   const streamRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
-  const pressTimer = useRef(null);
-  const isLongPress = useRef(false);
-  const [facingMode, setFacingMode] = useState("environment");
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [flash, setFlash] = useState(false);
-  const [isCameraReady, setIsCameraReady] = useState(false);
+  const isClosingRef = useRef(false);
 
+  const [facingMode, setFacingMode] = useState("user");
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [flash, setFlash] = useState(false);
+  const [error, setError] = useState(null);
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+  const [retryTrigger, setRetryTrigger] = useState(0);
+
+  // Check if device has more than one camera
+  useEffect(() => {
+    navigator.mediaDevices?.enumerateDevices?.()
+      .then((devices) => {
+        const videoInputs = devices.filter((d) => d.kind === "videoinput");
+        setHasMultipleCameras(videoInputs.length > 1);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Safe track stopper that releases camera hardware immediately
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {
+          console.error("Error stopping track:", e);
+        }
+      });
       streamRef.current = null;
     }
     if (videoRef.current) {
@@ -27,251 +42,282 @@ const CameraModal = ({ onClose, onCapture }) => {
     setIsCameraReady(false);
   }, []);
 
-  const startCamera = useCallback(async () => {
-    try {
-      stopCamera();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: true,
-      });
+  const handleClose = useCallback(() => {
+    isClosingRef.current = true;
+    stopCamera();
+    onClose();
+  }, [stopCamera, onClose]);
 
+  // Handle stream initialization with retry and cancellation guard
+  useEffect(() => {
+    let isCancelled = false;
+    let localStream = null;
+
+    const startStream = async () => {
+      setError(null);
+      setIsCameraReady(false);
+
+      // Clean up previous stream tracks if any remain
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch (e) {}
+        });
+        streamRef.current = null;
+      }
+
+      const targetConstraints = facingMode
+        ? {
+            video: {
+              facingMode,
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: false,
+          }
+        : { video: true, audio: false };
+
+      let stream = null;
+
+      // Retry up to 3 times to gracefully wait if Windows webcam driver is releasing previous lock
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (isCancelled || isClosingRef.current) return;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(targetConstraints);
+          break;
+        } catch (err) {
+          console.warn(`Camera attempt ${attempt + 1} failed:`, err.name, err.message);
+
+          // If overconstrained on desktop/laptop, immediately try basic video
+          if (
+            err.name === "OverconstrainedError" ||
+            err.name === "ConstraintNotSatisfiedError"
+          ) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false,
+              });
+              break;
+            } catch (fallbackErr) {
+              console.warn("Fallback to basic video also failed:", fallbackErr);
+            }
+          }
+
+          // If device is busy or just closed, pause briefly before retrying
+          if (attempt < 2) {
+            await new Promise((r) => setTimeout(r, 250));
+          } else {
+            // Final fallback to any video input
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false,
+              });
+              break;
+            } catch (finalErr) {
+              if (!isCancelled && !isClosingRef.current) {
+                console.error("All camera attempts failed:", finalErr);
+                setError(
+                  "Unable to access camera. Please check permissions or wait a moment."
+                );
+              }
+              return;
+            }
+          }
+        }
+      }
+
+      // If modal was closed while getUserMedia was resolving, stop tracks immediately
+      if (isCancelled || isClosingRef.current) {
+        if (stream) {
+          stream.getTracks().forEach((track) => {
+            try {
+              track.stop();
+            } catch (e) {}
+          });
+        }
+        return;
+      }
+
+      if (!stream) return;
+
+      localStream = stream;
       streamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          setIsCameraReady(true);
-        };
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn("Video play error (will autoplay on metadata):", playErr);
+        }
       }
-    } catch (err) {
-      console.error("Camera error:", err);
-      alert("Please allow camera and microphone access.");
-    }
-  }, [facingMode, stopCamera]);
-
-  useEffect(() => {
-    let interval;
-    if (isRecording) {
-      interval = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-    } else {
-      setRecordingTime(0);
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isRecording]);
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const startRecording = () => {
-    if (!streamRef.current) return;
-    chunksRef.current = [];
-    const recorder = new MediaRecorder(streamRef.current);
-    mediaRecorderRef.current = recorder;
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
     };
 
-    recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const file = new File([blob], `video_${Date.now()}.webm`, {
-        type: "video/webm",
-      });
-      onCapture(file);
-      handleClose();
+    startStream();
+
+    return () => {
+      isCancelled = true;
+      if (localStream) {
+        localStream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch (e) {}
+        });
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch (e) {}
+        });
+        streamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      setIsCameraReady(false);
     };
-
-    recorder.start();
-    setIsRecording(true);
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
+  }, [facingMode, retryTrigger]);
 
   const capturePhoto = () => {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!video || !isCameraReady || video.videoWidth === 0 || video.videoHeight === 0) {
+      return;
+    }
 
     setFlash(true);
-    setTimeout(() => setFlash(false), 150);
+    setTimeout(() => setFlash(false), 120);
 
+    const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext("2d");
+
     if (facingMode === "user") {
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
     }
 
-    ctx.drawImage(video, 0, 0);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     canvas.toBlob(
       (blob) => {
-        const file = new File([blob], `photo_${Date.now()}.jpg`, {
+        if (!blob) return;
+        const file = new File([blob], `camera_${Date.now()}.jpg`, {
           type: "image/jpeg",
         });
+
+        isClosingRef.current = true;
+        stopCamera();
         onCapture(file);
-        handleClose();
+        onClose();
       },
       "image/jpeg",
-      0.9,
+      0.92
     );
   };
 
-  const handlePressStart = (e) => {
-    e.preventDefault();
-    isLongPress.current = false;
-    pressTimer.current = setTimeout(() => {
-      isLongPress.current = true;
-      startRecording();
-    }, 400);
-  };
-
-  const handlePressEnd = (e) => {
-    e.preventDefault();
-    clearTimeout(pressTimer.current);
-    if (isLongPress.current) {
-      stopRecording();
-    } else if (!isRecording) {
-      capturePhoto();
-    }
-  };
-
-  const handleClose = () => {
-    stopCamera();
-    onClose();
-  };
-
-  useEffect(() => {
-    startCamera();
-    return () => stopCamera();
-  }, [startCamera]);
-
   return (
-    <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center font-sans select-none overflow-hidden">
+    <div
+      className={`${
+        fullScreen ? "fixed inset-0 z-[200]" : "absolute inset-0 z-50"
+      } bg-[#111b21] flex flex-col justify-between font-sans select-none overflow-hidden`}
+    >
       {flash && (
-        <div className="absolute inset-0 bg-white z-[300] animate-pulse" />
+        <div className="absolute inset-0 bg-white z-[300] pointer-events-none animate-pulse" />
       )}
 
-      <div className="absolute top-0 w-full flex justify-between items-start p-6 z-50 pt-10 px-8">
-        <button
-          onClick={handleClose}
-          className="p-3 rounded-full bg-black/30 backdrop-blur-xl border border-white/10 text-white hover:bg-black/50 transition-all shadow-xl active:scale-90"
-        >
-          <RxCross2 size={22} />
-        </button>
-
-        <div className="flex flex-col items-center mt-2">
-          <div
-            className={`px-4 py-1.5 rounded-full border ${
-              isRecording
-                ? "border-red-500 bg-red-500/20"
-                : "border-white/10 bg-black/40"
-            } backdrop-blur-md transition-colors shadow-lg`}
+      {/* WhatsApp Web Style Header */}
+      <header className="h-[60px] px-4 sm:px-6 flex items-center justify-between border-b border-[#222d34] bg-[#111b21] shrink-0 z-50">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            onClick={handleClose}
+            className="p-2 -ml-2 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            title="Close"
           >
-            <span
-              className={`text-[10px] uppercase tracking-[0.2em] font-bold ${
-                isRecording ? "text-red-500" : "text-white"
-              }`}
-            >
-              {isRecording ? "Recording" : "Photo Mode"}
-            </span>
-          </div>
-          {isRecording && (
-            <span className="text-white font-mono text-xl mt-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-              {formatTime(recordingTime)}
-            </span>
-          )}
+            <RxCross2 size={22} />
+          </button>
+          <span className="text-white text-base sm:text-lg font-medium tracking-tight">
+            Take photo
+          </span>
         </div>
 
-        <button
-          onClick={() =>
-            setFacingMode((prev) =>
-              prev === "environment" ? "user" : "environment",
-            )
-          }
-          className="p-3 rounded-full bg-black/30 backdrop-blur-xl border border-white/10 text-white hover:bg-black/50 transition-all shadow-xl active:rotate-180 duration-500"
-        >
-          <FaSync size={20} className={isCameraReady ? "" : "animate-spin"} />
-        </button>
-      </div>
+        {hasMultipleCameras && (
+          <button
+            onClick={() =>
+              setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
+            }
+            className="p-2 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            title="Switch Camera"
+          >
+            <FaSync size={18} />
+          </button>
+        )}
+      </header>
 
-      <div className="relative w-full h-full flex items-center justify-center bg-[#0a0a0a]">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`w-full h-full object-cover transition-opacity duration-700 ${isCameraReady ? "opacity-100" : "opacity-0"} ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
-        />
-
-        {!isRecording && (
-          <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-30">
-            {[...Array(9)].map((_, i) => (
-              <div key={i} className="border-[0.5px] border-white/50" />
-            ))}
+      {/* Centered Video Stream in Chat Window */}
+      <div className="flex-1 flex items-center justify-center bg-black relative overflow-hidden">
+        {error ? (
+          <div className="text-center px-6 max-w-sm">
+            <div className="w-16 h-16 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center mx-auto mb-3">
+              <FaCamera size={26} />
+            </div>
+            <p className="text-gray-200 text-sm mb-4">{error}</p>
+            <button
+              onClick={() => {
+                setError(null);
+                setRetryTrigger((prev) => prev + 1);
+              }}
+              className="px-4 py-2 bg-[#00a884] hover:bg-[#02906f] text-white text-xs font-semibold rounded-full transition-colors cursor-pointer"
+            >
+              Retry Camera
+            </button>
           </div>
+        ) : (
+          <>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              onLoadedMetadata={() => {
+                videoRef.current?.play().catch(() => {});
+                setIsCameraReady(true);
+              }}
+              onCanPlay={() => {
+                setIsCameraReady(true);
+              }}
+              className={`w-full h-full max-h-[calc(100vh-160px)] md:max-w-4xl object-contain transition-opacity duration-300 ${
+                isCameraReady ? "opacity-100" : "opacity-0"
+              } ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
+            />
+
+            {!isCameraReady && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
+                <div className="w-10 h-10 border-3 border-[#00a884] border-t-transparent rounded-full animate-spin mb-3" />
+                <span className="text-xs tracking-wider uppercase font-medium">
+                  Starting camera...
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      <div className="absolute bottom-0 w-full pb-10 pt-20 flex flex-col items-center gap-6 z-50">
-        <div className="flex gap-8 text-[11px] font-black uppercase tracking-[0.3em] drop-shadow-lg">
-          <span className={isRecording ? "text-white/30" : "text-yellow-400"}>
-            Photo
-          </span>
-          <span className={isRecording ? "text-red-500" : "text-white/30"}>
-            Video
-          </span>
-        </div>
-
-        <div className="relative flex items-center justify-center">
-          {isRecording && (
-            <div className="absolute w-28 h-28 rounded-full border-2 border-red-600 animate-ping opacity-60" />
-          )}
-
-          <button
-            onMouseDown={handlePressStart}
-            onMouseUp={handlePressEnd}
-            onTouchStart={handlePressStart}
-            onTouchEnd={handlePressEnd}
-            className={`
-              relative z-10 w-20 h-20 rounded-full border-4 transition-all duration-500 flex items-center justify-center bg-black/10 backdrop-blur-sm shadow-2xl
-              ${isRecording ? "border-red-500 scale-110" : "border-white hover:scale-105 active:scale-95"}
-            `}
-          >
-            <div
-              className={`
-                transition-all duration-300
-                ${
-                  isRecording
-                    ? "w-8 h-8 bg-red-500 rounded-sm shadow-inner"
-                    : "w-16 h-16 bg-white rounded-full shadow-lg"
-                }
-              `}
-            />
-          </button>
-        </div>
-
-        <p className="text-white/60 text-[10px] font-medium tracking-widest uppercase drop-shadow-lg">
-          {isRecording ? "Release to Finish" : "Tap for Photo • Hold for Video"}
-        </p>
-      </div>
-
-      <canvas ref={canvasRef} className="hidden" />
+      {/* WhatsApp Web Style Bottom Bar with Round Green Shutter Button */}
+      <footer className="h-[90px] flex items-center justify-center bg-[#111b21] border-t border-[#222d34] shrink-0 z-50">
+        <button
+          onClick={capturePhoto}
+          disabled={!isCameraReady}
+          className={`w-14 h-14 rounded-full bg-[#00a884] hover:bg-[#02906f] active:scale-90 text-white flex items-center justify-center shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}
+          title="Take Photo"
+        >
+          <FaCamera size={22} />
+        </button>
+      </footer>
     </div>
   );
 };

@@ -573,10 +573,12 @@ const status = () => {
 
         {showCamera && (
           <CameraModal
+            fullScreen={true}
             onClose={() => setShowCamera(false)}
             onCapture={(file) => {
               setSelectedFile(file);
               setFilePreview(URL.createObjectURL(file));
+              setShowCamera(false);
             }}
           />
         )}

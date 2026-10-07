@@ -1,6 +1,19 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+if (typeof window !== "undefined") {
+  try {
+    const raw = localStorage.getItem("layout-storage");
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data?.state?.selectedContact) {
+        delete data.state.selectedContact;
+        localStorage.setItem("layout-storage", JSON.stringify(data));
+      }
+    }
+  } catch (err) {}
+}
+
 const useLayoutStore = create(
   persist(
     (set) => ({
@@ -44,10 +57,9 @@ const useLayoutStore = create(
     ),
     {
       name: "layout-storage",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         activeTab: state.activeTab,
-        selectedContact: state.selectedContact,
         chatListScrollTop: state.chatListScrollTop,
       }),
     },
