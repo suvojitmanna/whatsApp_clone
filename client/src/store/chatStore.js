@@ -436,12 +436,24 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  editMessage: async (messageId, content) => {
+  editMessage: async (messageId, content, eventData = null) => {
     try {
+      const payload = { content };
+      if (eventData) {
+        payload.eventData = eventData;
+      }
       const response = await axiosInstance.put(
         `/chat/messages/${messageId}`,
-        { content }
+        payload
       );
+
+      if (response.data?.data) {
+        set((state) => ({
+          messages: state.messages.map((m) =>
+            m._id === messageId ? response.data.data : m
+          ),
+        }));
+      }
 
       return response.data;
     } catch (error) {

@@ -32,6 +32,46 @@ import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
 import ReactionDetailsModal from "../../components/ReactionDetailsModal";
 
+const formatEventSchedule = (eventData) => {
+  if (!eventData?.eventDate) return "Date TBD";
+  try {
+    const parts = eventData.eventDate.split("-");
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const targetDate = new Date(year, month, day);
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      let dayStr = "";
+      if (targetDate.getTime() === today.getTime()) {
+        dayStr = "Today";
+      } else if (targetDate.getTime() === tomorrow.getTime()) {
+        dayStr = "Tomorrow";
+      } else {
+        dayStr = format(targetDate, "EEE, d MMM");
+      }
+
+      let timeStr = "";
+      if (eventData.eventTime) {
+        timeStr = `, ${eventData.eventTime}`;
+        if (eventData.endTime) {
+          timeStr += ` - ${eventData.endTime}`;
+        }
+      }
+
+      return `${dayStr}${timeStr}`;
+    }
+    return eventData.eventDate;
+  } catch (e) {
+    return eventData.eventDate;
+  }
+};
+
 const MessageBuble = ({
   message,
   theme,
@@ -44,6 +84,7 @@ const MessageBuble = ({
   isActive,
   onStatusClick,
   onEdit,
+  onEditEvent,
   isFirstInSequence = true,
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -685,40 +726,176 @@ const MessageBuble = ({
               </div>
             )}
 
-            {message.contentType === "event" && (
-              <div className="flex flex-col gap-2 min-w-[240px] max-w-[320px]">
-                <div className={`p-3 rounded-2xl border ${isDark ? "bg-white/[0.05] border-white/10" : "bg-white/80 border-black/5 shadow-sm"
-                  }`}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
-                      <MdEventNote size={22} />
+            {message.contentType === "event" && (() => {
+              const goingCount = message.eventData?.responses?.length
+                ? message.eventData.responses.filter((r) => r.status === "going" || r.status === "yes").length || message.eventData.responses.length
+                : 2;
+              const senderAvatar = isUserMessage
+                ? (effectiveUser?.profilePic || effectiveUser?.avatar)
+                : (message?.sender?.profilePic || message?.sender?.avatar);
+              const senderDisplayName = message?.sender?.name || effectiveUser?.name || "U";
+
+              return (
+                <div className="flex flex-col min-w-[260px] max-w-[310px] w-full select-none">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${
+                        isDark
+                          ? "bg-[#143d2e] text-[#25d366]"
+                          : "bg-emerald-600/15 text-emerald-700"
+                      }`}
+                    >
+                      <MdEventNote size={24} />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-[14px] font-bold truncate">
+
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <h4
+                        className={`text-[16px] font-bold leading-tight break-words ${
+                          message.eventData?.isCancelled
+                            ? "line-through opacity-60"
+                            : ""
+                        }`}
+                      >
                         {message.eventData?.title || message.content}
                       </h4>
-                      <p className="text-[11px] opacity-70 font-medium">
-                        {message.eventData?.eventDate || "Date TBD"}{" "}
-                        {message.eventData?.eventTime && `• ${message.eventData.eventTime}`}
+
+                      <p
+                        className={`text-[13px] font-normal mt-1 ${
+                          isDark ? "text-white/75" : "text-gray-700"
+                        }`}
+                      >
+                        {formatEventSchedule(message.eventData)}
                       </p>
+
+                      {message.eventData?.description && (
+                        <p
+                          className={`text-[14px] font-normal mt-1 break-words ${
+                            isDark ? "text-white/90" : "text-gray-800"
+                          }`}
+                        >
+                          {message.eventData.description}
+                        </p>
+                      )}
+
+                      {message.eventData?.hasCallLink && (
+                        <p
+                          className={`text-[13px] font-normal mt-1 ${
+                            isDark ? "text-white/75" : "text-gray-700"
+                          }`}
+                        >
+                          WhatsApp video call
+                        </p>
+                      )}
+
+                      {message.eventData?.location && (
+                        <div className="flex items-center gap-1 text-[13px] opacity-75 mt-1">
+                          <MdLocationOn size={14} className="text-red-400 shrink-0" />
+                          <span className="truncate">{message.eventData.location}</span>
+                        </div>
+                      )}
+
+                      {message.eventData?.isCancelled && (
+                        <span className="mt-1.5 inline-block text-[11px] font-medium px-2 py-0.5 rounded bg-red-500/20 text-red-400">
+                          Event cancelled
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {message.eventData?.location && (
-                    <div className="flex items-center gap-1 text-xs opacity-80 mt-1">
-                      <MdLocationOn size={14} className="text-red-400 shrink-0" />
-                      <span className="truncate">{message.eventData.location}</span>
+                  <div className="flex items-center justify-between mt-3 text-[12px]">
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex -space-x-1.5 items-center">
+                        {senderAvatar ? (
+                          <img
+                            src={senderAvatar}
+                            alt=""
+                            className={`w-5 h-5 rounded-full object-cover border ${
+                              isDark ? "border-[#005c4b]" : "border-[#d9fdd3]"
+                            }`}
+                          />
+                        ) : (
+                          <div
+                            className={`w-5 h-5 rounded-full bg-emerald-700 border flex items-center justify-center text-[9px] text-white ${
+                              isDark ? "border-[#005c4b]" : "border-[#d9fdd3]"
+                            }`}
+                          >
+                            {senderDisplayName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div
+                          className={`w-5 h-5 rounded-full bg-[#7a3b2e] border flex items-center justify-center text-white ${
+                            isDark ? "border-[#005c4b]" : "border-[#d9fdd3]"
+                          }`}
+                        >
+                          <RiContactsFill size={10} />
+                        </div>
+                      </div>
+                      <span
+                        className={`font-normal text-[13px] ${
+                          isDark ? "text-white/70" : "text-gray-600"
+                        }`}
+                      >
+                        {goingCount} going
+                      </span>
                     </div>
-                  )}
 
-                  {message.eventData?.description && (
-                    <p className="text-xs opacity-75 mt-1.5 leading-relaxed">
-                      {message.eventData.description}
-                    </p>
-                  )}
+                    <div
+                      className={`flex items-center gap-1 text-[11px] ${
+                        isDark ? "text-white/60" : "text-gray-500"
+                      }`}
+                    >
+                      {message.edited && (
+                        <span className="italic mr-0.5">Edited</span>
+                      )}
+                      <span>{format(new Date(message.createdAt), "HH:mm")}</span>
+                      {isUserMessage && (
+                        <>
+                          {message.messageStatus === "send" && (
+                            <FiCheck size={14} />
+                          )}
+                          {message.messageStatus === "delivered" && (
+                            <FaCheckDouble size={12} />
+                          )}
+                          {message.messageStatus === "read" && (
+                            <FaCheckDouble size={12} className="text-[#53bdeb]" />
+                          )}
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowOptions((prev) => !prev);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5"
+                        title="Menu"
+                      >
+                        <FiChevronDown size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`border-t -mx-[9px] -mb-[7px] mt-2.5 rounded-b-[7.5px] overflow-hidden ${
+                      isDark ? "border-white/10" : "border-black/10"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onEditEvent) {
+                          onEditEvent(message);
+                        }
+                      }}
+                      className={`w-full py-2.5 text-center text-[15px] font-medium text-[#00a884] dark:text-[#25d366] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer`}
+                    >
+                      Edit event
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {message.contentType === "sticker" && (
               <div className="relative p-1">
@@ -732,7 +909,7 @@ const MessageBuble = ({
           </div>
         </div>
 
-        {message.contentType !== "text" && message.contentType !== "poll" && (
+        {message.contentType !== "text" && message.contentType !== "poll" && message.contentType !== "event" && (
           <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-60 mt-1 select-none">
             {message.edited && (
               <span className="italic opacity-80 mr-0.5">Edited</span>

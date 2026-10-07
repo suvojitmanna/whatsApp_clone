@@ -69,11 +69,8 @@ const messageSchema = new mongoose.Schema(
       avatar: String,
     },
     eventData: {
-      title: String,
-      eventDate: String,
-      eventTime: String,
-      location: String,
-      description: String,
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
     edited: {
       type: Boolean,

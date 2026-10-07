@@ -54,6 +54,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showPollModal, setShowPollModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [editingEventMessage, setEditingEventMessage] = useState(null);
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
 
@@ -350,6 +351,46 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       setShowEventModal(false);
     } catch (error) {
       console.error("Failed to send event", error);
+    }
+  };
+
+  const handleEditEventClick = (eventMsg) => {
+    setEditingEventMessage(eventMsg);
+    setShowEventModal(true);
+  };
+
+  const handleUpdateEvent = async (updatedEventInfo) => {
+    if (!editingEventMessage?._id) return;
+    try {
+      await editMessage(
+        editingEventMessage._id,
+        `Event: ${updatedEventInfo.title}`,
+        updatedEventInfo
+      );
+      setShowEventModal(false);
+      setEditingEventMessage(null);
+    } catch (error) {
+      console.error("Failed to update event", error);
+    }
+  };
+
+  const handleCancelEvent = async () => {
+    if (!editingEventMessage?._id) return;
+    try {
+      const cancelledEventData = {
+        ...(editingEventMessage.eventData || {}),
+        isCancelled: true,
+        cancelledAt: new Date(),
+      };
+      await editMessage(
+        editingEventMessage._id,
+        `Cancelled event: ${cancelledEventData.title || ""}`,
+        cancelledEventData
+      );
+      setShowEventModal(false);
+      setEditingEventMessage(null);
+    } catch (error) {
+      console.error("Failed to cancel event", error);
     }
   };
 
@@ -810,7 +851,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           </div>
         </div>
 
-        {/* Message area and camera view container (below persistent contact header) */}
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
           <div
             ref={messagesContainerRef}
@@ -857,6 +897,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           onReact={handleReaction}
                           deleteMessage={deleteMessage}
                           onEdit={editMessage}
+                          onEditEvent={handleEditEventClick}
                           onStatusClick={onStatusClick}
                           searchTerm={searchTerm}
                           highlightText={highlightText}
@@ -1279,8 +1320,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       )}
       {showEventModal && (
         <EventModal
-          onClose={() => setShowEventModal(false)}
-          onSend={handleSendEvent}
+          onClose={() => {
+            setShowEventModal(false);
+            setEditingEventMessage(null);
+          }}
+          onSend={editingEventMessage ? handleUpdateEvent : handleSendEvent}
+          onCancelEvent={editingEventMessage ? handleCancelEvent : null}
+          initialEvent={editingEventMessage?.eventData}
+          isEdit={Boolean(editingEventMessage)}
           theme={theme}
         />
       )}

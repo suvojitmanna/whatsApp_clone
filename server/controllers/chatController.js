@@ -343,13 +343,9 @@ exports.deleteMessage = async (req, res) => {
 exports.editMessage = async (req, res) => {
   const userId = req.user.userId;
   const { messageId } = req.params;
-  const { content } = req.body;
+  const { content, eventData } = req.body;
 
   try {
-    if (!content || !content.trim()) {
-      return response(res, 400, "Message cannot be empty");
-    }
-
     const message = await Message.findById(messageId);
 
     if (!message) {
@@ -359,11 +355,38 @@ exports.editMessage = async (req, res) => {
       return response(res, 403, "You can only edit your own messages");
     }
 
-    if (message.contentType !== "text") {
-      return response(res, 400, "Only text messages can be edited");
+    if (message.contentType !== "text" && message.contentType !== "event") {
+      return response(res, 400, "Only text and event messages can be edited");
     }
 
-    message.content = content.trim();
+    if (message.contentType === "event") {
+      let parsedEvent = eventData;
+      if (typeof parsedEvent === "string") {
+        try {
+          parsedEvent = JSON.parse(parsedEvent);
+        } catch (e) {}
+      }
+      if (parsedEvent) {
+        message.eventData = {
+          ...(message.eventData || {}),
+          ...parsedEvent,
+        };
+      }
+      if (content && content.trim()) {
+        message.content = content.trim();
+      } else if (message.eventData?.isCancelled) {
+        message.content = `Cancelled event: ${message.eventData?.title || ""}`;
+      } else if (message.eventData?.title) {
+        message.content = `Event: ${message.eventData.title}`;
+      }
+      message.markModified("eventData");
+    } else {
+      if (!content || !content.trim()) {
+        return response(res, 400, "Message cannot be empty");
+      }
+      message.content = content.trim();
+    }
+
     message.edited = true;
     message.editedAt = new Date();
 

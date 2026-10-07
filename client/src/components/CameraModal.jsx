@@ -14,7 +14,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
   const [retryTrigger, setRetryTrigger] = useState(0);
 
-  // Check if device has more than one camera
   useEffect(() => {
     navigator.mediaDevices?.enumerateDevices?.()
       .then((devices) => {
@@ -24,7 +23,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
       .catch(() => {});
   }, []);
 
-  // Safe track stopper that releases camera hardware immediately
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
@@ -48,7 +46,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
     onClose();
   }, [stopCamera, onClose]);
 
-  // Handle stream initialization with retry and cancellation guard
   useEffect(() => {
     let isCancelled = false;
     let localStream = null;
@@ -57,7 +54,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
       setError(null);
       setIsCameraReady(false);
 
-      // Clean up previous stream tracks if any remain
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => {
           try {
@@ -80,7 +76,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
 
       let stream = null;
 
-      // Retry up to 3 times to gracefully wait if Windows webcam driver is releasing previous lock
       for (let attempt = 0; attempt < 3; attempt++) {
         if (isCancelled || isClosingRef.current) return;
         try {
@@ -89,7 +84,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
         } catch (err) {
           console.warn(`Camera attempt ${attempt + 1} failed:`, err.name, err.message);
 
-          // If overconstrained on desktop/laptop, immediately try basic video
           if (
             err.name === "OverconstrainedError" ||
             err.name === "ConstraintNotSatisfiedError"
@@ -105,11 +99,9 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
             }
           }
 
-          // If device is busy or just closed, pause briefly before retrying
           if (attempt < 2) {
             await new Promise((r) => setTimeout(r, 250));
           } else {
-            // Final fallback to any video input
             try {
               stream = await navigator.mediaDevices.getUserMedia({
                 video: true,
@@ -129,7 +121,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
         }
       }
 
-      // If modal was closed while getUserMedia was resolving, stop tracks immediately
       if (isCancelled || isClosingRef.current) {
         if (stream) {
           stream.getTracks().forEach((track) => {
@@ -230,7 +221,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
         <div className="absolute inset-0 bg-white z-[300] pointer-events-none animate-pulse" />
       )}
 
-      {/* WhatsApp Web Style Header */}
       <header className="h-[60px] px-4 sm:px-6 flex items-center justify-between border-b border-[#222d34] bg-[#111b21] shrink-0 z-50">
         <div className="flex items-center gap-3 sm:gap-4">
           <button
@@ -258,7 +248,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
         )}
       </header>
 
-      {/* Centered Video Stream in Chat Window */}
       <div className="flex-1 flex items-center justify-center bg-black relative overflow-hidden">
         {error ? (
           <div className="text-center px-6 max-w-sm">
@@ -307,7 +296,6 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
         )}
       </div>
 
-      {/* WhatsApp Web Style Bottom Bar with Round Green Shutter Button */}
       <footer className="h-[90px] flex items-center justify-center bg-[#111b21] border-t border-[#222d34] shrink-0 z-50">
         <button
           onClick={capturePhoto}
