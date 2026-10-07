@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { getSocket } from "../services/chatService";
 import axiosInstance from "../services/url.services";
+import useUserStore from "./useUserStore";
 
 export const useChatStore = create((set, get) => ({
   users: [],
@@ -439,25 +440,51 @@ export const useChatStore = create((set, get) => ({
 
   addReaction: async (messageId, emoji) => {
     let socket = getSocket();
-    const { currentUser } = get();
+    const currentUser = get().currentUser || useUserStore.getState().user;
 
     if (!socket) {
       socket = initializeSocket();
     }
 
     if (socket && currentUser) {
-      console.log(" STEP 4 EMIT DATA:", {
-        messageId,
-        emoji,
-        reactionUserId: currentUser._id,
-      });
+      const reactionUserId = currentUser._id || currentUser.id;
+
+      set((state) => ({
+        messages: state.messages.map((msg) => {
+          if (msg._id !== messageId) return msg;
+          const currentReactions = msg.reactions || [];
+          const filtered = currentReactions.filter(
+            (r) => String(r.userId?._id || r.userId) !== String(reactionUserId)
+          );
+          return {
+            ...msg,
+            reactions: emoji
+              ? [
+                  ...filtered,
+                  {
+                    userId: {
+                      _id: reactionUserId,
+                      username: currentUser.username,
+                      profilePicture: currentUser.profilePicture,
+                    },
+                    emoji,
+                  },
+                ]
+              : filtered,
+          };
+        }),
+      }));
 
       socket.emit("add_reaction", {
         messageId,
         emoji,
-        reactionUserId: currentUser._id,
+        reactionUserId,
       });
     }
+  },
+
+  removeReaction: async (messageId) => {
+    return get().addReaction(messageId, null);
   },
 
   votePoll: async (messageId, optionIndex) => {

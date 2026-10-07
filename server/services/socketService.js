@@ -125,41 +125,65 @@ function initializeSocket(server) {
 
     socket.on("add_reaction", async ({ messageId, emoji, reactionUserId }) => {
       try {
-        const userObjectId = new mongoose.Types.ObjectId(reactionUserId);
+        if (!messageId || !reactionUserId) return;
+
+        let userObjectId = null;
+        try {
+          userObjectId = new mongoose.Types.ObjectId(reactionUserId);
+        } catch (e) {
+          userObjectId = null;
+        }
+
+        const matchIds = [reactionUserId.toString()];
+        if (userObjectId) {
+          matchIds.push(userObjectId);
+        }
+
         await Message.updateOne(
           { _id: messageId },
           {
-            $pull: { reactions: { userId: userObjectId } },
-          },
-        );
-        await Message.updateOne(
-          { _id: messageId },
-          {
-            $push: {
+            $pull: {
               reactions: {
-                userId: userObjectId,
-                emoji,
+                userId: { $in: matchIds },
               },
             },
           },
         );
+
+        if (emoji) {
+          await Message.updateOne(
+            { _id: messageId },
+            {
+              $push: {
+                reactions: {
+                  userId: userObjectId || reactionUserId,
+                  emoji,
+                },
+              },
+            },
+          );
+        }
 
         const updated = await Message.findById(messageId)
           .populate("sender", "username profilePicture")
           .populate("receiver", "username profilePicture")
           .populate("reactions.userId", "username profilePicture");
 
-        io.to(updated.sender._id.toString()).emit("reaction_update", {
-          messageId,
-          reactions: updated.reactions,
-        });
+        if (!updated) return;
 
-        io.to(updated.receiver._id.toString()).emit("reaction_update", {
-          messageId,
-          reactions: updated.reactions,
+        const targets = new Set();
+        if (updated?.sender?._id) targets.add(updated.sender._id.toString());
+        if (updated?.receiver?._id) targets.add(updated.receiver._id.toString());
+        targets.add(reactionUserId.toString());
+
+        targets.forEach((targetId) => {
+          io.to(targetId).emit("reaction_update", {
+            messageId,
+            reactions: updated.reactions,
+          });
         });
       } catch (error) {
-        console.error(error);
+        console.error("Error updating reaction:", error);
       }
     });
 

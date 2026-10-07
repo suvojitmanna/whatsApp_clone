@@ -11,7 +11,6 @@ import {
   FaHeadphones,
   FaImage,
   FaLock,
-  FaPaperclip,
   FaPhone,
   FaPlus,
   FaTrash,
@@ -324,20 +323,21 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     let dateString;
     if (isToday(date)) {
-      dateString = "Today";
+      dateString = "TODAY";
     } else if (isYesterday(date)) {
-      dateString = "Yesterday";
+      dateString = "YESTERDAY";
     } else {
-      dateString = format(date, "EEEE,MMMM d");
+      dateString = format(date, "EEEE, MMMM d");
     }
 
     return (
-      <div className="sticky top-0 z-10 flex justify-center mb-4">
+      <div className="flex justify-center my-3 select-none">
         <span
-          className={`px-4 py-1.5 text-xs font-semibold rounded-full backdrop-blur-md shadow-sm border transition-colors duration-300 ${theme === "dark"
-            ? "bg-[#202c33]/80 text-slate-300 border-white/5"
-            : "bg-white/80 text-slate-600 border-black/5"
-            }`}
+          className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${
+            theme === "dark"
+              ? "bg-[#182229] text-[#8696a0]"
+              : "bg-white text-[#54656f]"
+          }`}
         >
           {dateString}
         </span>
@@ -532,7 +532,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         className={`flex h-screen w-full flex-col ${theme === "dark" ? "bg-[#0b141a] text-white" : "bg-[#efe7de] text-gray-900"}`}
       >
         <div
-          className={`p-3 sm:p-4 border-b ${theme === "dark"
+          className={`p-1 border-b ${theme === "dark"
             ? "bg-[#202c33] border-gray-700/60 text-white"
             : "bg-[#f0f2f5] border-gray-200 text-gray-900"
             } flex items-center`}
@@ -752,7 +752,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         </div>
 
         <div
-          className={`flex-1 p-4 overflow-y-auto scroll-smooth custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
+          className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto scroll-smooth custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
             }`}
           style={{
             backgroundImage:
@@ -763,18 +763,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             backgroundSize: "400px",
           }}
         >
-          <div className="max-w-4xl mx-auto flex flex-col space-y-2">
+          <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
             {Object.entries(finalMessagesToRender).map(([date, msgs]) => {
               if (msgs.length === 0) return null;
 
               return (
                 <React.Fragment key={date}>
-                  <div className="flex justify-center my-4">
-                    <span className={`px-4 py-1.5 text-xs rounded-lg shadow-sm font-medium ${theme === "dark" ? "bg-[#182229] text-[#8696a0]" : "bg-white text-[#54656f]"
-                      }`}>
-                      {renderDateSeparator(new Date(date))}
-                    </span>
-                  </div>
+                  {renderDateSeparator(new Date(date))}
 
                   {msgs.map((msg, index) => {
                     const prevMsg = index > 0 ? msgs[index - 1] : null;

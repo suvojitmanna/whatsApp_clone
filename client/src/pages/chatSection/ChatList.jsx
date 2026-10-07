@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import useThemeStore from "../../store/themeStore";
-import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
 import { FaPlus, FaSearch } from "react-icons/fa";
 import { motion } from "framer-motion";
@@ -15,7 +14,6 @@ const ChatList = ({ contacts }) => {
   );
 
   const { theme } = useThemeStore();
-  const { user } = useUserStore();
   const [searchTerms, setSearchTerms] = useState("");
   const filteredContact =
     contacts
@@ -65,7 +63,7 @@ const ChatList = ({ contacts }) => {
           />
         </div>
       </div>
-      <div className="overflow-y-auto h-[calc(100vh-120px)]">
+      <div className="overflow-y-auto h-[calc(100vh-120px)] custom-scrollbar">
         {filteredContact.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

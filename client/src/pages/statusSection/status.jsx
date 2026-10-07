@@ -12,6 +12,7 @@ import formatTimestamp from "../../utils/formatTime";
 import StatusList from "./StatusList";
 import CameraModal from "../../components/CameraModal";
 import useOutsideClick from "../../hook/useOutsideClick";
+import StatusPlaceholder from "../../components/StatusPlaceholder";
 
 const status = () => {
   const [previewContact, setPreviewContact] = useState(null);
@@ -167,6 +168,7 @@ const status = () => {
   return (
     <Layout
       handleStatusClick={handleStatusClick}
+      rightContent={<StatusPlaceholder />}
       isStatusPreviewOpen={!!previewContact}
       statusPreviewContent={
         previewContact && (
@@ -188,7 +190,7 @@ const status = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`flex flex-col min-h-screen transition-colors duration-500 ${
+        className={`flex flex-col min-h-screen transition-colors duration-500 border-r-[0.05px] ${
           theme === "dark"
             ? "bg-[#0b141a] text-gray-100"
             : "bg-slate-50 text-gray-900"
@@ -197,7 +199,7 @@ const status = () => {
         <header
           className={`sticky top-0 z-20 backdrop-blur-xl border-b transition-all ${
             theme === "dark"
-              ? "bg-[#111b21]/70 border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.1)]"
+              ? "bg-[#111b21] border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.1)]"
               : "bg-white/70 border-gray-200 shadow-sm"
           } p-5`}
         >
@@ -361,7 +363,7 @@ const status = () => {
                 Recent Updates
               </h3>
 
-              <div className="flex-1 h-[1px] ml-3 bg-gradient-to-r from-transparent via-gray-500/20 to-transparent" />
+              <div className="flex-1 h-[1px] ml-3 bg-gradient-to-r from-transparent via-gray-500/90 to-transparent" />
             </div>
             {loading ? (
               <div className="flex flex-col items-center py-24">

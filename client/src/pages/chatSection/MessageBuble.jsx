@@ -1,11 +1,10 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FaCheckDouble,
   FaPlus,
   FaRegCopy,
-  FaSmile,
   FaRegImage,
   FaVideo,
   FaDownload,
@@ -31,6 +30,7 @@ import { toast } from "react-toastify";
 import { useChatStore } from "../../store/chatStore";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
+import ReactionDetailsModal from "../../components/ReactionDetailsModal";
 
 const MessageBuble = ({
   message,
@@ -59,20 +59,42 @@ const MessageBuble = ({
   const pressTimer = useRef(null);
   const isLongPress = useRef(false);
   const editRef = useRef(null);
+  const bubbleRef = useRef(null);
+  const reactionBadgeRef = useRef(null);
 
+  const [showReactionDetails, setShowReactionDetails] = useState(false);
   const votePoll = useChatStore((state) => state.votePoll);
+  const removeReaction = useChatStore((state) => state.removeReaction);
   const setSelectedPollDetails = useLayoutStore(
     (state) => state.setSelectedPollDetails
   );
   const storeUser = useUserStore((state) => state.user);
   const effectiveUser = currentUser || storeUser;
   const currentUserId = (effectiveUser?._id || effectiveUser?.id)?.toString();
-
+  const senderId = (
+    message?.sender?._id ||
+    message?.sender?.id ||
+    message?.sender
+  )?.toString();
+  const isUserMessage = Boolean(
+    currentUserId && senderId && currentUserId === senderId
+  );
   const isDark = theme === "dark";
-  const isUserMessage = (message.sender?._id || message.sender)?.toString() === currentUserId;
   const isSticker = message.contentType === "sticker";
 
   const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+  const uniqueReactions = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    (message.reactions || []).forEach((r) => {
+      if (r.emoji && !seen.has(r.emoji)) {
+        seen.add(r.emoji);
+        list.push(r.emoji);
+      }
+    });
+    return list;
+  }, [message.reactions]);
 
   const getInitials = (name) => {
     if (!name) return "U";
@@ -83,20 +105,18 @@ const MessageBuble = ({
     return name.slice(0, 2).toUpperCase();
   };
 
-  const bubbleClass = isUserMessage ? "chat-end" : "chat-start";
-
   const bubbleContentClass = isSticker
-    ? "relative group !py-1 !px-1 bg-transparent shadow-none"
+    ? "relative group !p-1 bg-transparent shadow-none"
     : isUserMessage
-      ? `chat-bubble before:!hidden max-w-[88%] sm:max-w-[80%] md:max-w-[72%] lg:max-w-[65%] min-w-[130px] rounded-2xl ${isFirstInSequence ? "rounded-tr-none" : ""
+      ? `relative group max-w-[85%] sm:max-w-[75%] md:max-w-[65%] min-w-[75px] rounded-[7.5px] pt-[6px] pb-[7px] px-[9px] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] ${isFirstInSequence ? "rounded-tr-none" : ""
       } ${theme === "dark"
         ? "bg-[#005c4b] text-[#e9edef]"
-        : "bg-[#d9fdd3] text-[#111b21] shadow-sm"
+        : "bg-[#d9fdd3] text-[#111b21]"
       }`
-      : `chat-bubble before:!hidden max-w-[88%] sm:max-w-[80%] md:max-w-[72%] lg:max-w-[65%] min-w-[130px] rounded-2xl ${isFirstInSequence ? "rounded-tl-none" : ""
+      : `relative group max-w-[85%] sm:max-w-[75%] md:max-w-[65%] min-w-[75px] rounded-[7.5px] pt-[6px] pb-[7px] px-[9px] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] ${isFirstInSequence ? "rounded-tl-none" : ""
       } ${theme === "dark"
         ? "bg-[#202c33] text-[#e9edef]"
-        : "bg-white text-[#111b21] shadow-sm"
+        : "bg-white text-[#111b21]"
       }`;
 
   const handleTouchStart = () => {
@@ -114,7 +134,18 @@ const MessageBuble = ({
     typeof highlightText === "function" ? highlightText : (text) => text;
 
   const handleReact = (emoji) => {
-    onReact(message._id, emoji);
+    const myExistingReaction = (message.reactions || []).find(
+      (r) => String(r.userId?._id || r.userId) === String(currentUserId)
+    );
+    if (myExistingReaction && myExistingReaction.emoji === emoji) {
+      if (removeReaction) {
+        removeReaction(message._id);
+      } else {
+        onReact(message._id, null);
+      }
+    } else {
+      onReact(message._id, emoji);
+    }
     setShowEmojiPicker(false);
     setShowReactions(false);
   };
@@ -141,14 +172,18 @@ const MessageBuble = ({
   if (!message) return null;
   return (
     <div
-      className={`chat ${bubbleClass} ${isActive ? "z-10" : ""} !py-0 ${isFirstInSequence ? "mt-2" : "mt-[2px]"
+      className={`w-full flex ${isUserMessage
+          ? "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
+          : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
+        } ${isActive ? "z-10" : ""} !py-0 ${isFirstInSequence ? "mt-2" : "mt-[2.5px]"
         }`}
       data-match={dataMatch ? "true" : "false"}
     >
       <div
-        className={`${bubbleContentClass} relative group !py-2.5 !px-3 ${isActive
+        ref={bubbleRef}
+        className={`${bubbleContentClass} relative group ${isActive
           ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
-          : "shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+          : ""
           }`}
       >
         {!isSticker && isFirstInSequence && (
@@ -331,11 +366,47 @@ const MessageBuble = ({
                     </div>
                   </div>
                 ) : (
-                  <p className="break-all whitespace-pre-wrap text-[14.5px] leading-relaxed">
-                    {searchTerm
-                      ? safeHighlight(message.content || "", searchTerm)
-                      : message.content}
-                  </p>
+                  <div className="text-[14.2px] leading-[19px] select-text">
+                    <span className="break-words whitespace-pre-wrap">
+                      {searchTerm
+                        ? safeHighlight(message.content || "", searchTerm)
+                        : message.content}
+                    </span>
+                    <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
+                      {message.edited && (
+                        <span className="text-[10px] italic opacity-75 mr-0.5">
+                          Edited
+                        </span>
+                      )}
+                      <span className="text-[11px] leading-none opacity-60 font-normal">
+                        {format(new Date(message.createdAt), "HH:mm")}
+                      </span>
+                      {isUserMessage && (
+                        <span className="inline-flex items-center ml-0.5">
+                          {message.messageStatus === "send" && (
+                            <FiCheck size={14} className="opacity-60" />
+                          )}
+                          {message.messageStatus === "delivered" && (
+                            <FaCheckDouble size={12} className="opacity-60" />
+                          )}
+                          {message.messageStatus === "read" && (
+                            <FaCheckDouble size={12} className="text-[#53bdeb]" />
+                          )}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowOptions((prev) => !prev);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5"
+                        title="Menu"
+                      >
+                        <FiChevronDown size={14} />
+                      </button>
+                    </span>
+                  </div>
                 )}
               </>
             )}
@@ -473,16 +544,18 @@ const MessageBuble = ({
                     <FiChevronDown size={19} />
                   </button>
                 </div>
-                <h3 className="font-bold text-[15px] leading-snug tracking-tight text-gray-900 dark:text-white mb-1">
+                <h3 className={`font-bold text-[15px] leading-snug tracking-tight mb-1 ${isDark ? "text-white" : "text-gray-900"
+                  }`}>
                   {message.pollData?.question || message.content}
                 </h3>
-                <div className="flex items-center gap-1.5 text-[12px] text-gray-500 dark:text-[#8696a0] font-normal mb-3">
+                <div className={`flex items-center gap-1.5 text-[12px] font-normal mb-3 ${isDark ? "text-[#8696a0]" : "text-gray-500"
+                  }`}>
                   {message.pollData?.isClosed ? (
-                    <MdAccessTime size={13} className="shrink-0 text-gray-500 dark:text-[#8696a0]" />
+                    <MdAccessTime size={13} className={`shrink-0 ${isDark ? "text-[#8696a0]" : "text-gray-500"}`} />
                   ) : message.pollData?.allowMultiple ? (
-                    <FaCheckDouble size={12} className="shrink-0 text-gray-500 dark:text-[#8696a0] rounded-full" />
+                    <FaCheckDouble size={12} className={`shrink-0 rounded-full ${isDark ? "text-[#8696a0]" : "text-gray-500"}`} />
                   ) : (
-                    <FiCheck size={14} className="shrink-0 text-gray-500 dark:text-[#8696a0]" />
+                    <FiCheck size={14} className={`shrink-0 ${isDark ? "text-[#8696a0]" : "text-gray-500"}`} />
                   )}
                   <span>
                     {message.pollData?.isClosed
@@ -524,16 +597,17 @@ const MessageBuble = ({
                         <div className="flex items-center justify-between gap-3 text-sm">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             {hasVoted ? (
-                              <span className="w-5 h-5 rounded-full bg-[#00a884] text-white dark:text-[#111b21] flex items-center justify-center text-[11px] font-black shrink-0 shadow-sm">
+                              <span className="w-5 h-5 rounded-full bg-[#00a884] text-white flex items-center justify-center text-[11px] font-black shrink-0 shadow-sm">
                                 ✓
                               </span>
                             ) : (
-                              <span className="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-[#8696a0]/80 shrink-0"></span>
+                              <span className={`w-5 h-5 rounded-full border-2 shrink-0 ${isDark ? "border-[#8696a0]/80" : "border-gray-400"
+                                }`}></span>
                             )}
                             <span
                               className={`text-[14.5px] leading-snug break-words ${hasVoted
-                                ? "font-semibold text-gray-900 dark:text-white"
-                                : "font-normal text-gray-800 dark:text-white/95"
+                                  ? isDark ? "font-semibold text-white" : "font-semibold text-gray-900"
+                                  : isDark ? "font-normal text-white/95" : "font-normal text-gray-800"
                                 }`}
                             >
                               {option.text}
@@ -551,12 +625,14 @@ const MessageBuble = ({
                                       key={vIdx}
                                       src={avatar}
                                       alt={name}
-                                      className="w-5 h-5 rounded-full border border-gray-200 dark:border-[#202c33] object-cover"
+                                      className={`w-5 h-5 rounded-full border object-cover ${isDark ? "border-[#202c33]" : "border-gray-200"
+                                        }`}
                                     />
                                   ) : (
                                     <div
                                       key={vIdx}
-                                      className="w-5 h-5 rounded-full border border-gray-200 dark:border-[#202c33] bg-[#7c3aed] text-[9px] text-white font-bold flex items-center justify-center"
+                                      className={`w-5 h-5 rounded-full border bg-[#7c3aed] text-[9px] text-white font-bold flex items-center justify-center ${isDark ? "border-[#202c33]" : "border-gray-200"
+                                        }`}
                                     >
                                       {name.charAt(0).toUpperCase()}
                                     </div>
@@ -564,13 +640,15 @@ const MessageBuble = ({
                                 })}
                               </div>
                             )}
-                            <span className="text-[13px] font-normal text-gray-500 dark:text-[#8696a0] tabular-nums">
+                            <span className={`text-[13px] font-normal tabular-nums ${isDark ? "text-[#8696a0]" : "text-gray-500"
+                              }`}>
                               {optionVotes}
                             </span>
                           </div>
                         </div>
 
-                        <div className="w-full h-[6px] rounded-full bg-black/10 dark:bg-[#2a3942] overflow-hidden">
+                        <div className={`w-full h-[6px] rounded-full overflow-hidden ${isDark ? "bg-[#2a3942]" : "bg-black/10"
+                          }`}>
                           <div
                             className="h-full bg-[#00a884] rounded-full transition-all duration-300"
                             style={{ width: `${percentage}%` }}
@@ -581,17 +659,20 @@ const MessageBuble = ({
                   })}
                 </div>
 
-                <div className="flex justify-end text-[11px] text-[#8696a0] mt-2 mb-0.5">
+                <div className={`flex justify-end text-[11px] mt-2 mb-0.5 ${isDark ? "text-[#8696a0]" : "text-[#667781]"
+                  }`}>
                   <span>{format(new Date(message.createdAt), "HH:mm")}</span>
                 </div>
-                <div className="border-t border-black/10 dark:border-[#2a3942] -mx-3 -mb-2.5 mt-2 rounded-b-2xl overflow-hidden">
+                <div className={`border-t -mx-3 -mb-2.5 mt-2 rounded-b-2xl overflow-hidden ${isDark ? "border-[#2a3942]" : "border-black/10"
+                  }`}>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedPollDetails(message);
                     }}
-                    className="w-full py-2 text-center text-[14px] font-semibold text-[#00a884] hover:text-[#00c99e] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    className={`w-full py-2 text-center text-[14px] font-semibold text-emerald-500 hover:text-emerald-400 transition-colors cursor-pointer ${isDark ? "hover:bg-white/5" : "hover:bg-black/5"
+                      }`}
                   >
                     View votes
                   </button>
@@ -646,43 +727,39 @@ const MessageBuble = ({
           </div>
         </div>
 
-        {message.contentType !== "poll" && (
-          <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-60 mt-1.5 select-none">
+        {message.contentType !== "text" && message.contentType !== "poll" && (
+          <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-60 mt-1 select-none">
             {message.edited && (
               <span className="italic opacity-80 mr-0.5">Edited</span>
             )}
             <span>{format(new Date(message.createdAt), "HH:mm")}</span>
             {isUserMessage && (
               <>
-                {message.messageStatus === "send" && <FiCheck size={15} />}
+                {message.messageStatus === "send" && <FiCheck size={14} />}
                 {message.messageStatus === "delivered" && (
                   <FaCheckDouble size={12} />
                 )}
                 {message.messageStatus === "read" && (
-                  <FaCheckDouble size={12} className="text-sky-400" />
+                  <FaCheckDouble size={12} className="text-[#53bdeb]" />
                 )}
               </>
             )}
-          </div>
-        )}
-
-        {message.contentType !== "poll" && (
-          <div className="absolute top-1.5 right-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 z-20">
             <button
-              onClick={() => setShowOptions((prev) => !prev)}
-              className={`p-1 rounded-full cursor-pointer backdrop-blur-sm transition-colors ${isDark
-                ? "text-white/80 hover:bg-white/10 hover:text-white"
-                : "text-gray-600 hover:bg-black/[0.06] hover:text-gray-900"
-                }`}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOptions((prev) => !prev);
+              }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5"
               title="Menu"
             >
-              <FiChevronDown size={18} />
+              <FiChevronDown size={14} />
             </button>
           </div>
         )}
 
         <div
-          className={`absolute ${isUserMessage ? "-left-9" : "-right-9"
+          className={`absolute ${isUserMessage ? "-left-8" : "-right-8"
             } top-1/2 -translate-y-1/2 flex flex-col items-center z-10`}
         >
           <AnimatePresence>
@@ -698,15 +775,26 @@ const MessageBuble = ({
                   : "bg-white/95 border-black/[0.06] backdrop-blur-md"
                   }`}
               >
-                {quickReactions.map((emoji, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleReact(emoji)}
-                    className="text-lg hover:scale-125 transition-transform duration-150 p-1.5 rounded-full cursor-pointer hover:bg-black/[0.05]"
-                  >
-                    {emoji}
-                  </button>
-                ))}
+                {quickReactions.map((emoji, index) => {
+                  const isSelected = (message.reactions || []).some(
+                    (r) =>
+                      String(r.userId?._id || r.userId) === String(currentUserId) &&
+                      r.emoji === emoji
+                  );
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleReact(emoji)}
+                      className={`text-lg hover:scale-125 transition-transform duration-150 p-1.5 rounded-full cursor-pointer ${isSelected
+                          ? "bg-emerald-500/25 ring-1 ring-emerald-500 scale-110"
+                          : "hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"
+                        }`}
+                      title={isSelected ? "Click to remove" : `React ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  );
+                })}
 
                 <div
                   className={`w-px h-5 mx-1 ${isDark ? "bg-white/15" : "bg-black/10"
@@ -767,41 +855,55 @@ const MessageBuble = ({
           </AnimatePresence>
 
           <button
-            onClick={() => setShowReactions((prev) => !prev)}
-            className={`p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 active:scale-95 ${isDark
-              ? "bg-[#233138] hover:bg-[#2a3942]"
-              : "bg-white hover:bg-gray-50"
-              } shadow-md ring-1 ${isDark ? "ring-white/10" : "ring-black/[0.06]"
-              } cursor-pointer`}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowReactions((prev) => !prev);
+            }}
+            className={`w-[26px] h-[26px] rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer ${showReactions
+                ? "opacity-100 bg-black/10 dark:bg-white/10"
+                : "opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
+              }`}
+            title="React"
           >
             <BsEmojiSmile
-              size={15}
-              className={isDark ? "text-gray-300" : "text-gray-500"}
+              size={16}
+              className={isDark ? "text-[#8696a0] hover:text-[#e9edef]" : "text-[#54656f] hover:text-[#111b21]"}
             />
           </button>
         </div>
 
         {message.reactions && message.reactions.length > 0 && (
-          <div
-            className={`absolute -bottom-3 flex items-center gap-1 px-2 py-1 rounded-full shadow-md border transition-transform duration-200 hover:scale-110 z-20 ${isUserMessage ? "right-3" : "left-3"
+          <button
+            ref={reactionBadgeRef}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowReactionDetails(true);
+            }}
+            title="View reactions"
+            className={`absolute -bottom-2.5 z-20 flex items-center px-1.5 py-0.5 rounded-full border transition-all duration-150 hover:scale-105 active:scale-95 cursor-pointer select-none ${isUserMessage ? "right-2" : "left-2"
               } ${isDark
-                ? "bg-[#233138] border-white/10 text-gray-200"
-                : "bg-white border-black/[0.06] text-gray-700"
+                ? "bg-[#202c33] border-[#222e35] shadow-[0_1px_3px_rgba(0,0,0,0.45)] hover:bg-[#26343d]"
+                : "bg-white border-[#e9edef] shadow-[0_1px_3px_rgba(11,20,26,0.18)] hover:bg-[#f5f6f6]"
               }`}
           >
-            <div className="flex items-center gap-0.5">
-              {message.reactions.slice(0, 5).map((reaction, index) => (
-                <span key={index} className="text-[13px] leading-none">
-                  {reaction.emoji}
+            <div className="flex items-center -space-x-0.5">
+              {uniqueReactions.slice(0, 3).map((emoji, index) => (
+                <span
+                  key={index}
+                  className="text-[13px] leading-none select-none inline-block"
+                >
+                  {emoji}
                 </span>
               ))}
-              {message.reactions.length > 1 && (
-                <span className="text-[10.5px] font-semibold ml-0.5 tabular-nums">
-                  {message.reactions.length}
-                </span>
-              )}
             </div>
-          </div>
+            {message.reactions.length > 1 && (
+              <span className="text-[11px] font-medium leading-none ml-1 tabular-nums text-[#667781] dark:text-[#8696a0]">
+                {message.reactions.length}
+              </span>
+            )}
+          </button>
         )}
 
         <AnimatePresence>
@@ -1136,6 +1238,26 @@ const MessageBuble = ({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Reactions Detail Modal */}
+        <ReactionDetailsModal
+          isOpen={showReactionDetails}
+          onClose={() => setShowReactionDetails(false)}
+          message={message}
+          currentUser={effectiveUser}
+          onRemoveReaction={(id) => {
+            if (removeReaction) {
+              removeReaction(id);
+            } else {
+              onReact(id, null);
+            }
+          }}
+          onReact={onReact}
+          isDark={isDark}
+          anchorRef={reactionBadgeRef}
+          bubbleRef={bubbleRef}
+          isUserMessage={isUserMessage}
+        />
       </div>
     </div>
   );

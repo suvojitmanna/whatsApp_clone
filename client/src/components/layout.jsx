@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import useLayoutStore from "../store/layoutStore";
 import useThemeStore from "../store/themeStore";
 import SideBar from "../components/sideBar";
@@ -7,6 +8,7 @@ import ChatWindow from "../pages/chatSection/ChatWindow";
 import ContactInfo from "../components/ContactInfo";
 import ProfilePicture from "../components/profilePicture";
 import PollDetailsPanel from "../components/PollDetailsPanel";
+import StatusPlaceholder from "./StatusPlaceholder";
 
 const Layout = ({
   children,
@@ -15,6 +17,7 @@ const Layout = ({
   isStatusPreviewOpen,
   statusPreviewContent,
   handleStatusClick,
+  rightContent,
 }) => {
   const selectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedContact = useLayoutStore(
@@ -32,6 +35,11 @@ const Layout = ({
   const setShowProfilePicture = useLayoutStore(
     (state) => state.setShowProfilePicture,
   );
+
+  const location = useLocation();
+  const isStatusPage = location.pathname.startsWith("/status");
+  const effectiveRightContent =
+    rightContent || (isStatusPage ? <StatusPlaceholder /> : null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -68,21 +76,25 @@ const Layout = ({
             </motion.div>
           )}
 
-          {(selectedContact || !isMobile) && (
+          {(!isMobile || selectedContact) && (
             <motion.div
-              key="chatWindow"
+              key={effectiveRightContent ? "statusPlaceholder" : "chatWindow"}
               initial={{ x: isMobile ? "100%" : 0 }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "tween" }}
               className="h-full flex-1 min-w-0"
             >
-              <ChatWindow
-                selectedContact={selectedContact}
-                setSelectedContact={setSelectedContact}
-                onStatusClick={handleStatusClick}
-                isMobile={isMobile}
-              />
+              {effectiveRightContent ? (
+                effectiveRightContent
+              ) : (
+                <ChatWindow
+                  selectedContact={selectedContact}
+                  setSelectedContact={setSelectedContact}
+                  onStatusClick={handleStatusClick}
+                  isMobile={isMobile}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>
