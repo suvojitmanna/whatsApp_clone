@@ -5,6 +5,7 @@ import useUserStore from "./useUserStore";
 
 export const useChatStore = create((set, get) => ({
   users: [],
+  setUsers: (users) => set({ users }),
   conversations: [],
   currentConversation: null,
   currentUser: null,
@@ -15,6 +16,14 @@ export const useChatStore = create((set, get) => ({
   error: null,
   onlineUsers: new Map(),
   typingUsers: new Map(),
+  scrollPositions: {},
+  saveScrollPosition: (id, pos) =>
+    set((state) => ({
+      scrollPositions: {
+        ...state.scrollPositions,
+        [id]: pos,
+      },
+    })),
 
   initSocketListener: () => {
     const socket = getSocket();
@@ -74,9 +83,12 @@ export const useChatStore = create((set, get) => ({
     });
 
     socket.on("reaction_update", ({ messageId, reactions }) => {
+      const cleanReactions = (reactions || []).filter(
+        (r) => Boolean(r && r.emoji)
+      );
       set((state) => ({
         messages: state.messages.map((msg) =>
-          msg._id === messageId ? { ...msg, reactions } : msg,
+          msg._id === messageId ? { ...msg, reactions: cleanReactions } : msg,
         ),
       }));
     });
@@ -452,7 +464,9 @@ export const useChatStore = create((set, get) => ({
       set((state) => ({
         messages: state.messages.map((msg) => {
           if (msg._id !== messageId) return msg;
-          const currentReactions = msg.reactions || [];
+          const currentReactions = (msg.reactions || []).filter(
+            (r) => Boolean(r && r.emoji)
+          );
           const filtered = currentReactions.filter(
             (r) => String(r.userId?._id || r.userId) !== String(reactionUserId)
           );
@@ -477,7 +491,7 @@ export const useChatStore = create((set, get) => ({
 
       socket.emit("add_reaction", {
         messageId,
-        emoji,
+        emoji: emoji || null,
         reactionUserId,
       });
     }

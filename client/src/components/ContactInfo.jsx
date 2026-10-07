@@ -76,15 +76,13 @@ const ContactInfo = () => {
     >
       <div
         className={`relative w-14 h-14 flex items-center justify-center rounded-2xl 
-      /* The Frosting */
+
       backdrop-blur-md 
-      /* Dynamic Glass Tint */
       ${theme === "dark"
             ? "bg-white/5 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
             : "bg-black/5 border-black/5 shadow-[0_4px_16px_0_rgba(31,38,135,0.05)]"
           }
       border
-      /* Interactive Glow */
       group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10
       transition-all duration-500 overflow-hidden`}
       >

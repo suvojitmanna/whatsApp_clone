@@ -12,7 +12,6 @@ const StatusPlaceholder = () => {
       }`}
     >
       <div className="flex flex-col items-center justify-center max-w-md text-center">
-        {/* WhatsApp Status Ring Icon */}
         <div className="mb-7 flex items-center justify-center">
           <svg
             viewBox="0 0 48 48"
@@ -20,9 +19,7 @@ const StatusPlaceholder = () => {
             height="62"
             className={isDark ? "text-[#8696a0]/50" : "text-[#54656f]/40"}
           >
-            {/* Center circle */}
             <circle cx="24" cy="24" r="7.5" fill="currentColor" />
-            {/* Segmented status story ring */}
             <circle
               cx="24"
               cy="24"
@@ -36,7 +33,6 @@ const StatusPlaceholder = () => {
           </svg>
         </div>
 
-        {/* Heading */}
         <h2
           className={`text-[30px] sm:text-[32px] font-normal tracking-tight mb-2.5 ${
             isDark ? "text-[#e9edef]" : "text-[#111b21]"
@@ -45,7 +41,6 @@ const StatusPlaceholder = () => {
           Share statuses
         </h2>
 
-        {/* Description */}
         <p
           className={`text-[14px] leading-relaxed max-w-[360px] ${
             isDark ? "text-[#8696a0]" : "text-[#54656f]"

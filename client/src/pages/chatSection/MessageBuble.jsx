@@ -84,17 +84,21 @@ const MessageBuble = ({
 
   const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
+  const validReactions = useMemo(() => {
+    return (message.reactions || []).filter((r) => Boolean(r && r.emoji));
+  }, [message.reactions]);
+
   const uniqueReactions = useMemo(() => {
     const list = [];
     const seen = new Set();
-    (message.reactions || []).forEach((r) => {
+    validReactions.forEach((r) => {
       if (r.emoji && !seen.has(r.emoji)) {
         seen.add(r.emoji);
         list.push(r.emoji);
       }
     });
     return list;
-  }, [message.reactions]);
+  }, [validReactions]);
 
   const getInitials = (name) => {
     if (!name) return "U";
@@ -143,6 +147,7 @@ const MessageBuble = ({
       } else {
         onReact(message._id, null);
       }
+      setShowReactionDetails(false);
     } else {
       onReact(message._id, emoji);
     }
@@ -173,8 +178,8 @@ const MessageBuble = ({
   return (
     <div
       className={`w-full flex ${isUserMessage
-          ? "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
-          : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
+        ? "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
+        : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
         } ${isActive ? "z-10" : ""} !py-0 ${isFirstInSequence ? "mt-2" : "mt-[2.5px]"
         }`}
       data-match={dataMatch ? "true" : "false"}
@@ -606,8 +611,8 @@ const MessageBuble = ({
                             )}
                             <span
                               className={`text-[14.5px] leading-snug break-words ${hasVoted
-                                  ? isDark ? "font-semibold text-white" : "font-semibold text-gray-900"
-                                  : isDark ? "font-normal text-white/95" : "font-normal text-gray-800"
+                                ? isDark ? "font-semibold text-white" : "font-semibold text-gray-900"
+                                : isDark ? "font-normal text-white/95" : "font-normal text-gray-800"
                                 }`}
                             >
                               {option.text}
@@ -786,8 +791,8 @@ const MessageBuble = ({
                       key={index}
                       onClick={() => handleReact(emoji)}
                       className={`text-lg hover:scale-125 transition-transform duration-150 p-1.5 rounded-full cursor-pointer ${isSelected
-                          ? "bg-emerald-500/25 ring-1 ring-emerald-500 scale-110"
-                          : "hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"
+                        ? "bg-emerald-500/25 ring-1 ring-emerald-500 scale-110"
+                        : "hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"
                         }`}
                       title={isSelected ? "Click to remove" : `React ${emoji}`}
                     >
@@ -861,8 +866,8 @@ const MessageBuble = ({
               setShowReactions((prev) => !prev);
             }}
             className={`w-[26px] h-[26px] rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer ${showReactions
-                ? "opacity-100 bg-black/10 dark:bg-white/10"
-                : "opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
+              ? "opacity-100 bg-black/10 dark:bg-white/10"
+              : "opacity-0 group-hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
               }`}
             title="React"
           >
@@ -873,7 +878,7 @@ const MessageBuble = ({
           </button>
         </div>
 
-        {message.reactions && message.reactions.length > 0 && (
+        {validReactions.length > 0 && (
           <button
             ref={reactionBadgeRef}
             type="button"
@@ -898,9 +903,9 @@ const MessageBuble = ({
                 </span>
               ))}
             </div>
-            {message.reactions.length > 1 && (
+            {validReactions.length > 1 && (
               <span className="text-[11px] font-medium leading-none ml-1 tabular-nums text-[#667781] dark:text-[#8696a0]">
-                {message.reactions.length}
+                {validReactions.length}
               </span>
             )}
           </button>
@@ -1239,9 +1244,8 @@ const MessageBuble = ({
           )}
         </AnimatePresence>
 
-        {/* Reactions Detail Modal */}
         <ReactionDetailsModal
-          isOpen={showReactionDetails}
+          isOpen={showReactionDetails && validReactions.length > 0}
           onClose={() => setShowReactionDetails(false)}
           message={message}
           currentUser={effectiveUser}

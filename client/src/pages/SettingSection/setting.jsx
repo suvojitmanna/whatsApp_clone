@@ -94,7 +94,6 @@ const Settings = () => {
       >
         {loading && <Loader />}
 
-        {/* Top Header Section */}
         <div className="p-4 md:p-5 pb-2 shrink-0">
           <h1 className="text-xl md:text-2xl font-bold mb-3">Settings</h1>
 
@@ -143,7 +142,6 @@ const Settings = () => {
           </Link>
         </div>
 
-        {/* Scrollable Menu Items */}
         <div className="flex-1 overflow-y-auto px-3 py-1 space-y-1 min-h-0">
           {filteredItems.length === 0 && searchTerm ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -213,7 +211,6 @@ const Settings = () => {
           )}
         </div>
 
-        {/* Bottom Logout Section */}
         <div
           className={`p-3 md:p-4 border-t mt-auto shrink-0 ${
             theme === "dark" ? "border-gray-700/60" : "border-gray-200"

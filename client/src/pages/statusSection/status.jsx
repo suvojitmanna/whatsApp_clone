@@ -190,52 +190,56 @@ const status = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`flex flex-col min-h-screen transition-colors duration-500 border-r-[0.05px] ${
+        className={`h-full w-full flex flex-col overflow-hidden border-r relative z-10 transition-colors duration-300 ${
           theme === "dark"
-            ? "bg-[#0b141a] text-gray-100"
-            : "bg-slate-50 text-gray-900"
+            ? "bg-[#111b21] border-gray-700/60 text-white"
+            : "bg-white border-gray-200 text-gray-900"
         }`}
       >
         <header
-          className={`sticky top-0 z-20 backdrop-blur-xl border-b transition-all ${
+          className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 transition-colors duration-300 ${
             theme === "dark"
-              ? "bg-[#111b21] border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.1)]"
-              : "bg-white/70 border-gray-200 shadow-sm"
-          } p-5`}
+              ? "bg-[#111b21] border-gray-700/50 text-white"
+              : "bg-white border-gray-200 text-gray-900"
+          }`}
         >
-          <div className="max-w-2xl mx-auto flex justify-between items-center">
-            <h2 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-green-500 to-emerald-400">
-              Status
-            </h2>
-            <div className="flex gap-4"></div>
+          <h2 className="text-xl font-semibold">Status</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="p-2 bg-green-500 text-white rounded-full shadow-md cursor-pointer transition-all duration-300 ease-in-out hover:bg-green-600 hover:scale-110 active:scale-95"
+              title="Add status"
+            >
+              <FaPlus className="h-3.5 w-3.5" />
+            </button>
           </div>
         </header>
 
-        <div className="max-w-2xl mx-auto w-full px-4 pb-24">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3 space-y-4">
           {error && (
             <motion.div
-              initial={{ y: -20, opacity: 0 }}
+              initial={{ y: -10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className="mt-4 bg-red-500/10 border border-red-500/20 backdrop-blur-md text-red-500 p-4 rounded-2xl flex justify-between items-center shadow-lg"
+              className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-xl flex justify-between items-center text-sm shadow-sm"
             >
-              <p className="text-sm font-semibold">{error}</p>
+              <p className="text-xs font-semibold">{error}</p>
               <button
                 onClick={clearError}
-                className="p-2 hover:bg-red-500/20 rounded-full transition-colors"
+                className="p-1 hover:bg-red-500/20 rounded-full transition-colors cursor-pointer"
               >
-                <RxCross2 className="h-5 w-5" />
+                <RxCross2 className="h-4 w-4" />
               </button>
             </motion.div>
           )}
 
           <section
-            className={`mt-6 rounded-3xl shadow-xl border transition-all hover:shadow-2xl ${
+            className={`rounded-2xl border transition-all ${
               theme === "dark"
-                ? "bg-[#111b21] border-white/5"
-                : "bg-white border-gray-100"
-            } p-5`}
+                ? "bg-[#111b21] border-gray-700/40 hover:bg-white/5"
+                : "bg-gray-50/80 border-gray-200/70 hover:bg-gray-100/70"
+            } p-3`}
           >
-            <div className="flex items-center space-x-5">
+            <div className="flex items-center gap-3">
               <div
                 className="relative flex-shrink-0 cursor-pointer group"
                 onClick={() =>
@@ -244,11 +248,9 @@ const status = () => {
                     : setShowCreateModal(true)
                 }
               >
-                <div
-                  className={`p-[3px] rounded-full bg-gradient-to-tr shadow-lg`}
-                >
+                <div className="p-[2px] rounded-full">
                   <img
-                    className={`w-16 h-16 rounded-full object-cover border-2 transition-transform group-hover:scale-95 ${
+                    className={`w-12 h-12 rounded-full object-cover border-2 transition-transform group-hover:scale-95 ${
                       theme === "dark" ? "border-[#111b21]" : "border-white"
                     }`}
                     src={user?.profilePicture}
@@ -258,7 +260,7 @@ const status = () => {
 
                 {userStatuses && (
                   <svg
-                    className="absolute -top-1 -left-1 w-[72px] h-[72px] pointer-events-none"
+                    className="absolute -top-[3px] -left-[3px] w-[54px] h-[54px] pointer-events-none"
                     viewBox="0 0 100 100"
                   >
                     {userStatuses.statuses.map((_, index) => {
@@ -273,10 +275,10 @@ const status = () => {
                           r="46"
                           fill="none"
                           stroke="#10b981"
-                          strokeWidth="3.5"
+                          strokeWidth="4"
                           strokeDasharray={`${segmentLength - 4} 4`}
                           strokeDashoffset={-(index * segmentLength)}
-                          transform={`rotate(-90 50 50)`}
+                          transform="rotate(-90 50 50)"
                         />
                       );
                     })}
@@ -284,22 +286,32 @@ const status = () => {
                 )}
 
                 <button
-                  className="absolute bottom-0 right-0 bg-green-500 text-white p-2 rounded-full border-4 border-white dark:border-[#111b21] hover:scale-110 active:scale-90 transition-all shadow-xl"
+                  className="absolute bottom-0 right-0 bg-green-500 text-white p-1 rounded-full border-2 border-white dark:border-[#111b21] hover:scale-110 active:scale-90 transition-all shadow-md cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowCreateModal(true);
                   }}
+                  title="Add update"
                 >
-                  <FaPlus className="h-3 w-3 cursor-pointer" />
+                  <FaPlus className="h-2.5 w-2.5" />
                 </button>
               </div>
 
-              <div className="flex-1">
-                <h4 className="font-extrabold text-lg tracking-tight">
+              <div
+                className="flex-1 min-w-0 cursor-pointer"
+                onClick={() =>
+                  userStatuses
+                    ? handleStatusPreview(userStatuses)
+                    : setShowCreateModal(true)
+                }
+              >
+                <h4 className="font-semibold text-[15px] truncate leading-tight">
                   My Status
                 </h4>
                 <p
-                  className={`text-sm font-medium ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}
+                  className={`text-xs mt-1 truncate ${
+                    theme === "dark" ? "text-gray-400" : "text-gray-500"
+                  }`}
                 >
                   {userStatuses
                     ? `${userStatuses.statuses.length} updates • ${
@@ -314,12 +326,14 @@ const status = () => {
               {userStatuses && (
                 <button
                   onClick={() => setShowOption(!showOption)}
-                  className="p-3 rounded-2xl hover:bg-gray-500/10 active:bg-gray-500/20 transition-all cursor-pointer"
+                  className="p-2 rounded-xl hover:bg-gray-500/10 active:bg-gray-500/20 transition-all cursor-pointer"
+                  title="Options"
                 >
                   <FaEllipsisH
                     className={
                       theme === "dark" ? "text-gray-400" : "text-gray-500"
                     }
+                    size={14}
                   />
                 </button>
               )}
@@ -329,19 +343,21 @@ const status = () => {
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
-                className={`mt-5 border-t pt-4 grid grid-cols-2 gap-3 ${theme === "dark" ? "border-white/5" : "border-gray-100"}`}
+                className={`mt-3 border-t pt-2.5 grid grid-cols-2 gap-2 ${
+                  theme === "dark" ? "border-white/10" : "border-gray-200"
+                }`}
               >
                 <button
-                  className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-green-500/10 text-green-500 font-bold text-sm transition-all hover:bg-green-500/20 cursor-pointer"
+                  className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-green-500/10 text-green-500 font-semibold text-xs transition-all hover:bg-green-500/20 cursor-pointer"
                   onClick={() => {
                     setShowCreateModal(true);
                     setShowOption(false);
                   }}
                 >
-                  <FaCamera size={14} /> Add New
+                  <FaCamera size={12} /> Add New
                 </button>
                 <button
-                  className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-500/10 text-blue-500 font-bold text-sm transition-all hover:bg-blue-500/20 cursor-pointer"
+                  className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-blue-500/10 text-blue-500 font-semibold text-xs transition-all hover:bg-blue-500/20 cursor-pointer"
                   onClick={() => {
                     handleStatusPreview(userStatuses);
                     setShowOption(false);
@@ -353,47 +369,39 @@ const status = () => {
             )}
           </section>
 
-          <div className="mt-12">
-            <div className="flex items-center justify-between px-2 mb-4">
+          <div>
+            <div className="flex items-center justify-between px-1 mb-2">
               <h3
-                className={`text-[11px] font-black uppercase tracking-[0.25em] ${
-                  theme === "dark" ? "text-gray-500" : "text-gray-400"
+                className={`text-xs font-semibold uppercase tracking-wider ${
+                  theme === "dark" ? "text-gray-400" : "text-gray-500"
                 }`}
               >
                 Recent Updates
               </h3>
-
-              <div className="flex-1 h-[1px] ml-3 bg-gradient-to-r from-transparent via-gray-500/90 to-transparent" />
             </div>
             {loading ? (
-              <div className="flex flex-col items-center py-24">
+              <div className="flex flex-col items-center py-12">
                 <div className="relative">
-                  <div className="w-14 h-14 rounded-full border-4 border-green-500/20" />
-                  <div className="absolute inset-0 w-14 h-14 rounded-full border-4 border-transparent border-t-green-500 animate-spin" />
+                  <div className="w-10 h-10 rounded-full border-3 border-green-500/20" />
+                  <div className="absolute inset-0 w-10 h-10 rounded-full border-3 border-transparent border-t-green-500 animate-spin" />
                 </div>
 
-                <p className="text-xs font-bold uppercase tracking-widest opacity-40 mt-4">
+                <p className="text-xs font-semibold uppercase tracking-widest opacity-40 mt-3">
                   Syncing updates...
                 </p>
               </div>
             ) : otherStatuses.length > 0 ? (
               <div
-                className={`rounded-[2.5rem] overflow-hidden border shadow-2xl backdrop-blur-xl transition-all ${
+                className={`rounded-2xl overflow-hidden border divide-y transition-all ${
                   theme === "dark"
-                    ? "bg-[#111b21]/80 border-white/5"
-                    : "bg-white/80 border-gray-100"
+                    ? "bg-[#111b21] border-gray-700/40 divide-gray-700/40"
+                    : "bg-white border-gray-200 divide-gray-100"
                 }`}
               >
-                <div className="absolute inset-0 pointer-events-none rounded-[2.5rem] ring-1 ring-white/5" />
-
                 {otherStatuses.map((contact, index) => (
                   <div
                     key={contact.id}
-                    className={`transition-all duration-300 ${
-                      index !== otherStatuses.length - 1
-                        ? "border-b border-white/5"
-                        : ""
-                    } hover:bg-white/5`}
+                    className="transition-colors duration-200"
                   >
                     <StatusList
                       contact={contact}
@@ -405,16 +413,15 @@ const status = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-24 px-6 rounded-[2.5rem] border border-dashed backdrop-blur-md bg-black/5 dark:bg-white/5 dark:border-white/10 border-gray-300 transition-all">
-                <div className="text-6xl mb-5 opacity-20 animate-pulse">✨</div>
+              <div className="text-center py-12 px-4 rounded-2xl border border-dashed backdrop-blur-md bg-black/5 dark:bg-white/5 dark:border-white/10 border-gray-300 transition-all">
+                <div className="text-4xl mb-3 opacity-30">✨</div>
 
-                <h3 className="text-lg font-bold opacity-70 mb-2">
+                <h3 className="text-sm font-semibold opacity-80 mb-1">
                   No Updates Yet
                 </h3>
 
-                <p className="text-sm opacity-50 max-w-xs mx-auto leading-relaxed">
-                  When your contacts share something, it will appear here
-                  beautifully.
+                <p className="text-xs opacity-50 max-w-xs mx-auto leading-relaxed">
+                  When your contacts share updates, they will appear here.
                 </p>
               </div>
             )}

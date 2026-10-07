@@ -33,7 +33,9 @@ const ReactionDetailsModal = ({
   const [coords, setCoords] = useState(null);
 
   const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
-  const reactions = message?.reactions || [];
+  const reactions = useMemo(() => {
+    return (message?.reactions || []).filter((r) => Boolean(r && r.emoji));
+  }, [message?.reactions]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -119,6 +121,7 @@ const ReactionDetailsModal = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
+
   useEffect(() => {
     if (isOpen && reactions.length === 0 && !showEmojiPicker) {
       onClose();
@@ -128,11 +131,13 @@ const ReactionDetailsModal = ({
   const emojiGroups = useMemo(() => {
     const map = {};
     reactions.forEach((r) => {
-      if (r.emoji) {
+      if (r && r.emoji) {
         map[r.emoji] = (map[r.emoji] || 0) + 1;
       }
     });
-    return Object.entries(map).map(([emoji, count]) => ({ emoji, count }));
+    return Object.entries(map)
+      .filter(([_, count]) => count > 0)
+      .map(([emoji, count]) => ({ emoji, count }));
   }, [reactions]);
 
   useEffect(() => {
@@ -151,9 +156,7 @@ const ReactionDetailsModal = ({
     const isMe = rUserId === String(currentUserId);
     if (isMe) {
       onRemoveReaction(message._id);
-      if (reactions.length <= 1) {
-        onClose();
-      }
+      onClose();
     }
   };
 
@@ -165,7 +168,7 @@ const ReactionDetailsModal = ({
     onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || (reactions.length === 0 && !showEmojiPicker)) return null;
 
   const reactionCountLabel =
     reactions.length === 1 ? "1 reaction" : `${reactions.length} reactions`;
@@ -206,9 +209,7 @@ const ReactionDetailsModal = ({
           }`}
         >
           {showEmojiPicker ? (
-            /* Emoji Picker View replacing reaction details */
             <div className="flex flex-col">
-              {/* Header with Back button and Close */}
               <div className="flex items-center justify-between pb-2 mb-1.5 border-b border-white/[0.08] dark:border-white/[0.08]">
                 <button
                   type="button"
@@ -244,7 +245,6 @@ const ReactionDetailsModal = ({
                 </button>
               </div>
 
-              {/* Embedded Emoji Picker */}
               <div className="rounded-xl overflow-hidden">
                 <EmojiPicker
                   onEmojiClick={(emojiObj) =>
@@ -260,18 +260,14 @@ const ReactionDetailsModal = ({
               </div>
             </div>
           ) : (
-            /* Reaction Details View */
             <>
-              {/* Header Title: "1 reaction" / "{N} reactions" */}
               <div className={`text-[15px] font-semibold tracking-tight mb-2.5 select-none ${
                 isDark ? "text-[#e9edef]" : "text-[#111b21]"
               }`}>
                 {reactionCountLabel}
               </div>
 
-              {/* Filter Pills Bar: Smiley Plus button + Emoji pills [✨ 1] */}
               <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar scrollbar-none pb-0.5 mb-2.5">
-                {/* Add / React Smiley Button -> switches to EmojiPicker */}
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker(true)}
@@ -288,7 +284,6 @@ const ReactionDetailsModal = ({
                   </div>
                 </button>
 
-                {/* Emoji Filter Pills (e.g. [✨ 1]) */}
                 {emojiGroups.map(({ emoji, count }) => {
                   const isSelected = activeTab === emoji;
                   return (
@@ -319,12 +314,9 @@ const ReactionDetailsModal = ({
                 })}
               </div>
 
-              {/* Divider Line */}
               <div className={`border-t my-2 ${
                 isDark ? "border-white/[0.08]" : "border-black/[0.08]"
               }`} />
-
-              {/* User Reactions List */}
               <div className="overflow-y-auto custom-scrollbar max-h-[260px] space-y-1.5 pt-0.5">
                 {displayedReactions.map((reaction, index) => {
                   const userObj = reaction.userId;
@@ -365,7 +357,6 @@ const ReactionDetailsModal = ({
                       } ${isMe ? "cursor-pointer group" : "cursor-default"}`}
                       title={isMe ? "Click to remove your reaction" : undefined}
                     >
-                      {/* Left: Avatar + Username */}
                       <div className="flex items-center gap-3 min-w-0">
                         {avatar ? (
                           <img

@@ -12,15 +12,12 @@ import {
   FaImage,
   FaLock,
   FaPhone,
-  FaPlus,
-  FaTrash,
   FaVideo,
 } from "react-icons/fa";
 import { IoSend } from "react-icons/io5";
-import { BiSolidSend } from "react-icons/bi";
-import { FaRegFaceSmile, FaSquarePollHorizontal } from "react-icons/fa6";
+import { FaSquarePollHorizontal } from "react-icons/fa6";
 import { MdEventNote } from "react-icons/md";
-import { TfiClip, TfiLineDouble } from "react-icons/tfi";
+import { TfiClip } from "react-icons/tfi";
 import { MdAddReaction } from "react-icons/md";
 import MessageBuble from "./MessageBuble";
 import EmojiPicker from "emoji-picker-react";
@@ -36,6 +33,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
 import { RiContactsFill, RiEmojiStickerLine } from "react-icons/ri";
 import CameraModal from "../../components/CameraModal";
+import PollModal from "../../components/pollModal";
+import ContactModal from "../../components/ContactModal";
+import EventModal from "../../components/EventModal";
+import StickerModal from "../../components/StickerModal";
 
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -85,7 +86,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     deleteMessage,
     addReaction,
     editMessage,
+    scrollPositions,
+    saveScrollPosition,
   } = useChatStore();
+
+  const messagesContainerRef = useRef(null);
+  const prevContactIdRef = useRef(null);
+  const isInitialScrollDone = useRef(false);
 
   let matchCounter = -1;
 
@@ -120,12 +127,54 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   }, []);
 
   const scrollToBottom = () => {
-    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    } else {
+      messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleMessageScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el || !selectedContact?._id) return;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    saveScrollPosition(selectedContact._id, {
+      scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      isAtBottom,
+    });
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (prevContactIdRef.current !== selectedContact?._id) {
+      prevContactIdRef.current = selectedContact?._id;
+      isInitialScrollDone.current = false;
+    }
+  }, [selectedContact?._id]);
+
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el || !selectedContact?._id || messages.length === 0) return;
+
+    const savedPos = scrollPositions?.[selectedContact._id];
+
+    if (!isInitialScrollDone.current) {
+      if (savedPos) {
+        if (savedPos.isAtBottom) {
+          el.scrollTop = el.scrollHeight;
+        } else {
+          el.scrollTop = savedPos.scrollTop;
+        }
+      } else {
+        el.scrollTop = el.scrollHeight;
+      }
+      isInitialScrollDone.current = true;
+    } else {
+      if (savedPos?.isAtBottom ?? true) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }
+  }, [messages, selectedContact?._id]);
 
   useEffect(() => {
     if (message && selectedContact) {
@@ -221,6 +270,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       if (!message.trim() && !selectedFile) return;
 
       await sendMessage(formData);
+
+      if (selectedContact?._id) {
+        saveScrollPosition(selectedContact._id, {
+          isAtBottom: true,
+          scrollTop: 9999999,
+          scrollHeight: 9999999,
+        });
+      }
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
 
       setMessage("");
       setFilePreview(null);
@@ -333,11 +393,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     return (
       <div className="flex justify-center my-3 select-none">
         <span
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${
-            theme === "dark"
-              ? "bg-[#182229] text-[#8696a0]"
-              : "bg-white text-[#54656f]"
-          }`}
+          className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${theme === "dark"
+            ? "bg-[#182229] text-[#8696a0]"
+            : "bg-white text-[#54656f]"
+            }`}
         >
           {dateString}
         </span>
@@ -752,7 +811,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         </div>
 
         <div
-          className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto scroll-smooth custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
+          ref={messagesContainerRef}
+          onScroll={handleMessageScroll}
+          className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
             }`}
           style={{
             backgroundImage:
@@ -1237,792 +1298,5 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   );
 };
 
-const PollModal = ({ onClose, onSend, theme }) => {
-  const [question, setQuestion] = useState("");
-  const [options, setOptions] = useState(["", ""]);
-  const [allowMultiple, setAllowMultiple] = useState(false);
-  const [draggedIdx, setDraggedIdx] = useState(null);
-  const [dragOverIdx, setDragOverIdx] = useState(null);
-  const [activeEmojiTarget, setActiveEmojiTarget] = useState(null);
-  const emojiPickerRef = useRef(null);
-  const isDark = theme === "dark";
-
-  useOutsideClick(emojiPickerRef, (e) => {
-    if (e?.target?.closest?.("button[data-emoji-trigger='true']")) {
-      return;
-    }
-    if (activeEmojiTarget !== null) {
-      setActiveEmojiTarget(null);
-    }
-  });
-
-  const handleEmojiSelect = (emojiObject) => {
-    if (!emojiObject?.emoji) return;
-    const emoji = emojiObject.emoji;
-    if (activeEmojiTarget === "question") {
-      setQuestion((prev) => prev + emoji);
-    } else if (typeof activeEmojiTarget === "number") {
-      setOptions((prev) => {
-        const updated = [...prev];
-        updated[activeEmojiTarget] = (updated[activeEmojiTarget] || "") + emoji;
-        return updated;
-      });
-    }
-  };
-
-  const handleOptionChange = (val, idx) => {
-    const updated = [...options];
-    updated[idx] = val;
-    setOptions(updated);
-  };
-
-  const addOption = () => {
-    if (options.length < 12) {
-      setOptions([...options, ""]);
-    }
-  };
-
-  const removeOption = (idx) => {
-    if (options.length > 2) {
-      setOptions(options.filter((_, i) => i !== idx));
-    }
-  };
-
-  const handleDragStart = (e, index) => {
-    setDraggedIdx(index);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(index));
-  };
-
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (dragOverIdx !== index) {
-      setDragOverIdx(index);
-    }
-  };
-
-  const handleDrop = (e, targetIdx) => {
-    e.preventDefault();
-    if (draggedIdx === null || draggedIdx === targetIdx) {
-      setDraggedIdx(null);
-      setDragOverIdx(null);
-      return;
-    }
-    const updated = [...options];
-    const [movedItem] = updated.splice(draggedIdx, 1);
-    updated.splice(targetIdx, 0, movedItem);
-    setOptions(updated);
-    setDraggedIdx(null);
-    setDragOverIdx(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIdx(null);
-    setDragOverIdx(null);
-  };
-
-  const validOptions = options.filter((o) => o.trim() !== "");
-  const canSubmit = question.trim() !== "" && validOptions.length >= 2;
-
-  return (
-    <div className="fixed inset-0 z-[300] bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 select-none">
-      <div className="flex flex-col md:flex-row items-center justify-center gap-3.5 max-w-full">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className={`w-[92vw] max-w-md rounded-2xl border shadow-2xl p-6 relative ${isDark
-            ? "bg-[#111b21] border-white/10 text-white"
-            : "bg-white border-gray-200 text-gray-900"
-            }`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
-            <div className="flex items-center gap-2">
-              <FaSquarePollHorizontal className="text-green-600" size={20} />
-              <h2 className="text-lg font-bold">Create poll</h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-            >
-              <RxCross2 size={18} />
-            </button>
-          </div>
-
-          <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-            <div>
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Question
-              </label>
-
-              <div className="relative mt-1.5">
-                <input
-                  type="text"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="Ask a question..."
-                  className={`w-full px-3.5 py-2.5 pr-11 rounded-xl border text-sm outline-none transition ${isDark
-                    ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 focus:border-emerald-500"
-                    : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-emerald-600"
-                    }`}
-                  autoFocus
-                />
-
-                <button
-                  type="button"
-                  data-emoji-trigger="true"
-                  onClick={() =>
-                    setActiveEmojiTarget((prev) =>
-                      prev === "question" ? null : "question"
-                    )
-                  }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-                  title="Add emoji"
-                >
-                  <FaRegFaceSmile
-                    className={`transition ${activeEmojiTarget === "question"
-                      ? "text-emerald-500 scale-110"
-                      : isDark
-                        ? "text-gray-400 hover:text-emerald-400"
-                        : "text-gray-500 hover:text-emerald-600"
-                      }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                Options
-              </label>
-              <div className="space-y-2.5 mt-1.5">
-                {options.map((opt, idx) => (
-                  <div
-                    key={idx}
-                    onDragOver={(e) => handleDragOver(e, idx)}
-                    onDrop={(e) => handleDrop(e, idx)}
-                    className={`flex items-center gap-2 rounded-xl transition-all duration-150 ${draggedIdx === idx
-                      ? "opacity-35 scale-[0.98]"
-                      : "opacity-100"
-                      } ${dragOverIdx === idx && draggedIdx !== idx
-                        ? "ring-2 ring-emerald-500 bg-emerald-500/10 p-0.5"
-                        : ""
-                      }`}
-                  >
-                    <span className="text-xs font-bold w-4 shrink-0 text-center select-none text-gray-500 dark:text-gray-400">
-                      {idx + 1}
-                    </span>
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        value={opt}
-                        onChange={(e) => handleOptionChange(e.target.value, idx)}
-                        placeholder={`Option ${idx + 1}`}
-                        className={`w-full px-3 py-2 pr-16 rounded-xl border text-sm outline-none transition ${isDark
-                          ? "bg-[#202c33] border-white/10 text-white placeholder-gray-400 focus:border-emerald-500"
-                          : "bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:border-emerald-600"
-                          }`}
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          data-emoji-trigger="true"
-                          onClick={() =>
-                            setActiveEmojiTarget((prev) =>
-                              prev === idx ? null : idx
-                            )
-                          }
-                          className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-                          title="Add emoji"
-                        >
-                          <FaRegFaceSmile
-                            className={`transition ${activeEmojiTarget === idx
-                              ? "text-emerald-500 scale-110"
-                              : isDark
-                                ? "text-gray-400 hover:text-emerald-400"
-                                : "text-gray-500 hover:text-emerald-600"
-                              }`}
-                          />
-                        </button>
-
-                        <div
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, idx)}
-                          onDragEnd={handleDragEnd}
-                          className="p-1 cursor-grab active:cursor-grabbing hover:bg-black/10 dark:hover:bg-white/10 rounded transition flex items-center justify-center select-none"
-                          title="Drag to reorder option"
-                        >
-                          <TfiLineDouble
-                            className={`pointer-events-none transition ${isDark
-                              ? "text-gray-500 hover:text-emerald-400"
-                              : "text-gray-400 hover:text-emerald-600"
-                              }`}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {options.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => removeOption(idx)}
-                        className="p-2 text-red-400 hover:text-red-500 cursor-pointer shrink-0"
-                      >
-                        <FaTrash size={12} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {options.length < 12 && (
-                <button
-                  type="button"
-                  onClick={addOption}
-                  className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-emerald-500 hover:text-emerald-400 transition cursor-pointer"
-                >
-                  <FaPlus size={10} /> Add option
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between pt-2 border-t border-black/10 dark:border-white/10">
-              <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">Allow multiple answers</p>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  People can select more than one option
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAllowMultiple(!allowMultiple)}
-                className={`w-11 h-6 rounded-full transition-colors p-0.5 relative cursor-pointer ${allowMultiple
-                  ? "bg-emerald-500"
-                  : isDark
-                    ? "bg-gray-700"
-                    : "bg-gray-300"
-                  }`}
-              >
-                <div
-                  className={`w-5 h-5 rounded-full bg-white transition-transform ${allowMultiple ? "translate-x-5" : "translate-x-0"
-                    }`}
-                />
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`px-4 py-2 rounded-xl text-sm font-medium cursor-pointer transition ${isDark
-                ? "hover:bg-white/10 text-gray-300"
-                : "hover:bg-black/5 text-gray-600"
-                }`}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={!canSubmit}
-              onClick={() =>
-                onSend({ question, options: validOptions, allowMultiple })
-              }
-              className="p-3 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-md shadow-emerald-500/20 cursor-pointer rounded-full"
-            >
-              <BiSolidSend className="text-black" size={20} />
-            </button>
-          </div>
-        </motion.div>
-
-        <AnimatePresence>
-          {activeEmojiTarget !== null && (
-            <motion.div
-              ref={emojiPickerRef}
-              initial={{ opacity: 0, x: -15, scale: 0.95 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: -15, scale: 0.95 }}
-              transition={{ duration: 0.15 }}
-              className={`w-[320px] xs:w-[340px] sm:w-[350px] max-w-[92vw] h-[490px] max-h-[85vh] rounded-2xl border shadow-2xl overflow-hidden flex flex-col shrink-0 ${isDark
-                ? "bg-[#111b21] border-white/10 text-white"
-                : "bg-white border-gray-200 text-gray-900"
-                }`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-black/10 dark:border-white/10 shrink-0">
-                <div className="flex items-center gap-2">
-                  <FaRegFaceSmile className="text-emerald-500" size={16} />
-                  <h3 className="text-sm font-semibold">
-                    {activeEmojiTarget === "question"
-                      ? "Add emoji to Question"
-                      : `Add emoji to Option ${activeEmojiTarget + 1}`}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveEmojiTarget(null)}
-                  className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-                  title="Close emoji picker"
-                >
-                  <RxCross2 size={16} />
-                </button>
-              </div>
-
-              <div className="flex-1 w-full overflow-hidden flex justify-center [&_.EmojiPickerReact]:!border-none [&_.EmojiPickerReact]:!w-full [&_.EmojiPickerReact]:!h-full">
-                <EmojiPicker
-                  theme={isDark ? "dark" : "light"}
-                  onEmojiClick={handleEmojiSelect}
-                  width="100%"
-                  height="100%"
-                  lazyLoadEmojis={true}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-};
-
-const ContactModal = ({ onClose, onSend, conversations, theme }) => {
-  const [name, setName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [email, setEmail] = useState("");
-  const [activeTab, setActiveTab] = useState("chats");
-  const isDark = theme === "dark";
-
-  const allContacts =
-    conversations?.data?.flatMap((c) => c.participants) || [];
-  const uniqueContacts = Array.from(
-    new Map(allContacts.map((c) => [c._id, c])).values()
-  );
-
-  return (
-    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark
-          ? "bg-[#111b21] border-white/10 text-white"
-          : "bg-white border-gray-200 text-gray-900"
-          }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
-          <div className="flex items-center gap-2">
-            <RiContactsFill className="text-cyan-500" size={20} />
-            <h2 className="text-lg font-bold">Share Contact</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-          >
-            <RxCross2 size={18} />
-          </button>
-        </div>
-
-        <div className="flex gap-2 my-4 p-1 rounded-xl bg-black/5 dark:bg-white/5">
-          <button
-            type="button"
-            onClick={() => setActiveTab("chats")}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${activeTab === "chats"
-              ? "bg-emerald-500 text-white shadow-sm"
-              : "opacity-70 hover:opacity-100"
-              }`}
-          >
-            From Chats
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("manual")}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${activeTab === "manual"
-              ? "bg-emerald-500 text-white shadow-sm"
-              : "opacity-70 hover:opacity-100"
-              }`}
-          >
-            Enter Details
-          </button>
-        </div>
-
-        {activeTab === "chats" ? (
-          <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-            {uniqueContacts.length > 0 ? (
-              uniqueContacts.map((contact) => (
-                <div
-                  key={contact._id}
-                  onClick={() =>
-                    onSend({
-                      name: contact.username || "User",
-                      phoneNumber: contact.phoneNumber || "",
-                      email: contact.email || "",
-                      avatar: contact.profilePicture || "",
-                    })
-                  }
-                  className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition ${isDark
-                    ? "border-white/5 hover:bg-white/10"
-                    : "border-black/5 hover:bg-black/5"
-                    }`}
-                >
-                  <img
-                    src={contact.profilePicture || "/default-avatar.png"}
-                    alt={contact.username}
-                    className="w-10 h-10 rounded-full object-cover shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">
-                      {contact.username}
-                    </p>
-                    <p className="text-xs opacity-60 truncate">
-                      {contact.phoneNumber || contact.email || "Contact"}
-                    </p>
-                  </div>
-                  <span className="text-xs text-emerald-500 font-semibold">
-                    Share
-                  </span>
-                </div>
-              ))
-            ) : (
-              <p className="text-center py-8 text-xs opacity-60">
-                No contacts found
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3.5">
-            <div>
-              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
-                Name *
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Full name"
-                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${isDark
-                  ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
-                  : "bg-gray-50 border-gray-300 focus:border-emerald-600"
-                  }`}
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
-                Phone Number *
-              </label>
-              <input
-                type="text"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+1 234 567 8900"
-                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${isDark
-                  ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
-                  : "bg-gray-50 border-gray-300 focus:border-emerald-600"
-                  }`}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
-                Email (Optional)
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${isDark
-                  ? "bg-[#202c33] border-white/10 focus:border-emerald-500"
-                  : "bg-gray-50 border-gray-300 focus:border-emerald-600"
-                  }`}
-              />
-            </div>
-            <div className="pt-2 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 rounded-xl text-sm font-medium cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!name.trim() || !phoneNumber.trim()}
-                onClick={() => onSend({ name, phoneNumber, email })}
-                className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 transition cursor-pointer"
-              >
-                Share
-              </button>
-            </div>
-          </div>
-        )}
-      </motion.div>
-    </div>
-  );
-};
-
-const EventModal = ({ onClose, onSend, theme }) => {
-  const [title, setTitle] = useState("");
-  const [eventDate, setEventDate] = useState("");
-  const [eventTime, setEventTime] = useState("");
-  const [location, setLocation] = useState("");
-  const [description, setDescription] = useState("");
-  const isDark = theme === "dark";
-
-  const canSubmit = title.trim() !== "" && eventDate !== "";
-
-  return (
-    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark
-          ? "bg-[#111b21] border-white/10 text-white"
-          : "bg-white border-gray-200 text-gray-900"
-          }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
-          <div className="flex items-center gap-2">
-            <MdEventNote className="text-purple-500" size={22} />
-            <h2 className="text-lg font-bold">Create event</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-          >
-            <RxCross2 size={18} />
-          </button>
-        </div>
-
-        <div className="mt-4 space-y-3.5 max-h-[60vh] overflow-y-auto pr-1">
-          <div>
-            <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
-              Event Name *
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Birthday Party, Team Catchup"
-              className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${isDark
-                ? "bg-[#202c33] border-white/10 focus:border-purple-500"
-                : "bg-gray-50 border-gray-300 focus:border-purple-600"
-                }`}
-              autoFocus
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
-                Date *
-              </label>
-              <input
-                type="date"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-                className={`mt-1 w-full px-3 py-2 rounded-xl border text-sm outline-none ${isDark
-                  ? "bg-[#202c33] border-white/10 focus:border-purple-500"
-                  : "bg-gray-50 border-gray-300 focus:border-purple-600"
-                  }`}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
-                Time
-              </label>
-              <input
-                type="time"
-                value={eventTime}
-                onChange={(e) => setEventTime(e.target.value)}
-                className={`mt-1 w-full px-3 py-2 rounded-xl border text-sm outline-none ${isDark
-                  ? "bg-[#202c33] border-white/10 focus:border-purple-500"
-                  : "bg-gray-50 border-gray-300 focus:border-purple-600"
-                  }`}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
-              Location
-            </label>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Add location (optional)"
-              className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none ${isDark
-                ? "bg-[#202c33] border-white/10 focus:border-purple-500"
-                : "bg-gray-50 border-gray-300 focus:border-purple-600"
-                }`}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
-              Description
-            </label>
-            <textarea
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add description (optional)"
-              className={`mt-1 w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none resize-none ${isDark
-                ? "bg-[#202c33] border-white/10 focus:border-purple-500"
-                : "bg-gray-50 border-gray-300 focus:border-purple-600"
-                }`}
-            />
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={() =>
-              onSend({ title, eventDate, eventTime, location, description })
-            }
-            className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-40 transition shadow-md shadow-purple-500/20 cursor-pointer"
-          >
-            Create Event
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
-
-const StickerModal = ({ onClose, onSend, onUploadClick, theme }) => {
-  const isDark = theme === "dark";
-
-  const presetStickers = [
-    {
-      name: "Thumbs Up",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.webp",
-    },
-    {
-      name: "Heart Fire",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.webp",
-    },
-    {
-      name: "Joy Tears",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp",
-    },
-    {
-      name: "Party Popper",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.webp",
-    },
-    {
-      name: "Fire",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp",
-    },
-    {
-      name: "Star Struck",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f929/512.webp",
-    },
-    {
-      name: "Clapping Hands",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.webp",
-    },
-    {
-      name: "100",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4af/512.webp",
-    },
-    {
-      name: "Mind Blown",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92f/512.webp",
-    },
-    {
-      name: "Cool Sunglasses",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60e/512.webp",
-    },
-    {
-      name: "Folded Hands",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f64f/512.webp",
-    },
-    {
-      name: "Rocket",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.webp",
-    },
-  ];
-
-  return (
-    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark
-          ? "bg-[#111b21] border-white/10 text-white"
-          : "bg-white border-gray-200 text-gray-900"
-          }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between pb-4 border-b border-black/10 dark:border-white/10">
-          <div className="flex items-center gap-2">
-            <MdAddReaction className="text-emerald-500" size={22} />
-            <h2 className="text-lg font-bold">Stickers</h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
-          >
-            <RxCross2 size={18} />
-          </button>
-        </div>
-
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={onUploadClick}
-            className={`w-full py-2.5 px-4 rounded-xl border border-dashed flex items-center justify-center gap-2 font-semibold text-sm transition cursor-pointer ${isDark
-              ? "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
-              : "border-emerald-500 text-emerald-600 hover:bg-emerald-50"
-              }`}
-          >
-            <FaPlus size={12} /> Upload Custom Sticker (PNG / WebP / Image)
-          </button>
-
-          <p className="text-xs font-semibold opacity-60 uppercase tracking-wider mt-5 mb-3">
-            Popular Stickers
-          </p>
-
-          <div className="grid grid-cols-4 gap-3 max-h-60 overflow-y-auto p-1">
-            {presetStickers.map((s, idx) => (
-              <motion.button
-                key={idx}
-                type="button"
-                whileHover={{ scale: 1.15 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => onSend(s.url)}
-                className={`p-2 rounded-2xl flex items-center justify-center transition cursor-pointer ${isDark ? "hover:bg-white/10" : "hover:bg-black/5"
-                  }`}
-                title={s.name}
-              >
-                <img
-                  src={s.url}
-                  alt={s.name}
-                  className="w-14 h-14 object-contain"
-                />
-              </motion.button>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
 
 export default ChatWindow;

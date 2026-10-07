@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import useThemeStore from "../../store/themeStore";
 import useLayoutStore from "../../store/layoutStore";
 import { FaPlus, FaSearch } from "react-icons/fa";
@@ -12,6 +12,11 @@ const ChatList = ({ contacts }) => {
   const setSelectedContact = useLayoutStore(
     (state) => state.setSelectedContact,
   );
+  const chatListScrollTop = useLayoutStore((state) => state.chatListScrollTop);
+  const setChatListScrollTop = useLayoutStore(
+    (state) => state.setChatListScrollTop,
+  );
+  const listContainerRef = useRef(null);
 
   const { theme } = useThemeStore();
   const [searchTerms, setSearchTerms] = useState("");
@@ -30,6 +35,22 @@ const ChatList = ({ contacts }) => {
           : 0;
         return timeB - timeA;
       }) || [];
+
+  useEffect(() => {
+    if (listContainerRef.current) {
+      if (chatListScrollTop > 0) {
+        listContainerRef.current.scrollTop = chatListScrollTop;
+      } else if (selectedContact?._id) {
+        const el = listContainerRef.current.querySelector(
+          `[data-contact-id="${selectedContact._id}"]`,
+        );
+        if (el) {
+          el.scrollIntoView({ block: "nearest" });
+        }
+      }
+    }
+  }, [filteredContact.length, selectedContact?._id]);
+
   return (
     <div
       className={`h-full w-full border-r relative z-10 transition-all duration-300 ${
@@ -63,7 +84,11 @@ const ChatList = ({ contacts }) => {
           />
         </div>
       </div>
-      <div className="overflow-y-auto h-[calc(100vh-120px)] custom-scrollbar">
+      <div
+        ref={listContainerRef}
+        onScroll={(e) => setChatListScrollTop(e.target.scrollTop)}
+        className="overflow-y-auto h-[calc(100vh-120px)] custom-scrollbar"
+      >
         {filteredContact.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -95,6 +120,7 @@ const ChatList = ({ contacts }) => {
             return (
               <motion.div
                 key={contact._id}
+                data-contact-id={contact._id}
                 onClick={() => setSelectedContact(contact)}
                 className={`p-3 flex items-center cursor-pointer transition-colors ${theme === "dark"
                     ? selectedContact?._id === contact._id

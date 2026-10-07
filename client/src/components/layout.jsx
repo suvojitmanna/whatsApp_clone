@@ -77,25 +77,25 @@ const Layout = ({
           )}
 
           {(!isMobile || selectedContact) && (
-            <motion.div
-              key={effectiveRightContent ? "statusPlaceholder" : "chatWindow"}
-              initial={{ x: isMobile ? "100%" : 0 }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "tween" }}
-              className="h-full flex-1 min-w-0"
-            >
+            <div className="h-full flex-1 min-w-0 relative">
               {effectiveRightContent ? (
-                effectiveRightContent
-              ) : (
+                <div className="h-full w-full">
+                  {effectiveRightContent}
+                </div>
+              ) : null}
+              <div
+                className={`h-full w-full ${
+                  effectiveRightContent ? "hidden" : "block"
+                }`}
+              >
                 <ChatWindow
                   selectedContact={selectedContact}
                   setSelectedContact={setSelectedContact}
                   onStatusClick={handleStatusClick}
                   isMobile={isMobile}
                 />
-              )}
-            </motion.div>
+              </div>
+            </div>
           )}
         </AnimatePresence>
         {showContactInfo && <ContactInfo />}

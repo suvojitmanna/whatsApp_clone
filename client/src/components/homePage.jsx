@@ -23,8 +23,10 @@ const containerVariants = {
 };
 
 const HomePage = () => {
-  const [allUser, setAllUser] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const users = useChatStore((state) => state.users);
+  const setUsers = useChatStore((state) => state.setUsers);
+  const [allUser, setAllUser] = useState(users || []);
+  const [loading, setLoading] = useState(!users || users.length === 0);
   const [previewContact, setPreviewContact] = useState(null);
   const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
   
@@ -41,17 +43,18 @@ const HomePage = () => {
           fetchConversations(),
         ]);
 
-        setAllUser(usersResult?.users || []);
+        const fetchedUsers = usersResult?.users || [];
+        setAllUser(fetchedUsers);
+        setUsers(fetchedUsers);
       } catch (error) {
         console.error("HomePage load error:", error);
-        setAllUser([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [fetchConversations]);
+  }, [fetchConversations, setUsers]);
 
   const conversationList = Array.isArray(conversations?.data)
     ? conversations.data

@@ -144,7 +144,12 @@ function initializeSocket(server) {
           {
             $pull: {
               reactions: {
-                userId: { $in: matchIds },
+                $or: [
+                  { userId: { $in: matchIds } },
+                  { emoji: null },
+                  { emoji: "" },
+                  { emoji: { $exists: false } },
+                ],
               },
             },
           },
@@ -171,6 +176,10 @@ function initializeSocket(server) {
 
         if (!updated) return;
 
+        const validReactions = (updated.reactions || []).filter(
+          (r) => Boolean(r && r.emoji)
+        );
+
         const targets = new Set();
         if (updated?.sender?._id) targets.add(updated.sender._id.toString());
         if (updated?.receiver?._id) targets.add(updated.receiver._id.toString());
@@ -179,7 +188,7 @@ function initializeSocket(server) {
         targets.forEach((targetId) => {
           io.to(targetId).emit("reaction_update", {
             messageId,
-            reactions: updated.reactions,
+            reactions: validReactions,
           });
         });
       } catch (error) {

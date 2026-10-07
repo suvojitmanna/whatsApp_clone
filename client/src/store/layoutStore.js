@@ -38,6 +38,8 @@ const useLayoutStore = create(
           selectedPollMessageId: pollMessage?._id || null,
           ...(pollMessage ? { showContactInfo: false } : {}),
         }),
+      chatListScrollTop: 0,
+      setChatListScrollTop: (pos) => set({ chatListScrollTop: pos }),
     }
     ),
     {
@@ -46,6 +48,7 @@ const useLayoutStore = create(
       partialize: (state) => ({
         activeTab: state.activeTab,
         selectedContact: state.selectedContact,
+        chatListScrollTop: state.chatListScrollTop,
       }),
     },
   ),
