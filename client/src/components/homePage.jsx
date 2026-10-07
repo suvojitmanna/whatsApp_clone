@@ -90,7 +90,6 @@ const HomePage = () => {
 
     if (!statusId) return;
 
-    // Check grouped statuses first for full contact status flow
     const grouped = useStatusStore.getState().getGroupStatus();
     const clickedStatusId = String(statusId);
 
@@ -105,7 +104,6 @@ const HomePage = () => {
       }
     }
 
-    // Fallback if not found in grouped
     if (typeof statusData === "object") {
       const status = {
         id: statusData._id,
@@ -226,7 +224,7 @@ const HomePage = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="h-full overflow-y-auto"
+              className="h-full w-full"
             >
               <ChatList contacts={contacts} />
             </motion.div>

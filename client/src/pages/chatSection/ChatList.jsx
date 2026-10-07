@@ -34,13 +34,11 @@ const ChatList = ({ contacts }) => {
       }) || [];
   return (
     <div
-      className={`h-full border-r relative z-10 transition-all duration-300 
-    /* Mobile: full width | Large screen: fixed width */
-    w-full lg:w-[350px] lg:min-w-[350px] 
-    ${theme === "dark"
+      className={`h-full w-full border-r relative z-10 transition-all duration-300 ${
+        theme === "dark"
           ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
           : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
-        }`}
+      }`}
     >
       <div className="p-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold">Chats</h2>

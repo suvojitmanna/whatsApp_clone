@@ -469,7 +469,6 @@ export const useChatStore = create((set, get) => ({
     const voterId = (currentUser?._id || currentUser?.id)?.toString();
     if (!voterId || !messageId) return;
 
-    // 1. Instant Optimistic UI Update (0ms latency)
     set((state) => {
       const updatedMessages = state.messages.map((msg) => {
         if (msg._id !== messageId || msg.contentType !== "poll" || !msg.pollData) {
@@ -479,7 +478,6 @@ export const useChatStore = create((set, get) => ({
         const pollData = JSON.parse(JSON.stringify(msg.pollData));
         const allowMultiple = !!pollData.allowMultiple;
 
-        // If single-choice, clear user's vote from all other options
         if (!allowMultiple) {
           pollData.options.forEach((opt, idx) => {
             if (idx !== optionIndex) {
@@ -490,7 +488,6 @@ export const useChatStore = create((set, get) => ({
           });
         }
 
-        // Toggle vote on the chosen option
         const targetOption = pollData.options[optionIndex];
         if (targetOption) {
           targetOption.votes = targetOption.votes || [];
@@ -513,7 +510,6 @@ export const useChatStore = create((set, get) => ({
       return { messages: updatedMessages };
     });
 
-    // 2. Real-time Socket Emission
     if (socket) {
       socket.emit("vote_poll", {
         messageId,
@@ -522,7 +518,6 @@ export const useChatStore = create((set, get) => ({
       });
     }
 
-    // 3. Fallback REST API DB Synchronization
     try {
       const { data } = await axiosInstance.post(
         `/chat/messages/${messageId}/vote`,

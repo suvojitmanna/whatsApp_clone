@@ -7,6 +7,8 @@ const useLayoutStore = create(
       activeTab: "chats",
       selectedContact: null,
       showContactInfo: false,
+      selectedPollMessage: null,
+      selectedPollMessageId: null,
 
       setSelectedContact: (contact) => {
         set({ selectedContact: contact });
@@ -24,13 +26,27 @@ const useLayoutStore = create(
         set({ activeTab: tab });
       },
 
-      setShowContactInfo: (value) => set({ showContactInfo: value }),
+      setShowContactInfo: (value) =>
+        set((state) => ({
+          showContactInfo: value,
+          ...(value ? { selectedPollMessage: null, selectedPollMessageId: null } : {}),
+        })),
       setShowProfilePicture: (value) => set({ showProfilePicture: value }),
+      setSelectedPollDetails: (pollMessage) =>
+        set({
+          selectedPollMessage: pollMessage,
+          selectedPollMessageId: pollMessage?._id || null,
+          ...(pollMessage ? { showContactInfo: false } : {}),
+        }),
     }
     ),
     {
       name: "layout-storage",
       storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        activeTab: state.activeTab,
+        selectedContact: state.selectedContact,
+      }),
     },
   ),
 );

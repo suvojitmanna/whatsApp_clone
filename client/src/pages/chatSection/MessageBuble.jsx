@@ -1,20 +1,36 @@
 import React, { useRef, useState } from "react";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaCheckDouble, FaPlus, FaRegCopy, FaSmile } from "react-icons/fa";
-import { RiDeleteBin6Line, RiEditLine } from "react-icons/ri";
-import { FiCheck } from "react-icons/fi";
-import { HiDotsVertical } from "react-icons/hi";
+import {
+  FaCheckDouble,
+  FaPlus,
+  FaRegCopy,
+  FaSmile,
+  FaRegImage,
+  FaVideo,
+  FaDownload,
+  FaHeadphones,
+  FaFileAlt,
+  FaRegStar,
+} from "react-icons/fa";
+import { RiDeleteBin6Line, RiEditLine, RiContactsFill } from "react-icons/ri";
+import { FiCheck, FiChevronDown, FiThumbsDown } from "react-icons/fi";
+import {
+  MdEventNote,
+  MdLocationOn,
+  MdAccessTime,
+  MdReply,
+  MdOutlineReplyAll,
+} from "react-icons/md";
+import { BsChatSquareText, BsEmojiSmile } from "react-icons/bs";
+import { TbPin } from "react-icons/tb";
 import { RxCross2 } from "react-icons/rx";
 import useOutsideClick from "../../hook/useOutsideClick";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
-import { FaRegImage, FaVideo, FaDownload, FaHeadphones, FaFileAlt } from "react-icons/fa";
-import { FaSquarePollHorizontal } from "react-icons/fa6";
-import { MdEventNote, MdLocationOn } from "react-icons/md";
-import { RiContactsFill } from "react-icons/ri";
 import { useChatStore } from "../../store/chatStore";
 import useUserStore from "../../store/useUserStore";
+import useLayoutStore from "../../store/layoutStore";
 
 const MessageBuble = ({
   message,
@@ -28,6 +44,7 @@ const MessageBuble = ({
   isActive,
   onStatusClick,
   onEdit,
+  isFirstInSequence = true,
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
@@ -44,6 +61,9 @@ const MessageBuble = ({
   const editRef = useRef(null);
 
   const votePoll = useChatStore((state) => state.votePoll);
+  const setSelectedPollDetails = useLayoutStore(
+    (state) => state.setSelectedPollDetails
+  );
   const storeUser = useUserStore((state) => state.user);
   const effectiveUser = currentUser || storeUser;
   const currentUserId = (effectiveUser?._id || effectiveUser?.id)?.toString();
@@ -52,19 +72,32 @@ const MessageBuble = ({
   const isUserMessage = (message.sender?._id || message.sender)?.toString() === currentUserId;
   const isSticker = message.contentType === "sticker";
 
+  const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
   const bubbleClass = isUserMessage ? "chat-end" : "chat-start";
 
   const bubbleContentClass = isSticker
     ? "relative group !py-1 !px-1 bg-transparent shadow-none"
     : isUserMessage
-      ? `chat-bubble md:max-w-[55%] min-w-[130px] ${theme === "dark" ? "bg-[#144d38] text-white" : "bg-[#d8fdd3] text-black"
+      ? `chat-bubble before:!hidden max-w-[88%] sm:max-w-[80%] md:max-w-[72%] lg:max-w-[65%] min-w-[130px] rounded-2xl ${isFirstInSequence ? "rounded-tr-none" : ""
+      } ${theme === "dark"
+        ? "bg-[#005c4b] text-[#e9edef]"
+        : "bg-[#d9fdd3] text-[#111b21] shadow-sm"
       }`
-      : `chat-bubble md:max-w-[55%] min-w-[130px] ${theme === "dark"
-        ? "bg-[#374151] text-white"
-        : "bg-white text-black shadow-sm"
+      : `chat-bubble before:!hidden max-w-[88%] sm:max-w-[80%] md:max-w-[72%] lg:max-w-[65%] min-w-[130px] rounded-2xl ${isFirstInSequence ? "rounded-tl-none" : ""
+      } ${theme === "dark"
+        ? "bg-[#202c33] text-[#e9edef]"
+        : "bg-white text-[#111b21] shadow-sm"
       }`;
-
-  const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
   const handleTouchStart = () => {
     isLongPress.current = false;
@@ -108,16 +141,41 @@ const MessageBuble = ({
   if (!message) return null;
   return (
     <div
-      className={`chat ${bubbleClass} ${isActive ? "z-10" : ""}`}
+      className={`chat ${bubbleClass} ${isActive ? "z-10" : ""} !py-0 ${isFirstInSequence ? "mt-2" : "mt-[2px]"
+        }`}
       data-match={dataMatch ? "true" : "false"}
     >
       <div
-        className={`${bubbleContentClass} relative group !py-2.5 !px-3 ${
-          isActive
-            ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
-            : "shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-        }`}
+        className={`${bubbleContentClass} relative group !py-2.5 !px-3 ${isActive
+          ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
+          : "shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+          }`}
       >
+        {!isSticker && isFirstInSequence && (
+          isUserMessage ? (
+            <span
+              data-icon="tail-out"
+              className={`absolute top-0 -right-[8px] pointer-events-none select-none ${isDark ? "text-[#005c4b]" : "text-[#d9fdd3]"
+                }`}
+            >
+              <svg viewBox="0 0 8 13" height="13" width="8" className="fill-current">
+                <path opacity="0.13" d="M5.188 1H0v11.193l6.467-8.625C7.526 2.156 6.958 1 5.188 1z" />
+                <path d="M5.188 0H0v12.193l6.467-8.625C7.526 2.156 6.958 0 5.188 0z" />
+              </svg>
+            </span>
+          ) : (
+            <span
+              data-icon="tail-in"
+              className={`absolute top-0 -left-[8px] pointer-events-none select-none ${isDark ? "text-[#202c33]" : "text-white"
+                }`}
+            >
+              <svg viewBox="0 0 8 13" height="13" width="8" className="fill-current">
+                <path opacity="0.13" d="M1.533 4.568 8 13.193V1H2.812C1.042 1 .474 3.156 1.533 4.568z" />
+                <path d="M1.533 3.568 8 12.193V0H2.812C1.042 0 .474 2.156 1.533 3.568z" />
+              </svg>
+            </span>
+          )
+        )}
         <div
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
@@ -134,11 +192,10 @@ const MessageBuble = ({
                 if (!onStatusClick || !message.statusId) return;
                 onStatusClick(message.statusId);
               }}
-              className={`mb-2 w-full text-left overflow-hidden rounded-xl border-l-[3px] cursor-pointer transition-colors duration-150 hover:brightness-105 active:opacity-90 ${
-                isDark
-                  ? "bg-white/[0.04] border-purple-400"
-                  : "bg-black/[0.03] border-purple-500"
-              }`}
+              className={`mb-2 w-full text-left overflow-hidden rounded-xl border-l-[3px] cursor-pointer transition-colors duration-150 hover:brightness-105 active:opacity-90 ${isDark
+                ? "bg-white/[0.04] border-purple-400"
+                : "bg-black/[0.03] border-purple-500"
+                }`}
             >
               <div className="px-3 py-2">
                 <p
@@ -233,8 +290,8 @@ const MessageBuble = ({
                       autoFocus
                       rows={2}
                       className={`w-full resize-none rounded-xl border px-3 py-2 text-sm leading-relaxed outline-none transition-colors ${isDark
-                          ? "border-white/10 bg-[#111b21] text-white focus:border-emerald-400"
-                          : "border-black/10 bg-white text-black focus:border-emerald-500"
+                        ? "border-white/10 bg-[#111b21] text-white focus:border-emerald-400"
+                        : "border-black/10 bg-white text-black focus:border-emerald-500"
                         }`}
                     />
 
@@ -246,8 +303,8 @@ const MessageBuble = ({
                           setEditText(message.content || "");
                         }}
                         className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${isDark
-                            ? "text-gray-300 hover:bg-white/10"
-                            : "text-gray-500 hover:bg-black/5"
+                          ? "text-gray-300 hover:bg-white/10"
+                          : "text-gray-500 hover:bg-black/5"
                           }`}
                       >
                         Cancel
@@ -316,9 +373,8 @@ const MessageBuble = ({
             )}
             {message.contentType === "document" && (
               <div className="flex flex-col gap-1 min-w-[220px] max-w-[320px]">
-                <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  isDark ? "bg-white/[0.04] border-white/10" : "bg-black/[0.03] border-black/5"
-                }`}>
+                <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${isDark ? "bg-white/[0.04] border-white/10" : "bg-black/[0.03] border-black/5"
+                  }`}>
                   <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
                     <FaFileAlt size={20} />
                   </div>
@@ -369,9 +425,8 @@ const MessageBuble = ({
 
             {message.contentType === "contact" && (
               <div className="min-w-[230px] max-w-[300px]">
-                <div className={`flex items-center gap-3 p-3 rounded-2xl border ${
-                  isDark ? "bg-white/[0.05] border-white/10" : "bg-white/80 border-black/5 shadow-sm"
-                }`}>
+                <div className={`flex items-center gap-3 p-3 rounded-2xl border ${isDark ? "bg-white/[0.05] border-white/10" : "bg-white/80 border-black/5 shadow-sm"
+                  }`}>
                   <div className="w-11 h-11 rounded-full bg-cyan-500/20 text-cyan-500 flex items-center justify-center shrink-0 overflow-hidden font-bold">
                     {message.contactData?.avatar ? (
                       <img
@@ -401,22 +456,44 @@ const MessageBuble = ({
             )}
 
             {message.contentType === "poll" && (
-              <div className="flex flex-col gap-2.5 min-w-[240px] max-w-[320px] py-1 select-none">
-                <div className="flex items-start gap-2">
-                  <FaSquarePollHorizontal className="text-yellow-500 shrink-0 mt-0.5" size={17} />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-[14.5px] leading-snug">
-                      {message.pollData?.question || message.content}
-                    </h3>
-                    <p className="text-[11px] opacity-60 mt-0.5 font-medium">
-                      {message.pollData?.allowMultiple
+              <div className="flex flex-col w-[280px] xs:w-[305px] sm:w-[320px] max-w-full select-none">
+                <div className="flex items-center justify-between pb-1 -mt-0.5">
+                  <span className="text-[13px] font-bold text-[#53bdeb] tracking-wide truncate uppercase">
+                    {isUserMessage ? "YOU" : (message.sender?.username ? message.sender.username.toUpperCase() : "RUPAK MONDAL")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowOptions((prev) => !prev);
+                    }}
+                    className="text-[#8696a0] hover:text-white p-0.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                    title="Menu"
+                  >
+                    <FiChevronDown size={19} />
+                  </button>
+                </div>
+                <h3 className="font-bold text-[15px] leading-snug tracking-tight text-white dark:text-white mb-1">
+                  {message.pollData?.question || message.content}
+                </h3>
+                <div className="flex items-center gap-1.5 text-[12px] text-[#8696a0] font-normal mb-3">
+                  {message.pollData?.isClosed ? (
+                    <MdAccessTime size={13} className="shrink-0 text-[#8696a0]" />
+                  ) : message.pollData?.allowMultiple ? (
+                    <FaCheckDouble size={12} className="shrink-0 text-[#8696a0] rounded-full" />
+                  ) : (
+                    <FiCheck size={14} className="shrink-0 text-[#8696a0]" />
+                  )}
+                  <span>
+                    {message.pollData?.isClosed
+                      ? "Poll ended"
+                      : message.pollData?.allowMultiple
                         ? "Select one or more"
                         : "Select one"}
-                    </p>
-                  </div>
+                  </span>
                 </div>
 
-                <div className="space-y-2 mt-1">
+                <div className="space-y-3">
                   {message.pollData?.options?.map((option, idx) => {
                     const totalVotes =
                       message.pollData.options.reduce(
@@ -442,57 +519,90 @@ const MessageBuble = ({
                           e.stopPropagation();
                           votePoll(message._id, idx);
                         }}
-                        className={`relative overflow-hidden rounded-xl p-2.5 border cursor-pointer select-none transition-all active:scale-[0.99] ${
-                          hasVoted
-                            ? "border-emerald-500/70 bg-emerald-500/15 shadow-sm shadow-emerald-500/10"
-                            : isDark
-                            ? "border-white/10 hover:bg-white/[0.06]"
-                            : "border-black/10 hover:bg-black/[0.04]"
-                        }`}
+                        className="space-y-1.5 cursor-pointer group/opt select-none"
                       >
-                        <div
-                          className="absolute left-0 top-0 bottom-0 bg-emerald-500/25 transition-all duration-300 pointer-events-none"
-                          style={{ width: `${percentage}%` }}
-                        />
-                        <div className="relative z-10 flex items-center justify-between gap-3">
+                        <div className="flex items-center justify-between gap-3 text-sm">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            {hasVoted ? (
+                              <span className="w-5 h-5 rounded-full bg-[#00a884] text-[#111b21] flex items-center justify-center text-[11px] font-black shrink-0 shadow-sm">
+                                ✓
+                              </span>
+                            ) : (
+                              <span className="w-5 h-5 rounded-full border-2 border-[#8696a0]/80 shrink-0"></span>
+                            )}
                             <span
-                              className={`w-4 h-4 ${
-                                message.pollData?.allowMultiple
-                                  ? "rounded-md"
-                                  : "rounded-full"
-                              } border flex items-center justify-center shrink-0 transition-colors ${
-                                hasVoted
-                                  ? "border-emerald-500 bg-emerald-500 text-white"
-                                  : isDark
-                                  ? "border-gray-500"
-                                  : "border-gray-400"
-                              }`}
+                              className={`text-[14.5px] leading-snug text-white/95 break-words ${hasVoted
+                                ? "font-semibold text-white"
+                                : "font-normal"
+                                }`}
                             >
-                              {hasVoted && (
-                                <span className="text-[10px] font-black leading-none">✓</span>
-                              )}
-                            </span>
-                            <span className="text-xs font-semibold truncate leading-tight">
                               {option.text}
                             </span>
                           </div>
-                          <span className="text-xs font-bold shrink-0 opacity-80 tabular-nums">
-                            {optionVotes}
-                          </span>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {option.votes && option.votes.length > 0 && (
+                              <div className="flex -space-x-1.5 items-center">
+                                {option.votes.slice(0, 3).map((voter, vIdx) => {
+                                  const avatar = voter?.profilePicture;
+                                  const name = voter?.username || "User";
+                                  return avatar ? (
+                                    <img
+                                      key={vIdx}
+                                      src={avatar}
+                                      alt={name}
+                                      className="w-5 h-5 rounded-full border border-[#202c33] object-cover"
+                                    />
+                                  ) : (
+                                    <div
+                                      key={vIdx}
+                                      className="w-5 h-5 rounded-full border border-[#202c33] bg-[#7c3aed] text-[9px] text-white font-bold flex items-center justify-center"
+                                    >
+                                      {name.charAt(0).toUpperCase()}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            <span className="text-[13px] font-normal text-[#8696a0] tabular-nums">
+                              {optionVotes}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="w-full h-[6px] rounded-full bg-[#2a3942] overflow-hidden">
+                          <div
+                            className="h-full bg-[#00a884] rounded-full transition-all duration-300"
+                            style={{ width: `${percentage}%` }}
+                          />
                         </div>
                       </div>
                     );
                   })}
+                </div>
+
+                <div className="flex justify-end text-[11px] text-[#8696a0] mt-2 mb-0.5">
+                  <span>{format(new Date(message.createdAt), "HH:mm")}</span>
+                </div>
+                <div className="border-t border-black/10 dark:border-[#2a3942] -mx-3 -mb-2.5 mt-2 rounded-b-2xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPollDetails(message);
+                    }}
+                    className="w-full py-2 text-center text-[14px] font-semibold text-[#00a884] hover:text-[#00c99e] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    View votes
+                  </button>
                 </div>
               </div>
             )}
 
             {message.contentType === "event" && (
               <div className="flex flex-col gap-2 min-w-[240px] max-w-[320px]">
-                <div className={`p-3 rounded-2xl border ${
-                  isDark ? "bg-white/[0.05] border-white/10" : "bg-white/80 border-black/5 shadow-sm"
-                }`}>
+                <div className={`p-3 rounded-2xl border ${isDark ? "bg-white/[0.05] border-white/10" : "bg-white/80 border-black/5 shadow-sm"
+                  }`}>
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
                       <MdEventNote size={22} />
@@ -536,39 +646,44 @@ const MessageBuble = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-60 mt-1.5 select-none">
-          {message.edited && (
-            <span className="italic opacity-80 mr-0.5">Edited</span>
-          )}
-          <span>{format(new Date(message.createdAt), "HH:mm")}</span>
-          {isUserMessage && (
-            <>
-              {message.messageStatus === "send" && <FiCheck size={15} />}
-              {message.messageStatus === "delivered" && (
-                <FaCheckDouble size={12} />
-              )}
-              {message.messageStatus === "read" && (
-                <FaCheckDouble size={12} className="text-sky-400" />
-              )}
-            </>
-          )}
-        </div>
+        {message.contentType !== "poll" && (
+          <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-60 mt-1.5 select-none">
+            {message.edited && (
+              <span className="italic opacity-80 mr-0.5">Edited</span>
+            )}
+            <span>{format(new Date(message.createdAt), "HH:mm")}</span>
+            {isUserMessage && (
+              <>
+                {message.messageStatus === "send" && <FiCheck size={15} />}
+                {message.messageStatus === "delivered" && (
+                  <FaCheckDouble size={12} />
+                )}
+                {message.messageStatus === "read" && (
+                  <FaCheckDouble size={12} className="text-sky-400" />
+                )}
+              </>
+            )}
+          </div>
+        )}
 
-        <div className="absolute top-1.5 right-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 z-20">
-          <button
-            onClick={() => setShowOptions((prev) => !prev)}
-            className={`p-1.5 rounded-full cursor-pointer backdrop-blur-sm transition-colors ${isDark
+        {message.contentType !== "poll" && (
+          <div className="absolute top-1.5 right-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 z-20">
+            <button
+              onClick={() => setShowOptions((prev) => !prev)}
+              className={`p-1 rounded-full cursor-pointer backdrop-blur-sm transition-colors ${isDark
                 ? "text-white/80 hover:bg-white/10 hover:text-white"
                 : "text-gray-600 hover:bg-black/[0.06] hover:text-gray-900"
-              }`}
-          >
-            <HiDotsVertical size={16} />
-          </button>
-        </div>
+                }`}
+              title="Menu"
+            >
+              <FiChevronDown size={18} />
+            </button>
+          </div>
+        )}
 
         <div
-          className={`absolute ${isUserMessage ? "-left-11" : "-right-11"
-            } top-1/2 -translate-y-1/2 flex flex-col items-center`}
+          className={`absolute ${isUserMessage ? "-left-9" : "-right-9"
+            } top-1/2 -translate-y-1/2 flex flex-col items-center z-10`}
         >
           <AnimatePresence>
             {showReactions && (
@@ -579,8 +694,8 @@ const MessageBuble = ({
                 exit={{ opacity: 0, scale: 0.85, y: 6 }}
                 transition={{ duration: 0.16, ease: "easeOut" }}
                 className={`absolute bottom-full mb-2 flex items-center rounded-full px-2 py-1.5 gap-0.5 shadow-xl border z-50 ${isDark
-                    ? "bg-[#233138]/95 border-white/10 backdrop-blur-md"
-                    : "bg-white/95 border-black/[0.06] backdrop-blur-md"
+                  ? "bg-[#233138]/95 border-white/10 backdrop-blur-md"
+                  : "bg-white/95 border-black/[0.06] backdrop-blur-md"
                   }`}
               >
                 {quickReactions.map((emoji, index) => (
@@ -600,8 +715,8 @@ const MessageBuble = ({
 
                 <button
                   className={`rounded-full p-1.5 cursor-pointer transition-colors ${isDark
-                      ? "hover:bg-white/10 text-gray-300"
-                      : "hover:bg-black/[0.06] text-gray-600"
+                    ? "hover:bg-white/10 text-gray-300"
+                    : "hover:bg-black/[0.06] text-gray-600"
                     }`}
                   onClick={() => setShowEmojiPicker((prev) => !prev)}
                 >
@@ -640,8 +755,8 @@ const MessageBuble = ({
                       setShowEmojiPicker(false);
                     }}
                     className={`absolute top-2 right-2 rounded-full p-1.5 shadow-md cursor-pointer transition-colors ${isDark
-                        ? "bg-[#202c33] text-gray-300 hover:bg-[#2a3942]"
-                        : "bg-white text-gray-600 hover:bg-gray-100"
+                      ? "bg-[#202c33] text-gray-300 hover:bg-[#2a3942]"
+                      : "bg-white text-gray-600 hover:bg-gray-100"
                       }`}
                   >
                     <RxCross2 size={14} />
@@ -654,13 +769,13 @@ const MessageBuble = ({
           <button
             onClick={() => setShowReactions((prev) => !prev)}
             className={`p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 active:scale-95 ${isDark
-                ? "bg-[#233138] hover:bg-[#2a3942]"
-                : "bg-white hover:bg-gray-50"
+              ? "bg-[#233138] hover:bg-[#2a3942]"
+              : "bg-white hover:bg-gray-50"
               } shadow-md ring-1 ${isDark ? "ring-white/10" : "ring-black/[0.06]"
               } cursor-pointer`}
           >
-            <FaSmile
-              size={13}
+            <BsEmojiSmile
+              size={15}
               className={isDark ? "text-gray-300" : "text-gray-500"}
             />
           </button>
@@ -693,70 +808,160 @@ const MessageBuble = ({
           {showOptions && (
             <motion.div
               ref={optionRef}
-              initial={{ opacity: 0, scale: 0.92, y: -6 }}
+              initial={{ opacity: 0, scale: 0.95, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.92, y: -6 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className={`absolute top-9 right-1.5 z-50 min-w-[168px] overflow-hidden rounded-xl shadow-2xl border text-sm ${isDark
-                  ? "bg-[#233138]/95 border-white/10 text-white backdrop-blur-md"
-                  : "bg-white/95 border-black/[0.06] text-gray-800 backdrop-blur-md"
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
+              className={`absolute top-0 ${isUserMessage
+                ? "right-full mr-2 max-sm:right-0 max-sm:left-auto max-sm:top-8"
+                : "left-full ml-2 max-sm:left-0 max-sm:right-auto max-sm:top-8"
+                } z-50 min-w-[215px] py-2 overflow-hidden rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.55)] border ${isDark
+                  ? "bg-[#233138] border-[#2a3942]/80 text-[#d1d7db]"
+                  : "bg-white border-black/10 text-gray-800"
                 }`}
             >
               <button
+                type="button"
                 onClick={() => {
-                  let textToCopy = "";
-                  if (message.contentType === "text") {
-                    textToCopy = message.content;
-                  }
-                  if (
-                    message.contentType === "image" ||
-                    message.contentType === "video"
-                  ) {
-                    textToCopy = message.imageOrVideoUrl;
-                  }
-
-                  if (textToCopy) {
-                    navigator.clipboard.writeText(textToCopy);
-                    toast.success("Copied");
-                  }
                   setShowOptions(false);
+                  toast.info("Reply to message");
                 }}
-                className={`flex w-full items-center px-3.5 py-2.5 gap-3 cursor-pointer transition-colors ${isDark ? "hover:bg-white/10" : "hover:bg-black/[0.04]"
+                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
                   }`}
               >
-                <FaRegCopy size={13} className="opacity-70" />
-                <span className="font-medium">Copy</span>
+                <MdReply size={18} className="opacity-80 shrink-0" />
+                <span className="font-normal text-[14px]">Reply</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOptions(false);
+                  toast.info("Reply privately");
+                }}
+                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                  }`}
+              >
+                <MdOutlineReplyAll size={18} className="opacity-80 shrink-0" />
+                <span className="font-normal text-[14px]">Reply privately</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOptions(false);
+                  const senderName = message.sender?.username || "Contact";
+                  toast.info(`Message ${senderName}`);
+                }}
+                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                  }`}
+              >
+                <BsChatSquareText size={16} className="opacity-80 shrink-0" />
+                <span className="font-normal text-[14px] truncate">
+                  Message {message.sender?.username ? message.sender.username.toUpperCase() : "CONTACT"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOptions(false);
+                  setShowReactions(true);
+                }}
+                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                  }`}
+              >
+                <BsEmojiSmile size={17} className="opacity-80 shrink-0" />
+                <span className="font-normal text-[14px]">React</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOptions(false);
+                  toast.success("Message pinned");
+                }}
+                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                  }`}
+              >
+                <TbPin size={18} className="opacity-80 shrink-0" />
+                <span className="font-normal text-[14px]">Pin</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOptions(false);
+                  toast.success("Message starred");
+                }}
+                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                  }`}
+              >
+                <FaRegStar size={16} className="opacity-80 shrink-0" />
+                <span className="font-normal text-[14px]">Star</span>
+              </button>
+
+              {message.contentType === "text" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(message.content || "");
+                    toast.success("Copied");
+                    setShowOptions(false);
+                  }}
+                  className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                    }`}
+                >
+                  <FaRegCopy size={15} className="opacity-80 shrink-0" />
+                  <span className="font-normal text-[14px]">Copy</span>
+                </button>
+              )}
 
               {isUserMessage && message.contentType === "text" && (
                 <button
+                  type="button"
                   onClick={() => {
                     setEditText(message.content || "");
                     setIsEditing(true);
                     setShowOptions(false);
                   }}
-                  className={`flex w-full items-center px-3.5 py-2.5 gap-3 cursor-pointer transition-colors ${isDark ? "hover:bg-white/10" : "hover:bg-black/[0.04]"
+                  className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
                     }`}
                 >
-                  <RiEditLine size={14} className="opacity-70" />
-                  <span className="font-medium">Edit</span>
+                  <RiEditLine size={16} className="opacity-80 shrink-0" />
+                  <span className="font-normal text-[14px]">Edit</span>
                 </button>
               )}
 
               <div
-                className={`h-px ${isDark ? "bg-white/10" : "bg-black/[0.06]"}`}
+                className={`my-1 border-t ${isDark ? "border-[#313d45]" : "border-black/10"
+                  }`}
               />
 
               <button
+                type="button"
+                onClick={() => {
+                  setShowOptions(false);
+                  toast.info("Report submitted");
+                }}
+                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                  }`}
+              >
+                <FiThumbsDown size={17} className="opacity-80 shrink-0" />
+                <span className="font-normal text-[14px]">Report</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => {
                   setDeleteModal(message);
                   setShowOptions(false);
                 }}
-                className={`flex w-full items-center px-3.5 py-2.5 gap-3 text-red-500 cursor-pointer transition-colors ${isDark ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
                   }`}
               >
-                <RiDeleteBin6Line size={14} />
-                <span className="font-medium">Delete</span>
+                <RiDeleteBin6Line size={17} className="opacity-80 shrink-0" />
+                <span className="font-normal text-[14px]">Delete</span>
               </button>
             </motion.div>
           )}
@@ -783,8 +988,8 @@ const MessageBuble = ({
                   damping: 22,
                 }}
                 className={`relative w-full max-w-sm overflow-hidden rounded-[28px] border p-6 shadow-2xl backdrop-blur-2xl ${isDark
-                    ? "border-white/[0.08] bg-gradient-to-br from-[#202c33]/95 via-[#111b21]/95 to-[#0b141a]/95 shadow-black/50"
-                    : "border-white/70 bg-gradient-to-br from-white/95 via-white/90 to-zinc-100/95 shadow-black/10"
+                  ? "border-white/[0.08] bg-gradient-to-br from-[#202c33]/95 via-[#111b21]/95 to-[#0b141a]/95 shadow-black/50"
+                  : "border-white/70 bg-gradient-to-br from-white/95 via-white/90 to-zinc-100/95 shadow-black/10"
                   }`}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -795,8 +1000,8 @@ const MessageBuble = ({
 
                 <div
                   className={`pointer-events-none absolute left-8 right-8 top-0 h-px ${isDark
-                      ? "bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                      : "bg-gradient-to-r from-transparent via-black/10 to-transparent"
+                    ? "bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                    : "bg-gradient-to-r from-transparent via-black/10 to-transparent"
                     }`}
                 />
 
@@ -804,8 +1009,8 @@ const MessageBuble = ({
                   type="button"
                   onClick={() => setDeleteModal(null)}
                   className={`absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 hover:rotate-90 cursor-pointer ${isDark
-                      ? "bg-white/[0.05] text-gray-400 hover:bg-white/10 hover:text-white"
-                      : "bg-black/[0.04] text-gray-500 hover:bg-black/[0.08] hover:text-gray-900"
+                    ? "bg-white/[0.05] text-gray-400 hover:bg-white/10 hover:text-white"
+                    : "bg-black/[0.04] text-gray-500 hover:bg-black/[0.08] hover:text-gray-900"
                     }`}
                 >
                   <RxCross2 size={16} />
@@ -821,8 +1026,8 @@ const MessageBuble = ({
                       stiffness: 300,
                     }}
                     className={`relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border shadow-lg ${isDark
-                        ? "border-red-400/10 bg-gradient-to-br from-red-500/20 to-red-600/5 text-red-400 shadow-red-500/10"
-                        : "border-red-500/10 bg-gradient-to-br from-red-500/10 to-red-500/5 text-red-500 shadow-red-500/10"
+                      ? "border-red-400/10 bg-gradient-to-br from-red-500/20 to-red-600/5 text-red-400 shadow-red-500/10"
+                      : "border-red-500/10 bg-gradient-to-br from-red-500/10 to-red-500/5 text-red-500 shadow-red-500/10"
                       }`}
                   >
                     <RiDeleteBin6Line size={27} />
@@ -863,8 +1068,8 @@ const MessageBuble = ({
                         }
                       }}
                       className={`group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 cursor-pointer ${isDark
-                          ? "border-red-400/10 bg-gradient-to-r from-red-500/90 to-rose-600/90 text-white shadow-lg shadow-red-500/10 hover:border-red-300/20 hover:from-red-500 hover:to-rose-500 hover:shadow-xl hover:shadow-red-500/20"
-                          : "border-red-500/10 bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20 hover:from-red-600 hover:to-rose-500 hover:shadow-xl hover:shadow-red-500/25"
+                        ? "border-red-400/10 bg-gradient-to-r from-red-500/90 to-rose-600/90 text-white shadow-lg shadow-red-500/10 hover:border-red-300/20 hover:from-red-500 hover:to-rose-500 hover:shadow-xl hover:shadow-red-500/20"
+                        : "border-red-500/10 bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/20 hover:from-red-600 hover:to-rose-500 hover:shadow-xl hover:shadow-red-500/25"
                         }`}
                     >
                       <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
@@ -892,8 +1097,8 @@ const MessageBuble = ({
                       }
                     }}
                     className={`group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 cursor-pointer ${isDark
-                        ? "border-white/[0.08] bg-gradient-to-r from-zinc-800/90 to-zinc-900/90 text-zinc-100 shadow-lg shadow-black/10 hover:border-emerald-400/20 hover:from-zinc-700/90 hover:to-zinc-800/90 hover:text-emerald-300 hover:shadow-xl hover:shadow-emerald-500/5"
-                        : "border-black/[0.06] bg-gradient-to-r from-zinc-100 to-white text-zinc-800 shadow-md shadow-black/5 hover:border-emerald-500/20 hover:from-emerald-50 hover:to-white hover:text-emerald-700 hover:shadow-lg"
+                      ? "border-white/[0.08] bg-gradient-to-r from-zinc-800/90 to-zinc-900/90 text-zinc-100 shadow-lg shadow-black/10 hover:border-emerald-400/20 hover:from-zinc-700/90 hover:to-zinc-800/90 hover:text-emerald-300 hover:shadow-xl hover:shadow-emerald-500/5"
+                      : "border-black/[0.06] bg-gradient-to-r from-zinc-100 to-white text-zinc-800 shadow-md shadow-black/5 hover:border-emerald-500/20 hover:from-emerald-50 hover:to-white hover:text-emerald-700 hover:shadow-lg"
                       }`}
                   >
                     <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
@@ -913,8 +1118,8 @@ const MessageBuble = ({
                     whileTap={{ scale: 0.97 }}
                     onClick={() => setDeleteModal(null)}
                     className={`mt-1 w-full rounded-2xl border py-3 text-sm font-medium transition-all duration-300 cursor-pointer ${isDark
-                        ? "border-transparent text-zinc-400 hover:border-white/[0.06] hover:bg-white/[0.04] hover:text-white"
-                        : "border-transparent text-zinc-500 hover:border-black/[0.05] hover:bg-black/[0.03] hover:text-zinc-900"
+                      ? "border-transparent text-zinc-400 hover:border-white/[0.06] hover:bg-white/[0.04] hover:text-white"
+                      : "border-transparent text-zinc-500 hover:border-black/[0.05] hover:bg-black/[0.03] hover:text-zinc-900"
                       }`}
                   >
                     Cancel

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ChatWindow from "../pages/chatSection/ChatWindow";
 import ContactInfo from "../components/ContactInfo";
 import ProfilePicture from "../components/profilePicture";
+import PollDetailsPanel from "../components/PollDetailsPanel";
 
 const Layout = ({
   children,
@@ -23,6 +24,7 @@ const Layout = ({
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const { theme, setTheme } = useThemeStore();
   const showContactInfo = useLayoutStore((state) => state.showContactInfo);
+  const selectedPollMessage = useLayoutStore((state) => state.selectedPollMessage);
   const showProfilePicture = useLayoutStore(
     (state) => state.showProfilePicture,
   );
@@ -60,7 +62,7 @@ const Layout = ({
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "tween" }}
-              className={`h-full w-full md:w-[25%] ${isMobile ? "pb-16" : ""}`}
+              className={`h-full w-full md:w-[30%] lg:w-[25%] md:min-w-[320px] md:max-w-[420px] shrink-0 ${isMobile ? "pb-16" : ""}`}
             >
               {children}
             </motion.div>
@@ -73,7 +75,7 @@ const Layout = ({
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "tween" }}
-              className="h-full w-full md:w-[80%]"
+              className="h-full flex-1 min-w-0"
             >
               <ChatWindow
                 selectedContact={selectedContact}
@@ -85,6 +87,7 @@ const Layout = ({
           )}
         </AnimatePresence>
         {showContactInfo && <ContactInfo />}
+        {selectedPollMessage && <PollDetailsPanel />}
         {showProfilePicture && (
           <ProfilePicture
             isOpen={showProfilePicture}

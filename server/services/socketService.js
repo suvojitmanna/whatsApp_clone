@@ -166,14 +166,15 @@ function initializeSocket(server) {
     socket.on("vote_poll", async ({ messageId, optionIndex, voterId }) => {
       try {
         const message = await Message.findById(messageId);
-        if (!message || message.contentType !== "poll" || !message.pollData) return;
+        if (!message || message.contentType !== "poll" || !message.pollData)
+          return;
         const voterObjectId = new mongoose.Types.ObjectId(voterId);
 
         if (!message.pollData.allowMultiple) {
           message.pollData.options.forEach((opt, idx) => {
             if (idx !== optionIndex) {
               opt.votes = opt.votes.filter(
-                (v) => v.toString() !== voterId.toString()
+                (v) => v.toString() !== voterId.toString(),
               );
             }
           });
@@ -182,11 +183,11 @@ function initializeSocket(server) {
         const targetOption = message.pollData.options[optionIndex];
         if (targetOption) {
           const alreadyVoted = targetOption.votes.some(
-            (v) => v.toString() === voterId.toString()
+            (v) => v.toString() === voterId.toString(),
           );
           if (alreadyVoted) {
             targetOption.votes = targetOption.votes.filter(
-              (v) => v.toString() !== voterId.toString()
+              (v) => v.toString() !== voterId.toString(),
             );
           } else {
             targetOption.votes.push(voterObjectId);
@@ -196,21 +197,20 @@ function initializeSocket(server) {
         message.markModified("pollData");
         await message.save();
 
+        const populated = await Message.findById(message._id).populate(
+          "pollData.options.votes",
+          "username profilePicture",
+        );
+
         const payload = {
           messageId: message._id.toString(),
-          pollData: message.pollData,
+          pollData: populated.pollData,
         };
-
-        // 1. Emit back to the active socket that clicked
         socket.emit("poll_update", payload);
-
-        // 2. Emit to user rooms
         const senderIdStr = message.sender.toString();
         const receiverIdStr = message.receiver.toString();
         io.to(senderIdStr).emit("poll_update", payload);
         io.to(receiverIdStr).emit("poll_update", payload);
-
-        // 3. Emit directly to socket IDs in onlineUsers map
         const senderSocketId = onlineUsers.get(senderIdStr);
         const receiverSocketId = onlineUsers.get(receiverIdStr);
         if (senderSocketId && senderSocketId !== socket.id) {

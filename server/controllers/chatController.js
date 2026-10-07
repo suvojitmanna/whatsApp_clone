@@ -180,6 +180,7 @@ exports.getMessages = async (req, res) => {
       .populate("sender", "username profilePicture")
       .populate("receiver", "username profilePicture")
       .populate("reactions.userId", "username profilePicture")
+      .populate("pollData.options.votes", "username profilePicture")
       .populate({
         path: "statusId",
         populate: {
@@ -457,9 +458,12 @@ exports.votePoll = async (req, res) => {
     message.markModified("pollData");
     await message.save();
 
+    const populated = await Message.findById(message._id)
+      .populate("pollData.options.votes", "username profilePicture");
+
     const payload = {
       messageId: message._id.toString(),
-      pollData: message.pollData,
+      pollData: populated.pollData,
     };
 
     if (req.io && req.socketUserMap) {
@@ -478,7 +482,7 @@ exports.votePoll = async (req, res) => {
       req.io.to(message.receiver.toString()).emit("poll_update", payload);
     }
 
-    return response(res, 200, "Vote updated successfully", message);
+    return response(res, 200, "Vote updated successfully", populated);
   } catch (error) {
     console.error("VOTE POLL CONTROLLER ERROR:", error);
     return response(res, 500, "Internal server error");

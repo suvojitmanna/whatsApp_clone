@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useOutsideClick from "../hook/useOutsideClick";
 import useLayoutStore from "../store/layoutStore";
@@ -11,12 +11,19 @@ import useVideoCallStore from "../store/videoCallStore";
 
 const ContactInfo = () => {
   const contactInfoRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const { selectedContact, showContactInfo, setShowContactInfo } =
     useLayoutStore();
   const { theme } = useThemeStore();
   const { isUserOnline } = useChatStore();
 
   const online = isUserOnline(selectedContact?._id);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useOutsideClick(contactInfoRef, () => {
     setShowContactInfo(false);
@@ -62,22 +69,20 @@ const ContactInfo = () => {
   const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
     <button
       onClick={!disabled ? onClick : undefined}
-      className={`flex flex-col items-center gap-2 group transition-all duration-300 ${
-        disabled
-          ? "opacity-30 cursor-not-allowed"
-          : "cursor-pointer active:scale-95"
-      }`}
+      className={`flex flex-col items-center gap-2 group transition-all duration-300 ${disabled
+        ? "opacity-30 cursor-not-allowed"
+        : "cursor-pointer active:scale-95"
+        }`}
     >
       <div
         className={`relative w-14 h-14 flex items-center justify-center rounded-2xl 
       /* The Frosting */
       backdrop-blur-md 
       /* Dynamic Glass Tint */
-      ${
-        theme === "dark"
-          ? "bg-white/5 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
-          : "bg-black/5 border-black/5 shadow-[0_4px_16px_0_rgba(31,38,135,0.05)]"
-      }
+      ${theme === "dark"
+            ? "bg-white/5 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
+            : "bg-black/5 border-black/5 shadow-[0_4px_16px_0_rgba(31,38,135,0.05)]"
+          }
       border
       /* Interactive Glow */
       group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10
@@ -103,16 +108,18 @@ const ContactInfo = () => {
           initial={{ x: "100%", opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
-          transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className={`absolute top-0 right-0 w-full md:w-[400px] h-full z-[100] border-l 
-            ${
-              theme === "dark"
-                ? "bg-[#111b21]/80 backdrop-blur-xl border-white/10 text-white"
-                : "bg-white/90 backdrop-blur-xl border-gray-200 text-gray-800"
+          transition={{ type: "tween", duration: 0.2 }}
+          className={`h-full flex flex-col select-none ${isMobile
+            ? "fixed inset-0 z-[100]"
+            : "relative w-full md:w-[350px] lg:w-[400px] xl:w-[420px] shrink-0 border-l"
+            } ${theme === "dark"
+              ? "bg-[#111b21] border-[#222d34] text-white"
+              : "bg-white border-gray-200 text-gray-800"
             } shadow-2xl`}
         >
           <div
-            className={`h-[70px] px-4 flex items-center justify-between border-b ${theme === "dark" ? "border-white/5" : "border-black/5"}`}
+            className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
+              }`}
           >
             <div className="flex items-center gap-4">
               <motion.button
@@ -228,17 +235,16 @@ const ContactInfo = () => {
                 </p>
 
                 <p
-                  className={`text-[10px] mt-1 ${
-                    theme === "dark" ? "text-gray-500" : "text-gray-400"
-                  }`}
+                  className={`text-[10px] mt-1 ${theme === "dark" ? "text-gray-500" : "text-gray-400"
+                    }`}
                 >
                   {selectedContact?.aboutUpdatedAt
                     ? `Updated ${new Date(
-                        selectedContact.aboutUpdatedAt,
-                      ).toLocaleString([], {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}`
+                      selectedContact.aboutUpdatedAt,
+                    ).toLocaleString([], {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}`
                     : ""}
                 </p>
               </motion.div>
