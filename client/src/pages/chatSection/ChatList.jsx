@@ -1,0 +1,201 @@
+import React, { useEffect, useRef, useState } from "react";
+import useThemeStore from "../../store/themeStore";
+import useLayoutStore from "../../store/layoutStore";
+import { FaPlus, FaSearch } from "react-icons/fa";
+import { motion } from "framer-motion";
+import formatTimestamp from "../../utils/formatTime";
+import { useChatStore } from "../../store/chatStore";
+
+const ChatList = ({ contacts }) => {
+  const { isUserTyping } = useChatStore();
+  const selectedContact = useLayoutStore((state) => state.selectedContact);
+  const setSelectedContact = useLayoutStore(
+    (state) => state.setSelectedContact,
+  );
+  const chatListScrollTop = useLayoutStore((state) => state.chatListScrollTop);
+  const setChatListScrollTop = useLayoutStore(
+    (state) => state.setChatListScrollTop,
+  );
+  const listContainerRef = useRef(null);
+
+  const { theme } = useThemeStore();
+  const [searchTerms, setSearchTerms] = useState("");
+  const filteredContact =
+    contacts
+      ?.filter((contact) =>
+        contact?.username?.toLowerCase().includes(searchTerms.toLowerCase()),
+      )
+      ?.sort((a, b) => {
+        const timeA = a?.conversation?.lastMessage?.createdAt
+          ? new Date(a.conversation.lastMessage.createdAt)
+          : 0;
+
+        const timeB = b?.conversation?.lastMessage?.createdAt
+          ? new Date(b.conversation.lastMessage.createdAt)
+          : 0;
+        return timeB - timeA;
+      }) || [];
+
+  useEffect(() => {
+    if (listContainerRef.current) {
+      if (chatListScrollTop > 0) {
+        listContainerRef.current.scrollTop = chatListScrollTop;
+      } else if (selectedContact?._id) {
+        const el = listContainerRef.current.querySelector(
+          `[data-contact-id="${selectedContact._id}"]`,
+        );
+        if (el) {
+          el.scrollIntoView({ block: "nearest" });
+        }
+      }
+    }
+  }, [filteredContact.length, selectedContact?._id]);
+
+  return (
+    <div
+      className={`h-full w-full border-r relative z-10 transition-all duration-300 ${
+        theme === "dark"
+          ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
+          : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
+      }`}
+    >
+      <div className="p-4 flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Chats</h2>
+        <button className="p-2 bg-green-500 text-white rounded-full shadow-md cursor-pointer transition-all duration-300 ease-in-out hover:bg-green-600 hover:scale-110 hover:rotate-90 active:scale-90 animate-bounce-slow">
+          <FaPlus />
+        </button>
+      </div>
+      <div className="p-2">
+        <div className="relative">
+          {" "}
+          <FaSearch
+            className={`absolute left-3 top-1/2 transform -translate-y-1/2 z-10 ${theme === "dark" ? "text-gray-400" : "text-gray-800"
+              }`}
+          />
+          <input
+            type="text"
+            placeholder="search or start new chat"
+            className={`w-full pl-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${theme === "dark"
+                ? "bg-gray-800 text-white border-gray-700 placeholder-gray-500"
+                : "bg-gray-100 text-black border-gray-200 placeholder-gray-400"
+              }`}
+            value={searchTerms}
+            onChange={(e) => setSearchTerms(e.target.value)}
+          />
+        </div>
+      </div>
+      <div
+        ref={listContainerRef}
+        onScroll={(e) => setChatListScrollTop(e.target.scrollTop)}
+        className="overflow-y-auto h-[calc(100vh-120px)] custom-scrollbar"
+      >
+        {filteredContact.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col items-center justify-center h-full text-center px-6"
+          >
+            <div className="relative mb-5">
+              <div className="absolute inset-0 rounded-full blur-xl bg-green-500/20"></div>
+
+              <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-500 shadow-lg animate-pulse">
+                <FaSearch className="text-white text-xl" />
+              </div>
+            </div>
+
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-1">
+              No chats found
+            </h2>
+
+            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[220px] leading-relaxed">
+              Try searching with a different name or start a new conversation.
+            </p>
+          </motion.div>
+        ) : (
+          filteredContact.map((contact) => {
+            const conversationId = contact?.conversation?._id;
+            const isTyping = isUserTyping(conversationId, contact?._id);
+
+            return (
+              <motion.div
+                key={contact._id}
+                data-contact-id={contact._id}
+                onClick={() => setSelectedContact(contact)}
+                className={`p-3 flex items-center cursor-pointer transition-colors ${theme === "dark"
+                    ? selectedContact?._id === contact._id
+                      ? "bg-gray-700"
+                      : "hover:bg-gray-800"
+                    : selectedContact?._id === contact._id
+                      ? "bg-gray-200"
+                      : "hover:bg-gray-100"
+                  }`}
+              >
+                <img
+                  src={contact?.profilePicture}
+                  alt={contact?.username}
+                  className="w-12 h-12 rounded-full"
+                />
+
+                <div className="ml-3 flex-1">
+                  <div className="flex justify-between items-baseline">
+                    <h2 className="font-semibold">{contact?.username}</h2>
+                    {contact?.conversation && (
+                      <span
+                        className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
+                      >
+                        {formatTimestamp(
+                          contact?.conversation?.lastMessage?.createdAt,
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <p
+                      className={`text-sm flex items-center gap-1.5 w-full ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                        }`}
+                    >
+                      {isTyping ? (
+                        <span className="font-medium text-emerald-500 flex-shrink-0">
+                          typing...
+                        </span>
+                      ) : contact?.conversation?.lastMessage?.content ? (
+                        <>
+                          <span className="truncate">
+                            {contact.conversation.lastMessage.content}
+                          </span>
+
+                          {contact.conversation.lastMessage.edited && (
+                            <span
+                              className={`flex-shrink-0 text-[11px] italic mt-0.5 ${theme === "dark"
+                                  ? "text-gray-500/80"
+                                  : "text-gray-400"
+                                }`}
+                            >
+                              edited
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="italic opacity-70">
+                          No messages yet
+                        </span>
+                      )}
+                    </p>
+                    {contact?.conversation?.unreadCount > 0 && (
+                      <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white">
+                        {contact.conversation.unreadCount}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ChatList;
