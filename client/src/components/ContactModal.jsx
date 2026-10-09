@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
-import {motion} from "framer-motion"
-import { RiContactsFill } from "react-icons/ri"
-import { RxCross2 } from "react-icons/rx"
+import React, { useState } from 'react';
+import { motion } from "framer-motion";
+import { RiContactsFill } from "react-icons/ri";
+import { RxCross2 } from "react-icons/rx";
+import { useChatStore } from "../store/chatStore";
 
 const ContactModal = ({ onClose, onSend, conversations, theme }) => {
     const [name, setName] = useState("");
@@ -10,14 +11,49 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
     const [activeTab, setActiveTab] = useState("chats");
     const isDark = theme === "dark";
 
-    const allContacts =
+    const storeUsers = useChatStore((state) => state.users) || [];
+
+    const userMap = new Map();
+    storeUsers.forEach((u) => {
+        if (u?._id) userMap.set(u._id.toString(), u);
+    });
+
+    const allConversationParticipants =
         conversations?.data?.flatMap((c) => c.participants) || [];
+
+    const combinedList = [...storeUsers, ...allConversationParticipants].filter(Boolean);
+
     const uniqueContacts = Array.from(
-        new Map(allContacts.map((c) => [c._id, c])).values()
+        new Map(
+            combinedList.map((contact) => {
+                const contactId = (contact._id || contact).toString();
+                const matchedUser = userMap.get(contactId) || {};
+                const merged = {
+                    ...contact,
+                    ...matchedUser,
+                    _id: contactId,
+                    username: matchedUser.username || contact.username || "User",
+                    email: matchedUser.email || contact.email || "",
+                    phoneNumber: matchedUser.phoneNumber || contact.phoneNumber || "",
+                    profilePicture: matchedUser.profilePicture || contact.profilePicture || "",
+                };
+                return [contactId, merged];
+            })
+        ).values()
     );
 
+    const handleShare = (contactData) => {
+        onSend(contactData);
+        if (typeof onClose === "function") {
+            onClose();
+        }
+    };
+
     return (
-        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">
+        <div
+            className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none"
+            onClick={onClose}
+        >
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -52,7 +88,7 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                             : "opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10"
                             }`}
                     >
-                        From Chats
+                        From Contacts
                     </button>
                     <button
                         type="button"
@@ -75,7 +111,7 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                                     key={contact._id}
                                     title={`Share contact: ${contact.username || "User"}`}
                                     onClick={() =>
-                                        onSend({
+                                        handleShare({
                                             name: contact.username || "User",
                                             phoneNumber: contact.phoneNumber || "",
                                             email: contact.email || "",
@@ -99,6 +135,11 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                                         <p className="text-xs opacity-60 truncate">
                                             {contact.phoneNumber || contact.email || "Contact"}
                                         </p>
+                                        {contact.email && contact.phoneNumber && (
+                                            <p className="text-[11px] opacity-50 truncate">
+                                                {contact.email}
+                                            </p>
+                                        )}
                                     </div>
                                     <span className="text-xs text-emerald-500 font-semibold group-hover:underline">
                                         Share
@@ -131,7 +172,7 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                         </div>
                         <div>
                             <label className="text-xs font-semibold opacity-75 uppercase tracking-wider">
-                                Phone Number *
+                                Phone Number (Optional)
                             </label>
                             <input
                                 type="text"
@@ -170,8 +211,14 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
                             </button>
                             <button
                                 type="button"
-                                disabled={!name.trim() || !phoneNumber.trim()}
-                                onClick={() => onSend({ name, phoneNumber, email })}
+                                disabled={!name.trim() || (!phoneNumber.trim() && !email.trim())}
+                                onClick={() =>
+                                    handleShare({
+                                        name: name.trim(),
+                                        phoneNumber: phoneNumber.trim(),
+                                        email: email.trim(),
+                                    })
+                                }
                                 className="px-5 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-95 disabled:opacity-40 transition-all shadow-md cursor-pointer"
                                 title="Share contact"
                             >
@@ -185,4 +232,4 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
     );
 };
 
-export default ContactModal
+export default ContactModal;

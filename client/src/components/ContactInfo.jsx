@@ -622,7 +622,7 @@ const ContactInfo = () => {
                         <FaLock size={16} />
                       </div>
 
-                      
+
 
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[14px] font-semibold flex items-center gap-1.5">

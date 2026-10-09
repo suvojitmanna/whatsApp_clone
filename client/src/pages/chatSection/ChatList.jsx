@@ -75,7 +75,7 @@ const getLastMessagePreview = (lastMessage) => {
     };
   }
 
-  if (contentType === "poll" || pollData) {
+  if (contentType === "poll") {
     let question =
       pollData?.question ||
       lastMessage.content ||
@@ -132,7 +132,7 @@ const getLastMessagePreview = (lastMessage) => {
       isEncrypted: false,
     };
   }
-  if (contentType === "event" || eventData) {
+  if (contentType === "event") {
     const isCancelled = eventData?.isCancelled || (typeof lastMessage.content === "string" && lastMessage.content.startsWith("Cancelled event:"));
     let title = eventData?.title || eventData?.name || lastMessage.content || "Event";
     if (typeof title === "string") {
@@ -144,7 +144,7 @@ const getLastMessagePreview = (lastMessage) => {
       isEncrypted: false,
     };
   }
-  if (contentType === "contact" || contactData) {
+  if (contentType === "contact") {
     let name = contactData?.name || lastMessage.content || "Contact";
     if (typeof name === "string" && name.startsWith("Contact:")) {
       name = name.replace(/^Contact:\s*/, "");
@@ -229,6 +229,7 @@ const getLastMessagePreview = (lastMessage) => {
 };
 
 const ChatList = ({ contacts }) => {
+  const { user } = useUserStore();
   const { isUserTyping } = useChatStore();
   const selectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedContact = useLayoutStore(
@@ -437,11 +438,29 @@ const ChatList = ({ contacts }) => {
                         );
                       })()}
                     </p>
-                    {contact?.conversation?.unreadCount > 0 && (
-                      <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white">
-                        {contact.conversation.unreadCount}
-                      </p>
-                    )}
+                    {(() => {
+                      const unread = contact?.conversation?.unreadCount;
+                      const currentUserId = user?._id?.toString();
+                      const lastMsgSenderId = (
+                        contact?.conversation?.lastMessage?.sender?._id ||
+                        contact?.conversation?.lastMessage?.sender
+                      )?.toString();
+                      const isSenderOfLast = Boolean(
+                        currentUserId &&
+                        lastMsgSenderId &&
+                        lastMsgSenderId === currentUserId
+                      );
+
+                      if (isSenderOfLast || !unread || unread <= 0) {
+                        return null;
+                      }
+
+                      return (
+                        <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white">
+                          {unread}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
               </motion.div>

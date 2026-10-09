@@ -16,6 +16,8 @@ function syncMessagesCache(cache, convId, newMessages) {
   return nextCache;
 }
 
+const readStatusCache = new Set();
+
 async function decryptSingleMessage(
   msg,
   currentUserId,
@@ -85,7 +87,7 @@ async function decryptSingleMessage(
 export const useChatStore = create((set, get) => ({
   users: [],
   setUsers: (users) => set({ users }),
-  conversations: [],
+  conversations: { data: [] },
   currentConversation: null,
   currentUser: null,
   setCurrentConversation: (conversation) =>
@@ -128,20 +130,65 @@ export const useChatStore = create((set, get) => ({
       get().receiveMessage(message);
     });
 
-    socket.on("message_status_update_bulk", ({ messageIds, messageStatus }) => {
+    const handleStatusBulk = (ids, status) => {
+      if (!ids || !ids.length) return;
+      const strIds = new Set(
+        ids.map((id) => (id?._id || id)?.toString()).filter(Boolean),
+      );
+
+      if (status === "read") {
+        strIds.forEach((id) => readStatusCache.add(id));
+      }
+
       set((state) => {
-        const nextMessages = state.messages.map((msg) =>
-          messageIds.includes(msg._id) ? { ...msg, messageStatus } : msg,
-        );
-        const nextCache = state.currentConversation?._id
-          ? syncMessagesCache(
-              state.messagesCache,
-              state.currentConversation._id,
-              nextMessages,
-            )
+        let changed = false;
+        const nextMessages = state.messages.map((msg) => {
+          const msgIdStr = (msg._id?._id || msg._id)?.toString();
+          if (strIds.has(msgIdStr)) {
+            if (msg.messageStatus !== status) {
+              changed = true;
+            }
+            return { ...msg, messageStatus: status };
+          }
+          return msg;
+        });
+
+        let convsChanged = false;
+        const nextConversationsData = state.conversations?.data?.map((conv) => {
+          const lastMsgId = (conv.lastMessage?._id || conv.lastMessage)?.toString();
+          if (strIds.has(lastMsgId) && conv.lastMessage?.messageStatus !== status) {
+            convsChanged = true;
+            return {
+              ...conv,
+              lastMessage: {
+                ...conv.lastMessage,
+                messageStatus: status,
+              },
+            };
+          }
+          return conv;
+        });
+
+        if (!changed && !convsChanged) return {};
+
+        const convId = state.currentConversation?._id;
+        const nextCache = convId && changed
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
           : state.messagesCache;
-        return { messages: nextMessages, messagesCache: nextCache };
+
+        return {
+          messages: changed ? nextMessages : state.messages,
+          messagesCache: nextCache,
+          conversations: convsChanged
+            ? { ...state.conversations, data: nextConversationsData }
+            : state.conversations,
+        };
       });
+    };
+
+    socket.on("message_status_update_bulk", ({ messageIds, messageStatus }) => {
+      const ids = Array.isArray(messageIds) ? messageIds : [];
+      handleStatusBulk(ids, messageStatus || "read");
     });
 
     socket.on("message_send", (message) => {
@@ -161,40 +208,15 @@ export const useChatStore = create((set, get) => ({
     });
 
     socket.on("message_status_update", ({ messageId, messageStatus }) => {
-      set((state) => {
-        const nextMessages = state.messages.map((msg) =>
-          msg._id === messageId ? { ...msg, messageStatus } : msg,
-        );
-        const nextCache = state.currentConversation?._id
-          ? syncMessagesCache(
-              state.messagesCache,
-              state.currentConversation._id,
-              nextMessages,
-            )
-          : state.messagesCache;
-        return { messages: nextMessages, messagesCache: nextCache };
-      });
+      if (messageId) {
+        handleStatusBulk([messageId], messageStatus || "read");
+      }
     });
 
-    socket.on("message_read", ({ messageIds, messageStatus }) => {
-      set((state) => {
-        const nextMessages = state.messages.map((msg) =>
-          messageIds?.includes(msg._id)
-            ? {
-                ...msg,
-                messageStatus: messageStatus || "read",
-              }
-            : msg,
-        );
-        const nextCache = state.currentConversation?._id
-          ? syncMessagesCache(
-              state.messagesCache,
-              state.currentConversation._id,
-              nextMessages,
-            )
-          : state.messagesCache;
-        return { messages: nextMessages, messagesCache: nextCache };
-      });
+    socket.on("message_read", (payload) => {
+      const rawIds = payload?.messageIds || (payload?._id ? [payload._id] : (payload?.messageId ? [payload.messageId] : []));
+      const ids = Array.isArray(rawIds) ? rawIds : [];
+      handleStatusBulk(ids, payload?.messageStatus || "read");
     });
 
     socket.on("reaction_update", ({ messageId, reactions }) => {
@@ -608,7 +630,7 @@ export const useChatStore = create((set, get) => ({
                 (p) => String(p?._id || p) === String(receiverId),
               );
             return isTarget
-              ? { ...conv, lastMessage: optimisticMessage }
+              ? { ...conv, lastMessage: optimisticMessage, unreadCount: 0 }
               : conv;
           }),
         },
@@ -623,8 +645,11 @@ export const useChatStore = create((set, get) => ({
       );
 
       const messageData = data.data || data;
+      const savedMsgId = String(messageData._id);
+      const isAlreadyRead = readStatusCache.has(savedMsgId);
       const savedMessage = {
         ...messageData,
+        messageStatus: isAlreadyRead ? "read" : (messageData.messageStatus || "delivered"),
         content: rawContentToKeep,
         _isDecrypted: true,
         isEncrypted: messageData.isEncrypted ?? isEncrypted,
@@ -654,7 +679,9 @@ export const useChatStore = create((set, get) => ({
                 conv.participants?.some(
                   (p) => String(p?._id || p) === String(receiverId),
                 );
-              return isTarget ? { ...conv, lastMessage: savedMessage } : conv;
+              return isTarget
+                ? { ...conv, lastMessage: savedMessage, unreadCount: 0 }
+                : conv;
             }),
           },
         };
@@ -696,13 +723,36 @@ export const useChatStore = create((set, get) => ({
     const conversationId =
       decryptedMessage.conversation?._id || decryptedMessage.conversation;
 
+    const myId = currentUserId?.toString();
+    const receiverId = (
+      decryptedMessage.receiver?._id || decryptedMessage.receiver
+    )?.toString();
+    const senderId = (
+      decryptedMessage.sender?._id || decryptedMessage.sender
+    )?.toString();
+
+    const activeContactId = selectedContact?._id?.toString();
     const isCurrentConversation =
-      String(conversationId) === String(currentConversation?._id);
+      Boolean(
+        conversationId &&
+          currentConversation?._id &&
+          String(conversationId) === String(currentConversation._id),
+      ) ||
+      Boolean(
+        activeContactId &&
+          (senderId === activeContactId || receiverId === activeContactId),
+      );
 
     const isForCurrentUser =
-      String(decryptedMessage.receiver?._id) === String(currentUserId);
+      Boolean(myId && receiverId && receiverId === myId) ||
+      Boolean(myId && senderId && senderId !== myId);
+    const isSentByCurrentUser = Boolean(myId && senderId && senderId === myId);
 
     if (isCurrentConversation) {
+      if (isForCurrentUser) {
+        decryptedMessage.messageStatus = "read";
+      }
+
       set((state) => {
         const nextMessages = [...state.messages, decryptedMessage];
         const nextCache = conversationId
@@ -713,6 +763,10 @@ export const useChatStore = create((set, get) => ({
           messagesCache: nextCache,
         };
       });
+
+      if (isForCurrentUser && decryptedMessage._id) {
+        get().markMessageAsRead([decryptedMessage._id]);
+      }
     } else if (conversationId) {
       const cache = get().messagesCache;
       const convKey = String(conversationId);
@@ -734,73 +788,107 @@ export const useChatStore = create((set, get) => ({
             return conv;
           }
 
+          let nextUnread = conv.unreadCount || 0;
+          if (isCurrentConversation) {
+            nextUnread = 0;
+          } else if (isForCurrentUser) {
+            nextUnread =
+              typeof decryptedMessage.unreadCount === "number"
+                ? decryptedMessage.unreadCount
+                : (conv.unreadCount || 0) + 1;
+          } else if (isSentByCurrentUser) {
+            nextUnread = 0;
+          }
+
           return {
             ...conv,
             lastMessage: decryptedMessage,
-            unreadCount:
-              isForCurrentUser && !isCurrentConversation
-                ? decryptedMessage.unreadCount || conv.unreadCount + 1
-                : conv.unreadCount,
+            unreadCount: nextUnread,
           };
         }),
       },
     }));
   },
 
-  markMessageAsRead: async () => {
+  markMessageAsRead: async (explicitIds = null) => {
     const { messages, currentUser, currentConversation } = get();
+    const effectiveUser = currentUser || useUserStore.getState().user;
+    const myId = (effectiveUser?._id || effectiveUser?.id)?.toString();
 
-    if (!messages.length || !currentUser || !currentConversation) {
-      return;
+    let unreadIds = [];
+    if (Array.isArray(explicitIds) && explicitIds.length > 0) {
+      unreadIds = explicitIds
+        .map((id) => (id?._id || id)?.toString())
+        .filter(Boolean);
+    } else {
+      if (!messages.length || !myId) {
+        return;
+      }
+      unreadIds = messages
+        .filter((msg) => {
+          if (msg.messageStatus === "read") return false;
+          const senderId = (msg.sender?._id || msg.sender)?.toString();
+          const receiverId = (msg.receiver?._id || msg.receiver)?.toString();
+          const isIncoming =
+            (receiverId && receiverId === myId) ||
+            (senderId && senderId !== myId);
+          return isIncoming && Boolean(msg._id);
+        })
+        .map((msg) => (msg._id?._id || msg._id)?.toString())
+        .filter(Boolean);
     }
-
-    const unreadIds = messages
-      .filter(
-        (msg) =>
-          msg.messageStatus !== "read" &&
-          String(msg.receiver?._id) === String(currentUser?._id),
-      )
-      .map((msg) => msg._id)
-      .filter(Boolean);
 
     if (unreadIds.length === 0) return;
 
     try {
-      await axiosInstance.put("/chat/messages/read", {
-        messageIds: unreadIds,
-      });
-
-      set((state) => ({
-        messages: state.messages.map((msg) =>
-          unreadIds.includes(msg._id)
+      const unreadIdStrs = new Set(unreadIds.map(String));
+      unreadIdStrs.forEach((id) => readStatusCache.add(id));
+      set((state) => {
+        const nextMessages = state.messages.map((msg) =>
+          unreadIdStrs.has(String(msg._id))
             ? {
                 ...msg,
                 messageStatus: "read",
               }
             : msg,
-        ),
+        );
 
-        conversations: {
-          ...state.conversations,
-          data: state.conversations?.data?.map((conv) =>
-            String(conv._id) === String(currentConversation._id)
-              ? {
-                  ...conv,
-                  unreadCount: 0,
-                }
-              : conv,
-          ),
-        },
-      }));
+        const convId =
+          state.currentConversation?._id ||
+          messages[0]?.conversation?._id ||
+          messages[0]?.conversation;
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+
+        return {
+          messages: nextMessages,
+          messagesCache: nextCache,
+          conversations: {
+            ...state.conversations,
+            data: state.conversations?.data?.map((conv) =>
+              String(conv._id) ===
+              String(state.currentConversation?._id || convId)
+                ? {
+                    ...conv,
+                    unreadCount: 0,
+                  }
+                : conv,
+            ),
+          },
+        };
+      });
 
       const socket = getSocket();
-
       if (socket) {
         socket.emit("message_read", {
           messageIds: unreadIds,
-          senderId: messages[0]?.sender?._id,
         });
       }
+
+      await axiosInstance.put("/chat/messages/read", {
+        messageIds: unreadIds,
+      });
     } catch (error) {
       console.error("failed to mark message as read", error);
     }

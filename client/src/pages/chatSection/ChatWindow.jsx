@@ -91,6 +91,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     deleteMessage,
     addReaction,
     editMessage,
+    markMessageAsRead,
     scrollPositions,
     saveScrollPosition,
   } = useChatStore();
@@ -164,6 +165,32 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       }
     }
   }, [conversations?.data, selectedContact?._id, isMessagesLoading]);
+
+  // Automatically mark unread incoming messages as read when viewing this conversation
+  const lastMsgId = messages[messages.length - 1]?._id;
+  useEffect(() => {
+    if (!selectedContact?._id || !messages.length) return;
+    const hasUnread = messages.some(
+      (m) =>
+        m.messageStatus !== "read" &&
+        (m.sender?._id || m.sender)?.toString() === selectedContact._id?.toString()
+    );
+    if (hasUnread) {
+      markMessageAsRead();
+    }
+  }, [selectedContact?._id, messages.length, lastMsgId, markMessageAsRead]);
+
+  // When window receives focus, ensure unread messages in open chat are marked as read
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!selectedContact?._id || !messages.length) return;
+      markMessageAsRead();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [selectedContact?._id, messages.length, markMessageAsRead]);
 
   useEffect(() => {
     fetchConversations();
@@ -362,6 +389,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const handleSendContact = async (contactInfo) => {
     if (!selectedContact || !contactInfo.name) return;
+    setShowContactModal(false);
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
@@ -372,7 +400,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       formData.append("contactData", JSON.stringify(contactInfo));
 
       await sendMessage(formData);
-      setShowContactModal(false);
     } catch (error) {
       console.error("Failed to send contact", error);
     }

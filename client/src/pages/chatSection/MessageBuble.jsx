@@ -1,4 +1,5 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -91,6 +92,7 @@ const MessageBuble = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [menuCoords, setMenuCoords] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message?.content || "");
@@ -216,6 +218,223 @@ const MessageBuble = ({
     }
   });
 
+  // Ensure only one message context menu is open at a time across the entire chat
+  useEffect(() => {
+    const handleCloseOthers = (e) => {
+      if (e.detail !== message._id) {
+        setShowOptions(false);
+      }
+    };
+    window.addEventListener("whatsapp_close_all_menus", handleCloseOthers);
+    return () => {
+      window.removeEventListener("whatsapp_close_all_menus", handleCloseOthers);
+    };
+  }, [message._id]);
+
+  // Close context menu dynamically when user scrolls, resizes window, or presses Escape
+  useEffect(() => {
+    if (!showOptions) return;
+
+    const handleDismiss = () => {
+      setShowOptions(false);
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowOptions(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleDismiss, true);
+    window.addEventListener("resize", handleDismiss);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("scroll", handleDismiss, true);
+      window.removeEventListener("resize", handleDismiss);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showOptions]);
+
+  // Dynamically re-adjust position once menu is rendered to ensure it never overflows any edge
+  useLayoutEffect(() => {
+    if (showOptions && optionRef.current && menuCoords?.triggerRect) {
+      const el = optionRef.current;
+      const realHeight = el.offsetHeight;
+      const realWidth = el.offsetWidth;
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const padding = 10;
+      const triggerRect = menuCoords.triggerRect;
+
+      const spaceBelow = viewportHeight - triggerRect.bottom;
+      const spaceAbove = triggerRect.top;
+
+      let newTop = menuCoords.top;
+      let originY = "top";
+
+      if (spaceBelow >= realHeight || spaceBelow >= spaceAbove) {
+        newTop = triggerRect.bottom + 4;
+        originY = "top";
+        if (newTop + realHeight > viewportHeight - padding) {
+          newTop = Math.max(padding, viewportHeight - realHeight - padding);
+        }
+      } else {
+        newTop = triggerRect.top - realHeight - 4;
+        originY = "bottom";
+        if (newTop < padding) {
+          newTop = padding;
+        }
+      }
+
+      let newLeft = menuCoords.left;
+      let originX = isUserMessage ? "right" : "left";
+      if (isUserMessage) {
+        newLeft = triggerRect.right - realWidth;
+        if (newLeft < padding) newLeft = padding;
+      } else {
+        if (triggerRect.right + realWidth <= viewportWidth - padding) {
+          newLeft = triggerRect.left;
+          originX = "left";
+        } else {
+          newLeft = triggerRect.right - realWidth;
+          originX = "right";
+        }
+        if (newLeft < padding) newLeft = padding;
+        if (newLeft + realWidth > viewportWidth - padding) {
+          newLeft = Math.max(padding, viewportWidth - realWidth - padding);
+        }
+      }
+
+      if (
+        Math.abs(newTop - menuCoords.top) > 2 ||
+        Math.abs(newLeft - menuCoords.left) > 2
+      ) {
+        setMenuCoords((prev) => ({
+          ...prev,
+          top: Math.round(newTop),
+          left: Math.round(newLeft),
+          transformOrigin: `${originY} ${originX}`,
+        }));
+      }
+    }
+  }, [showOptions]);
+
+  // Open context menu dynamically at trigger chevron button
+  const handleToggleOptions = (e) => {
+    e.stopPropagation();
+    if (showOptions) {
+      setShowOptions(false);
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("whatsapp_close_all_menus", { detail: message._id })
+    );
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const menuWidth = 220;
+    const estimatedHeight = 420;
+    const padding = 10;
+
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let top;
+    let originY = "top";
+
+    if (spaceBelow >= estimatedHeight || spaceBelow >= spaceAbove) {
+      top = rect.bottom + 4;
+      originY = "top";
+      if (top + estimatedHeight > viewportHeight - padding) {
+        top = Math.max(padding, viewportHeight - estimatedHeight - padding);
+      }
+    } else {
+      top = rect.top - estimatedHeight - 4;
+      originY = "bottom";
+      if (top < padding) {
+        top = padding;
+      }
+    }
+
+    let left;
+    let originX = isUserMessage ? "right" : "left";
+
+    if (isUserMessage) {
+      left = rect.right - menuWidth;
+      if (left < padding) left = padding;
+    } else {
+      if (rect.right + menuWidth <= viewportWidth - padding) {
+        left = rect.left;
+        originX = "left";
+      } else {
+        left = rect.right - menuWidth;
+        originX = "right";
+      }
+      if (left < padding) left = padding;
+      if (left + menuWidth > viewportWidth - padding) {
+        left = Math.max(padding, viewportWidth - menuWidth - padding);
+      }
+    }
+
+    setMenuCoords({
+      top: Math.round(top),
+      left: Math.round(left),
+      transformOrigin: `${originY} ${originX}`,
+      triggerRect: rect,
+    });
+    setShowOptions(true);
+  };
+
+  // WhatsApp-style right-click context menu on message bubble
+  const handleContextMenu = (e) => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    window.dispatchEvent(
+      new CustomEvent("whatsapp_close_all_menus", { detail: message._id })
+    );
+
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const menuWidth = 220;
+    const estimatedHeight = 420;
+    const padding = 10;
+
+    let top = clientY + 4;
+    let originY = "top";
+    if (clientY + estimatedHeight > viewportHeight - padding) {
+      top = Math.max(padding, clientY - estimatedHeight - 4);
+      originY = "bottom";
+    }
+
+    let left = isUserMessage ? clientX - menuWidth : clientX;
+    let originX = isUserMessage ? "right" : "left";
+    if (left + menuWidth > viewportWidth - padding) {
+      left = Math.max(padding, viewportWidth - menuWidth - padding);
+      originX = "right";
+    }
+    if (left < padding) {
+      left = padding;
+      originX = "left";
+    }
+
+    setMenuCoords({
+      top: Math.round(top),
+      left: Math.round(left),
+      transformOrigin: `${originY} ${originX}`,
+      triggerRect: { top: clientY, bottom: clientY, left: clientX, right: clientX },
+    });
+    setShowOptions(true);
+  };
+
   if (!message) return null;
   return (
     <div
@@ -228,6 +447,7 @@ const MessageBuble = ({
     >
       <div
         ref={bubbleRef}
+        onContextMenu={handleContextMenu}
         className={`${bubbleContentClass} relative group ${isActive
           ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
           : ""
@@ -444,11 +664,9 @@ const MessageBuble = ({
                       )}
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowOptions((prev) => !prev);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5"
+                        onClick={handleToggleOptions}
+                        className={`${showOptions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                          } transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5`}
                         title="Menu"
                       >
                         <FiChevronDown size={14} />
@@ -542,37 +760,54 @@ const MessageBuble = ({
               </div>
             )}
 
-            {message.contentType === "contact" && (
-              <div className="min-w-[230px] max-w-[300px]">
-                <div className={`flex items-center gap-3 p-3 rounded-2xl border ${isDark ? "bg-white/[0.05] border-white/10" : "bg-white/80 border-black/5 shadow-sm"
-                  }`}>
-                  <div className="w-11 h-11 rounded-full bg-cyan-500/20 text-cyan-500 flex items-center justify-center shrink-0 overflow-hidden font-bold">
-                    {message.contactData?.avatar ? (
-                      <img
-                        src={message.contactData.avatar}
-                        alt="Contact"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <RiContactsFill size={24} />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-bold truncate">
-                      {message.contactData?.name || message.content}
-                    </p>
-                    <p className="text-xs opacity-70 truncate font-mono">
-                      {message.contactData?.phoneNumber || message.contactData?.email || "No number"}
-                    </p>
-                    {message.contactData?.email && (
-                      <p className="text-[11px] opacity-60 truncate">
-                        {message.contactData.email}
+            {message.contentType === "contact" && (() => {
+              const contactData = typeof message.contactData === "string"
+                ? (() => { try { return JSON.parse(message.contactData); } catch (e) { return {}; } })()
+                : (message.contactData || {});
+
+              const contactName = contactData?.name || (typeof message.content === "string" ? message.content.replace(/^Contact:\s*/, "") : "Contact");
+              const phone = contactData?.phoneNumber;
+              const email = contactData?.email;
+              const avatar = contactData?.avatar;
+
+              return (
+                <div className="min-w-[230px] max-w-[300px]">
+                  <div className={`flex items-center gap-3 p-3 rounded-2xl border ${isDark ? "bg-white/[0.05] border-white/10" : "bg-white/80 border-black/5 shadow-sm"}`}>
+                    <div className="w-11 h-11 rounded-full bg-cyan-500/20 text-cyan-500 flex items-center justify-center shrink-0 overflow-hidden font-bold">
+                      {avatar ? (
+                        <img
+                          src={avatar}
+                          alt="Contact"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <RiContactsFill size={24} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-bold truncate">
+                        {contactName}
                       </p>
-                    )}
+                      {phone && (
+                        <p className="text-xs opacity-75 truncate font-mono">
+                          {phone}
+                        </p>
+                      )}
+                      {email && (
+                        <p className="text-xs opacity-75 truncate">
+                          {email}
+                        </p>
+                      )}
+                      {!phone && !email && (
+                        <p className="text-xs opacity-60 italic">
+                          No number or email
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {message.contentType === "poll" && (
               <div className="flex flex-col w-[280px] xs:w-[305px] sm:w-[320px] max-w-full select-none">
@@ -582,11 +817,11 @@ const MessageBuble = ({
                   </span>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowOptions((prev) => !prev);
-                    }}
-                    className="text-gray-500 dark:text-[#8696a0] hover:text-gray-900 dark:hover:text-white p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                    onClick={handleToggleOptions}
+                    className={`p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer ${showOptions
+                      ? "text-gray-900 dark:text-white"
+                      : "text-gray-500 dark:text-[#8696a0] hover:text-gray-900 dark:hover:text-white"
+                      }`}
                     title="Menu"
                   >
                     <FiChevronDown size={19} />
@@ -856,11 +1091,9 @@ const MessageBuble = ({
                       )}
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowOptions((prev) => !prev);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5"
+                        onClick={handleToggleOptions}
+                        className={`${showOptions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                          } transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5`}
                         title="Menu"
                       >
                         <FiChevronDown size={14} />
@@ -928,11 +1161,9 @@ const MessageBuble = ({
             )}
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowOptions((prev) => !prev);
-              }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5"
+              onClick={handleToggleOptions}
+              className={`${showOptions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                } transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5`}
               title="Menu"
             >
               <FiChevronDown size={14} />
@@ -1088,179 +1319,202 @@ const MessageBuble = ({
           </button>
         )}
 
-        <AnimatePresence>
-          {showOptions && (
-            <motion.div
-              ref={optionRef}
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              transition={{ duration: 0.12, ease: "easeOut" }}
-              className={`absolute top-0 ${isUserMessage
-                ? "right-full mr-2 max-sm:right-0 max-sm:left-auto max-sm:top-8"
-                : "left-full ml-2 max-sm:left-0 max-sm:right-auto max-sm:top-8"
-                } z-50 min-w-[215px] py-2 overflow-hidden rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.55)] border ${isDark
-                  ? "bg-[#233138] border-[#2a3942]/80 text-[#d1d7db]"
-                  : "bg-white border-black/10 text-gray-800"
-                }`}
-            >
-              {message.isEncrypted && (
-                <div
-                  className={`flex items-center px-4 py-2 gap-2 text-xs font-medium border-b select-none mb-1 ${isDark
-                    ? "border-white/10 text-emerald-400 bg-white/[0.03]"
-                    : "border-black/5 text-emerald-700 bg-emerald-50/60"
-                    }`}
-                >
-                  <FaLock size={11} className="shrink-0 text-emerald-500" />
-                  <span>End-to-end encrypted</span>
-                </div>
+        {typeof document !== "undefined" &&
+          createPortal(
+            <AnimatePresence>
+              {showOptions && menuCoords && (
+                <>
+                  {/* Invisible backdrop to capture outside clicks and prevent accidental underlying actions */}
+                  <div
+                    className="fixed inset-0 z-[9998] bg-transparent"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowOptions(false);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowOptions(false);
+                    }}
+                  />
+
+                  <motion.div
+                    ref={optionRef}
+                    initial={{ opacity: 0, scale: 0.88 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.88 }}
+                    transition={{ duration: 0.12, ease: "easeOut" }}
+                    style={{
+                      position: "fixed",
+                      top: `${menuCoords.top}px`,
+                      left: `${menuCoords.left}px`,
+                      transformOrigin: menuCoords.transformOrigin || "top right",
+                    }}
+                    className={`z-[9999] min-w-[215px] py-1.5 overflow-hidden rounded-xl shadow-[0_6px_28px_rgba(0,0,0,0.5)] border select-none ${isDark
+                      ? "bg-[#233138] border-[#2a3942]/90 text-[#d1d7db]"
+                      : "bg-white border-black/10 text-gray-800 shadow-[0_6px_24px_rgba(11,20,26,0.18)]"
+                      }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      className={`flex items-center px-4 py-2 gap-2 text-xs font-medium border-b select-none mb-1 ${isDark
+                        ? "border-white/10 text-emerald-400 bg-white/[0.03]"
+                        : "border-black/5 text-emerald-700 bg-emerald-50/60"
+                        }`}
+                    >
+                      <FaLock size={11} className="shrink-0 text-emerald-500" />
+                      <span>End-to-end encrypted</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        toast.info("Reply to message");
+                      }}
+                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        }`}
+                    >
+                      <MdReply size={18} className="opacity-80 shrink-0" />
+                      <span className="font-normal text-[14px]">Reply</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        toast.info("Reply privately");
+                      }}
+                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        }`}
+                    >
+                      <MdOutlineReplyAll size={18} className="opacity-80 shrink-0" />
+                      <span className="font-normal text-[14px]">Reply privately</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        const senderName = message.sender?.username || "Contact";
+                        toast.info(`Message ${senderName}`);
+                      }}
+                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        }`}
+                    >
+                      <BsChatSquareText size={16} className="opacity-80 shrink-0" />
+                      <span className="font-normal text-[14px] truncate">
+                        Message {message.sender?.username ? message.sender.username.toUpperCase() : "CONTACT"}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        setShowReactions(true);
+                      }}
+                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        }`}
+                    >
+                      <BsEmojiSmile size={17} className="opacity-80 shrink-0" />
+                      <span className="font-normal text-[14px]">React</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        toast.success("Message pinned");
+                      }}
+                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        }`}
+                    >
+                      <TbPin size={18} className="opacity-80 shrink-0" />
+                      <span className="font-normal text-[14px]">Pin</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        toast.success("Message starred");
+                      }}
+                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        }`}
+                    >
+                      <FaRegStar size={16} className="opacity-80 shrink-0" />
+                      <span className="font-normal text-[14px]">Star</span>
+                    </button>
+
+                    {message.contentType === "text" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(message.content || "");
+                          toast.success("Copied");
+                          setShowOptions(false);
+                        }}
+                        className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                          }`}
+                      >
+                        <FaRegCopy size={15} className="opacity-80 shrink-0" />
+                        <span className="font-normal text-[14px]">Copy</span>
+                      </button>
+                    )}
+
+                    {isUserMessage && message.contentType === "text" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditText(message.content || "");
+                          setIsEditing(true);
+                          setShowOptions(false);
+                        }}
+                        className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                          }`}
+                      >
+                        <RiEditLine size={16} className="opacity-80 shrink-0" />
+                        <span className="font-normal text-[14px]">Edit</span>
+                      </button>
+                    )}
+
+                    <div
+                      className={`my-1 border-t ${isDark ? "border-[#313d45]" : "border-black/10"
+                        }`}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        toast.info("Report submitted");
+                      }}
+                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        }`}
+                    >
+                      <FiThumbsDown size={17} className="opacity-80 shrink-0" />
+                      <span className="font-normal text-[14px]">Report</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteModal(message);
+                        setShowOptions(false);
+                      }}
+                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        }`}
+                    >
+                      <RiDeleteBin6Line size={17} className="opacity-80 shrink-0" />
+                      <span className="font-normal text-[14px]">Delete</span>
+                    </button>
+                  </motion.div>
+                </>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOptions(false);
-                  toast.info("Reply to message");
-                }}
-                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                  }`}
-              >
-                <MdReply size={18} className="opacity-80 shrink-0" />
-                <span className="font-normal text-[14px]">Reply</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOptions(false);
-                  toast.info("Reply privately");
-                }}
-                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                  }`}
-              >
-                <MdOutlineReplyAll size={18} className="opacity-80 shrink-0" />
-                <span className="font-normal text-[14px]">Reply privately</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOptions(false);
-                  const senderName = message.sender?.username || "Contact";
-                  toast.info(`Message ${senderName}`);
-                }}
-                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                  }`}
-              >
-                <BsChatSquareText size={16} className="opacity-80 shrink-0" />
-                <span className="font-normal text-[14px] truncate">
-                  Message {message.sender?.username ? message.sender.username.toUpperCase() : "CONTACT"}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOptions(false);
-                  setShowReactions(true);
-                }}
-                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                  }`}
-              >
-                <BsEmojiSmile size={17} className="opacity-80 shrink-0" />
-                <span className="font-normal text-[14px]">React</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOptions(false);
-                  toast.success("Message pinned");
-                }}
-                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                  }`}
-              >
-                <TbPin size={18} className="opacity-80 shrink-0" />
-                <span className="font-normal text-[14px]">Pin</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOptions(false);
-                  toast.success("Message starred");
-                }}
-                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                  }`}
-              >
-                <FaRegStar size={16} className="opacity-80 shrink-0" />
-                <span className="font-normal text-[14px]">Star</span>
-              </button>
-
-              {message.contentType === "text" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(message.content || "");
-                    toast.success("Copied");
-                    setShowOptions(false);
-                  }}
-                  className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                    }`}
-                >
-                  <FaRegCopy size={15} className="opacity-80 shrink-0" />
-                  <span className="font-normal text-[14px]">Copy</span>
-                </button>
-              )}
-
-              {isUserMessage && message.contentType === "text" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditText(message.content || "");
-                    setIsEditing(true);
-                    setShowOptions(false);
-                  }}
-                  className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                    }`}
-                >
-                  <RiEditLine size={16} className="opacity-80 shrink-0" />
-                  <span className="font-normal text-[14px]">Edit</span>
-                </button>
-              )}
-
-              <div
-                className={`my-1 border-t ${isDark ? "border-[#313d45]" : "border-black/10"
-                  }`}
-              />
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowOptions(false);
-                  toast.info("Report submitted");
-                }}
-                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                  }`}
-              >
-                <FiThumbsDown size={17} className="opacity-80 shrink-0" />
-                <span className="font-normal text-[14px]">Report</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteModal(message);
-                  setShowOptions(false);
-                }}
-                className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                  }`}
-              >
-                <RiDeleteBin6Line size={17} className="opacity-80 shrink-0" />
-                <span className="font-normal text-[14px]">Delete</span>
-              </button>
-            </motion.div>
+            </AnimatePresence>,
+            document.body
           )}
-        </AnimatePresence>
 
         <AnimatePresence>
           {deleteModal && (

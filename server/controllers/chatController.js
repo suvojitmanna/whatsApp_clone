@@ -2,6 +2,7 @@ const { uploadFileToCloudinary } = require("../config/cloudinary");
 const response = require("../utils/responseHandeler.js");
 const Message = require("../models/message.js");
 const Conversation = require("../models/ConverSation.js");
+const mongoose = require("mongoose");
 
 exports.sendMessage = async (req, res) => {
   try {
@@ -108,7 +109,6 @@ exports.sendMessage = async (req, res) => {
     });
     await message.save();
     conversation.lastMessage = message._id;
-    conversation.unreadCount += 1;
     await conversation.save();
 
     const populatedMessage = await Message.findById(message._id)
@@ -122,14 +122,28 @@ exports.sendMessage = async (req, res) => {
         },
       });
 
-    if (req.io && req.socketUserMap) {
-      const receiverSocketId = req.socketUserMap.get(receiverId);
+    if (req.io) {
+      const receiverRoom = receiverId?.toString();
+      const receiverSocketId =
+        req.socketUserMap && typeof req.socketUserMap.get === "function"
+          ? req.socketUserMap.get(receiverRoom)
+          : null;
 
-      if (receiverSocketId) {
-        req.io.to(receiverSocketId).emit("receive_message", {
-          ...populatedMessage.toObject(),
-          unreadCount: conversation.unreadCount,
-        });
+      const receiverUnreadCount = await Message.countDocuments({
+        conversation: conversation._id,
+        receiver: receiverId,
+        messageStatus: { $in: ["send", "delivered"] },
+        deletedFor: { $ne: receiverId },
+      });
+
+      const messagePayload = {
+        ...populatedMessage.toObject(),
+        unreadCount: receiverUnreadCount,
+      };
+
+      req.io.to(receiverRoom).emit("receive_message", messagePayload);
+      if (receiverSocketId && receiverSocketId !== receiverRoom) {
+        req.io.to(receiverSocketId).emit("receive_message", messagePayload);
       }
     }
 
@@ -148,17 +162,48 @@ exports.getConversation = async (req, res) => {
     })
       .populate(
         "participants",
-        "username profilePicture isOnline lastSeen publicKey",
+        "username profilePicture isOnline lastSeen email phoneNumber publicKey",
       )
       .populate({
         path: "lastMessage",
         populate: {
           path: "sender receiver",
-          select: "username profilePicture publicKey",
+          select: "username profilePicture email phoneNumber publicKey",
         },
       })
       .sort({ updatedAt: -1 })
       .lean();
+
+    if (conversation && conversation.length > 0) {
+      const conversationIds = conversation.map((c) => c._id);
+      const unreadAgg = await Message.aggregate([
+        {
+          $match: {
+            conversation: { $in: conversationIds },
+            receiver: new mongoose.Types.ObjectId(userId),
+            messageStatus: { $in: ["send", "delivered"] },
+            deletedFor: { $ne: new mongoose.Types.ObjectId(userId) },
+          },
+        },
+        {
+          $group: {
+            _id: "$conversation",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const unreadMap = new Map();
+      unreadAgg.forEach((item) => {
+        unreadMap.set(item._id.toString(), item.count);
+      });
+
+      conversation = conversation.map((conv) => ({
+        ...conv,
+        unreadCount: unreadMap.get(conv._id.toString()) || 0,
+      }));
+    }
+
     return response(
       res,
       200,
@@ -242,7 +287,7 @@ exports.markAsRead = async (req, res) => {
     });
 
     if (!messages.length) {
-      return response(res, 404, "Messages not found");
+      return response(res, 200, "Messages already marked as read or not found", []);
     }
 
     await Message.updateMany(
@@ -259,16 +304,29 @@ exports.markAsRead = async (req, res) => {
       messageStatus: "read",
     }));
 
-    if (req.io && req.socketUserMap instanceof Map) {
-      for (const message of messages) {
-        const senderSocketId = req.socketUserMap.get(message.sender.toString());
-        if (senderSocketId) {
-          req.io.to(senderSocketId).emit("message_read", {
-            _id: message._id,
-            messageStatus: "read",
-          });
+    if (req.io) {
+      const readMessageIds = messageIds.map(String);
+      const senderIds = [
+        ...new Set(messages.map((m) => m.sender?.toString()).filter(Boolean)),
+      ];
+
+      senderIds.forEach((senderId) => {
+        const sId = senderId.toString();
+        const payload = {
+          messageIds: readMessageIds,
+          messageStatus: "read",
+        };
+        req.io.to(sId).emit("message_status_update_bulk", payload);
+        req.io.to(sId).emit("message_read", payload);
+
+        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          const senderSocketId = req.socketUserMap.get(sId);
+          if (senderSocketId) {
+            req.io.to(senderSocketId).emit("message_status_update_bulk", payload);
+            req.io.to(senderSocketId).emit("message_read", payload);
+          }
         }
-      }
+      });
     }
     return response(res, 200, "Messages marked as read", messages);
   } catch (error) {
