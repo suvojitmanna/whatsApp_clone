@@ -43,6 +43,7 @@ const userSchema = new mongoose.Schema(
     isOnline: { type: Boolean, default: false },
     isVerified: { type: Boolean, default: false },
     agreed: { type: Boolean, default: false },
+    publicKey: { type: String, default: null },
   },
   { timestamps: true },
 );

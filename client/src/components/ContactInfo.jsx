@@ -5,13 +5,15 @@ import useLayoutStore from "../store/layoutStore";
 import { RxCross2 } from "react-icons/rx";
 import useThemeStore from "../store/themeStore";
 import { useChatStore } from "../store/chatStore";
-import { FaPen, FaPhone, FaSearch, FaVideo } from "react-icons/fa";
+import { FaPen, FaPhone, FaSearch, FaVideo, FaLock } from "react-icons/fa";
 import { HiDotsVertical } from "react-icons/hi";
 import useVideoCallStore from "../store/videoCallStore";
+import SecurityVerifyModal from "./SecurityVerifyModal";
 
 const ContactInfo = () => {
   const contactInfoRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
   const { selectedContact, showContactInfo, setShowContactInfo } =
     useLayoutStore();
   const { theme } = useThemeStore();
@@ -246,8 +248,44 @@ const ContactInfo = () => {
                     : ""}
                 </p>
               </motion.div>
+
+              {/* Encryption Section */}
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.45, type: "spring", stiffness: 100 }}
+                onClick={() => setShowSecurityModal(true)}
+                className={`relative p-3.5 rounded-[24px] cursor-pointer transition-all duration-300 backdrop-blur-2xl border active:scale-98 ${
+                  theme === "dark"
+                    ? "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                    : "bg-black/[0.02] border-black/5 hover:bg-black/[0.04] shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                    <FaLock size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                      Encryption
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500">
+                        Active
+                      </span>
+                    </h4>
+                    <p className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                      Messages and calls are end-to-end encrypted. Tap to verify.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </div>
+
+          <SecurityVerifyModal
+            isOpen={showSecurityModal}
+            onClose={() => setShowSecurityModal(false)}
+            contact={selectedContact}
+          />
         </motion.div>
       )}
     </AnimatePresence>

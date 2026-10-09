@@ -11,6 +11,7 @@ import {
   FaHeadphones,
   FaFileAlt,
   FaRegStar,
+  FaLock,
 } from "react-icons/fa";
 import { RiDeleteBin6Line, RiEditLine, RiContactsFill } from "react-icons/ri";
 import { FiCheck, FiChevronDown, FiThumbsDown } from "react-icons/fi";
@@ -419,6 +420,13 @@ const MessageBuble = ({
                         : message.content}
                     </span>
                     <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
+                      {message.isEncrypted && (
+                        <FaLock
+                          size={9}
+                          className="opacity-70 text-emerald-500 mr-0.5 inline-block shrink-0"
+                          title="End-to-end encrypted"
+                        />
+                      )}
                       {message.edited && (
                         <span className="text-[10px] italic opacity-75 mr-0.5">
                           Edited
@@ -740,39 +748,35 @@ const MessageBuble = ({
                 <div className="flex flex-col min-w-[260px] max-w-[310px] w-full select-none">
                   <div className="flex items-start gap-3">
                     <div
-                      className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${
-                        isDark
+                      className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${isDark
                           ? "bg-[#143d2e] text-[#25d366]"
                           : "bg-emerald-600/15 text-emerald-700"
-                      }`}
+                        }`}
                     >
                       <MdEventNote size={24} />
                     </div>
 
                     <div className="flex-1 min-w-0 pt-0.5">
                       <h4
-                        className={`text-[16px] font-bold leading-tight break-words ${
-                          message.eventData?.isCancelled
+                        className={`text-[16px] font-bold leading-tight break-words ${message.eventData?.isCancelled
                             ? "line-through opacity-60"
                             : ""
-                        }`}
+                          }`}
                       >
                         {message.eventData?.title || message.content}
                       </h4>
 
                       <p
-                        className={`text-[13px] font-normal mt-1 ${
-                          isDark ? "text-white/75" : "text-gray-700"
-                        }`}
+                        className={`text-[13px] font-normal mt-1 ${isDark ? "text-white/75" : "text-gray-700"
+                          }`}
                       >
                         {formatEventSchedule(message.eventData)}
                       </p>
 
                       {message.eventData?.description && (
                         <p
-                          className={`text-[14px] font-normal mt-1 break-words ${
-                            isDark ? "text-white/90" : "text-gray-800"
-                          }`}
+                          className={`text-[14px] font-normal mt-1 break-words ${isDark ? "text-white/90" : "text-gray-800"
+                            }`}
                         >
                           {message.eventData.description}
                         </p>
@@ -780,9 +784,8 @@ const MessageBuble = ({
 
                       {message.eventData?.hasCallLink && (
                         <p
-                          className={`text-[13px] font-normal mt-1 ${
-                            isDark ? "text-white/75" : "text-gray-700"
-                          }`}
+                          className={`text-[13px] font-normal mt-1 ${isDark ? "text-white/75" : "text-gray-700"
+                            }`}
                         >
                           WhatsApp video call
                         </p>
@@ -810,40 +813,35 @@ const MessageBuble = ({
                           <img
                             src={senderAvatar}
                             alt=""
-                            className={`w-5 h-5 rounded-full object-cover border ${
-                              isDark ? "border-[#005c4b]" : "border-[#d9fdd3]"
-                            }`}
+                            className={`w-5 h-5 rounded-full object-cover border ${isDark ? "border-[#005c4b]" : "border-[#d9fdd3]"
+                              }`}
                           />
                         ) : (
                           <div
-                            className={`w-5 h-5 rounded-full bg-emerald-700 border flex items-center justify-center text-[9px] text-white ${
-                              isDark ? "border-[#005c4b]" : "border-[#d9fdd3]"
-                            }`}
+                            className={`w-5 h-5 rounded-full bg-emerald-700 border flex items-center justify-center text-[9px] text-white ${isDark ? "border-[#005c4b]" : "border-[#d9fdd3]"
+                              }`}
                           >
                             {senderDisplayName.charAt(0).toUpperCase()}
                           </div>
                         )}
                         <div
-                          className={`w-5 h-5 rounded-full bg-[#7a3b2e] border flex items-center justify-center text-white ${
-                            isDark ? "border-[#005c4b]" : "border-[#d9fdd3]"
-                          }`}
+                          className={`w-5 h-5 rounded-full bg-[#7a3b2e] border flex items-center justify-center text-white ${isDark ? "border-[#005c4b]" : "border-[#d9fdd3]"
+                            }`}
                         >
                           <RiContactsFill size={10} />
                         </div>
                       </div>
                       <span
-                        className={`font-normal text-[13px] ${
-                          isDark ? "text-white/70" : "text-gray-600"
-                        }`}
+                        className={`font-normal text-[13px] ${isDark ? "text-white/70" : "text-gray-600"
+                          }`}
                       >
                         {goingCount} going
                       </span>
                     </div>
 
                     <div
-                      className={`flex items-center gap-1 text-[11px] ${
-                        isDark ? "text-white/60" : "text-gray-500"
-                      }`}
+                      className={`flex items-center gap-1 text-[11px] ${isDark ? "text-white/60" : "text-gray-500"
+                        }`}
                     >
                       {message.edited && (
                         <span className="italic mr-0.5">Edited</span>
@@ -877,9 +875,8 @@ const MessageBuble = ({
                   </div>
 
                   <div
-                    className={`border-t -mx-[9px] -mb-[7px] mt-2.5 rounded-b-[7.5px] overflow-hidden ${
-                      isDark ? "border-white/10" : "border-black/10"
-                    }`}
+                    className={`border-t -mx-[9px] -mb-[7px] mt-2.5 rounded-b-[7.5px] overflow-hidden ${isDark ? "border-white/10" : "border-black/10"
+                      }`}
                   >
                     <button
                       type="button"
@@ -913,6 +910,13 @@ const MessageBuble = ({
 
         {message.contentType !== "text" && message.contentType !== "poll" && message.contentType !== "event" && (
           <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-60 mt-1 select-none">
+            {message.isEncrypted && (
+              <FaLock
+                size={9}
+                className="opacity-70 text-emerald-500 mr-0.5 inline-block shrink-0"
+                title="End-to-end encrypted"
+              />
+            )}
             {message.edited && (
               <span className="italic opacity-80 mr-0.5">Edited</span>
             )}
@@ -1026,12 +1030,12 @@ const MessageBuble = ({
                       e.stopPropagation();
                       setShowEmojiPicker(false);
                     }}
-                    className={`absolute top-2 right-2 rounded-full p-1.5 shadow-md cursor-pointer transition-colors ${isDark
+                    className={`absolute top-2 right-2 rounded-full p-1.5 shadow-md transition-colors ${isDark
                       ? "bg-[#202c33] text-gray-300 hover:bg-[#2a3942]"
                       : "bg-white text-gray-600 hover:bg-gray-100"
                       }`}
                   >
-                    <RxCross2 size={14} />
+                    <RxCross2 className="cursor-pointer" size={14} />
                   </button>
                 </div>
               </motion.div>
@@ -1106,6 +1110,18 @@ const MessageBuble = ({
                   : "bg-white border-black/10 text-gray-800"
                 }`}
             >
+              {message.isEncrypted && (
+                <div
+                  className={`flex items-center px-4 py-2 gap-2 text-xs font-medium border-b select-none mb-1 ${
+                    isDark
+                      ? "border-white/10 text-emerald-400 bg-white/[0.03]"
+                      : "border-black/5 text-emerald-700 bg-emerald-50/60"
+                  }`}
+                >
+                  <FaLock size={11} className="shrink-0 text-emerald-500" />
+                  <span>End-to-end encrypted</span>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -1299,7 +1315,7 @@ const MessageBuble = ({
                     : "bg-black/[0.04] text-gray-500 hover:bg-black/[0.08] hover:text-gray-900"
                     }`}
                 >
-                  <RxCross2 size={16} />
+                  <RxCross2 className="cursor-pointer" size={16} />
                 </button>
 
                 <div className="relative flex flex-col items-center text-center">

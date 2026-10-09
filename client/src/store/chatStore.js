@@ -2,6 +2,73 @@ import { create } from "zustand";
 import { getSocket } from "../services/chatService";
 import axiosInstance from "../services/url.services";
 import useUserStore from "./useUserStore";
+import useLayoutStore from "./layoutStore";
+import {
+  getSharedAesKey,
+  encryptText,
+  decryptText,
+} from "../utils/cryptoUtils";
+
+async function decryptSingleMessage(msg, currentUserId, fallbackPeer = null, getStore = null) {
+  if (!msg || !msg.isEncrypted || !msg.content || !msg.iv) {
+    return msg;
+  }
+  if (msg._isDecrypted) {
+    return msg;
+  }
+
+  const senderId = (msg.sender?._id || msg.sender)?.toString();
+  const receiverId = (msg.receiver?._id || msg.receiver)?.toString();
+  const myId = currentUserId?.toString();
+
+  let peerId = null;
+  let peerPubKey = null;
+
+  if (senderId === myId) {
+    peerId = receiverId;
+    peerPubKey = msg.receiver?.publicKey || fallbackPeer?.publicKey;
+  } else {
+    peerId = senderId;
+    peerPubKey = msg.sender?.publicKey || fallbackPeer?.publicKey;
+  }
+
+  if (!peerPubKey && peerId && getStore) {
+    const userList = getStore()?.users || [];
+    const foundUser = userList.find((u) => u._id?.toString() === peerId);
+    if (foundUser?.publicKey) {
+      peerPubKey = foundUser.publicKey;
+    }
+  }
+
+  if (!peerPubKey && peerId) {
+    const activeContact = useLayoutStore.getState()?.selectedContact;
+    if (activeContact?._id?.toString() === peerId && activeContact?.publicKey) {
+      peerPubKey = activeContact.publicKey;
+    }
+  }
+
+  if (!peerPubKey || !peerId || !myId) {
+    return msg;
+  }
+
+  try {
+    const sharedKey = await getSharedAesKey(peerId, peerPubKey, myId);
+    if (!sharedKey) return msg;
+
+    const decrypted = await decryptText(msg.content, msg.iv, sharedKey);
+    if (decrypted !== null) {
+      return {
+        ...msg,
+        content: decrypted,
+        _isDecrypted: true,
+      };
+    }
+  } catch (err) {
+    console.warn("Failed to decrypt message:", err);
+  }
+
+  return msg;
+}
 
 export const useChatStore = create((set, get) => ({
   users: [],
@@ -12,6 +79,9 @@ export const useChatStore = create((set, get) => ({
   setCurrentConversation: (conversation) =>
     set({ currentConversation: conversation }),
   messages: [],
+  isMessagesLoading: false,
+  setIsMessagesLoading: (isMessagesLoading) => set({ isMessagesLoading }),
+  clearMessages: () => set({ messages: [], isMessagesLoading: false }),
   loading: false,
   error: null,
   onlineUsers: new Map(),
@@ -122,12 +192,14 @@ export const useChatStore = create((set, get) => ({
     }
     );
 
-    socket.on("message_edited", ({ message }) => {
+    socket.on("message_edited", async ({ message }) => {
+      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
+      const selectedContact = useLayoutStore.getState()?.selectedContact;
+      const decrypted = await decryptSingleMessage(message, currentUserId, selectedContact, get);
+
       set((state) => ({
         messages: state.messages.map((oldMessage) =>
-          oldMessage._id === message._id
-            ? message
-            : oldMessage
+          oldMessage._id === decrypted._id ? decrypted : oldMessage
         ),
       }));
     });
@@ -185,13 +257,39 @@ export const useChatStore = create((set, get) => ({
       });
     }
   },
-  setCurrentUser: (user) => set({ currentUser: user }), fetchConversations: async () => {
+  setCurrentUser: (user) => set({ currentUser: user }),
+
+  fetchConversations: async () => {
     set({ loading: true, error: null });
     try {
       const { data } = await axiosInstance.get("/chat/conversation");
-      set({ conversations: data, loading: false });
+      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
+
+      let convData = data;
+      if (Array.isArray(data?.data)) {
+        const decryptedList = await Promise.all(
+          data.data.map(async (conv) => {
+            if (conv.lastMessage?.isEncrypted) {
+              const peer = conv.participants?.find(
+                (p) => p._id?.toString() !== currentUserId?.toString()
+              );
+              const decryptedLast = await decryptSingleMessage(
+                conv.lastMessage,
+                currentUserId,
+                peer,
+                get
+              );
+              return { ...conv, lastMessage: decryptedLast };
+            }
+            return conv;
+          })
+        );
+        convData = { ...data, data: decryptedList };
+      }
+
+      set({ conversations: convData, loading: false });
       get().initSocketListener();
-      return data;
+      return convData;
     } catch (error) {
       set({
         error: error?.response?.data?.message || error?.message,
@@ -200,35 +298,54 @@ export const useChatStore = create((set, get) => ({
       return null;
     }
   },
+
   fetchMessages: async (conversationId) => {
-    if (!conversationId) return;
-    set({ loading: true, error: null });
+    if (!conversationId) {
+      set({ isMessagesLoading: false, messages: [] });
+      return;
+    }
+    set({ loading: true, isMessagesLoading: true, error: null, messages: [] });
     try {
-      const { data } = await axiosInstance.get(`/chat/conversation/${conversationId}/messages`,);
-      const messageArray = data?.data || data || [];
+      const { data } = await axiosInstance.get(
+        `/chat/conversation/${conversationId}/messages`
+      );
+      const rawMessages = data?.data || data || [];
+      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
+      const selectedContact = useLayoutStore.getState()?.selectedContact;
+
+      const decryptedMessages = await Promise.all(
+        rawMessages.map((msg) =>
+          decryptSingleMessage(msg, currentUserId, selectedContact, get)
+        )
+      );
+
       set({
-        messages: messageArray,
+        messages: decryptedMessages,
         currentConversation: { _id: conversationId },
         loading: false,
+        isMessagesLoading: false,
       });
       const { markMessageAsRead } = get();
       markMessageAsRead();
 
-      return messageArray;
+      return decryptedMessages;
     } catch (error) {
       set({
         error: error?.response?.data?.message || error?.message,
         loading: false,
+        isMessagesLoading: false,
       });
       return [];
     }
   },
+
   sendMessage: async (formData) => {
     const senderId = formData.get("senderId");
     const receiverId = formData.get("receiverId");
     const media = formData.get("media");
     const content = formData.get("content");
     const messageStatus = formData.get("messageStatus");
+    const customContentType = formData.get("contentType");
 
     const socket = getSocket();
     const { conversations } = get();
@@ -238,12 +355,47 @@ export const useChatStore = create((set, get) => ({
       const conversation = conversations.data.find(
         (conv) =>
           conv.participants.some((p) => p._id === senderId) &&
-          conv.participants.some((p) => p._id === receiverId),
+          conv.participants.some((p) => p._id === receiverId)
       );
 
       if (conversation) {
         conversationId = conversation._id;
         set({ currentConversation: { _id: conversationId } });
+      }
+    }
+
+    const selectedContact = useLayoutStore.getState()?.selectedContact;
+    let peerPubKey =
+      selectedContact?._id?.toString() === receiverId?.toString()
+        ? selectedContact?.publicKey
+        : null;
+
+    if (!peerPubKey) {
+      const allUsers = get().users || [];
+      const foundPeer = allUsers.find((u) => u._id?.toString() === receiverId?.toString());
+      peerPubKey = foundPeer?.publicKey;
+    }
+
+    let isEncrypted = false;
+    let iv = null;
+    let rawContentToKeep = content;
+
+    // Encrypt content if peer public key is available
+    if (peerPubKey && content && typeof content === "string" && content.trim()) {
+      try {
+        const sharedKey = await getSharedAesKey(receiverId, peerPubKey, senderId);
+        if (sharedKey) {
+          const encResult = await encryptText(content, sharedKey);
+          if (encResult) {
+            formData.set("content", encResult.ciphertext);
+            formData.set("isEncrypted", "true");
+            formData.set("iv", encResult.iv);
+            isEncrypted = true;
+            iv = encResult.iv;
+          }
+        }
+      } catch (encErr) {
+        console.warn("E2EE encryption warning:", encErr);
       }
     }
 
@@ -255,12 +407,17 @@ export const useChatStore = create((set, get) => ({
       conversation: conversationId,
       imageOrVideoUrl:
         media && typeof media !== "string" ? URL.createObjectURL(media) : null,
-      content: content,
-      contentType: media
-        ? media?.type?.startsWith("image")
-          ? "image"
-          : "video"
-        : "text",
+      content: rawContentToKeep,
+      _isDecrypted: true,
+      isEncrypted,
+      iv,
+      contentType:
+        customContentType ||
+        (media
+          ? media?.type?.startsWith("image")
+            ? "image"
+            : "video"
+          : "text"),
       createdAt: new Date().toISOString(),
       messageStatus,
     };
@@ -273,22 +430,30 @@ export const useChatStore = create((set, get) => ({
       const { data } = await axiosInstance.post(
         "/chat/send-message",
         formData,
-        { headers: { "Content-Type": "multipart/form-data" } },
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
 
       const messageData = data.data || data;
+      const savedMessage = {
+        ...messageData,
+        content: rawContentToKeep,
+        _isDecrypted: true,
+        isEncrypted: messageData.isEncrypted ?? isEncrypted,
+        iv: messageData.iv ?? iv,
+      };
+
       set((state) => ({
         messages: state.messages.map((msg) =>
-          msg._id === tempId ? messageData : msg,
+          msg._id === tempId ? savedMessage : msg
         ),
       }));
 
-      return messageData;
+      return savedMessage;
     } catch (error) {
       console.error("error sending message", error);
       set((state) => ({
         messages: state.messages.map((msg) =>
-          msg._id === tempId ? { ...msg, messageStatus: "failed" } : msg,
+          msg._id === tempId ? { ...msg, messageStatus: "failed" } : msg
         ),
         error: error?.response?.data?.message || error?.message,
       }));
@@ -296,56 +461,53 @@ export const useChatStore = create((set, get) => ({
       throw error;
     }
   },
-  receiveMessage: (message) => {
+
+  receiveMessage: async (message) => {
     if (!message) return;
 
-    const {
-      currentConversation,
-      currentUser,
-      messages,
-    } = get();
+    const { currentConversation, currentUser, messages } = get();
 
-    const messageExists = messages.some(
-      (msg) => msg._id === message._id
+    const currentUserId = (currentUser || useUserStore.getState().user)?._id;
+    const selectedContact = useLayoutStore.getState()?.selectedContact;
+    const decryptedMessage = await decryptSingleMessage(
+      message,
+      currentUserId,
+      selectedContact,
+      get
     );
+
+    const messageExists = messages.some((msg) => msg._id === decryptedMessage._id);
     if (messageExists) return;
+
     const conversationId =
-      message.conversation?._id || message.conversation;
+      decryptedMessage.conversation?._id || decryptedMessage.conversation;
 
     const isCurrentConversation =
-      String(conversationId) ===
-      String(currentConversation?._id);
+      String(conversationId) === String(currentConversation?._id);
 
     const isForCurrentUser =
-      String(message.receiver?._id) ===
-      String(currentUser?._id);
-      
+      String(decryptedMessage.receiver?._id) === String(currentUserId);
+
     if (isCurrentConversation) {
       set((state) => ({
-        messages: [...state.messages, message],
+        messages: [...state.messages, decryptedMessage],
       }));
-
-      if (isForCurrentUser) {
-        get()
-      }
     }
 
     set((state) => ({
       conversations: {
         ...state.conversations,
         data: state.conversations?.data?.map((conv) => {
-          if (
-            String(conv._id) !== String(conversationId)
-          ) {
+          if (String(conv._id) !== String(conversationId)) {
             return conv;
           }
 
           return {
             ...conv,
-            lastMessage: message,
+            lastMessage: decryptedMessage,
             unreadCount:
               isForCurrentUser && !isCurrentConversation
-                ? message.unreadCount
+                ? decryptedMessage.unreadCount || conv.unreadCount + 1
                 : conv.unreadCount,
           };
         }),
@@ -442,15 +604,51 @@ export const useChatStore = create((set, get) => ({
       if (eventData) {
         payload.eventData = eventData;
       }
+
+      const existingMsg = get().messages.find((m) => m._id === messageId);
+      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
+      const selectedContact = useLayoutStore.getState()?.selectedContact;
+
+      let isEncrypted = existingMsg?.isEncrypted;
+      let rawText = content;
+
+      if (isEncrypted && content && typeof content === "string") {
+        const peerId = selectedContact?._id?.toString();
+        const peerPubKey = selectedContact?.publicKey;
+
+        if (peerId && peerPubKey && currentUserId) {
+          try {
+            const sharedKey = await getSharedAesKey(peerId, peerPubKey, currentUserId);
+            if (sharedKey) {
+              const enc = await encryptText(content, sharedKey);
+              if (enc) {
+                payload.content = enc.ciphertext;
+                payload.isEncrypted = true;
+                payload.iv = enc.iv;
+              }
+            }
+          } catch (err) {
+            console.warn("Failed to encrypt edited message:", err);
+          }
+        }
+      }
+
       const response = await axiosInstance.put(
         `/chat/messages/${messageId}`,
         payload
       );
 
       if (response.data?.data) {
+        const returnedMsg = response.data.data;
+        const msgToStore = {
+          ...returnedMsg,
+          content: rawText,
+          _isDecrypted: true,
+        };
+
         set((state) => ({
           messages: state.messages.map((m) =>
-            m._id === messageId ? response.data.data : m
+            m._id === messageId ? msgToStore : m
           ),
         }));
       }

@@ -17,6 +17,8 @@ exports.sendMessage = async (req, res) => {
       eventData,
       fileName,
       fileSize,
+      isEncrypted,
+      iv,
     } = req.body;
     const participants = [senderId, receiverId].sort();
     const file = req.file;
@@ -90,6 +92,8 @@ exports.sendMessage = async (req, res) => {
       receiver: receiverId,
       content: content || "",
       contentType,
+      isEncrypted: isEncrypted === true || isEncrypted === "true",
+      iv: iv || null,
       imageOrVideoUrl,
       fileName: fileName || file?.originalname,
       fileSize:
@@ -109,9 +113,9 @@ exports.sendMessage = async (req, res) => {
     conversation.unreadCount += 1;
     await conversation.save();
 
-    const populatedMessage = await Message.findOne(message._id)
-      .populate("sender", "username profilePicture")
-      .populate("receiver", "username profilePicture")
+    const populatedMessage = await Message.findById(message._id)
+      .populate("sender", "username profilePicture publicKey")
+      .populate("receiver", "username profilePicture publicKey")
       .populate({
         path: "statusId",
         populate: {
@@ -144,16 +148,24 @@ exports.getConversation = async (req, res) => {
     let conversation = await Conversation.find({
       participants: userId,
     })
-      .populate("participants", "username profilePicture isOnline lastSeen")
+      .populate(
+        "participants",
+        "username profilePicture isOnline lastSeen publicKey",
+      )
       .populate({
         path: "lastMessage",
         populate: {
           path: "sender receiver",
-          select: "username profilePicture",
+          select: "username profilePicture publicKey",
         },
       })
       .sort({ updatedAt: -1 });
-    return response(res, 201, "Conversation retrieved successfully", conversation);
+    return response(
+      res,
+      201,
+      "Conversation retrieved successfully",
+      conversation,
+    );
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");
@@ -177,8 +189,8 @@ exports.getMessages = async (req, res) => {
         $ne: userId,
       },
     })
-      .populate("sender", "username profilePicture")
-      .populate("receiver", "username profilePicture")
+      .populate("sender", "username profilePicture publicKey")
+      .populate("receiver", "username profilePicture publicKey")
       .populate("reactions.userId", "username profilePicture")
       .populate("pollData.options.votes", "username profilePicture")
       .populate({
@@ -228,7 +240,7 @@ exports.markAsRead = async (req, res) => {
       },
       {
         $set: { messageStatus: "read" },
-      }
+      },
     );
     messages = messages.map((msg) => ({
       ...msg._doc,
@@ -237,9 +249,7 @@ exports.markAsRead = async (req, res) => {
 
     if (req.io && req.socketUserMap instanceof Map) {
       for (const message of messages) {
-        const senderSocketId = req.socketUserMap.get(
-          message.sender.toString()
-        );
+        const senderSocketId = req.socketUserMap.get(message.sender.toString());
         if (senderSocketId) {
           req.io.to(senderSocketId).emit("message_read", {
             _id: message._id,
@@ -249,7 +259,6 @@ exports.markAsRead = async (req, res) => {
       }
     }
     return response(res, 200, "Messages marked as read", messages);
-
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");
@@ -273,7 +282,7 @@ exports.deleteMessage = async (req, res) => {
           $addToSet: {
             deletedFor: userId,
           },
-        }
+        },
       );
       if (req.io && req.socketUserMap instanceof Map) {
         const userSocketId = req.socketUserMap.get(userId.toString());
@@ -293,7 +302,7 @@ exports.deleteMessage = async (req, res) => {
       if (message.sender.toString() !== userId) {
         return response(res, 403, "Only sender can delete for everyone");
       }
-      await Message.deleteOne({ _id: messageId, });
+      await Message.deleteOne({ _id: messageId });
 
       const previousMessage = await Message.findOne({
         conversation: message.conversation,
@@ -307,7 +316,7 @@ exports.deleteMessage = async (req, res) => {
         {
           lastMessage: previousMessage?._id || null,
         },
-        { new: true }
+        { new: true },
       );
       const payload = {
         deletedMessageId: messageId,
@@ -316,18 +325,14 @@ exports.deleteMessage = async (req, res) => {
       };
       if (req.io && req.socketUserMap instanceof Map) {
         const receiverSocketId = req.socketUserMap.get(
-          message.receiver.toString()
+          message.receiver.toString(),
         );
         if (receiverSocketId) {
-          req.io
-            .to(receiverSocketId)
-            .emit("message_deleted", payload);
+          req.io.to(receiverSocketId).emit("message_deleted", payload);
         }
         const senderSocketId = req.socketUserMap.get(userId);
         if (senderSocketId) {
-          req.io
-            .to(senderSocketId)
-            .emit("message_deleted", payload);
+          req.io.to(senderSocketId).emit("message_deleted", payload);
         }
       }
 
@@ -387,14 +392,22 @@ exports.editMessage = async (req, res) => {
       message.content = content.trim();
     }
 
+    if (req.body.isEncrypted !== undefined) {
+      message.isEncrypted =
+        req.body.isEncrypted === true || req.body.isEncrypted === "true";
+    }
+    if (req.body.iv !== undefined) {
+      message.iv = req.body.iv;
+    }
+
     message.edited = true;
     message.editedAt = new Date();
 
     await message.save();
 
     const updatedMessage = await Message.findById(messageId)
-      .populate("sender", "username profilePicture")
-      .populate("receiver", "username profilePicture");
+      .populate("sender", "username profilePicture publicKey")
+      .populate("receiver", "username profilePicture publicKey");
 
     if (req.io && req.socketUserMap instanceof Map) {
       const payload = {
@@ -404,23 +417,17 @@ exports.editMessage = async (req, res) => {
       };
 
       const receiverSocketId = req.socketUserMap.get(
-        message.receiver.toString()
+        message.receiver.toString(),
       );
 
-      const senderSocketId = req.socketUserMap.get(
-        userId.toString()
-      );
+      const senderSocketId = req.socketUserMap.get(userId.toString());
 
       if (receiverSocketId) {
-        req.io
-          .to(receiverSocketId)
-          .emit("message_edited", payload);
+        req.io.to(receiverSocketId).emit("message_edited", payload);
       }
 
       if (senderSocketId) {
-        req.io
-          .to(senderSocketId)
-          .emit("message_edited", payload);
+        req.io.to(senderSocketId).emit("message_edited", payload);
       }
     }
 
@@ -457,7 +464,7 @@ exports.votePoll = async (req, res) => {
       message.pollData.options.forEach((opt, idx) => {
         if (idx !== targetIdx) {
           opt.votes = (opt.votes || []).filter(
-            (v) => (v?._id || v)?.toString() !== userId.toString()
+            (v) => (v?._id || v)?.toString() !== userId.toString(),
           );
         }
       });
@@ -467,11 +474,11 @@ exports.votePoll = async (req, res) => {
     if (targetOption) {
       targetOption.votes = targetOption.votes || [];
       const alreadyVoted = targetOption.votes.some(
-        (v) => (v?._id || v)?.toString() === userId.toString()
+        (v) => (v?._id || v)?.toString() === userId.toString(),
       );
       if (alreadyVoted) {
         targetOption.votes = targetOption.votes.filter(
-          (v) => (v?._id || v)?.toString() !== userId.toString()
+          (v) => (v?._id || v)?.toString() !== userId.toString(),
         );
       } else {
         targetOption.votes.push(voterObjectId);
@@ -481,8 +488,10 @@ exports.votePoll = async (req, res) => {
     message.markModified("pollData");
     await message.save();
 
-    const populated = await Message.findById(message._id)
-      .populate("pollData.options.votes", "username profilePicture");
+    const populated = await Message.findById(message._id).populate(
+      "pollData.options.votes",
+      "username profilePicture",
+    );
 
     const payload = {
       messageId: message._id.toString(),
@@ -492,7 +501,7 @@ exports.votePoll = async (req, res) => {
     if (req.io && req.socketUserMap) {
       const senderSocketId = req.socketUserMap.get(message.sender.toString());
       const receiverSocketId = req.socketUserMap.get(
-        message.receiver.toString()
+        message.receiver.toString(),
       );
 
       if (senderSocketId) {

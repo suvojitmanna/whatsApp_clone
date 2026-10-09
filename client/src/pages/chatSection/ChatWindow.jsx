@@ -20,6 +20,7 @@ import { MdEventNote } from "react-icons/md";
 import { TfiClip } from "react-icons/tfi";
 import { MdAddReaction } from "react-icons/md";
 import MessageBuble from "./MessageBuble";
+import MessageSkeletonLoader from "./MessageSkeletonLoader";
 import EmojiPicker from "emoji-picker-react";
 import useOutsideClick from "../../hook/useOutsideClick";
 import formatTimestamp from "../../utils/formatTime";
@@ -37,6 +38,7 @@ import PollModal from "../../components/pollModal";
 import ContactModal from "../../components/ContactModal";
 import EventModal from "../../components/EventModal";
 import StickerModal from "../../components/StickerModal";
+import SecurityVerifyModal from "../../components/SecurityVerifyModal";
 
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -57,6 +59,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [editingEventMessage, setEditingEventMessage] = useState(null);
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
 
   const typingTimeOutRef = useRef(null);
   const messageEndRef = useRef(null);
@@ -75,10 +78,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const { socket } = getSocket();
   const {
     messages,
+    isMessagesLoading: isChatStoreMessagesLoading,
+    clearMessages,
     sendMessage,
     fetchMessages,
     fetchConversations,
     conversations,
+    currentConversation,
     isUserTyping,
     startTying,
     stopTying,
@@ -90,6 +96,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     scrollPositions,
     saveScrollPosition,
   } = useChatStore();
+
+  const [localMessagesLoading, setLocalMessagesLoading] = useState(false);
+  const isMessagesLoading = localMessagesLoading || isChatStoreMessagesLoading;
 
   const messagesContainerRef = useRef(null);
   const prevContactIdRef = useRef(null);
@@ -111,17 +120,75 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   );
 
   useEffect(() => {
-    if (selectedContact?._id && conversations?.data?.length > 0) {
-      const conversation = conversations?.data?.find((conv) =>
-        conv.participants.some(
+    if (!selectedContact?._id) {
+      clearMessages();
+      setLocalMessagesLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setLocalMessagesLoading(true);
+    clearMessages();
+    setSearchTerm("");
+    setIsSearchOpen(false);
+
+    const targetConvId =
+      selectedContact?.conversation?._id ||
+      conversations?.data?.find((conv) =>
+        conv.participants?.some(
           (participant) => participant._id === selectedContact?._id,
         ),
+      )?._id;
+
+    if (targetConvId) {
+      const startTime = Date.now();
+      fetchMessages(targetConvId)
+        .catch((err) => console.error("Error fetching messages:", err))
+        .finally(async () => {
+          const elapsed = Date.now() - startTime;
+          if (elapsed < 350) {
+            await new Promise((resolve) => setTimeout(resolve, 350 - elapsed));
+          }
+          if (!isCancelled) {
+            setLocalMessagesLoading(false);
+          }
+        });
+    } else {
+      const timer = setTimeout(() => {
+        if (!isCancelled) {
+          setLocalMessagesLoading(false);
+        }
+      }, 300);
+      return () => {
+        isCancelled = true;
+        clearTimeout(timer);
+      };
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedContact?._id]);
+
+  useEffect(() => {
+    if (
+      selectedContact?._id &&
+      !selectedContact?.conversation?._id &&
+      conversations?.data?.length > 0 &&
+      messages.length === 0 &&
+      !localMessagesLoading
+    ) {
+      const conv = conversations.data.find((c) =>
+        c.participants?.some((p) => p._id === selectedContact._id),
       );
-      if (conversation && conversation._id) {
-        fetchMessages(conversation._id);
+      if (conv?._id && currentConversation?._id !== conv._id) {
+        setLocalMessagesLoading(true);
+        fetchMessages(conv._id).finally(() => {
+          setLocalMessagesLoading(false);
+        });
       }
     }
-  }, [selectedContact, conversations]);
+  }, [conversations?.data, selectedContact?._id]);
 
   useEffect(() => {
     fetchConversations();
@@ -674,10 +741,24 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             onClick={() => setShowContactInfo(true)}
             title="View contact info"
           >
-            <h2 className={`font-semibold text-start text-base sm:text-lg truncate group-hover:text-emerald-500 transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
-              }`}>
-              {selectedContact?.username}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className={`font-semibold text-start text-base sm:text-lg truncate group-hover:text-emerald-500 transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
+                }`}>
+                {selectedContact?.username}
+              </h2>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowSecurityModal(true);
+                }}
+                title="End-to-end encrypted chat. Click to verify."
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+              >
+                <FaLock className="w-2.5 h-2.5" />
+                <span className="font-medium hidden sm:inline">Encrypted</span>
+              </button>
+            </div>
 
             {isTyping ? (
               <div className="text-xs sm:text-sm text-emerald-500 font-medium">Typing...</div>
@@ -874,54 +955,85 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             }}
           >
             <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
-              {Object.entries(finalMessagesToRender).map(([date, msgs]) => {
-                if (msgs.length === 0) return null;
+              {/* WhatsApp-style End-to-End Encryption Banner */}
+              <div className="flex justify-center my-2 select-none">
+                <button
+                  type="button"
+                  onClick={() => setShowSecurityModal(true)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs max-w-md text-center transition-all duration-200 cursor-pointer shadow-sm active:scale-98 ${
+                    theme === "dark"
+                      ? "bg-[#182229]/95 text-[#ffd279] border border-white/5 hover:bg-[#202c33]"
+                      : "bg-[#ffeecd]/95 text-[#54656f] border border-black/5 hover:bg-[#fedea8]"
+                  }`}
+                  title="Click to verify end-to-end encryption"
+                >
+                  <FaLock className="h-3 w-3 shrink-0 text-emerald-500" />
+                  <span>
+                    Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. Click to learn more.
+                  </span>
+                </button>
+              </div>
 
-                return (
-                  <React.Fragment key={date}>
-                    {renderDateSeparator(new Date(date))}
+              {isMessagesLoading ? (
+                <MessageSkeletonLoader theme={theme} />
+              ) : Object.keys(finalMessagesToRender).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 opacity-70 text-center select-none">
+                  <p className="text-xs sm:text-sm font-medium">
+                    {searchTerm
+                      ? `No messages found matching "${searchTerm}"`
+                      : "No messages yet. Send a message to start chatting!"}
+                  </p>
+                </div>
+              ) : (
+                Object.entries(finalMessagesToRender).map(([date, msgs]) => {
+                  if (msgs.length === 0) return null;
 
-                    {msgs.map((msg, index) => {
-                      const prevMsg = index > 0 ? msgs[index - 1] : null;
-                      const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
-                      const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
-                      const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
+                  return (
+                    <React.Fragment key={date}>
+                      {renderDateSeparator(new Date(date))}
 
-                      const isMatch =
-                        searchTerm &&
-                        (msg.content || "")
-                          .toLowerCase()
-                          .includes(searchTerm.toLowerCase());
-                      if (isMatch) {
-                        matchCounter++;
-                      }
-                      return (
-                        <MessageBuble
-                          key={msg._id || msg.temp}
-                          message={msg}
-                          theme={theme}
-                          currentUser={user}
-                          onReact={handleReaction}
-                          deleteMessage={deleteMessage}
-                          onEdit={editMessage}
-                          onEditEvent={handleEditEventClick}
-                          onStatusClick={onStatusClick}
-                          searchTerm={searchTerm}
-                          highlightText={highlightText}
-                          dataMatch={isMatch}
-                          isActive={isMatch && matchCounter === currentIndex}
-                          isFirstInSequence={isFirstInSequence}
-                          setRef={(el) => {
-                            if (isMatch && el) {
-                              messageRefs.current.push(el);
-                            }
-                          }}
-                        />
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })}
+                      {msgs.map((msg, index) => {
+                        const prevMsg = index > 0 ? msgs[index - 1] : null;
+                        const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
+                        const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
+                        const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
+
+                        const isMatch =
+                          searchTerm &&
+                          (msg.content || "")
+                            .toLowerCase()
+                            .includes(searchTerm.toLowerCase());
+                        if (isMatch) {
+                          matchCounter++;
+                        }
+                        return (
+                          <MessageBuble
+                            key={msg._id || msg.temp}
+                            message={msg}
+                            theme={theme}
+                            currentUser={user}
+                            onReact={handleReaction}
+                            deleteMessage={deleteMessage}
+                            onEdit={editMessage}
+                            onEditEvent={handleEditEventClick}
+                            onStatusClick={onStatusClick}
+                            searchTerm={searchTerm}
+                            highlightText={highlightText}
+                            dataMatch={isMatch}
+                            isActive={isMatch && matchCounter === currentIndex}
+                            isFirstInSequence={isFirstInSequence}
+                            setRef={(el) => {
+                              if (isMatch && el) {
+                                messageRefs.current.push(el);
+                              }
+                            }}
+                          />
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })
+              )}
             </div>
 
             <div ref={messageEndRef} className="h-4" />
@@ -1359,6 +1471,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       )}
 
       <VideoCallManager socket={socket} />
+
+      <SecurityVerifyModal
+        isOpen={showSecurityModal}
+        onClose={() => setShowSecurityModal(false)}
+        contact={selectedContact}
+      />
     </>
   );
 };

@@ -42,6 +42,14 @@ const messageSchema = new mongoose.Schema(
       ],
       default: "text",
     },
+    isEncrypted: {
+      type: Boolean,
+      default: false,
+    },
+    iv: {
+      type: String,
+      default: null,
+    },
     fileName: String,
     fileSize: String,
     pollData: {

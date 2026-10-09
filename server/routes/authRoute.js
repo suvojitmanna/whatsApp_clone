@@ -11,5 +11,7 @@ router.put("/update-profile", authMiddleware, multerMiddleware, authController.u
 router.get("/logout", authController.logout);
 router.get('/check-auth', authMiddleware, authController.checkAuthenticated);
 router.get("/users", authMiddleware, authController.getAllUsers);
+router.put("/update-public-key", authMiddleware, authController.updatePublicKey);
+router.get("/public-key/:userId", authMiddleware, authController.getUserPublicKey);
 
 module.exports = router;

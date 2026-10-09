@@ -18,6 +18,8 @@ import Privacy from "./components/privacy.jsx";
 import ContactSupport from "./components/contact-support.jsx";
 
 import useThemeStore from "./store/themeStore.js";
+import axiosInstance from "./services/url.services.js";
+import { ensureUserKeysSynced } from "./utils/cryptoUtils.js";
 
 const App = () => {
   const { user } = useUserStore();
@@ -39,6 +41,7 @@ const App = () => {
       initializeSocket();
       setUser(user);
       initSocketListener();
+      ensureUserKeysSynced(user, axiosInstance);
     }
 
     return () => {

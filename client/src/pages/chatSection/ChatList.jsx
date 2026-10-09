@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import useThemeStore from "../../store/themeStore";
 import useLayoutStore from "../../store/layoutStore";
-import { FaPlus, FaSearch } from "react-icons/fa";
+import { FaPlus, FaSearch, FaLock } from "react-icons/fa";
 import { RxCross2 } from "react-icons/rx";
 import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
@@ -180,6 +180,13 @@ const ChatList = ({ contacts }) => {
                         </span>
                       ) : contact?.conversation?.lastMessage?.content ? (
                         <>
+                          {contact.conversation.lastMessage.isEncrypted && (
+                            <FaLock
+                              size={10}
+                              className="inline mr-1 text-emerald-500 shrink-0"
+                              title="End-to-end encrypted"
+                            />
+                          )}
                           <span className="truncate">
                             {contact.conversation.lastMessage.content}
                           </span>
