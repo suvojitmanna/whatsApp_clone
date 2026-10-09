@@ -7,9 +7,21 @@ import {
   getSharedAesKey,
   encryptText,
   decryptText,
+  batchDecryptMessages,
 } from "../utils/cryptoUtils";
+function syncMessagesCache(cache, convId, newMessages) {
+  if (!cache || !convId) return cache;
+  const nextCache = new Map(cache);
+  nextCache.set(String(convId), newMessages);
+  return nextCache;
+}
 
-async function decryptSingleMessage(msg, currentUserId, fallbackPeer = null, getStore = null) {
+async function decryptSingleMessage(
+  msg,
+  currentUserId,
+  fallbackPeer = null,
+  getStore = null,
+) {
   if (!msg || !msg.isEncrypted || !msg.content || !msg.iv) {
     return msg;
   }
@@ -79,6 +91,7 @@ export const useChatStore = create((set, get) => ({
   setCurrentConversation: (conversation) =>
     set({ currentConversation: conversation }),
   messages: [],
+  messagesCache: new Map(),
   isMessagesLoading: false,
   setIsMessagesLoading: (isMessagesLoading) => set({ isMessagesLoading }),
   clearMessages: () => set({ messages: [], isMessagesLoading: false }),
@@ -116,116 +129,199 @@ export const useChatStore = create((set, get) => ({
     });
 
     socket.on("message_status_update_bulk", ({ messageIds, messageStatus }) => {
-      set((state) => ({
-        messages: state.messages.map((msg) =>
-          messageIds.includes(msg._id) ? { ...msg, messageStatus } : msg,
-        ),
-      }));
-    });
-
-    socket.on("message_send", (message) => {
-      set((state) => ({
-        messages: state.messages.map((msg) =>
-          msg._id === message._id ? { ...msg } : msg,
-        ),
-      }));
-    });
-
-    socket.on("message_status_update", ({ messageId, messageStatus }) => {
-      set((state) => ({
-        messages: state.messages.map((msg) =>
-          msg._id === messageId ? { ...msg, messageStatus } : msg,
-        ),
-      }));
-    });
-
-    socket.on("message_read", ({ messageIds, messageStatus }) => {
-      set((state) => ({
-        messages: state.messages.map((msg) =>
-          messageIds?.includes(msg._id)
-            ? {
-              ...msg,
-              messageStatus: messageStatus || "read",
-            }
-            : msg
-        ),
-      }));
-    });
-
-    socket.on("reaction_update", ({ messageId, reactions }) => {
-      const cleanReactions = (reactions || []).filter(
-        (r) => Boolean(r && r.emoji)
-      );
-      set((state) => ({
-        messages: state.messages.map((msg) =>
-          msg._id === messageId ? { ...msg, reactions: cleanReactions } : msg,
-        ),
-      }));
-    });
-
-    socket.on("poll_update", ({ messageId, pollData }) => {
-      set((state) => ({
-        messages: state.messages.map((msg) =>
-          msg._id === messageId ? { ...msg, pollData } : msg,
-        ),
-      }));
-    });
-
-    socket.on("message_deleted", async ({ deletedMessageId, conversationId, lastMessage }) => {
-      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
-      const selectedContact = useLayoutStore.getState()?.selectedContact;
-      let decryptedLast = lastMessage;
-
-      if (lastMessage && lastMessage.isEncrypted && !lastMessage._isDecrypted) {
-        decryptedLast = await decryptSingleMessage(
-          lastMessage,
-          currentUserId,
-          selectedContact,
-          get
-        );
-      }
-
       set((state) => {
-        const updatedMessages = state.messages.filter(
-          (msg) => msg._id !== deletedMessageId
+        const nextMessages = state.messages.map((msg) =>
+          messageIds.includes(msg._id) ? { ...msg, messageStatus } : msg,
         );
-
-        let finalLastMessage = decryptedLast;
-        if (
-          !finalLastMessage &&
-          String(state.currentConversation?._id) === String(conversationId) &&
-          updatedMessages.length > 0
-        ) {
-          finalLastMessage = updatedMessages[updatedMessages.length - 1];
-        }
-
-        return {
-          messages: updatedMessages,
-          conversations: {
-            ...state.conversations,
-            data: state.conversations?.data?.map((conv) =>
-              String(conv._id) === String(conversationId)
-                ? {
-                    ...conv,
-                    lastMessage: finalLastMessage || null,
-                  }
-                : conv
-            ),
-          },
-        };
+        const nextCache = state.currentConversation?._id
+          ? syncMessagesCache(
+              state.messagesCache,
+              state.currentConversation._id,
+              nextMessages,
+            )
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
       });
     });
 
-    socket.on("message_edited", async ({ message }) => {
-      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
-      const selectedContact = useLayoutStore.getState()?.selectedContact;
-      const decrypted = await decryptSingleMessage(message, currentUserId, selectedContact, get);
+    socket.on("message_send", (message) => {
+      set((state) => {
+        const nextMessages = state.messages.map((msg) =>
+          msg._id === message._id ? { ...msg } : msg,
+        );
+        const nextCache = state.currentConversation?._id
+          ? syncMessagesCache(
+              state.messagesCache,
+              state.currentConversation._id,
+              nextMessages,
+            )
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
+    });
 
-      set((state) => ({
-        messages: state.messages.map((oldMessage) =>
-          oldMessage._id === decrypted._id ? decrypted : oldMessage
-        ),
-      }));
+    socket.on("message_status_update", ({ messageId, messageStatus }) => {
+      set((state) => {
+        const nextMessages = state.messages.map((msg) =>
+          msg._id === messageId ? { ...msg, messageStatus } : msg,
+        );
+        const nextCache = state.currentConversation?._id
+          ? syncMessagesCache(
+              state.messagesCache,
+              state.currentConversation._id,
+              nextMessages,
+            )
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
+    });
+
+    socket.on("message_read", ({ messageIds, messageStatus }) => {
+      set((state) => {
+        const nextMessages = state.messages.map((msg) =>
+          messageIds?.includes(msg._id)
+            ? {
+                ...msg,
+                messageStatus: messageStatus || "read",
+              }
+            : msg,
+        );
+        const nextCache = state.currentConversation?._id
+          ? syncMessagesCache(
+              state.messagesCache,
+              state.currentConversation._id,
+              nextMessages,
+            )
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
+    });
+
+    socket.on("reaction_update", ({ messageId, reactions }) => {
+      const cleanReactions = (reactions || []).filter((r) =>
+        Boolean(r && r.emoji),
+      );
+      set((state) => {
+        const nextMessages = state.messages.map((msg) =>
+          msg._id === messageId ? { ...msg, reactions: cleanReactions } : msg,
+        );
+        const nextCache = state.currentConversation?._id
+          ? syncMessagesCache(
+              state.messagesCache,
+              state.currentConversation._id,
+              nextMessages,
+            )
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
+    });
+
+    socket.on("poll_update", ({ messageId, pollData }) => {
+      set((state) => {
+        const nextMessages = state.messages.map((msg) =>
+          msg._id === messageId ? { ...msg, pollData } : msg,
+        );
+        const nextCache = state.currentConversation?._id
+          ? syncMessagesCache(
+              state.messagesCache,
+              state.currentConversation._id,
+              nextMessages,
+            )
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
+    });
+
+    socket.on(
+      "message_deleted",
+      async ({ deletedMessageId, conversationId, lastMessage }) => {
+        const currentUserId = (
+          get().currentUser || useUserStore.getState().user
+        )?._id;
+        const selectedContact = useLayoutStore.getState()?.selectedContact;
+        let decryptedLast = lastMessage;
+
+        if (
+          lastMessage &&
+          lastMessage.isEncrypted &&
+          !lastMessage._isDecrypted
+        ) {
+          decryptedLast = await decryptSingleMessage(
+            lastMessage,
+            currentUserId,
+            selectedContact,
+            get,
+          );
+        }
+
+        set((state) => {
+          const updatedMessages = state.messages.filter(
+            (msg) => msg._id !== deletedMessageId,
+          );
+
+          let finalLastMessage = decryptedLast;
+          if (
+            !finalLastMessage &&
+            String(state.currentConversation?._id) === String(conversationId) &&
+            updatedMessages.length > 0
+          ) {
+            finalLastMessage = updatedMessages[updatedMessages.length - 1];
+          }
+
+          const cache = state.messagesCache || new Map();
+          if (conversationId) {
+            const cached = cache.get(String(conversationId));
+            if (cached) {
+              cache.set(
+                String(conversationId),
+                cached.filter((m) => m._id !== deletedMessageId),
+              );
+            }
+          }
+
+          return {
+            messages: updatedMessages,
+            messagesCache: new Map(cache),
+            conversations: {
+              ...state.conversations,
+              data: state.conversations?.data?.map((conv) =>
+                String(conv._id) === String(conversationId)
+                  ? {
+                      ...conv,
+                      lastMessage: finalLastMessage || null,
+                    }
+                  : conv,
+              ),
+            },
+          };
+        });
+      },
+    );
+
+    socket.on("message_edited", async ({ message }) => {
+      const currentUserId = (get().currentUser || useUserStore.getState().user)
+        ?._id;
+      const selectedContact = useLayoutStore.getState()?.selectedContact;
+      const decrypted = await decryptSingleMessage(
+        message,
+        currentUserId,
+        selectedContact,
+        get,
+      );
+
+      set((state) => {
+        const nextMessages = state.messages.map((oldMessage) =>
+          oldMessage._id === decrypted._id ? decrypted : oldMessage,
+        );
+        const convId =
+          decrypted.conversation?._id ||
+          decrypted.conversation ||
+          state.currentConversation?._id;
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
     });
 
     socket.on("message_error", (error) => {
@@ -284,10 +380,13 @@ export const useChatStore = create((set, get) => ({
   setCurrentUser: (user) => set({ currentUser: user }),
 
   fetchConversations: async () => {
-    set({ loading: true, error: null });
+    if (!get().conversations?.data?.length) {
+      set({ loading: true, error: null });
+    }
     try {
       const { data } = await axiosInstance.get("/chat/conversation");
-      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
+      const currentUserId = (get().currentUser || useUserStore.getState().user)
+        ?._id;
 
       let convData = data;
       if (Array.isArray(data?.data)) {
@@ -295,18 +394,18 @@ export const useChatStore = create((set, get) => ({
           data.data.map(async (conv) => {
             if (conv.lastMessage?.isEncrypted) {
               const peer = conv.participants?.find(
-                (p) => p._id?.toString() !== currentUserId?.toString()
+                (p) => p._id?.toString() !== currentUserId?.toString(),
               );
               const decryptedLast = await decryptSingleMessage(
                 conv.lastMessage,
                 currentUserId,
                 peer,
-                get
+                get,
               );
               return { ...conv, lastMessage: decryptedLast };
             }
             return conv;
-          })
+          }),
         );
         convData = { ...data, data: decryptedList };
       }
@@ -326,31 +425,67 @@ export const useChatStore = create((set, get) => ({
   fetchMessages: async (conversationId) => {
     if (!conversationId) {
       set({ isMessagesLoading: false, messages: [] });
-      return;
+      return [];
     }
-    set({ loading: true, isMessagesLoading: true, error: null, messages: [] });
+
+    const convIdStr = conversationId.toString();
+    const cachedMessages = get().messagesCache?.get(convIdStr);
+
+    // If cached, render immediately with ZERO latency!
+    if (cachedMessages && cachedMessages.length > 0) {
+      set({
+        messages: cachedMessages,
+        currentConversation: { _id: conversationId },
+        isMessagesLoading: false,
+        loading: false,
+      });
+      get().markMessageAsRead();
+    } else {
+      set({
+        loading: true,
+        isMessagesLoading: true,
+        error: null,
+        messages: [],
+      });
+    }
+
     try {
       const { data } = await axiosInstance.get(
-        `/chat/conversation/${conversationId}/messages`
+        `/chat/conversation/${conversationId}/messages`,
       );
       const rawMessages = data?.data || data || [];
-      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
+      const currentUserId = (get().currentUser || useUserStore.getState().user)
+        ?._id;
       const selectedContact = useLayoutStore.getState()?.selectedContact;
 
-      const decryptedMessages = await Promise.all(
-        rawMessages.map((msg) =>
-          decryptSingleMessage(msg, currentUserId, selectedContact, get)
-        )
+      const peerId = selectedContact?._id?.toString();
+      let peerPubKey = selectedContact?.publicKey;
+      if (!peerPubKey && peerId) {
+        const foundUser = (get().users || []).find(
+          (u) => u._id?.toString() === peerId,
+        );
+        peerPubKey = foundUser?.publicKey;
+      }
+
+      // High-speed parallel batch decryption
+      const decryptedMessages = await batchDecryptMessages(
+        rawMessages,
+        currentUserId,
+        peerId,
+        peerPubKey,
       );
+
+      const cache = get().messagesCache || new Map();
+      cache.set(convIdStr, decryptedMessages);
 
       set({
         messages: decryptedMessages,
+        messagesCache: cache,
         currentConversation: { _id: conversationId },
         loading: false,
         isMessagesLoading: false,
       });
-      const { markMessageAsRead } = get();
-      markMessageAsRead();
+      get().markMessageAsRead();
 
       return decryptedMessages;
     } catch (error) {
@@ -379,7 +514,7 @@ export const useChatStore = create((set, get) => ({
       const conversation = conversations.data.find(
         (conv) =>
           conv.participants.some((p) => p._id === senderId) &&
-          conv.participants.some((p) => p._id === receiverId)
+          conv.participants.some((p) => p._id === receiverId),
       );
 
       if (conversation) {
@@ -396,7 +531,9 @@ export const useChatStore = create((set, get) => ({
 
     if (!peerPubKey) {
       const allUsers = get().users || [];
-      const foundPeer = allUsers.find((u) => u._id?.toString() === receiverId?.toString());
+      const foundPeer = allUsers.find(
+        (u) => u._id?.toString() === receiverId?.toString(),
+      );
       peerPubKey = foundPeer?.publicKey;
     }
 
@@ -404,9 +541,18 @@ export const useChatStore = create((set, get) => ({
     let iv = null;
     let rawContentToKeep = content;
 
-    if (peerPubKey && content && typeof content === "string" && content.trim()) {
+    if (
+      peerPubKey &&
+      content &&
+      typeof content === "string" &&
+      content.trim()
+    ) {
       try {
-        const sharedKey = await getSharedAesKey(receiverId, peerPubKey, senderId);
+        const sharedKey = await getSharedAesKey(
+          receiverId,
+          peerPubKey,
+          senderId,
+        );
         if (sharedKey) {
           const encResult = await encryptText(content, sharedKey);
           if (encResult) {
@@ -445,26 +591,35 @@ export const useChatStore = create((set, get) => ({
       messageStatus,
     };
 
-    set((state) => ({
-      messages: [...state.messages, optimisticMessage],
-      conversations: {
-        ...state.conversations,
-        data: state.conversations?.data?.map((conv) => {
-          const isTarget =
-            String(conv._id) === String(conversationId) ||
-            conv.participants?.some(
-              (p) => String(p?._id || p) === String(receiverId)
-            );
-          return isTarget ? { ...conv, lastMessage: optimisticMessage } : conv;
-        }),
-      },
-    }));
+    set((state) => {
+      const nextMessages = [...state.messages, optimisticMessage];
+      const nextCache = conversationId
+        ? syncMessagesCache(state.messagesCache, conversationId, nextMessages)
+        : state.messagesCache;
+      return {
+        messages: nextMessages,
+        messagesCache: nextCache,
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) => {
+            const isTarget =
+              String(conv._id) === String(conversationId) ||
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(receiverId),
+              );
+            return isTarget
+              ? { ...conv, lastMessage: optimisticMessage }
+              : conv;
+          }),
+        },
+      };
+    });
 
     try {
       const { data } = await axiosInstance.post(
         "/chat/send-message",
         formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
+        { headers: { "Content-Type": "multipart/form-data" } },
       );
 
       const messageData = data.data || data;
@@ -481,29 +636,36 @@ export const useChatStore = create((set, get) => ({
         savedMessage.conversation ||
         conversationId;
 
-      set((state) => ({
-        messages: state.messages.map((msg) =>
-          msg._id === tempId ? savedMessage : msg
-        ),
-        conversations: {
-          ...state.conversations,
-          data: state.conversations?.data?.map((conv) => {
-            const isTarget =
-              String(conv._id) === String(resolvedConvId) ||
-              conv.participants?.some(
-                (p) => String(p?._id || p) === String(receiverId)
-              );
-            return isTarget ? { ...conv, lastMessage: savedMessage } : conv;
-          }),
-        },
-      }));
+      set((state) => {
+        const nextMessages = state.messages.map((msg) =>
+          msg._id === tempId ? savedMessage : msg,
+        );
+        const nextCache = resolvedConvId
+          ? syncMessagesCache(state.messagesCache, resolvedConvId, nextMessages)
+          : state.messagesCache;
+        return {
+          messages: nextMessages,
+          messagesCache: nextCache,
+          conversations: {
+            ...state.conversations,
+            data: state.conversations?.data?.map((conv) => {
+              const isTarget =
+                String(conv._id) === String(resolvedConvId) ||
+                conv.participants?.some(
+                  (p) => String(p?._id || p) === String(receiverId),
+                );
+              return isTarget ? { ...conv, lastMessage: savedMessage } : conv;
+            }),
+          },
+        };
+      });
 
       return savedMessage;
     } catch (error) {
       console.error("error sending message", error);
       set((state) => ({
         messages: state.messages.map((msg) =>
-          msg._id === tempId ? { ...msg, messageStatus: "failed" } : msg
+          msg._id === tempId ? { ...msg, messageStatus: "failed" } : msg,
         ),
         error: error?.response?.data?.message || error?.message,
       }));
@@ -523,10 +685,12 @@ export const useChatStore = create((set, get) => ({
       message,
       currentUserId,
       selectedContact,
-      get
+      get,
     );
 
-    const messageExists = messages.some((msg) => msg._id === decryptedMessage._id);
+    const messageExists = messages.some(
+      (msg) => msg._id === decryptedMessage._id,
+    );
     if (messageExists) return;
 
     const conversationId =
@@ -539,9 +703,27 @@ export const useChatStore = create((set, get) => ({
       String(decryptedMessage.receiver?._id) === String(currentUserId);
 
     if (isCurrentConversation) {
-      set((state) => ({
-        messages: [...state.messages, decryptedMessage],
-      }));
+      set((state) => {
+        const nextMessages = [...state.messages, decryptedMessage];
+        const nextCache = conversationId
+          ? syncMessagesCache(state.messagesCache, conversationId, nextMessages)
+          : state.messagesCache;
+        return {
+          messages: nextMessages,
+          messagesCache: nextCache,
+        };
+      });
+    } else if (conversationId) {
+      const cache = get().messagesCache;
+      const convKey = String(conversationId);
+      if (cache && cache.has(convKey)) {
+        const cached = cache.get(convKey);
+        if (!cached.some((m) => m._id === decryptedMessage._id)) {
+          const nextCache = new Map(cache);
+          nextCache.set(convKey, [...cached, decryptedMessage]);
+          set({ messagesCache: nextCache });
+        }
+      }
     }
 
     set((state) => ({
@@ -566,11 +748,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   markMessageAsRead: async () => {
-    const {
-      messages,
-      currentUser,
-      currentConversation,
-    } = get();
+    const { messages, currentUser, currentConversation } = get();
 
     if (!messages.length || !currentUser || !currentConversation) {
       return;
@@ -580,8 +758,7 @@ export const useChatStore = create((set, get) => ({
       .filter(
         (msg) =>
           msg.messageStatus !== "read" &&
-          String(msg.receiver?._id) ===
-          String(currentUser?._id)
+          String(msg.receiver?._id) === String(currentUser?._id),
       )
       .map((msg) => msg._id)
       .filter(Boolean);
@@ -597,22 +774,21 @@ export const useChatStore = create((set, get) => ({
         messages: state.messages.map((msg) =>
           unreadIds.includes(msg._id)
             ? {
-              ...msg,
-              messageStatus: "read",
-            }
-            : msg
+                ...msg,
+                messageStatus: "read",
+              }
+            : msg,
         ),
 
         conversations: {
           ...state.conversations,
           data: state.conversations?.data?.map((conv) =>
-            String(conv._id) ===
-              String(currentConversation._id)
+            String(conv._id) === String(currentConversation._id)
               ? {
-                ...conv,
-                unreadCount: 0,
-              }
-              : conv
+                  ...conv,
+                  unreadCount: 0,
+                }
+              : conv,
           ),
         },
       }));
@@ -626,23 +802,23 @@ export const useChatStore = create((set, get) => ({
         });
       }
     } catch (error) {
-      console.error(
-        "failed to mark message as read",
-        error
-      );
+      console.error("failed to mark message as read", error);
     }
   },
 
   deleteMessage: async (messageId, deleteFor) => {
     try {
-      const { data } = await axiosInstance.delete(`/chat/messages/${messageId}`, {
-        data: { deleteFor },
-      });
+      const { data } = await axiosInstance.delete(
+        `/chat/messages/${messageId}`,
+        {
+          data: { deleteFor },
+        },
+      );
 
       const state = get();
       const currentConversationId = state.currentConversation?._id;
       const remainingMessages = (state.messages || []).filter(
-        (msg) => msg?._id !== messageId
+        (msg) => msg?._id !== messageId,
       );
       const previousMsg =
         remainingMessages.length > 0
@@ -650,16 +826,21 @@ export const useChatStore = create((set, get) => ({
           : null;
 
       const serverLastMsg = data?.data?.lastMessage || data?.lastMessage;
-      const currentUserId = (state.currentUser || useUserStore.getState().user)?._id;
+      const currentUserId = (state.currentUser || useUserStore.getState().user)
+        ?._id;
       const selectedContact = useLayoutStore.getState()?.selectedContact;
 
       let decryptedServerLast = serverLastMsg;
-      if (serverLastMsg && serverLastMsg.isEncrypted && !serverLastMsg._isDecrypted) {
+      if (
+        serverLastMsg &&
+        serverLastMsg.isEncrypted &&
+        !serverLastMsg._isDecrypted
+      ) {
         decryptedServerLast = await decryptSingleMessage(
           serverLastMsg,
           currentUserId,
           selectedContact,
-          get
+          get,
         );
       }
 
@@ -685,8 +866,17 @@ export const useChatStore = create((set, get) => ({
           });
         }
 
+        const nextCache = currentConversationId
+          ? syncMessagesCache(
+              currentState.messagesCache,
+              currentConversationId,
+              remainingMessages,
+            )
+          : currentState.messagesCache;
+
         return {
           messages: remainingMessages,
+          messagesCache: nextCache,
           conversations: currentState.conversations
             ? {
                 ...currentState.conversations,
@@ -711,7 +901,8 @@ export const useChatStore = create((set, get) => ({
       }
 
       const existingMsg = get().messages.find((m) => m._id === messageId);
-      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
+      const currentUserId = (get().currentUser || useUserStore.getState().user)
+        ?._id;
       const selectedContact = useLayoutStore.getState()?.selectedContact;
 
       let isEncrypted = existingMsg?.isEncrypted;
@@ -723,7 +914,11 @@ export const useChatStore = create((set, get) => ({
 
         if (peerId && peerPubKey && currentUserId) {
           try {
-            const sharedKey = await getSharedAesKey(peerId, peerPubKey, currentUserId);
+            const sharedKey = await getSharedAesKey(
+              peerId,
+              peerPubKey,
+              currentUserId,
+            );
             if (sharedKey) {
               const enc = await encryptText(content, sharedKey);
               if (enc) {
@@ -740,7 +935,7 @@ export const useChatStore = create((set, get) => ({
 
       const response = await axiosInstance.put(
         `/chat/messages/${messageId}`,
-        payload
+        payload,
       );
 
       if (response.data?.data) {
@@ -751,16 +946,30 @@ export const useChatStore = create((set, get) => ({
           _isDecrypted: true,
         };
 
-        set((state) => ({
-          messages: state.messages.map((m) =>
-            m._id === messageId ? msgToStore : m
-          ),
-        }));
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            m._id === messageId ? msgToStore : m,
+          );
+          const nextCache = state.currentConversation?._id
+            ? syncMessagesCache(
+                state.messagesCache,
+                state.currentConversation._id,
+                nextMessages,
+              )
+            : state.messagesCache;
+          return {
+            messages: nextMessages,
+            messagesCache: nextCache,
+          };
+        });
       }
 
       return response.data;
     } catch (error) {
-      console.error("EDIT MESSAGE ERROR:", error.response?.data || error.message);
+      console.error(
+        "EDIT MESSAGE ERROR:",
+        error.response?.data || error.message,
+      );
       throw error.response?.data || error;
     }
   },
@@ -779,11 +988,11 @@ export const useChatStore = create((set, get) => ({
       set((state) => ({
         messages: state.messages.map((msg) => {
           if (msg._id !== messageId) return msg;
-          const currentReactions = (msg.reactions || []).filter(
-            (r) => Boolean(r && r.emoji)
+          const currentReactions = (msg.reactions || []).filter((r) =>
+            Boolean(r && r.emoji),
           );
           const filtered = currentReactions.filter(
-            (r) => String(r.userId?._id || r.userId) !== String(reactionUserId)
+            (r) => String(r.userId?._id || r.userId) !== String(reactionUserId),
           );
           return {
             ...msg,
@@ -827,7 +1036,11 @@ export const useChatStore = create((set, get) => ({
 
     set((state) => {
       const updatedMessages = state.messages.map((msg) => {
-        if (msg._id !== messageId || msg.contentType !== "poll" || !msg.pollData) {
+        if (
+          msg._id !== messageId ||
+          msg.contentType !== "poll" ||
+          !msg.pollData
+        ) {
           return msg;
         }
 
@@ -838,7 +1051,7 @@ export const useChatStore = create((set, get) => ({
           pollData.options.forEach((opt, idx) => {
             if (idx !== optionIndex) {
               opt.votes = (opt.votes || []).filter(
-                (v) => (v?._id || v)?.toString() !== voterId
+                (v) => (v?._id || v)?.toString() !== voterId,
               );
             }
           });
@@ -848,12 +1061,12 @@ export const useChatStore = create((set, get) => ({
         if (targetOption) {
           targetOption.votes = targetOption.votes || [];
           const alreadyVoted = targetOption.votes.some(
-            (v) => (v?._id || v)?.toString() === voterId
+            (v) => (v?._id || v)?.toString() === voterId,
           );
 
           if (alreadyVoted) {
             targetOption.votes = targetOption.votes.filter(
-              (v) => (v?._id || v)?.toString() !== voterId
+              (v) => (v?._id || v)?.toString() !== voterId,
             );
           } else {
             targetOption.votes.push(voterId);
@@ -877,14 +1090,12 @@ export const useChatStore = create((set, get) => ({
     try {
       const { data } = await axiosInstance.post(
         `/chat/messages/${messageId}/vote`,
-        { optionIndex }
+        { optionIndex },
       );
       if (data?.data?.pollData) {
         set((state) => ({
           messages: state.messages.map((m) =>
-            m._id === messageId
-              ? { ...m, pollData: data.data.pollData }
-              : m
+            m._id === messageId ? { ...m, pollData: data.data.pollData } : m,
           ),
         }));
       }

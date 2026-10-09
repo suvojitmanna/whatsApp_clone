@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
@@ -487,40 +487,44 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     );
   };
 
-  const groupedMessages = Array.isArray(messages)
-    ? messages.reduce((acc, message) => {
-      if (!message.createdAt) return acc;
-      const date = new Date(message.createdAt);
+  const groupedMessages = useMemo(() => {
+    if (!Array.isArray(messages) || messages.length === 0) return {};
+    const acc = {};
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (!msg.createdAt) continue;
+      const date = new Date(msg.createdAt);
       if (isValidate(date)) {
         const dateString = format(date, "yyyy-MM-dd");
         if (!acc[dateString]) {
           acc[dateString] = [];
         }
-        acc[dateString].push(message);
-      } else {
-        console.error("Invalid date for message", message);
+        acc[dateString].push(msg);
       }
-      return acc;
-    }, {})
-    : {};
+    }
+    return acc;
+  }, [messages]);
 
-  const filteredGroupedMessages = Object.fromEntries(
-    Object.entries(groupedMessages)
-      .map(([date, msgs]) => {
-        const filteredMsgs = msgs.filter((msg) =>
-          (msg.content || "").toLowerCase().includes(searchTerm.toLowerCase()),
-        );
-
-        return [date, filteredMsgs];
-      })
-      .filter(([_, msgs]) => msgs.length > 0),
-  );
-
-  const finalMessagesToRender = searchTerm
-    ? filteredGroupedMessages
-    : groupedMessages;
-
-  const resultCount = Object.values(filteredGroupedMessages).flat().length;
+  const { finalMessagesToRender, resultCount } = useMemo(() => {
+    if (!searchTerm) {
+      return { finalMessagesToRender: groupedMessages, resultCount: 0 };
+    }
+    const lowerSearch = searchTerm.toLowerCase();
+    const filtered = {};
+    let count = 0;
+    const entries = Object.entries(groupedMessages);
+    for (let i = 0; i < entries.length; i++) {
+      const [date, msgs] = entries[i];
+      const matched = msgs.filter((msg) =>
+        (msg.content || "").toLowerCase().includes(lowerSearch)
+      );
+      if (matched.length > 0) {
+        filtered[date] = matched;
+        count += matched.length;
+      }
+    }
+    return { finalMessagesToRender: filtered, resultCount: count };
+  }, [groupedMessages, searchTerm]);
   const highlightText = (text, term) => {
     if (!term) return text;
 
@@ -935,8 +939,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   type="button"
                   onClick={() => openContactInfoWithTab("privacy")}
                   className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs max-w-md text-center transition-all duration-200 cursor-pointer shadow-sm active:scale-98 ${theme === "dark"
-                      ? "bg-[#182229]/95 text-[#ffd279] border border-white/5 hover:bg-[#202c33]"
-                      : "bg-[#ffeecd]/95 text-[#54656f] border border-black/5 hover:bg-[#fedea8]"
+                    ? "bg-[#182229]/95 text-[#ffd279] border border-white/5 hover:bg-[#202c33]"
+                    : "bg-[#ffeecd]/95 text-[#54656f] border border-black/5 hover:bg-[#fedea8]"
                     }`}
                   title="Click to verify end-to-end encryption"
                 >

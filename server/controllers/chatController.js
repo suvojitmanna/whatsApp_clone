@@ -157,10 +157,11 @@ exports.getConversation = async (req, res) => {
           select: "username profilePicture publicKey",
         },
       })
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .lean();
     return response(
       res,
-      201,
+      200,
       "Conversation retrieved successfully",
       conversation,
     );
@@ -174,14 +175,20 @@ exports.getMessages = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId } = req.params;
   try {
-    const conversation = await Conversation.findById(conversationId);
+    const conversation = await Conversation.findById(conversationId)
+      .select("participants")
+      .lean();
     if (!conversation) {
       return response(res, 404, "Conversation not found");
     }
-    if (!conversation.participants.includes(userId)) {
-      return response(res, 403, "Not Authorized  Access denied");
+    const isParticipant = conversation.participants.some(
+      (p) => p.toString() === userId.toString(),
+    );
+    if (!isParticipant) {
+      return response(res, 403, "Not Authorized Access denied");
     }
-    const messages = await Message.find({
+
+    const messagesPromise = Message.find({
       conversation: conversationId,
       deletedFor: {
         $ne: userId,
@@ -198,19 +205,26 @@ exports.getMessages = async (req, res) => {
           select: "username profilePicture",
         },
       })
-      .sort({ createdAt: 1 });
-    await Message.updateMany(
-      {
-        conversation: conversationId,
-        receiver: userId,
-        messageStatus: { $in: ["send", "delivered", "read"] },
-      },
-      { $set: { messageStatus: "read" } },
-    );
+      .sort({ createdAt: 1 })
+      .lean();
 
-    conversation.unreadCount = 0;
-    await conversation.save();
-    return response(res, 201, "Messages retrieved successfully", messages);
+    const updateReadPromise = Promise.all([
+      Message.updateMany(
+        {
+          conversation: conversationId,
+          receiver: userId,
+          messageStatus: { $in: ["send", "delivered"] },
+        },
+        { $set: { messageStatus: "read" } },
+      ),
+      Conversation.findByIdAndUpdate(conversationId, {
+        $set: { unreadCount: 0 },
+      }),
+    ]);
+
+    const [messages] = await Promise.all([messagesPromise, updateReadPromise]);
+
+    return response(res, 200, "Messages retrieved successfully", messages);
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");
@@ -303,7 +317,9 @@ exports.deleteMessage = async (req, res) => {
         }
       }
 
-      return response(res, 200, "Message deleted for you", { lastMessage: previousMessage });
+      return response(res, 200, "Message deleted for you", {
+        lastMessage: previousMessage,
+      });
     }
 
     if (deleteFor === "everyone") {
@@ -344,7 +360,9 @@ exports.deleteMessage = async (req, res) => {
         }
       }
 
-      return response(res, 200, "Message deleted for everyone", { lastMessage: previousMessage });
+      return response(res, 200, "Message deleted for everyone", {
+        lastMessage: previousMessage,
+      });
     }
     return response(res, 400, "Invalid delete option");
   } catch (error) {

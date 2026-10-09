@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Layout from "./layout";
 import { motion, AnimatePresence } from "framer-motion";
 import ChatList from "../pages/chatSection/chatList";
@@ -29,7 +29,7 @@ const HomePage = () => {
   const [loading, setLoading] = useState(!users || users.length === 0);
   const [previewContact, setPreviewContact] = useState(null);
   const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
-  
+
   const { user } = useUserStore();
   const { theme } = useThemeStore();
   const conversations = useChatStore((state) => state.conversations);
@@ -62,22 +62,39 @@ const HomePage = () => {
 
   const effectiveUsers = allUser.length > 0 ? allUser : (users || []);
 
-  const contacts = effectiveUsers.map((contact) => {
-    const conversation = conversationList.find((conv) => {
-      const participantIds =
-        conv?.participants?.map((participant) => String(participant?._id)) ||
-        [];
+  const contacts = useMemo(() => {
+    const currentUserId = user?._id?.toString();
+    const convMap = new Map();
 
-      const hasContact = participantIds.includes(String(contact?._id));
-      const hasCurrentUser = participantIds.includes(String(user?._id));
-      return hasContact && hasCurrentUser;
+    for (let i = 0; i < conversationList.length; i++) {
+      const conv = conversationList[i];
+      if (!conv?.participants) continue;
+      let otherUserId = null;
+      let hasCurrent = false;
+
+      for (let j = 0; j < conv.participants.length; j++) {
+        const pId = (conv.participants[j]?._id || conv.participants[j])?.toString();
+        if (pId === currentUserId) {
+          hasCurrent = true;
+        } else {
+          otherUserId = pId;
+        }
+      }
+
+      if (hasCurrent && otherUserId) {
+        convMap.set(otherUserId, conv);
+      }
+    }
+
+    return effectiveUsers.map((contact) => {
+      const contactId = contact?._id?.toString();
+      const conversation = convMap.get(contactId) || contact?.conversation || null;
+      return {
+        ...contact,
+        conversation,
+      };
     });
-
-    return {
-      ...contact,
-      conversation: conversation || contact?.conversation || null,
-    };
-  });
+  }, [effectiveUsers, conversationList, user?._id]);
 
   const handleStatusPreview = (contact, index = 0) => {
     setPreviewContact(contact);
@@ -136,23 +153,23 @@ const HomePage = () => {
   };
 
   const handlePreviewNext = () => {
-  if (!previewContact) return;
+    if (!previewContact) return;
 
-  const nextIndex = currentStatusIndex + 1;
+    const nextIndex = currentStatusIndex + 1;
 
-  if (nextIndex >= previewContact.statuses.length) {
-    handlePreviewClose();
-    return;
-  }
+    if (nextIndex >= previewContact.statuses.length) {
+      handlePreviewClose();
+      return;
+    }
 
-  setCurrentStatusIndex(nextIndex);
+    setCurrentStatusIndex(nextIndex);
 
-  const nextStatus = previewContact.statuses[nextIndex];
+    const nextStatus = previewContact.statuses[nextIndex];
 
-  if (nextStatus) {
-    useStatusStore.getState().viewStatus(nextStatus.id);
-  }
-};
+    if (nextStatus) {
+      useStatusStore.getState().viewStatus(nextStatus.id);
+    }
+  };
 
   const handlePreviewPrev = () => {
     setCurrentStatusIndex((prev) => Math.max(prev - 1, 0));

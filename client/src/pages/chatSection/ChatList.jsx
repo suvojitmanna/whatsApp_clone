@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import useThemeStore from "../../store/themeStore";
 import useLayoutStore from "../../store/layoutStore";
 import useUserStore from "../../store/useUserStore";
@@ -242,21 +242,26 @@ const ChatList = ({ contacts }) => {
 
   const { theme } = useThemeStore();
   const [searchTerms, setSearchTerms] = useState("");
-  const filteredContact =
-    contacts
-      ?.filter((contact) =>
-        contact?.username?.toLowerCase().includes(searchTerms.toLowerCase()),
+  const filteredContact = useMemo(() => {
+    if (!contacts) return [];
+    const term = searchTerms.trim().toLowerCase();
+    const list = term
+      ? contacts.filter((contact) =>
+        contact?.username?.toLowerCase().includes(term),
       )
-      ?.sort((a, b) => {
-        const timeA = a?.conversation?.lastMessage?.createdAt
-          ? new Date(a.conversation.lastMessage.createdAt).getTime()
-          : (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0);
+      : contacts;
 
-        const timeB = b?.conversation?.lastMessage?.createdAt
-          ? new Date(b.conversation.lastMessage.createdAt).getTime()
-          : (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0);
-        return timeB - timeA;
-      }) || [];
+    return [...list].sort((a, b) => {
+      const timeA = a?.conversation?.lastMessage?.createdAt
+        ? new Date(a.conversation.lastMessage.createdAt).getTime()
+        : (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0);
+
+      const timeB = b?.conversation?.lastMessage?.createdAt
+        ? new Date(b.conversation.lastMessage.createdAt).getTime()
+        : (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0);
+      return timeB - timeA;
+    });
+  }, [contacts, searchTerms]);
 
   useEffect(() => {
     if (listContainerRef.current) {
@@ -276,8 +281,8 @@ const ChatList = ({ contacts }) => {
   return (
     <div
       className={`h-full w-full border-r relative z-10 transition-all duration-300 ${theme === "dark"
-          ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
-          : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
+        ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
+        : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
         }`}
     >
       <div className="p-4 flex items-center justify-between">
@@ -293,16 +298,16 @@ const ChatList = ({ contacts }) => {
         <div className="relative group">
           <FaSearch
             className={`absolute left-3 top-1/2 transform -translate-y-1/2 z-10 transition-colors ${theme === "dark"
-                ? "text-gray-400 group-focus-within:text-green-500"
-                : "text-gray-500 group-focus-within:text-green-600"
+              ? "text-gray-400 group-focus-within:text-green-500"
+              : "text-gray-500 group-focus-within:text-green-600"
               }`}
           />
           <input
             type="text"
             placeholder="Search or start new chat"
             className={`w-full pl-10 pr-9 py-2 border rounded-lg outline-none transition-all duration-200 ${theme === "dark"
-                ? "bg-gray-800 text-white border-gray-700 placeholder-gray-500 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
-                : "bg-gray-100 text-black border-gray-200 placeholder-gray-400 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
+              ? "bg-gray-800 text-white border-gray-700 placeholder-gray-500 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
+              : "bg-gray-100 text-black border-gray-200 placeholder-gray-400 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
               }`}
             value={searchTerms}
             onChange={(e) => setSearchTerms(e.target.value)}
@@ -414,8 +419,8 @@ const ChatList = ({ contacts }) => {
                               {lastMsg?.edited && (
                                 <span
                                   className={`flex-shrink-0 text-[11px] italic mt-0.5 ${theme === "dark"
-                                      ? "text-gray-500/80"
-                                      : "text-gray-400"
+                                    ? "text-gray-500/80"
+                                    : "text-gray-400"
                                     }`}
                                 >
                                   edited

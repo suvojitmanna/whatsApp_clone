@@ -1,4 +1,6 @@
 const derivedKeyCache = new Map();
+const keyPairMemoryCache = new Map();
+
 export function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -28,6 +30,10 @@ export function isCryptoSupported() {
 export async function getOrCreateUserKeyPair(userId) {
   if (!isCryptoSupported() || !userId) return null;
 
+  if (keyPairMemoryCache.has(userId)) {
+    return keyPairMemoryCache.get(userId);
+  }
+
   const skStorageKey = `e2ee_sk_${userId}`;
   const pkStorageKey = `e2ee_pk_${userId}`;
 
@@ -55,12 +61,14 @@ export async function getOrCreateUserKeyPair(userId) {
         [],
       );
 
-      return {
+      const result = {
         privateKey,
         publicKey,
         publicKeyJwk: pkJwk,
         publicKeyStr: storedPk,
       };
+      keyPairMemoryCache.set(userId, result);
+      return result;
     }
   } catch (error) {
     console.warn("Error reading stored E2EE keys, generating new ones:", error);
@@ -86,12 +94,14 @@ export async function getOrCreateUserKeyPair(userId) {
     localStorage.setItem(skStorageKey, JSON.stringify(skJwk));
     localStorage.setItem(pkStorageKey, publicKeyStr);
 
-    return {
+    const result = {
       privateKey: keyPair.privateKey,
       publicKey: keyPair.publicKey,
       publicKeyJwk: pkJwk,
       publicKeyStr,
     };
+    keyPairMemoryCache.set(userId, result);
+    return result;
   } catch (err) {
     console.error("Failed to generate E2EE key pair:", err);
     return null;
@@ -243,4 +253,57 @@ export async function ensureUserKeysSynced(user, axiosInstance) {
   } catch (error) {
     console.warn("Failed to sync E2EE public key with server:", error);
   }
+}
+
+export async function batchDecryptMessages(
+  messages,
+  currentUserId,
+  peerUserId,
+  peerPublicKeyStr,
+) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return [];
+  }
+
+  let sharedKey = null;
+  if (peerUserId && peerPublicKeyStr && currentUserId) {
+    try {
+      sharedKey = await getSharedAesKey(
+        peerUserId,
+        peerPublicKeyStr,
+        currentUserId,
+      );
+    } catch (e) {
+      console.warn("Shared key batch derivation failed:", e);
+    }
+  }
+
+  return Promise.all(
+    messages.map(async (msg) => {
+      if (
+        !msg ||
+        !msg.isEncrypted ||
+        !msg.content ||
+        !msg.iv ||
+        msg._isDecrypted
+      ) {
+        return msg;
+      }
+
+      if (sharedKey) {
+        try {
+          const decrypted = await decryptText(msg.content, msg.iv, sharedKey);
+          if (decrypted !== null) {
+            return {
+              ...msg,
+              content: decrypted,
+              _isDecrypted: true,
+            };
+          }
+        } catch (e) {}
+      }
+
+      return msg;
+    }),
+  );
 }
