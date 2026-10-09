@@ -234,7 +234,8 @@ const getAllUsers = async (req, res) => {
     })
       .populate({
         path: "lastMessage",
-        select: "content sender receiver createdAt isEncrypted iv",
+        select:
+          "content sender receiver createdAt isEncrypted iv contentType imageOrVideoUrl fileName fileSize pollData contactData eventData edited editedAt",
       })
       .lean();
     const conversationMap = {};

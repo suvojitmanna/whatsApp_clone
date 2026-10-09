@@ -6,7 +6,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
 
   return (
     <div className="w-full flex flex-col space-y-3.5 py-2 animate-fade-in select-none">
-      {/* Date Pill Skeleton */}
       <div className="flex justify-center my-2">
         <div
           className={`h-6 w-24 rounded-lg flex items-center justify-center animate-pulse ${
@@ -21,7 +20,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
         </div>
       </div>
 
-      {/* 1. Incoming Message Bubble (Left) */}
       <div className="flex justify-start w-full">
         <div
           className={`relative max-w-[85%] sm:max-w-[65%] md:max-w-[480px] p-3 rounded-2xl rounded-tl-sm animate-pulse ${
@@ -52,7 +50,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
         </div>
       </div>
 
-      {/* 2. Outgoing Message Bubble (Right) */}
       <div className="flex justify-end w-full">
         <div
           className={`relative max-w-[85%] sm:max-w-[65%] md:max-w-[440px] p-3 rounded-2xl rounded-tr-sm animate-pulse ${
@@ -93,7 +90,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
         </div>
       </div>
 
-      {/* 3. Incoming Media / Image Skeleton Bubble (Left) */}
       <div className="flex justify-start w-full">
         <div
           className={`relative max-w-[85%] sm:max-w-[340px] p-2 rounded-2xl rounded-tl-sm animate-pulse ${
@@ -102,7 +98,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
               : "bg-white border border-gray-100 shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]"
           }`}
         >
-          {/* Media box preview */}
           <div
             className={`w-56 sm:w-72 h-44 rounded-xl flex items-center justify-center ${
               isDark ? "bg-[#182229]" : "bg-gray-100"
@@ -116,7 +111,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
               <FaImage className="text-xl" />
             </div>
           </div>
-          {/* Caption */}
           <div className="mt-2.5 px-1 flex flex-col space-y-1.5">
             <div
               className={`h-3 w-40 rounded-md ${
@@ -134,7 +128,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
         </div>
       </div>
 
-      {/* 4. Outgoing Short Message (Right) */}
       <div className="flex justify-end w-full">
         <div
           className={`relative max-w-[70%] sm:max-w-[280px] p-3 rounded-2xl rounded-tr-sm animate-pulse ${
@@ -163,7 +156,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
         </div>
       </div>
 
-      {/* 5. Incoming Audio / Voice Note Skeleton (Left) */}
       <div className="flex justify-start w-full">
         <div
           className={`relative w-64 sm:w-72 p-3 rounded-2xl rounded-tl-sm animate-pulse ${
@@ -180,7 +172,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
             >
               <FaPlay className="text-xs ml-0.5" />
             </div>
-            {/* Audio wave lines */}
             <div className="flex-1 flex items-center gap-1">
               {[40, 70, 30, 90, 60, 45, 80, 55, 30, 75, 50, 65, 35, 60].map(
                 (h, i) => (
@@ -210,7 +201,6 @@ const MessageSkeletonLoader = ({ theme = "dark" }) => {
         </div>
       </div>
 
-      {/* 6. Outgoing Message Bubble (Right) */}
       <div className="flex justify-end w-full">
         <div
           className={`relative max-w-[80%] sm:max-w-[360px] p-3 rounded-2xl rounded-tr-sm animate-pulse ${

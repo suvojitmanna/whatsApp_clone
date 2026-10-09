@@ -420,13 +420,7 @@ const MessageBuble = ({
                         : message.content}
                     </span>
                     <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
-                      {message.isEncrypted && (
-                        <FaLock
-                          size={9}
-                          className="opacity-70 text-emerald-500 mr-0.5 inline-block shrink-0"
-                          title="End-to-end encrypted"
-                        />
-                      )}
+
                       {message.edited && (
                         <span className="text-[10px] italic opacity-75 mr-0.5">
                           Edited
@@ -568,7 +562,7 @@ const MessageBuble = ({
                       {message.contactData?.name || message.content}
                     </p>
                     <p className="text-xs opacity-70 truncate font-mono">
-                      {message.contactData?.phoneNumber || "No number"}
+                      {message.contactData?.phoneNumber || message.contactData?.email || "No number"}
                     </p>
                     {message.contactData?.email && (
                       <p className="text-[11px] opacity-60 truncate">
@@ -749,8 +743,8 @@ const MessageBuble = ({
                   <div className="flex items-start gap-3">
                     <div
                       className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${isDark
-                          ? "bg-[#143d2e] text-[#25d366]"
-                          : "bg-emerald-600/15 text-emerald-700"
+                        ? "bg-[#143d2e] text-[#25d366]"
+                        : "bg-emerald-600/15 text-emerald-700"
                         }`}
                     >
                       <MdEventNote size={24} />
@@ -759,8 +753,8 @@ const MessageBuble = ({
                     <div className="flex-1 min-w-0 pt-0.5">
                       <h4
                         className={`text-[16px] font-bold leading-tight break-words ${message.eventData?.isCancelled
-                            ? "line-through opacity-60"
-                            : ""
+                          ? "line-through opacity-60"
+                          : ""
                           }`}
                       >
                         {message.eventData?.title || message.content}
@@ -1112,11 +1106,10 @@ const MessageBuble = ({
             >
               {message.isEncrypted && (
                 <div
-                  className={`flex items-center px-4 py-2 gap-2 text-xs font-medium border-b select-none mb-1 ${
-                    isDark
-                      ? "border-white/10 text-emerald-400 bg-white/[0.03]"
-                      : "border-black/5 text-emerald-700 bg-emerald-50/60"
-                  }`}
+                  className={`flex items-center px-4 py-2 gap-2 text-xs font-medium border-b select-none mb-1 ${isDark
+                    ? "border-white/10 text-emerald-400 bg-white/[0.03]"
+                    : "border-black/5 text-emerald-700 bg-emerald-50/60"
+                    }`}
                 >
                   <FaLock size={11} className="shrink-0 text-emerald-500" />
                   <span>End-to-end encrypted</span>

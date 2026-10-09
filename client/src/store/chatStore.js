@@ -171,26 +171,50 @@ export const useChatStore = create((set, get) => ({
       }));
     });
 
-    socket.on("message_deleted", ({ deletedMessageId, conversationId, lastMessage }) => {
-      set((state) => ({
-        messages: state.messages.filter(
-          (msg) => msg._id !== deletedMessageId
-        ),
+    socket.on("message_deleted", async ({ deletedMessageId, conversationId, lastMessage }) => {
+      const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
+      const selectedContact = useLayoutStore.getState()?.selectedContact;
+      let decryptedLast = lastMessage;
 
-        conversations: {
-          ...state.conversations,
-          data: state.conversations?.data?.map((conv) =>
-            String(conv._id) === String(conversationId)
-              ? {
-                ...conv,
-                lastMessage: lastMessage || null,
-              }
-              : conv
-          ),
-        },
-      }));
-    }
-    );
+      if (lastMessage && lastMessage.isEncrypted && !lastMessage._isDecrypted) {
+        decryptedLast = await decryptSingleMessage(
+          lastMessage,
+          currentUserId,
+          selectedContact,
+          get
+        );
+      }
+
+      set((state) => {
+        const updatedMessages = state.messages.filter(
+          (msg) => msg._id !== deletedMessageId
+        );
+
+        let finalLastMessage = decryptedLast;
+        if (
+          !finalLastMessage &&
+          String(state.currentConversation?._id) === String(conversationId) &&
+          updatedMessages.length > 0
+        ) {
+          finalLastMessage = updatedMessages[updatedMessages.length - 1];
+        }
+
+        return {
+          messages: updatedMessages,
+          conversations: {
+            ...state.conversations,
+            data: state.conversations?.data?.map((conv) =>
+              String(conv._id) === String(conversationId)
+                ? {
+                    ...conv,
+                    lastMessage: finalLastMessage || null,
+                  }
+                : conv
+            ),
+          },
+        };
+      });
+    });
 
     socket.on("message_edited", async ({ message }) => {
       const currentUserId = (get().currentUser || useUserStore.getState().user)?._id;
@@ -380,7 +404,6 @@ export const useChatStore = create((set, get) => ({
     let iv = null;
     let rawContentToKeep = content;
 
-    // Encrypt content if peer public key is available
     if (peerPubKey && content && typeof content === "string" && content.trim()) {
       try {
         const sharedKey = await getSharedAesKey(receiverId, peerPubKey, senderId);
@@ -424,6 +447,17 @@ export const useChatStore = create((set, get) => ({
 
     set((state) => ({
       messages: [...state.messages, optimisticMessage],
+      conversations: {
+        ...state.conversations,
+        data: state.conversations?.data?.map((conv) => {
+          const isTarget =
+            String(conv._id) === String(conversationId) ||
+            conv.participants?.some(
+              (p) => String(p?._id || p) === String(receiverId)
+            );
+          return isTarget ? { ...conv, lastMessage: optimisticMessage } : conv;
+        }),
+      },
     }));
 
     try {
@@ -442,10 +476,26 @@ export const useChatStore = create((set, get) => ({
         iv: messageData.iv ?? iv,
       };
 
+      const resolvedConvId =
+        savedMessage.conversation?._id ||
+        savedMessage.conversation ||
+        conversationId;
+
       set((state) => ({
         messages: state.messages.map((msg) =>
           msg._id === tempId ? savedMessage : msg
         ),
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) => {
+            const isTarget =
+              String(conv._id) === String(resolvedConvId) ||
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(receiverId)
+              );
+            return isTarget ? { ...conv, lastMessage: savedMessage } : conv;
+          }),
+        },
       }));
 
       return savedMessage;
@@ -585,11 +635,66 @@ export const useChatStore = create((set, get) => ({
 
   deleteMessage: async (messageId, deleteFor) => {
     try {
-      await axiosInstance.delete(`/chat/messages/${messageId}`, { data: { deleteFor, } })
+      const { data } = await axiosInstance.delete(`/chat/messages/${messageId}`, {
+        data: { deleteFor },
+      });
 
-      set((state) => ({
-        messages: state.messages?.filter((msg) => msg?._id !== messageId),
-      }));
+      const state = get();
+      const currentConversationId = state.currentConversation?._id;
+      const remainingMessages = (state.messages || []).filter(
+        (msg) => msg?._id !== messageId
+      );
+      const previousMsg =
+        remainingMessages.length > 0
+          ? remainingMessages[remainingMessages.length - 1]
+          : null;
+
+      const serverLastMsg = data?.data?.lastMessage || data?.lastMessage;
+      const currentUserId = (state.currentUser || useUserStore.getState().user)?._id;
+      const selectedContact = useLayoutStore.getState()?.selectedContact;
+
+      let decryptedServerLast = serverLastMsg;
+      if (serverLastMsg && serverLastMsg.isEncrypted && !serverLastMsg._isDecrypted) {
+        decryptedServerLast = await decryptSingleMessage(
+          serverLastMsg,
+          currentUserId,
+          selectedContact,
+          get
+        );
+      }
+
+      const effectiveLastMessage = previousMsg || decryptedServerLast || null;
+
+      set((currentState) => {
+        let updatedConvData = currentState.conversations?.data;
+        if (updatedConvData) {
+          updatedConvData = updatedConvData.map((conv) => {
+            const isMatchConv = currentConversationId
+              ? String(conv._id) === String(currentConversationId)
+              : false;
+            const wasLastMessage =
+              String(conv.lastMessage?._id) === String(messageId);
+
+            if (isMatchConv || wasLastMessage) {
+              return {
+                ...conv,
+                lastMessage: effectiveLastMessage,
+              };
+            }
+            return conv;
+          });
+        }
+
+        return {
+          messages: remainingMessages,
+          conversations: currentState.conversations
+            ? {
+                ...currentState.conversations,
+                data: updatedConvData,
+              }
+            : currentState.conversations,
+        };
+      });
       return true;
     } catch (error) {
       console.log("error deleting message", error);

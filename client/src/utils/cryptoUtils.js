@@ -8,7 +8,6 @@ export function arrayBufferToBase64(buffer) {
   return window.btoa(binary);
 }
 
-// Convert base64 string to Uint8Array
 export function base64ToArrayBuffer(base64) {
   const binary = window.atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -18,7 +17,6 @@ export function base64ToArrayBuffer(base64) {
   return bytes;
 }
 
-// Check if Web Crypto API is supported
 export function isCryptoSupported() {
   return (
     typeof window !== "undefined" &&
@@ -68,7 +66,6 @@ export async function getOrCreateUserKeyPair(userId) {
     console.warn("Error reading stored E2EE keys, generating new ones:", error);
   }
 
-  // Generate new ECDH P-256 keypair
   try {
     const keyPair = await window.crypto.subtle.generateKey(
       { name: "ECDH", namedCurve: "P-256" },
@@ -173,7 +170,6 @@ export async function encryptText(plainText, sharedAesKey) {
   }
 }
 
-// Decrypt ciphertext base64 string using AES-256-GCM
 export async function decryptText(ciphertextBase64, ivBase64, sharedAesKey) {
   if (!isCryptoSupported() || !sharedAesKey || !ciphertextBase64 || !ivBase64) {
     return null;
@@ -231,7 +227,6 @@ export async function generateSafetyNumber(myPubKeyStr, peerPubKeyStr) {
   }
 }
 
-// Ensure user's E2EE keys are created locally and synced with the backend server
 export async function ensureUserKeysSynced(user, axiosInstance) {
   if (!user?._id || !isCryptoSupported()) return;
 

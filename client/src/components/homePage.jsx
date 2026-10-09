@@ -60,7 +60,9 @@ const HomePage = () => {
     ? conversations.data
     : [];
 
-  const contacts = allUser.map((contact) => {
+  const effectiveUsers = allUser.length > 0 ? allUser : (users || []);
+
+  const contacts = effectiveUsers.map((contact) => {
     const conversation = conversationList.find((conv) => {
       const participantIds =
         conv?.participants?.map((participant) => String(participant?._id)) ||
@@ -73,7 +75,7 @@ const HomePage = () => {
 
     return {
       ...contact,
-      conversation: conversation || null,
+      conversation: conversation || contact?.conversation || null,
     };
   });
 
@@ -182,7 +184,7 @@ const HomePage = () => {
         className="h-full w-full"
       >
         <AnimatePresence mode="wait">
-          {loading && (
+          {loading && effectiveUsers.length === 0 ? (
             <motion.div
               key="loading"
               initial={{ opacity: 0 }}
@@ -193,13 +195,17 @@ const HomePage = () => {
               {[...Array(6)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-12 rounded-lg bg-gray-700/40 animate-pulse"
-                />
+                  className="h-14 rounded-xl bg-gray-700/20 dark:bg-gray-700/40 animate-pulse flex items-center px-3 gap-3"
+                >
+                  <div className="w-10 h-10 rounded-full bg-gray-600/30 dark:bg-gray-600/40 shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3.5 w-24 bg-gray-600/30 dark:bg-gray-600/40 rounded" />
+                    <div className="h-2.5 w-36 bg-gray-600/20 dark:bg-gray-600/30 rounded" />
+                  </div>
+                </div>
               ))}
             </motion.div>
-          )}
-
-          {!loading && allUser.length === 0 && (
+          ) : effectiveUsers.length === 0 ? (
             <motion.div
               key="empty"
               initial={{
@@ -219,9 +225,7 @@ const HomePage = () => {
                 Try refreshing or adding contacts
               </span>
             </motion.div>
-          )}
-
-          {!loading && allUser.length > 0 && (
+          ) : (
             <motion.div
               key="list"
               initial={{ opacity: 0 }}

@@ -38,7 +38,6 @@ import PollModal from "../../components/pollModal";
 import ContactModal from "../../components/ContactModal";
 import EventModal from "../../components/EventModal";
 import StickerModal from "../../components/StickerModal";
-import SecurityVerifyModal from "../../components/SecurityVerifyModal";
 
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -59,7 +58,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [editingEventMessage, setEditingEventMessage] = useState(null);
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
-  const [showSecurityModal, setShowSecurityModal] = useState(false);
 
   const typingTimeOutRef = useRef(null);
   const messageEndRef = useRef(null);
@@ -78,7 +76,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const { socket } = getSocket();
   const {
     messages,
-    isMessagesLoading: isChatStoreMessagesLoading,
+    isMessagesLoading,
     clearMessages,
     sendMessage,
     fetchMessages,
@@ -97,9 +95,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     saveScrollPosition,
   } = useChatStore();
 
-  const [localMessagesLoading, setLocalMessagesLoading] = useState(false);
-  const isMessagesLoading = localMessagesLoading || isChatStoreMessagesLoading;
-
   const messagesContainerRef = useRef(null);
   const prevContactIdRef = useRef(null);
   const isInitialScrollDone = useRef(false);
@@ -111,9 +106,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const conversationId = selectedContact?.conversation?._id;
   const isTyping = isUserTyping(conversationId, selectedContact?._id);
 
-  const setShowContactInfo = useLayoutStore(
-    (state) => state.setShowContactInfo,
-  );
+  const { setShowContactInfo, openContactInfoWithTab } = useLayoutStore();
 
   const setCurrentConversation = useChatStore(
     (state) => state.setCurrentConversation,
@@ -121,14 +114,16 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   useEffect(() => {
     if (!selectedContact?._id) {
+      prevContactIdRef.current = null;
       clearMessages();
-      setLocalMessagesLoading(false);
       return;
     }
 
-    let isCancelled = false;
-    setLocalMessagesLoading(true);
-    clearMessages();
+    if (prevContactIdRef.current === selectedContact._id && messages.length > 0) {
+      return;
+    }
+
+    prevContactIdRef.current = selectedContact._id;
     setSearchTerm("");
     setIsSearchOpen(false);
 
@@ -141,33 +136,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       )?._id;
 
     if (targetConvId) {
-      const startTime = Date.now();
-      fetchMessages(targetConvId)
-        .catch((err) => console.error("Error fetching messages:", err))
-        .finally(async () => {
-          const elapsed = Date.now() - startTime;
-          if (elapsed < 350) {
-            await new Promise((resolve) => setTimeout(resolve, 350 - elapsed));
-          }
-          if (!isCancelled) {
-            setLocalMessagesLoading(false);
-          }
-        });
+      if (currentConversation?._id !== targetConvId || messages.length === 0) {
+        fetchMessages(targetConvId).catch((err) =>
+          console.error("Error fetching messages:", err)
+        );
+      }
     } else {
-      const timer = setTimeout(() => {
-        if (!isCancelled) {
-          setLocalMessagesLoading(false);
-        }
-      }, 300);
-      return () => {
-        isCancelled = true;
-        clearTimeout(timer);
-      };
+      clearMessages();
     }
-
-    return () => {
-      isCancelled = true;
-    };
   }, [selectedContact?._id]);
 
   useEffect(() => {
@@ -176,19 +152,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       !selectedContact?.conversation?._id &&
       conversations?.data?.length > 0 &&
       messages.length === 0 &&
-      !localMessagesLoading
+      !isMessagesLoading
     ) {
       const conv = conversations.data.find((c) =>
         c.participants?.some((p) => p._id === selectedContact._id),
       );
       if (conv?._id && currentConversation?._id !== conv._id) {
-        setLocalMessagesLoading(true);
-        fetchMessages(conv._id).finally(() => {
-          setLocalMessagesLoading(false);
-        });
+        fetchMessages(conv._id).catch((err) =>
+          console.error("Error fetching messages:", err)
+        );
       }
     }
-  }, [conversations?.data, selectedContact?._id]);
+  }, [conversations?.data, selectedContact?._id, isMessagesLoading]);
 
   useEffect(() => {
     fetchConversations();
@@ -750,7 +725,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowSecurityModal(true);
+                  openContactInfoWithTab("security");
                 }}
                 title="End-to-end encrypted chat. Click to verify."
                 className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer"
@@ -955,16 +930,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             }}
           >
             <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
-              {/* WhatsApp-style End-to-End Encryption Banner */}
               <div className="flex justify-center my-2 select-none">
                 <button
                   type="button"
-                  onClick={() => setShowSecurityModal(true)}
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs max-w-md text-center transition-all duration-200 cursor-pointer shadow-sm active:scale-98 ${
-                    theme === "dark"
+                  onClick={() => openContactInfoWithTab("privacy")}
+                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs max-w-md text-center transition-all duration-200 cursor-pointer shadow-sm active:scale-98 ${theme === "dark"
                       ? "bg-[#182229]/95 text-[#ffd279] border border-white/5 hover:bg-[#202c33]"
                       : "bg-[#ffeecd]/95 text-[#54656f] border border-black/5 hover:bg-[#fedea8]"
-                  }`}
+                    }`}
                   title="Click to verify end-to-end encryption"
                 >
                   <FaLock className="h-3 w-3 shrink-0 text-emerald-500" />
@@ -1471,12 +1444,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       )}
 
       <VideoCallManager socket={socket} />
-
-      <SecurityVerifyModal
-        isOpen={showSecurityModal}
-        onClose={() => setShowSecurityModal(false)}
-        contact={selectedContact}
-      />
     </>
   );
 };

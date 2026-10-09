@@ -107,9 +107,7 @@ exports.sendMessage = async (req, res) => {
       statusId: statusId || null,
     });
     await message.save();
-    if (message?.content) {
-      conversation.lastMessage = message._id;
-    }
+    conversation.lastMessage = message._id;
     conversation.unreadCount += 1;
     await conversation.save();
 
@@ -284,18 +282,28 @@ exports.deleteMessage = async (req, res) => {
           },
         },
       );
+
+      const previousMessage = await Message.findOne({
+        conversation: message.conversation,
+        deletedFor: { $ne: userId },
+      })
+        .sort({ createdAt: -1 })
+        .populate("sender", "username profilePicture publicKey")
+        .populate("receiver", "username profilePicture publicKey");
+
       if (req.io && req.socketUserMap instanceof Map) {
         const userSocketId = req.socketUserMap.get(userId.toString());
 
         if (userSocketId) {
-          req.io.to(userSocketId).emit("message_deleted_for_me", {
+          req.io.to(userSocketId).emit("message_deleted", {
             deletedMessageId: messageId,
             conversationId: message.conversation.toString(),
+            lastMessage: previousMessage,
           });
         }
       }
 
-      return response(res, 200, "Message deleted for you");
+      return response(res, 200, "Message deleted for you", { lastMessage: previousMessage });
     }
 
     if (deleteFor === "everyone") {
@@ -308,8 +316,8 @@ exports.deleteMessage = async (req, res) => {
         conversation: message.conversation,
       })
         .sort({ createdAt: -1 })
-        .populate("sender", "username profilePicture")
-        .populate("receiver", "username profilePicture");
+        .populate("sender", "username profilePicture publicKey")
+        .populate("receiver", "username profilePicture publicKey");
 
       await Conversation.findByIdAndUpdate(
         message.conversation,
@@ -336,7 +344,7 @@ exports.deleteMessage = async (req, res) => {
         }
       }
 
-      return response(res, 200, "Message deleted for everyone");
+      return response(res, 200, "Message deleted for everyone", { lastMessage: previousMessage });
     }
     return response(res, 400, "Invalid delete option");
   } catch (error) {
