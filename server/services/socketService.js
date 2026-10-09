@@ -21,7 +21,8 @@ function initializeSocket(server) {
     let userId;
     socket.on("user_connected", async (connectingUserId) => {
       try {
-        userId = connectingUserId;
+        if (!connectingUserId) return;
+        userId = connectingUserId.toString();
         socket.userId = userId;
         onlineUsers.set(userId, socket.id);
         socket.join(userId);
@@ -45,6 +46,7 @@ function initializeSocket(server) {
         lastSeen: isOnline ? new Date() : null,
       });
     });
+
     socket.on("send_message", async (message) => {
       try {
         const receiverId = message.receiver?._id?.toString();
@@ -59,11 +61,12 @@ function initializeSocket(server) {
 
     socket.on("message_read", async ({ messageIds }) => {
       try {
+        if (!messageIds || !messageIds.length) return;
         const messages = await Message.find({ _id: { $in: messageIds } });
 
         if (!messages.length) return;
         const senderIds = [
-          ...new Set(messages.map((msg) => msg.sender.toString())),
+          ...new Set(messages.map((msg) => msg.sender?.toString()).filter(Boolean)),
         ];
 
         await Message.updateMany(
@@ -71,10 +74,18 @@ function initializeSocket(server) {
           { $set: { messageStatus: "read" } },
         );
         senderIds.forEach((senderId) => {
-          io.to(senderId).emit("message_status_update_bulk", {
-            messageIds,
+          const sId = senderId.toString();
+          const payload = {
+            messageIds: messageIds.map(String),
             messageStatus: "read",
-          });
+          };
+          io.to(sId).emit("message_status_update_bulk", payload);
+          io.to(sId).emit("message_read", payload);
+          if (onlineUsers.has(sId)) {
+            const socketId = onlineUsers.get(sId);
+            io.to(socketId).emit("message_status_update_bulk", payload);
+            io.to(socketId).emit("message_read", payload);
+          }
         });
       } catch (error) {
         console.error("Error marking message as read:", error);

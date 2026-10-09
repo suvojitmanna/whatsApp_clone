@@ -42,6 +42,14 @@ const messageSchema = new mongoose.Schema(
       ],
       default: "text",
     },
+    isEncrypted: {
+      type: Boolean,
+      default: false,
+    },
+    iv: {
+      type: String,
+      default: null,
+    },
     fileName: String,
     fileSize: String,
     pollData: {
@@ -105,6 +113,9 @@ const messageSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+messageSchema.index({ conversation: 1, createdAt: 1 });
+messageSchema.index({ conversation: 1, receiver: 1, messageStatus: 1 });
 
 module.exports =
   mongoose.models.Message || mongoose.model("Message", messageSchema);

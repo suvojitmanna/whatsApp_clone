@@ -23,7 +23,7 @@ const Layout = ({
   const setSelectedContact = useLayoutStore(
     (state) => state.setSelectedContact,
   );
-    
+
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const { theme, setTheme } = useThemeStore();
   const showContactInfo = useLayoutStore((state) => state.showContactInfo);
@@ -37,7 +37,14 @@ const Layout = ({
   );
 
   const location = useLocation();
+  const isChatPage = location.pathname === "/";
   const isStatusPage = location.pathname.startsWith("/status");
+  const isSettingOrProfile =
+    location.pathname.startsWith("/setting") ||
+    location.pathname.startsWith("/user-profile");
+
+  const effectiveSelectedContact = isChatPage ? selectedContact : null;
+
   const effectiveRightContent =
     rightContent || (isStatusPage ? <StatusPlaceholder /> : null);
 
@@ -51,9 +58,8 @@ const Layout = ({
 
   return (
     <div
-      className={`min-h-screen flex ${
-        theme === "dark" ? "bg-[#111b21] text-white" : "bg-gray-100 text-gray-900"
-      }`}
+      className={`min-h-screen flex ${theme === "dark" ? "bg-[#111b21] text-white" : "bg-gray-100 text-gray-900"
+        }`}
     >
       {!isMobile && (
         <div className="w-20 flex-shrink-0">
@@ -63,9 +69,9 @@ const Layout = ({
 
       <div className="flex-1 flex overflow-hidden">
         <AnimatePresence initial={false}>
-          {(!selectedContact || !isMobile) && (
+          {(!effectiveSelectedContact || !isMobile) && (
             <motion.div
-              key="chatList"
+              key={location.pathname.split("/")[1] || "chatList"}
               initial={{ x: isMobile ? "-100%" : 0 }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
@@ -76,7 +82,7 @@ const Layout = ({
             </motion.div>
           )}
 
-          {(!isMobile || selectedContact) && (
+          {(!isMobile || effectiveSelectedContact) && (
             <div className="h-full flex-1 min-w-0 relative">
               {effectiveRightContent ? (
                 <div className="h-full w-full">
@@ -84,12 +90,11 @@ const Layout = ({
                 </div>
               ) : null}
               <div
-                className={`h-full w-full ${
-                  effectiveRightContent ? "hidden" : "block"
-                }`}
+                className={`h-full w-full ${effectiveRightContent ? "hidden" : "block"
+                  }`}
               >
                 <ChatWindow
-                  selectedContact={selectedContact}
+                  selectedContact={effectiveSelectedContact}
                   setSelectedContact={setSelectedContact}
                   onStatusClick={handleStatusClick}
                   isMobile={isMobile}
@@ -98,9 +103,9 @@ const Layout = ({
             </div>
           )}
         </AnimatePresence>
-        {showContactInfo && <ContactInfo />}
-        {selectedPollMessage && <PollDetailsPanel />}
-        {showProfilePicture && (
+        {isChatPage && showContactInfo && <ContactInfo />}
+        {isChatPage && selectedPollMessage && <PollDetailsPanel />}
+        {isChatPage && showProfilePicture && (
           <ProfilePicture
             isOpen={showProfilePicture}
             onClose={() => setShowProfilePicture(false)}
@@ -122,34 +127,35 @@ const Layout = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className={`relative p-6 rounded-2xl shadow-2xl max-w-[360px] w-full transform transition-all animate-in fade-in zoom-in duration-200 ${
-              theme === "dark"
+            className={`relative p-6 rounded-2xl shadow-2xl max-w-[360px] w-full transform transition-all animate-in fade-in zoom-in duration-200 ${theme === "dark"
                 ? "bg-[#2a3942] text-[#e9edef]"
                 : "bg-white text-[#111b21]"
-            }`}
+              }`}
           >
             <h2 className="text-xl font-medium mb-6">Choose Theme</h2>
 
             <div className="space-y-4">
-              <label className="flex items-center justify-between cursor-pointer group">
+              <label className="flex items-center justify-between cursor-pointer group p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                 <span className="text-md">Light</span>
                 <input
                   type="radio"
                   name="theme"
                   checked={theme === "light"}
                   onChange={() => setTheme("light")}
-                  className="w-5 h-5 accent-[#00a884] cursor-pointer"
+                  title="Select light theme"
+                  className="w-5 h-5 accent-[#00a884] cursor-pointer hover:scale-110 active:scale-95 transition-transform"
                 />
               </label>
 
-              <label className="flex items-center justify-between cursor-pointer group">
+              <label className="flex items-center justify-between cursor-pointer group p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                 <span className="text-md">Dark</span>
                 <input
                   type="radio"
                   name="theme"
                   checked={theme === "dark"}
                   onChange={() => setTheme("dark")}
-                  className="w-5 h-5 accent-[#00a884] cursor-pointer"
+                  title="Select dark theme"
+                  className="w-5 h-5 accent-[#00a884] cursor-pointer hover:scale-110 active:scale-95 transition-transform"
                 />
               </label>
             </div>
@@ -157,11 +163,10 @@ const Layout = ({
             <div className="mt-8 flex justify-end gap-2">
               <button
                 onClick={toggleThemeDialoge}
-                className={`px-5 py-2 rounded-full font-medium transition-colors cursor-pointer ${
-                  theme === "dark"
+                className={`px-5 py-2 rounded-full font-medium transition-colors cursor-pointer ${theme === "dark"
                     ? "text-[#00a884] hover:bg-[#202c33]"
                     : "text-[#00a884] hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 Cancel
               </button>

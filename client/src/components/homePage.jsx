@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Layout from "./layout";
 import { motion, AnimatePresence } from "framer-motion";
 import ChatList from "../pages/chatSection/chatList";
@@ -29,7 +29,7 @@ const HomePage = () => {
   const [loading, setLoading] = useState(!users || users.length === 0);
   const [previewContact, setPreviewContact] = useState(null);
   const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
-  
+
   const { user } = useUserStore();
   const { theme } = useThemeStore();
   const conversations = useChatStore((state) => state.conversations);
@@ -60,22 +60,41 @@ const HomePage = () => {
     ? conversations.data
     : [];
 
-  const contacts = allUser.map((contact) => {
-    const conversation = conversationList.find((conv) => {
-      const participantIds =
-        conv?.participants?.map((participant) => String(participant?._id)) ||
-        [];
+  const effectiveUsers = allUser.length > 0 ? allUser : (users || []);
 
-      const hasContact = participantIds.includes(String(contact?._id));
-      const hasCurrentUser = participantIds.includes(String(user?._id));
-      return hasContact && hasCurrentUser;
+  const contacts = useMemo(() => {
+    const currentUserId = user?._id?.toString();
+    const convMap = new Map();
+
+    for (let i = 0; i < conversationList.length; i++) {
+      const conv = conversationList[i];
+      if (!conv?.participants) continue;
+      let otherUserId = null;
+      let hasCurrent = false;
+
+      for (let j = 0; j < conv.participants.length; j++) {
+        const pId = (conv.participants[j]?._id || conv.participants[j])?.toString();
+        if (pId === currentUserId) {
+          hasCurrent = true;
+        } else {
+          otherUserId = pId;
+        }
+      }
+
+      if (hasCurrent && otherUserId) {
+        convMap.set(otherUserId, conv);
+      }
+    }
+
+    return effectiveUsers.map((contact) => {
+      const contactId = contact?._id?.toString();
+      const conversation = convMap.get(contactId) || contact?.conversation || null;
+      return {
+        ...contact,
+        conversation,
+      };
     });
-
-    return {
-      ...contact,
-      conversation: conversation || null,
-    };
-  });
+  }, [effectiveUsers, conversationList, user?._id]);
 
   const handleStatusPreview = (contact, index = 0) => {
     setPreviewContact(contact);
@@ -134,23 +153,23 @@ const HomePage = () => {
   };
 
   const handlePreviewNext = () => {
-  if (!previewContact) return;
+    if (!previewContact) return;
 
-  const nextIndex = currentStatusIndex + 1;
+    const nextIndex = currentStatusIndex + 1;
 
-  if (nextIndex >= previewContact.statuses.length) {
-    handlePreviewClose();
-    return;
-  }
+    if (nextIndex >= previewContact.statuses.length) {
+      handlePreviewClose();
+      return;
+    }
 
-  setCurrentStatusIndex(nextIndex);
+    setCurrentStatusIndex(nextIndex);
 
-  const nextStatus = previewContact.statuses[nextIndex];
+    const nextStatus = previewContact.statuses[nextIndex];
 
-  if (nextStatus) {
-    useStatusStore.getState().viewStatus(nextStatus.id);
-  }
-};
+    if (nextStatus) {
+      useStatusStore.getState().viewStatus(nextStatus.id);
+    }
+  };
 
   const handlePreviewPrev = () => {
     setCurrentStatusIndex((prev) => Math.max(prev - 1, 0));
@@ -182,7 +201,7 @@ const HomePage = () => {
         className="h-full w-full"
       >
         <AnimatePresence mode="wait">
-          {loading && (
+          {loading && effectiveUsers.length === 0 ? (
             <motion.div
               key="loading"
               initial={{ opacity: 0 }}
@@ -193,13 +212,17 @@ const HomePage = () => {
               {[...Array(6)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-12 rounded-lg bg-gray-700/40 animate-pulse"
-                />
+                  className="h-14 rounded-xl bg-gray-700/20 dark:bg-gray-700/40 animate-pulse flex items-center px-3 gap-3"
+                >
+                  <div className="w-10 h-10 rounded-full bg-gray-600/30 dark:bg-gray-600/40 shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3.5 w-24 bg-gray-600/30 dark:bg-gray-600/40 rounded" />
+                    <div className="h-2.5 w-36 bg-gray-600/20 dark:bg-gray-600/30 rounded" />
+                  </div>
+                </div>
               ))}
             </motion.div>
-          )}
-
-          {!loading && allUser.length === 0 && (
+          ) : effectiveUsers.length === 0 ? (
             <motion.div
               key="empty"
               initial={{
@@ -219,9 +242,7 @@ const HomePage = () => {
                 Try refreshing or adding contacts
               </span>
             </motion.div>
-          )}
-
-          {!loading && allUser.length > 0 && (
+          ) : (
             <motion.div
               key="list"
               initial={{ opacity: 0 }}

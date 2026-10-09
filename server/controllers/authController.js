@@ -81,8 +81,7 @@ const verifyOtp = async (req, res) => {
       user.emailOtp = null;
       user.emailOtpExpire = null;
       await user.save();
-    }
-    else {
+    } else {
       if (!phoneNumber || !phoneSuffix) {
         return response(res, 400, "Phone number and suffix are required");
       }
@@ -174,8 +173,7 @@ const updateProfile = async (req, res) => {
 
     return response(res, 200, "Profile updated successfully", {
       user,
-    }
-    );
+    });
   } catch (error) {
     console.error("UPDATE PROFILE ERROR:", error);
 
@@ -227,7 +225,7 @@ const getAllUsers = async (req, res) => {
       _id: { $ne: loggedInUserId },
     })
       .select(
-        "username profilePicture lastSeen isOnline phoneSuffix phoneNumber phoneSuffix about aboutUpdatedAt email",
+        "username profilePicture lastSeen isOnline phoneSuffix phoneNumber about aboutUpdatedAt email publicKey",
       )
       .lean();
 
@@ -236,7 +234,8 @@ const getAllUsers = async (req, res) => {
     })
       .populate({
         path: "lastMessage",
-        select: "content sender receiver createdAt",
+        select:
+          "content sender receiver createdAt isEncrypted iv contentType imageOrVideoUrl fileName fileSize pollData contactData eventData edited editedAt",
       })
       .lean();
     const conversationMap = {};
@@ -268,6 +267,48 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const updatePublicKey = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { publicKey } = req.body;
+    if (!publicKey) {
+      return response(res, 400, "Public key is required");
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { publicKey },
+      { new: true },
+    );
+
+    return response(res, 200, "Public key updated successfully", {
+      publicKey: updatedUser.publicKey,
+    });
+  } catch (error) {
+    console.error("Error updating public key:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+const getUserPublicKey = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId).select("publicKey username");
+    if (!user) {
+      return response(res, 404, "User not found");
+    }
+
+    return response(res, 200, "User public key retrieved", {
+      publicKey: user.publicKey,
+      userId: user._id,
+      username: user.username,
+    });
+  } catch (error) {
+    console.error("Error retrieving user public key:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
 module.exports = {
   sendOtp,
   verifyOtp,
@@ -275,4 +316,6 @@ module.exports = {
   logout,
   checkAuthenticated,
   getAllUsers,
+  updatePublicKey,
+  getUserPublicKey,
 };

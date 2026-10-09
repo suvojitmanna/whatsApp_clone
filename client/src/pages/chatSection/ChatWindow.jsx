@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
@@ -20,6 +20,7 @@ import { MdEventNote } from "react-icons/md";
 import { TfiClip } from "react-icons/tfi";
 import { MdAddReaction } from "react-icons/md";
 import MessageBuble from "./MessageBuble";
+import MessageSkeletonLoader from "./MessageSkeletonLoader";
 import EmojiPicker from "emoji-picker-react";
 import useOutsideClick from "../../hook/useOutsideClick";
 import formatTimestamp from "../../utils/formatTime";
@@ -75,10 +76,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const { socket } = getSocket();
   const {
     messages,
+    isMessagesLoading,
+    clearMessages,
     sendMessage,
     fetchMessages,
     fetchConversations,
     conversations,
+    currentConversation,
     isUserTyping,
     startTying,
     stopTying,
@@ -87,6 +91,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     deleteMessage,
     addReaction,
     editMessage,
+    markMessageAsRead,
     scrollPositions,
     saveScrollPosition,
   } = useChatStore();
@@ -102,26 +107,90 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const conversationId = selectedContact?.conversation?._id;
   const isTyping = isUserTyping(conversationId, selectedContact?._id);
 
-  const setShowContactInfo = useLayoutStore(
-    (state) => state.setShowContactInfo,
-  );
+  const { setShowContactInfo, openContactInfoWithTab } = useLayoutStore();
 
   const setCurrentConversation = useChatStore(
     (state) => state.setCurrentConversation,
   );
 
   useEffect(() => {
-    if (selectedContact?._id && conversations?.data?.length > 0) {
-      const conversation = conversations?.data?.find((conv) =>
-        conv.participants.some(
+    if (!selectedContact?._id) {
+      prevContactIdRef.current = null;
+      clearMessages();
+      return;
+    }
+
+    if (prevContactIdRef.current === selectedContact._id && messages.length > 0) {
+      return;
+    }
+
+    prevContactIdRef.current = selectedContact._id;
+    setSearchTerm("");
+    setIsSearchOpen(false);
+
+    const targetConvId =
+      selectedContact?.conversation?._id ||
+      conversations?.data?.find((conv) =>
+        conv.participants?.some(
           (participant) => participant._id === selectedContact?._id,
         ),
+      )?._id;
+
+    if (targetConvId) {
+      if (currentConversation?._id !== targetConvId || messages.length === 0) {
+        fetchMessages(targetConvId).catch((err) =>
+          console.error("Error fetching messages:", err)
+        );
+      }
+    } else {
+      clearMessages();
+    }
+  }, [selectedContact?._id]);
+
+  useEffect(() => {
+    if (
+      selectedContact?._id &&
+      !selectedContact?.conversation?._id &&
+      conversations?.data?.length > 0 &&
+      messages.length === 0 &&
+      !isMessagesLoading
+    ) {
+      const conv = conversations.data.find((c) =>
+        c.participants?.some((p) => p._id === selectedContact._id),
       );
-      if (conversation && conversation._id) {
-        fetchMessages(conversation._id);
+      if (conv?._id && currentConversation?._id !== conv._id) {
+        fetchMessages(conv._id).catch((err) =>
+          console.error("Error fetching messages:", err)
+        );
       }
     }
-  }, [selectedContact, conversations]);
+  }, [conversations?.data, selectedContact?._id, isMessagesLoading]);
+
+  // Automatically mark unread incoming messages as read when viewing this conversation
+  const lastMsgId = messages[messages.length - 1]?._id;
+  useEffect(() => {
+    if (!selectedContact?._id || !messages.length) return;
+    const hasUnread = messages.some(
+      (m) =>
+        m.messageStatus !== "read" &&
+        (m.sender?._id || m.sender)?.toString() === selectedContact._id?.toString()
+    );
+    if (hasUnread) {
+      markMessageAsRead();
+    }
+  }, [selectedContact?._id, messages.length, lastMsgId, markMessageAsRead]);
+
+  // When window receives focus, ensure unread messages in open chat are marked as read
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!selectedContact?._id || !messages.length) return;
+      markMessageAsRead();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [selectedContact?._id, messages.length, markMessageAsRead]);
 
   useEffect(() => {
     fetchConversations();
@@ -320,6 +389,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const handleSendContact = async (contactInfo) => {
     if (!selectedContact || !contactInfo.name) return;
+    setShowContactModal(false);
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
@@ -330,7 +400,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       formData.append("contactData", JSON.stringify(contactInfo));
 
       await sendMessage(formData);
-      setShowContactModal(false);
     } catch (error) {
       console.error("Failed to send contact", error);
     }
@@ -445,40 +514,44 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     );
   };
 
-  const groupedMessages = Array.isArray(messages)
-    ? messages.reduce((acc, message) => {
-      if (!message.createdAt) return acc;
-      const date = new Date(message.createdAt);
+  const groupedMessages = useMemo(() => {
+    if (!Array.isArray(messages) || messages.length === 0) return {};
+    const acc = {};
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (!msg.createdAt) continue;
+      const date = new Date(msg.createdAt);
       if (isValidate(date)) {
         const dateString = format(date, "yyyy-MM-dd");
         if (!acc[dateString]) {
           acc[dateString] = [];
         }
-        acc[dateString].push(message);
-      } else {
-        console.error("Invalid date for message", message);
+        acc[dateString].push(msg);
       }
-      return acc;
-    }, {})
-    : {};
+    }
+    return acc;
+  }, [messages]);
 
-  const filteredGroupedMessages = Object.fromEntries(
-    Object.entries(groupedMessages)
-      .map(([date, msgs]) => {
-        const filteredMsgs = msgs.filter((msg) =>
-          (msg.content || "").toLowerCase().includes(searchTerm.toLowerCase()),
-        );
-
-        return [date, filteredMsgs];
-      })
-      .filter(([_, msgs]) => msgs.length > 0),
-  );
-
-  const finalMessagesToRender = searchTerm
-    ? filteredGroupedMessages
-    : groupedMessages;
-
-  const resultCount = Object.values(filteredGroupedMessages).flat().length;
+  const { finalMessagesToRender, resultCount } = useMemo(() => {
+    if (!searchTerm) {
+      return { finalMessagesToRender: groupedMessages, resultCount: 0 };
+    }
+    const lowerSearch = searchTerm.toLowerCase();
+    const filtered = {};
+    let count = 0;
+    const entries = Object.entries(groupedMessages);
+    for (let i = 0; i < entries.length; i++) {
+      const [date, msgs] = entries[i];
+      const matched = msgs.filter((msg) =>
+        (msg.content || "").toLowerCase().includes(lowerSearch)
+      );
+      if (matched.length > 0) {
+        filtered[date] = matched;
+        count += matched.length;
+      }
+    }
+    return { finalMessagesToRender: filtered, resultCount: count };
+  }, [groupedMessages, searchTerm]);
   const highlightText = (text, term) => {
     if (!term) return text;
 
@@ -642,12 +715,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               setSelectedContact(null);
               setCurrentConversation(null);
             }}
-            className="mr-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+            className="mr-1 sm:mr-2 p-2 rounded-full text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+            title="Back to chats"
           >
-            <FaArrowLeft className="h-5 w-5" />
+            <FaArrowLeft className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
           </button>
 
-          <div className="relative ml-2 sm:ml-4">
+          <div className="relative ml-1 sm:ml-2">
             <motion.img
               layoutId="profile-image"
               src={selectedContact?.profilePicture || "/default-avatar.png"}
@@ -656,7 +730,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                 e.stopPropagation();
                 setShowContactInfo(true);
               }}
-              className="w-10 h-10 rounded-full cursor-pointer object-cover "
+              title="View contact info"
+              className="w-10 h-10 rounded-full cursor-pointer object-cover hover:opacity-90 active:scale-95 transition-all shadow-sm"
             />
 
             {online && (
@@ -668,13 +743,28 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           </div>
 
           <div
-            className="ml-3 flex-grow cursor-pointer min-w-0"
+            className="ml-3 flex-grow cursor-pointer min-w-0 group"
             onClick={() => setShowContactInfo(true)}
+            title="View contact info"
           >
-            <h2 className={`font-semibold text-start text-base sm:text-lg truncate ${theme === "dark" ? "text-white" : "text-gray-900"
-              }`}>
-              {selectedContact?.username}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className={`font-semibold text-start text-base sm:text-lg truncate group-hover:text-emerald-500 transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
+                }`}>
+                {selectedContact?.username}
+              </h2>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openContactInfoWithTab("security");
+                }}
+                title="End-to-end encrypted chat. Click to verify."
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+              >
+                <FaLock className="w-2.5 h-2.5" />
+                <span className="font-medium hidden sm:inline">Encrypted</span>
+              </button>
+            </div>
 
             {isTyping ? (
               <div className="text-xs sm:text-sm text-emerald-500 font-medium">Typing...</div>
@@ -696,17 +786,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             <div className="relative flex items-center justify-end">
               <button
                 onClick={() => setIsSearchOpen(true)}
+                title="Search in chat"
                 className={`${isSearchOpen
                   ? "opacity-0 pointer-events-none scale-90"
                   : "opacity-100 scale-100"
-                  }group relative p-2 rounded-xl transition-all duration-300 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-xl before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-white/40 before:to-transparent before:opacity-60 before:pointer-events-none border border-white/30 dark:border-white/10 hover:border-green-400/40 shadow-[0_2px_15px_rgba(0,0,0,0.06)]
+                  } group relative p-2 rounded-xl transition-all duration-300 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-xl before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-white/40 before:to-transparent before:opacity-60 before:pointer-events-none border border-white/30 dark:border-white/10 hover:border-green-400/40 shadow-[0_2px_15px_rgba(0,0,0,0.06)]
                 hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)] active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-600/50`}
               >
-                <FiSearch className="h-4 w-4text-zinc-700 dark:text-zinc-300 group-hover:text-green-500group-hover:scale-110 transition-all duration-300" />
+                <FiSearch className="h-4 w-4 text-zinc-700 dark:text-zinc-300 group-hover:text-green-500 group-hover:scale-110 transition-all duration-300" />
               </button>
 
               <div
-                className={`absolute right-0 origin-righttransition-all duration-300 ${isSearchOpen
+                className={`absolute right-0 origin-right transition-all duration-300 ${isSearchOpen
                   ? "w-60 sm:w-64 scale-100 opacity-100"
                   : "w-0 scale-95 opacity-0 pointer-events-none"
                   }`}
@@ -731,9 +822,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className={`w-full pl-8 pr-8 py-1.5 rounded-xl outline-none text-xs relative z-10 backdrop-blur-xl border transition-all duration-300
                       ${theme === "dark"
-                          ? "bg-zinc-800/70 text-white placeholder:text-gray-500 border-white/10 focus:border-emerald-400/60 focus:bg-zinc-800/90"
-                          : "bg-white/70 text-gray-900 placeholder:text-gray-400 border-gray-200/80 focus:border-emerald-400/60 focus:bg-white/90"
-                        }shadow-[0_4px_15px_rgba(0,0,0,0.05)] focus:shadow-[0_6px_20px_rgba(0,255,150,0.2)]`}
+                          ? "bg-zinc-800/70 text-white placeholder:text-gray-500 border-white/10 hover:border-emerald-500/50 focus:border-emerald-400 focus:bg-zinc-800/90"
+                          : "bg-white/70 text-gray-900 placeholder:text-gray-400 border-gray-200/80 hover:border-emerald-500/50 focus:border-emerald-400 focus:bg-white/90"
+                        } shadow-[0_4px_15px_rgba(0,0,0,0.05)] focus:shadow-[0_6px_20px_rgba(0,255,150,0.2)]`}
                     />
 
                     <FiSearch
@@ -748,9 +839,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                         setIsSearchOpen(false);
                         setSearchTerm("");
                       }}
-                      className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-20 transition-all duration-300${theme === "dark"
-                        ? "text-gray-500 hover:text-emerald-400"
-                        : "text-gray-400 hover:text-emerald-500"
+                      title="Close search"
+                      className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 ${theme === "dark"
+                        ? "text-gray-400 hover:text-emerald-400 hover:bg-white/10"
+                        : "text-gray-500 hover:text-emerald-500 hover:bg-black/5"
                         }`}
                     >
                       <RxCross2 className="h-3.5 w-3.5 cursor-pointer" />
@@ -760,7 +852,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   {searchTerm.trim() !== "" && (
                     <div className="flex items-center justify-end animate-in fade-in slide-in-from-top-1 duration-300 pt-2">
                       {resultCount > 0 ? (
-                        <div className="flex items-center gap-1.5 px-1.5 py-1 rounded-full bg-white/60 dark:bg-zinc-900/60  backdrop-blur-md  border border-white/20 dark:border-white/10  shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+                        <div className="flex items-center gap-1.5 px-1.5 py-1 rounded-full bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
                           <span className="px-3 text-[11px] font-semibold tracking-tight text-gray-600 dark:text-zinc-300 tabular-nums">
                             <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                               {currentIndex + 1}
@@ -774,7 +866,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             <button
                               onClick={goPrev}
                               aria-label="Previous"
-                              className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600  hover:bg-emerald-500/10 active:scale-90  transition-all duration-200 cursor-pointer"
+                              title="Previous match"
+                              className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-90 transition-all duration-200 cursor-pointer"
                             >
                               <svg
                                 className="w-3 h-3 group-hover:-translate-y-[1px] transition-transform"
@@ -794,6 +887,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             <button
                               onClick={goNext}
                               aria-label="Next"
+                              title="Next match"
                               className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-90 transition-all duration-200 cursor-pointer"
                             >
                               <svg
@@ -867,54 +961,83 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             }}
           >
             <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
-              {Object.entries(finalMessagesToRender).map(([date, msgs]) => {
-                if (msgs.length === 0) return null;
+              <div className="flex justify-center my-2 select-none">
+                <button
+                  type="button"
+                  onClick={() => openContactInfoWithTab("privacy")}
+                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs max-w-md text-center transition-all duration-200 cursor-pointer shadow-sm active:scale-98 ${theme === "dark"
+                    ? "bg-[#182229]/95 text-[#ffd279] border border-white/5 hover:bg-[#202c33]"
+                    : "bg-[#ffeecd]/95 text-[#54656f] border border-black/5 hover:bg-[#fedea8]"
+                    }`}
+                  title="Click to verify end-to-end encryption"
+                >
+                  <FaLock className="h-3 w-3 shrink-0 text-emerald-500" />
+                  <span>
+                    Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. Click to learn more.
+                  </span>
+                </button>
+              </div>
 
-                return (
-                  <React.Fragment key={date}>
-                    {renderDateSeparator(new Date(date))}
+              {isMessagesLoading ? (
+                <MessageSkeletonLoader theme={theme} />
+              ) : Object.keys(finalMessagesToRender).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 opacity-70 text-center select-none">
+                  <p className="text-xs sm:text-sm font-medium">
+                    {searchTerm
+                      ? `No messages found matching "${searchTerm}"`
+                      : "No messages yet. Send a message to start chatting!"}
+                  </p>
+                </div>
+              ) : (
+                Object.entries(finalMessagesToRender).map(([date, msgs]) => {
+                  if (msgs.length === 0) return null;
 
-                    {msgs.map((msg, index) => {
-                      const prevMsg = index > 0 ? msgs[index - 1] : null;
-                      const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
-                      const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
-                      const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
+                  return (
+                    <React.Fragment key={date}>
+                      {renderDateSeparator(new Date(date))}
 
-                      const isMatch =
-                        searchTerm &&
-                        (msg.content || "")
-                          .toLowerCase()
-                          .includes(searchTerm.toLowerCase());
-                      if (isMatch) {
-                        matchCounter++;
-                      }
-                      return (
-                        <MessageBuble
-                          key={msg._id || msg.temp}
-                          message={msg}
-                          theme={theme}
-                          currentUser={user}
-                          onReact={handleReaction}
-                          deleteMessage={deleteMessage}
-                          onEdit={editMessage}
-                          onEditEvent={handleEditEventClick}
-                          onStatusClick={onStatusClick}
-                          searchTerm={searchTerm}
-                          highlightText={highlightText}
-                          dataMatch={isMatch}
-                          isActive={isMatch && matchCounter === currentIndex}
-                          isFirstInSequence={isFirstInSequence}
-                          setRef={(el) => {
-                            if (isMatch && el) {
-                              messageRefs.current.push(el);
-                            }
-                          }}
-                        />
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })}
+                      {msgs.map((msg, index) => {
+                        const prevMsg = index > 0 ? msgs[index - 1] : null;
+                        const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
+                        const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
+                        const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
+
+                        const isMatch =
+                          searchTerm &&
+                          (msg.content || "")
+                            .toLowerCase()
+                            .includes(searchTerm.toLowerCase());
+                        if (isMatch) {
+                          matchCounter++;
+                        }
+                        return (
+                          <MessageBuble
+                            key={msg._id || msg.temp}
+                            message={msg}
+                            theme={theme}
+                            currentUser={user}
+                            onReact={handleReaction}
+                            deleteMessage={deleteMessage}
+                            onEdit={editMessage}
+                            onEditEvent={handleEditEventClick}
+                            onStatusClick={onStatusClick}
+                            searchTerm={searchTerm}
+                            highlightText={highlightText}
+                            dataMatch={isMatch}
+                            isActive={isMatch && matchCounter === currentIndex}
+                            isFirstInSequence={isFirstInSequence}
+                            setRef={(el) => {
+                              if (isMatch && el) {
+                                messageRefs.current.push(el);
+                              }
+                            }}
+                          />
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })
+              )}
             </div>
 
             <div ref={messageEndRef} className="h-4" />
@@ -1001,17 +1124,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               } flex items-center relative transition-colors`}
           >
             <div
-              className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 ${theme === "dark"
-                ? "bg-[#2a3942]"
-                : "bg-white shadow-sm"
+              className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 border ${theme === "dark"
+                ? "bg-[#2a3942] border-white/5 hover:border-emerald-500/50 hover:bg-[#32424b] focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
+                : "bg-white shadow-sm border-gray-200 hover:border-emerald-500/50 hover:bg-gray-50 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
                 }`}
             >
               <div className="relative shrink-0" ref={fileMenuRef}>
                 <button
                   type="button"
-                  className={`focus:outline-none p-2 rounded-full transition cursor-pointer ${showFileMenu
-                    ? "bg-black/10 dark:bg-white/15"
-                    : "hover:bg-black/5 dark:hover:bg-white/10"
+                  className={`focus:outline-none p-2 rounded-full transition-all duration-200 cursor-pointer active:scale-95 ${showFileMenu
+                    ? "bg-black/10 dark:bg-white/15 scale-105"
+                    : "hover:bg-black/5 dark:hover:bg-white/10 hover:scale-105"
                     }`}
                   onClick={() => setShowFileMenu(!showFileMenu)}
                   title="Attach"
@@ -1090,9 +1213,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           setShowFileMenu(false);
                           documentInputRef.current?.click();
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                        title="Send document"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                       >
-                        <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                           <FaFileAlt className="text-white text-[16px]" />
                         </div>
 
@@ -1106,9 +1230,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           setShowFileMenu(false);
                           fileInputRef.current?.click();
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                        title="Send photos & videos"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                       >
-                        <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                           <FaImage className="text-white text-[16px]" />
                         </div>
 
@@ -1123,9 +1248,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           setShowFileMenu(false);
                           setShowCamera(true);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                        title="Take photo with camera"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                       >
-                        <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                           <FaCamera className="text-white text-[16px]" />
                         </div>
 
@@ -1140,9 +1266,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           setShowFileMenu(false);
                           audioInputRef.current?.click();
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                        title="Send audio"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                       >
-                        <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                           <FaHeadphones className="text-white text-[16px]" />
                         </div>
 
@@ -1157,9 +1284,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           setShowFileMenu(false);
                           setShowContactModal(true);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                        title="Share contact"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                       >
-                        <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                           <RiContactsFill className="text-white text-[17px]" />
                         </div>
 
@@ -1174,9 +1302,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           setShowFileMenu(false);
                           setShowPollModal(true);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                        title="Create poll"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                       >
-                        <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                           <FaSquarePollHorizontal className="text-white text-[17px]" />
                         </div>
 
@@ -1191,9 +1320,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           setShowFileMenu(false);
                           setShowEventModal(true);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                        title="Create event"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                       >
-                        <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                           <MdEventNote className="text-white text-[17px]" />
                         </div>
 
@@ -1208,9 +1338,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                           setShowFileMenu(false);
                           setShowStickerModal(true);
                         }}
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10 group"
+                        title="Send sticker"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                       >
-                        <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform duration-200">
+                        <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                           <MdAddReaction className="text-white text-[17px]" />
                         </div>
 
@@ -1227,16 +1358,16 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               <div className="relative shrink-0">
                 <button
                   type="button"
-                  className="focus:outline-none p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer"
+                  className="focus:outline-none p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
                   onClick={() =>
                     setShowEmojiPicker(!showEmojiPicker)
                   }
-                  title="Emoji"
+                  title="Emoji and stickers"
                 >
                   <RiEmojiStickerLine
-                    className={`h-5 w-5 sm:h-6 sm:w-6 ${theme === "dark"
-                      ? "text-gray-400"
-                      : "text-gray-500"
+                    className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors ${theme === "dark"
+                      ? "text-gray-400 hover:text-emerald-400"
+                      : "text-gray-500 hover:text-emerald-600"
                       }`}
                   />
                 </button>
@@ -1274,19 +1405,19 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   }
                 }}
                 placeholder="Type a message"
-                className={`flex-1 min-w-0 w-full  bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm sm:text-base ${theme === "dark"
-                  ? "text-white placeholder-gray-400"
-                  : "text-black placeholder-gray-500"
+                className={`flex-1 min-w-0 w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm sm:text-base transition-colors ${theme === "dark"
+                  ? "text-white placeholder-gray-400 hover:placeholder-gray-300"
+                  : "text-black placeholder-gray-500 hover:placeholder-gray-400"
                   }`}
               />
 
               <button
                 type="button"
                 onClick={handleSendMessage}
-                className="shrink-0 p-2 rounded-full bg-green-500 hover:bg-green-600 active:scale-95 transition cursor-pointer"
-                title="Send"
+                className="shrink-0 p-2 sm:p-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-90 text-white shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer"
+                title="Send message"
               >
-                <IoSend className="h-4 w-4 sm:h-5 sm:w-5 text-black" />
+                <IoSend className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white" />
               </button>
             </div>
           </div>

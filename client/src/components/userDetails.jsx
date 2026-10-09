@@ -52,9 +52,7 @@ const userDetails = () => {
   const handleSave = async (field) => {
     try {
       setLoading(true);
-
       const formData = new FormData();
-
       if (field === "name") {
         formData.append("username", name);
       }
@@ -127,18 +125,16 @@ const userDetails = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`h-full w-full flex flex-col overflow-hidden border-r relative z-10 transition-colors duration-300 ${
-          theme === "dark"
-            ? "bg-[#111b21] border-gray-700/60 text-white"
-            : "bg-white border-gray-200 text-gray-900"
-        }`}
+        className={`h-full w-full flex flex-col overflow-hidden border-r relative z-10 transition-colors duration-300 ${theme === "dark"
+          ? "bg-[#111b21] border-gray-700/60 text-white"
+          : "bg-white border-gray-200 text-gray-900"
+          }`}
       >
         <header
-          className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 transition-colors duration-300 ${
-            theme === "dark"
-              ? "bg-[#111b21] border-gray-700/50 text-white"
-              : "bg-white border-gray-200 text-gray-900"
-          }`}
+          className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 transition-colors duration-300 ${theme === "dark"
+            ? "bg-[#111b21] border-gray-700/50 text-white"
+            : "bg-white border-gray-200 text-gray-900"
+            }`}
         >
           <h2 className="text-xl font-semibold">Profile</h2>
         </header>
@@ -200,11 +196,10 @@ const userDetails = () => {
                       setProfilePicture(null);
                       setPreview(null);
                     }}
-                    className={`px-4 py-1.5 rounded-full border text-xs font-medium transition-all active:scale-95 cursor-pointer ${
-                      theme === "dark"
-                        ? "border-gray-700 bg-white/5 hover:bg-white/10 text-gray-300"
-                        : "border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700"
-                    }`}
+                    className={`px-4 py-1.5 rounded-full border text-xs font-medium transition-all active:scale-95 cursor-pointer ${theme === "dark"
+                      ? "border-gray-700 bg-white/5 hover:bg-white/10 text-gray-300"
+                      : "border-gray-300 bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      }`}
                   >
                     Discard
                   </button>
@@ -214,11 +209,10 @@ const userDetails = () => {
           </div>
 
           <div
-            className={`rounded-2xl p-4 border transition-all ${
-              theme === "dark"
-                ? "bg-[#111b21] border-gray-700/50"
-                : "bg-gray-50/80 border-gray-200/80"
-            }`}
+            className={`rounded-2xl p-4 border transition-all duration-200 hover:border-emerald-500/40 ${theme === "dark"
+              ? "bg-[#111b21] border-gray-700/50"
+              : "bg-gray-50/80 border-gray-200/80"
+              }`}
           >
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold text-emerald-500 uppercase tracking-wider">
@@ -235,10 +229,10 @@ const userDetails = () => {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       maxLength={30}
+                      placeholder="Your name"
                       autoFocus
-                      className={`w-full bg-transparent border-b-2 border-emerald-500 py-1 outline-none text-base font-medium ${
-                        theme === "dark" ? "text-white" : "text-gray-900"
-                      }`}
+                      className={`w-full bg-transparent border-b-2 border-emerald-500 hover:border-emerald-400 focus:border-emerald-500 py-1 outline-none text-base font-medium transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
+                        }`}
                     />
                   ) : (
                     <p className="text-base font-medium truncate py-1">
@@ -308,9 +302,8 @@ const userDetails = () => {
             </div>
 
             <p
-              className={`text-[11px] mt-2 leading-relaxed ${
-                theme === "dark" ? "text-gray-400" : "text-gray-500"
-              }`}
+              className={`text-[11px] mt-2 leading-relaxed ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                }`}
             >
               This is not your username or pin. This name will be visible to
               your WhatsApp contacts.
@@ -318,11 +311,10 @@ const userDetails = () => {
           </div>
 
           <div
-            className={`rounded-2xl p-4 border transition-all ${
-              theme === "dark"
-                ? "bg-[#111b21] border-gray-700/50"
-                : "bg-gray-50/80 border-gray-200/80"
-            }`}
+            className={`rounded-2xl p-4 border transition-all duration-200 hover:border-emerald-500/40 ${theme === "dark"
+              ? "bg-[#111b21] border-gray-700/50"
+              : "bg-gray-50/80 border-gray-200/80"
+              }`}
           >
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold text-emerald-500 uppercase tracking-wider">
@@ -338,10 +330,10 @@ const userDetails = () => {
                       value={about}
                       onChange={(e) => setAbout(e.target.value)}
                       maxLength={100}
+                      placeholder="About"
                       autoFocus
-                      className={`w-full bg-transparent border-b-2 border-emerald-500 py-1 outline-none text-base font-medium ${
-                        theme === "dark" ? "text-white" : "text-gray-900"
-                      }`}
+                      className={`w-full bg-transparent border-b-2 border-emerald-500 hover:border-emerald-400 focus:border-emerald-500 py-1 outline-none text-base font-medium transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
+                        }`}
                     />
                   ) : (
                     <p className="text-sm font-normal italic opacity-90 truncate py-1">
@@ -417,11 +409,10 @@ const userDetails = () => {
 
           {user?.email && (
             <div
-              className={`rounded-2xl p-4 border transition-all ${
-                theme === "dark"
-                  ? "bg-[#111b21] border-gray-700/50"
-                  : "bg-gray-50/80 border-gray-200/80"
-              }`}
+              className={`rounded-2xl p-4 border transition-all ${theme === "dark"
+                ? "bg-[#111b21] border-gray-700/50"
+                : "bg-gray-50/80 border-gray-200/80"
+                }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-blue-500 uppercase tracking-wider">
@@ -435,9 +426,8 @@ const userDetails = () => {
 
               <div className="flex items-center gap-3">
                 <div
-                  className={`p-2 rounded-xl shrink-0 ${
-                    theme === "dark" ? "bg-white/5" : "bg-gray-200/60"
-                  }`}
+                  className={`p-2 rounded-xl shrink-0 ${theme === "dark" ? "bg-white/5" : "bg-gray-200/60"
+                    }`}
                 >
                   <FaEnvelope className="text-blue-500 size-4" />
                 </div>
@@ -448,11 +438,10 @@ const userDetails = () => {
 
           {user?.phoneNumber && (
             <div
-              className={`rounded-2xl p-4 border transition-all ${
-                theme === "dark"
-                  ? "bg-[#111b21] border-gray-700/50"
-                  : "bg-gray-50/80 border-gray-200/80"
-              }`}
+              className={`rounded-2xl p-4 border transition-all ${theme === "dark"
+                ? "bg-[#111b21] border-gray-700/50"
+                : "bg-gray-50/80 border-gray-200/80"
+                }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-semibold text-emerald-500 uppercase tracking-wider">
@@ -466,9 +455,8 @@ const userDetails = () => {
 
               <div className="flex items-center gap-3">
                 <div
-                  className={`p-2 rounded-xl shrink-0 ${
-                    theme === "dark" ? "bg-white/5" : "bg-gray-200/60"
-                  }`}
+                  className={`p-2 rounded-xl shrink-0 ${theme === "dark" ? "bg-white/5" : "bg-gray-200/60"
+                    }`}
                 >
                   <FaPhone className="text-emerald-500 size-4" />
                 </div>

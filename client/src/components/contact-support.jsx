@@ -20,20 +20,18 @@ const ContactSupport = () => {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className={`min-h-screen flex flex-col transition-colors duration-500 ${
-        isDark ? "bg-[#0b141a] text-white" : "bg-gray-50 text-gray-900"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-500 ${isDark ? "bg-[#0b141a] text-white" : "bg-gray-50 text-gray-900"
+        }`}
     >
-      <div className={`p-4 flex items-center gap-4 border-b sticky top-0 z-20 transition-colors ${
-        isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200 shadow-sm"
-      }`}>
+      <div className={`p-4 flex items-center gap-4 border-b sticky top-0 z-20 transition-colors ${isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200 shadow-sm"
+        }`}>
         <button
           onClick={() => navigate(-1)}
-          className={`p-2 rounded-full transition-all active:scale-90 ${
-            isDark ? "hover:bg-gray-700 text-white" : "hover:bg-gray-100 text-gray-600"
-          }`}
+          title="Go back"
+          className={`p-2 rounded-full transition-all active:scale-90 ${isDark ? "hover:bg-gray-700 text-white" : "hover:bg-gray-100 text-gray-600"
+            } cursor-pointer`}
         >
-          <FaArrowLeft className="text-xl cursor-pointer" />
+          <FaArrowLeft className="text-xl" />
         </button>
         <h1 className="text-xl font-semibold">Contact Support</h1>
       </div>
@@ -51,9 +49,11 @@ const ContactSupport = () => {
             <motion.div
               key={index}
               whileHover={{ y: -5 }}
+              whileTap={{ scale: 0.95 }}
+              title={`Contact via ${method.name}`}
               className="flex flex-col items-center gap-2 cursor-pointer"
             >
-              <div className={`${method.color} p-4 rounded-2xl text-white text-2xl shadow-lg`}>
+              <div className={`${method.color} p-4 rounded-2xl text-white text-2xl shadow-lg transition-transform hover:scale-105 active:scale-95`}>
                 {method.icon}
               </div>
               <span className="text-xs font-medium">{method.name}</span>
@@ -71,11 +71,10 @@ const ContactSupport = () => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Please provide as much detail as possible..."
-              className={`w-full p-4 rounded-2xl border outline-none transition-all focus:ring-2 focus:ring-green-500/50 resize-none ${
-                isDark 
-                  ? "bg-[#202c33] border-gray-800 text-white placeholder-gray-500" 
-                  : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 shadow-sm"
-              }`}
+              className={`w-full p-4 rounded-2xl border outline-none transition-all duration-200 resize-none ${isDark
+                  ? "bg-[#202c33] border-white/10 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 text-white placeholder-gray-500"
+                  : "bg-white border-gray-200 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 text-gray-900 placeholder-gray-400 shadow-sm"
+                }`}
             />
           </div>
 
@@ -83,11 +82,11 @@ const ContactSupport = () => {
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
             disabled={!message.trim()}
-            className={`w-full py-4 rounded-full font-bold flex items-center justify-center gap-3 transition-all ${
-              message.trim() 
-                ? "bg-green-600 text-white shadow-lg cursor-pointer" 
+            title="Send Message"
+            className={`w-full py-4 rounded-full font-bold flex items-center justify-center gap-3 transition-all ${message.trim()
+                ? "bg-green-600 hover:bg-green-500 text-white shadow-lg cursor-pointer active:scale-95"
                 : "bg-gray-500 text-gray-200 cursor-not-allowed opacity-50"
-            }`}
+              }`}
           >
             <FaPaperPlane className="text-sm" />
             Send Message
@@ -98,7 +97,7 @@ const ContactSupport = () => {
           <p className={`text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>
             Prefer to solve it yourself?
           </p>
-          <button 
+          <button
             onClick={() => navigate("/help")}
             className="text-green-500 font-bold hover:underline mt-1 cursor-pointer"
           >

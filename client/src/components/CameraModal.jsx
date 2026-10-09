@@ -225,8 +225,8 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={handleClose}
-            className="p-2 -ml-2 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            title="Close"
+            className="p-2 -ml-2 rounded-full text-gray-300 hover:text-white hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
+            title="Close camera"
           >
             <RxCross2 size={22} />
           </button>
@@ -240,8 +240,8 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
             onClick={() =>
               setFacingMode((prev) => (prev === "user" ? "environment" : "user"))
             }
-            className="p-2 rounded-full text-gray-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            title="Switch Camera"
+            className="p-2 rounded-full text-gray-300 hover:text-white hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
+            title="Switch Camera (front/back)"
           >
             <FaSync size={18} />
           </button>
@@ -260,7 +260,8 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
                 setError(null);
                 setRetryTrigger((prev) => prev + 1);
               }}
-              className="px-4 py-2 bg-[#00a884] hover:bg-[#02906f] text-white text-xs font-semibold rounded-full transition-colors cursor-pointer"
+              title="Retry camera"
+              className="px-5 py-2.5 bg-[#00a884] hover:bg-[#02906f] hover:scale-105 active:scale-95 text-white text-xs font-semibold rounded-full transition-all duration-150 cursor-pointer shadow-md"
             >
               Retry Camera
             </button>
@@ -300,7 +301,7 @@ const CameraModal = ({ onClose, onCapture, fullScreen = false }) => {
         <button
           onClick={capturePhoto}
           disabled={!isCameraReady}
-          className={`w-14 h-14 rounded-full bg-[#00a884] hover:bg-[#02906f] active:scale-90 text-white flex items-center justify-center shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}
+          className={`w-14 h-14 rounded-full bg-[#00a884] hover:bg-[#02906f] hover:scale-105 active:scale-90 text-white flex items-center justify-center shadow-lg hover:shadow-emerald-500/20 transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}
           title="Take Photo"
         >
           <FaCamera size={22} />

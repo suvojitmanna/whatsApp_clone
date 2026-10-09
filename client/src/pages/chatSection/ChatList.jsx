@@ -1,12 +1,235 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import useThemeStore from "../../store/themeStore";
 import useLayoutStore from "../../store/layoutStore";
-import { FaPlus, FaSearch } from "react-icons/fa";
+import useUserStore from "../../store/useUserStore";
+import {
+  FaPlus,
+  FaSearch,
+  FaLock,
+  FaCamera,
+  FaVideo,
+  FaHeadphones,
+  FaFileAlt,
+} from "react-icons/fa";
+import { FaSquarePollHorizontal } from "react-icons/fa6";
+import { MdEventNote } from "react-icons/md";
+import { RiEmojiStickerLine, RiContactsFill } from "react-icons/ri";
+import { RxCross2 } from "react-icons/rx";
 import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
 
+const getLastMessagePreview = (lastMessage) => {
+  if (!lastMessage) return null;
+
+  const currentUserId = useUserStore.getState()?.user?._id;
+  if (
+    currentUserId &&
+    lastMessage?.deletedFor &&
+    Array.isArray(lastMessage.deletedFor) &&
+    lastMessage.deletedFor.some((id) => String(id) === String(currentUserId))
+  ) {
+    return {
+      icon: null,
+      text: "You deleted this message",
+      isEncrypted: false,
+    };
+  }
+
+  const contentType = lastMessage.contentType;
+  let pollData = lastMessage.pollData;
+  if (typeof pollData === "string") {
+    try {
+      pollData = JSON.parse(pollData);
+    } catch (e) {
+      pollData = null;
+    }
+  }
+
+  let eventData = lastMessage.eventData;
+  if (typeof eventData === "string") {
+    try {
+      eventData = JSON.parse(eventData);
+    } catch (e) {
+      eventData = null;
+    }
+  }
+
+  let contactData = lastMessage.contactData;
+  if (typeof contactData === "string") {
+    try {
+      contactData = JSON.parse(contactData);
+    } catch (e) {
+      contactData = null;
+    }
+  }
+
+  const imageOrVideoUrl = lastMessage.imageOrVideoUrl;
+  const isEncrypted = Boolean(lastMessage.isEncrypted && !lastMessage._isDecrypted);
+
+  if (isEncrypted) {
+    return {
+      icon: <FaLock className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={11} />,
+      text: "Encrypted message",
+      isEncrypted: true,
+    };
+  }
+
+  if (contentType === "poll") {
+    let question =
+      pollData?.question ||
+      lastMessage.content ||
+      "Poll";
+    if (typeof question === "string" && question.startsWith("Poll:")) {
+      question = question.replace(/^Poll:\s*/, "");
+    }
+    return {
+      icon: <FaSquarePollHorizontal className="inline mr-1 text-emerald-500 shrink-0" size={13} />,
+      text: `Poll: ${question}`,
+      isEncrypted: false,
+    };
+  }
+  if (contentType === "sticker") {
+    return {
+      icon: <RiEmojiStickerLine className="inline mr-1 text-emerald-500 shrink-0" size={14} />,
+      text: "Sticker",
+      isEncrypted: false,
+    };
+  }
+  if (contentType === "image") {
+    const caption = lastMessage.content && lastMessage.content !== "Photo"
+      ? (lastMessage.content.startsWith("Photo:") ? lastMessage.content : `Photo: ${lastMessage.content}`)
+      : "Photo";
+    return {
+      icon: <FaCamera className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={12} />,
+      text: caption,
+      isEncrypted: false,
+    };
+  }
+  if (contentType === "video") {
+    const caption = lastMessage.content && lastMessage.content !== "Video"
+      ? (lastMessage.content.startsWith("Video:") ? lastMessage.content : `Video: ${lastMessage.content}`)
+      : "Video";
+    return {
+      icon: <FaVideo className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={12} />,
+      text: caption,
+      isEncrypted: false,
+    };
+  }
+  if (contentType === "audio") {
+    return {
+      icon: <FaHeadphones className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={12} />,
+      text: "Voice message",
+      isEncrypted: false,
+    };
+  }
+  if (contentType === "document") {
+    const docName = lastMessage.fileName || lastMessage.content || "Document";
+    const text = docName.startsWith("Document:") ? docName : `Document: ${docName}`;
+    return {
+      icon: <FaFileAlt className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={12} />,
+      text,
+      isEncrypted: false,
+    };
+  }
+  if (contentType === "event") {
+    const isCancelled = eventData?.isCancelled || (typeof lastMessage.content === "string" && lastMessage.content.startsWith("Cancelled event:"));
+    let title = eventData?.title || eventData?.name || lastMessage.content || "Event";
+    if (typeof title === "string") {
+      title = title.replace(/^(Cancelled event|Event):\s*/, "");
+    }
+    return {
+      icon: <MdEventNote className="inline mr-1 text-emerald-500 shrink-0" size={13} />,
+      text: isCancelled ? `Cancelled event: ${title}` : `Event: ${title}`,
+      isEncrypted: false,
+    };
+  }
+  if (contentType === "contact") {
+    let name = contactData?.name || lastMessage.content || "Contact";
+    if (typeof name === "string" && name.startsWith("Contact:")) {
+      name = name.replace(/^Contact:\s*/, "");
+    }
+    return {
+      icon: <RiContactsFill className="inline mr-1 text-emerald-500 shrink-0" size={13} />,
+      text: `Contact: ${name}`,
+      isEncrypted: false,
+    };
+  }
+
+  if (imageOrVideoUrl) {
+    const isVid = imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i);
+    const isAud = imageOrVideoUrl.match(/\.(mp3|wav|ogg|m4a|aac)($|\?)/i);
+    const isDoc = imageOrVideoUrl.match(/\.(pdf|docx?|xlsx?|pptx?|txt|zip)($|\?)/i);
+    const isStk = imageOrVideoUrl.includes("stickers");
+
+    if (isVid) {
+      const caption = lastMessage.content && lastMessage.content !== "Video"
+        ? (lastMessage.content.startsWith("Video:") ? lastMessage.content : `Video: ${lastMessage.content}`)
+        : "Video";
+      return {
+        icon: <FaVideo className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={12} />,
+        text: caption,
+        isEncrypted: false,
+      };
+    }
+
+    if (isAud) {
+      return {
+        icon: <FaHeadphones className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={12} />,
+        text: "Voice message",
+        isEncrypted: false,
+      };
+    }
+
+    if (isDoc) {
+      const docName = lastMessage.fileName || lastMessage.content || "Document";
+      return {
+        icon: <FaFileAlt className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={12} />,
+        text: docName.startsWith("Document:") ? docName : `Document: ${docName}`,
+        isEncrypted: false,
+      };
+    }
+
+    if (isStk) {
+      return {
+        icon: <RiEmojiStickerLine className="inline mr-1 text-emerald-500 shrink-0" size={14} />,
+        text: "Sticker",
+        isEncrypted: false,
+      };
+    }
+
+    const caption = lastMessage.content && lastMessage.content !== "Photo"
+      ? (lastMessage.content.startsWith("Photo:") ? lastMessage.content : `Photo: ${lastMessage.content}`)
+      : "Photo";
+    return {
+      icon: <FaCamera className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={12} />,
+      text: caption,
+      isEncrypted: false,
+    };
+  }
+  if (lastMessage.fileName) {
+    const text = lastMessage.fileName.startsWith("Document:")
+      ? lastMessage.fileName
+      : `Document: ${lastMessage.fileName}`;
+    return {
+      icon: <FaFileAlt className="inline mr-1 text-gray-500 dark:text-gray-400 shrink-0" size={12} />,
+      text,
+      isEncrypted: false,
+    };
+  }
+  if (lastMessage.content) {
+    return {
+      icon: null,
+      text: lastMessage.content,
+      isEncrypted: false,
+    };
+  }
+
+  return null;
+};
+
 const ChatList = ({ contacts }) => {
+  const { user } = useUserStore();
   const { isUserTyping } = useChatStore();
   const selectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedContact = useLayoutStore(
@@ -20,21 +243,26 @@ const ChatList = ({ contacts }) => {
 
   const { theme } = useThemeStore();
   const [searchTerms, setSearchTerms] = useState("");
-  const filteredContact =
-    contacts
-      ?.filter((contact) =>
-        contact?.username?.toLowerCase().includes(searchTerms.toLowerCase()),
+  const filteredContact = useMemo(() => {
+    if (!contacts) return [];
+    const term = searchTerms.trim().toLowerCase();
+    const list = term
+      ? contacts.filter((contact) =>
+        contact?.username?.toLowerCase().includes(term),
       )
-      ?.sort((a, b) => {
-        const timeA = a?.conversation?.lastMessage?.createdAt
-          ? new Date(a.conversation.lastMessage.createdAt)
-          : 0;
+      : contacts;
 
-        const timeB = b?.conversation?.lastMessage?.createdAt
-          ? new Date(b.conversation.lastMessage.createdAt)
-          : 0;
-        return timeB - timeA;
-      }) || [];
+    return [...list].sort((a, b) => {
+      const timeA = a?.conversation?.lastMessage?.createdAt
+        ? new Date(a.conversation.lastMessage.createdAt).getTime()
+        : (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0);
+
+      const timeB = b?.conversation?.lastMessage?.createdAt
+        ? new Date(b.conversation.lastMessage.createdAt).getTime()
+        : (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0);
+      return timeB - timeA;
+    });
+  }, [contacts, searchTerms]);
 
   useEffect(() => {
     if (listContainerRef.current) {
@@ -53,35 +281,48 @@ const ChatList = ({ contacts }) => {
 
   return (
     <div
-      className={`h-full w-full border-r relative z-10 transition-all duration-300 ${
-        theme === "dark"
-          ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
-          : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
-      }`}
+      className={`h-full w-full border-r relative z-10 transition-all duration-300 ${theme === "dark"
+        ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
+        : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
+        }`}
     >
       <div className="p-4 flex items-center justify-between">
         <h2 className="text-xl font-semibold">Chats</h2>
-        <button className="p-2 bg-green-500 text-white rounded-full shadow-md cursor-pointer transition-all duration-300 ease-in-out hover:bg-green-600 hover:scale-110 hover:rotate-90 active:scale-90 animate-bounce-slow">
+        <button
+          title="New chat"
+          className="p-2 bg-green-500 text-white rounded-full shadow-md cursor-pointer transition-all duration-300 ease-in-out hover:bg-green-600 hover:scale-110 hover:rotate-90 active:scale-90 animate-bounce-slow"
+        >
           <FaPlus />
         </button>
       </div>
       <div className="p-2">
-        <div className="relative">
-          {" "}
+        <div className="relative group">
           <FaSearch
-            className={`absolute left-3 top-1/2 transform -translate-y-1/2 z-10 ${theme === "dark" ? "text-gray-400" : "text-gray-800"
+            className={`absolute left-3 top-1/2 transform -translate-y-1/2 z-10 transition-colors ${theme === "dark"
+              ? "text-gray-400 group-focus-within:text-green-500"
+              : "text-gray-500 group-focus-within:text-green-600"
               }`}
           />
           <input
             type="text"
-            placeholder="search or start new chat"
-            className={`w-full pl-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${theme === "dark"
-                ? "bg-gray-800 text-white border-gray-700 placeholder-gray-500"
-                : "bg-gray-100 text-black border-gray-200 placeholder-gray-400"
+            placeholder="Search or start new chat"
+            className={`w-full pl-10 pr-9 py-2 border rounded-lg outline-none transition-all duration-200 ${theme === "dark"
+              ? "bg-gray-800 text-white border-gray-700 placeholder-gray-500 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
+              : "bg-gray-100 text-black border-gray-200 placeholder-gray-400 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
               }`}
             value={searchTerms}
             onChange={(e) => setSearchTerms(e.target.value)}
           />
+          {searchTerms && (
+            <button
+              type="button"
+              onClick={() => setSearchTerms("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all cursor-pointer"
+              title="Clear search"
+            >
+              <RxCross2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
       <div
@@ -121,14 +362,16 @@ const ChatList = ({ contacts }) => {
               <motion.div
                 key={contact._id}
                 data-contact-id={contact._id}
+                title={`Chat with ${contact?.username || "user"}`}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setSelectedContact(contact)}
                 className={`p-3 flex items-center cursor-pointer transition-colors ${theme === "dark"
-                    ? selectedContact?._id === contact._id
-                      ? "bg-gray-700"
-                      : "hover:bg-gray-800"
-                    : selectedContact?._id === contact._id
-                      ? "bg-gray-200"
-                      : "hover:bg-gray-100"
+                  ? selectedContact?._id === contact._id
+                    ? "bg-gray-700"
+                    : "hover:bg-gray-800"
+                  : selectedContact?._id === contact._id
+                    ? "bg-gray-200"
+                    : "hover:bg-gray-100"
                   }`}
               >
                 <img
@@ -155,38 +398,69 @@ const ChatList = ({ contacts }) => {
                       className={`text-sm flex items-center gap-1.5 w-full ${theme === "dark" ? "text-gray-400" : "text-gray-500"
                         }`}
                     >
-                      {isTyping ? (
-                        <span className="font-medium text-emerald-500 flex-shrink-0">
-                          typing...
-                        </span>
-                      ) : contact?.conversation?.lastMessage?.content ? (
-                        <>
-                          <span className="truncate">
-                            {contact.conversation.lastMessage.content}
-                          </span>
+                      {(() => {
+                        const lastMsg = contact?.conversation?.lastMessage;
+                        const preview = getLastMessagePreview(lastMsg);
 
-                          {contact.conversation.lastMessage.edited && (
-                            <span
-                              className={`flex-shrink-0 text-[11px] italic mt-0.5 ${theme === "dark"
-                                  ? "text-gray-500/80"
-                                  : "text-gray-400"
-                                }`}
-                            >
-                              edited
+                        if (isTyping) {
+                          return (
+                            <span className="font-medium text-emerald-500 flex-shrink-0">
+                              typing...
                             </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="italic opacity-70">
-                          No messages yet
-                        </span>
-                      )}
+                          );
+                        }
+
+                        if (preview && (preview.text || preview.icon)) {
+                          return (
+                            <>
+                              {preview.icon}
+                              <span className="truncate">
+                                {preview.text}
+                              </span>
+                              {lastMsg?.edited && (
+                                <span
+                                  className={`flex-shrink-0 text-[11px] italic mt-0.5 ${theme === "dark"
+                                    ? "text-gray-500/80"
+                                    : "text-gray-400"
+                                    }`}
+                                >
+                                  edited
+                                </span>
+                              )}
+                            </>
+                          );
+                        }
+
+                        return (
+                          <span className="italic opacity-70">
+                            No messages yet
+                          </span>
+                        );
+                      })()}
                     </p>
-                    {contact?.conversation?.unreadCount > 0 && (
-                      <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white">
-                        {contact.conversation.unreadCount}
-                      </p>
-                    )}
+                    {(() => {
+                      const unread = contact?.conversation?.unreadCount;
+                      const currentUserId = user?._id?.toString();
+                      const lastMsgSenderId = (
+                        contact?.conversation?.lastMessage?.sender?._id ||
+                        contact?.conversation?.lastMessage?.sender
+                      )?.toString();
+                      const isSenderOfLast = Boolean(
+                        currentUserId &&
+                        lastMsgSenderId &&
+                        lastMsgSenderId === currentUserId
+                      );
+
+                      if (isSenderOfLast || !unread || unread <= 0) {
+                        return null;
+                      }
+
+                      return (
+                        <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white">
+                          {unread}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
               </motion.div>

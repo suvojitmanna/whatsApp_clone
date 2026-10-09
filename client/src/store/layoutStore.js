@@ -39,11 +39,20 @@ const useLayoutStore = create(
         set({ activeTab: tab });
       },
 
+      contactInfoTab: "info", // "info" | "security" | "privacy"
       setShowContactInfo: (value) =>
         set((state) => ({
           showContactInfo: value,
-          ...(value ? { selectedPollMessage: null, selectedPollMessageId: null } : {}),
+          ...(value ? { selectedPollMessage: null, selectedPollMessageId: null } : { contactInfoTab: "info" }),
         })),
+      setContactInfoTab: (tab) => set({ contactInfoTab: tab }),
+      openContactInfoWithTab: (tab = "info") =>
+        set({
+          showContactInfo: true,
+          contactInfoTab: tab,
+          selectedPollMessage: null,
+          selectedPollMessageId: null,
+        }),
       setShowProfilePicture: (value) => set({ showProfilePicture: value }),
       setSelectedPollDetails: (pollMessage) =>
         set({

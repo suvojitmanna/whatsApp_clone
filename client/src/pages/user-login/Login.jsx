@@ -89,7 +89,6 @@ const Login = () => {
   const [showDropDown, setShowDropDown] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
-
   const navigate = useNavigate();
   const { setUser } = useUserStore();
   const { theme, setTheme } = useThemeStore();
@@ -124,33 +123,22 @@ const Login = () => {
       setLoading(true);
 
       const { email, phoneNumber } = data;
-
-      console.log("FORM DATA:", data);
-
       if (email) {
         const response = await sendOtp(null, null, email);
 
-        console.log("API RESPONSE:", response.data);
-
         if (response.data.success) {
           toast.info("OTP sent to your email");
-
           setUserPhoneData({ email });
           setStep(2);
         }
       } else if (phoneNumber) {
         const response = await sendOtp(phoneNumber, selectedCountry.dialCode);
-
-        console.log("API RESPONSE:", response.data);
-
         if (response.data.success) {
           toast.info("OTP sent to your phone number");
-
           setUserPhoneData({
             phoneNumber,
             phoneSuffix: selectedCountry.dialCode,
           });
-
           setStep(2);
         }
       } else {
@@ -168,20 +156,15 @@ const Login = () => {
   const OnOtpSubmit = async (data) => {
     try {
       setLoading(true);
-
       if (!userPhoneData) {
         throw new Error("Phone or email data is missing");
       }
-
       const otpString = data.otp;
-
       if (!otpString || otpString.length !== 6) {
         toast.error("Enter valid 6-digit OTP");
         return;
       }
-
       let response;
-
       if (userPhoneData?.email) {
         response = await verifyOtp(null, null, otpString, userPhoneData.email);
       } else {
@@ -192,14 +175,11 @@ const Login = () => {
           null,
         );
       }
-
       if (response.data.success) {
         toast.success("Otp Verified Successfully");
         const token = response.data?.token;
         localStorage.setItem("auth_token", token);
         const user = response.data?.user;
-
-        console.log("USER AFTER OTP:", user);
         setUser(user);
         setStep(3);
       } else {
@@ -224,11 +204,7 @@ const Login = () => {
   const onProfileSubmit = async (data) => {
     try {
       setLoading(true);
-
-      console.log("STEP 1: Profile submit started");
-
       const formData = new FormData();
-
       formData.append("username", data.username);
       formData.append("agreed", data.agreed);
 
@@ -238,33 +214,16 @@ const Login = () => {
         formData.append("profilePicture", selectedAvatar);
       }
 
-      console.log("STEP 2: Sending profile update API...");
-
       await updateUserProfile(formData);
-
-      console.log("STEP 3: Profile updated in DB");
-
       const result = await checkUserAuth();
-      console.log("STEP 4: checkUserAuth result:", result);
       setUser(result.data.user);
-
-      console.log("STEP 5: User set in Zustand:", result.data.user);
-
       toast.success("Welcome back to WhatsApp");
-
-      console.log("STEP 6: Navigating to /");
-
       navigate("/");
-
-      console.log("STEP 7: After navigation (before reset)");
-
-      console.log("STEP 8: After resetLoginStates");
     } catch (error) {
       console.log("ERROR:", error);
       setError(error.message || "Failed to update profile picture");
     } finally {
       setLoading(false);
-      console.log("STEP 9: Loading finished");
     }
   };
 
@@ -285,7 +244,6 @@ const Login = () => {
   const handleKeyDown = (index, e) => {
     if (e.key === "Backspace") {
       const newOtp = [...otp];
-
       if (otp[index]) {
         newOtp[index] = "";
         setOtp(newOtp);
@@ -323,15 +281,15 @@ const Login = () => {
     const isComplete = otp.every((digit) => digit !== "");
 
     if (isComplete && !loading) {
-      handleOtpSubmit(OnOtpSubmit)(); // trigger react-hook-form submit
+      handleOtpSubmit(OnOtpSubmit)();
     }
   }, [otp]);
 
   return (
     <div
       className={`min-h-screen ${theme === "dark"
-          ? "bg-gray-900"
-          : "bg-gradient-to-br from-green-400 to-blue-500"
+        ? "bg-gray-900"
+        : "bg-gradient-to-br from-green-400 to-blue-500"
         } flex items-center justify-center overflow-hidden`}
     >
       <motion.div
@@ -380,8 +338,8 @@ const Login = () => {
                     type="button"
                     onClick={() => setShowDropDown(!showDropDown)}
                     className={`flex-shrink-0 z-10 inline-flex items-center py-2.5 px-4 text-sm font-medium text-center ${theme === "dark"
-                        ? "text-white bg-gray-700 border-gray-600"
-                        : "text-gray-900 bg-gray-100 border-gray-300"
+                      ? "text-white bg-gray-700 border-gray-600"
+                      : "text-gray-900 bg-gray-100 border-gray-300"
                       } border rounded-s-lg hover:bg-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 cursor-pointer`}
                   >
                     <span className="flex items-center gap-2">
@@ -401,8 +359,8 @@ const Login = () => {
                   {showDropDown && (
                     <div
                       className={`absolute z-10 w-full mt-1 border rounded-md shadow-lg max-h-60 overflow-auto ${theme === "dark"
-                          ? "bg-gray-700 border-gray-600"
-                          : "bg-white border-gray-300"
+                        ? "bg-gray-700 border-gray-600"
+                        : "bg-white border-gray-300"
                         }`}
                     >
                       <div
@@ -413,9 +371,9 @@ const Login = () => {
                           placeholder="Country..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className={`w-full px-2 py-1 border ${theme === "dark"
-                              ? "bg-gray-600 border-gray-500 text-white"
-                              : "bg-white border-gray-300 text-gray-900"
+                          className={`w-full px-2 py-1 border transition-colors hover:border-gray-400 dark:hover:border-gray-400 ${theme === "dark"
+                            ? "bg-gray-600 border-gray-500 text-white"
+                            : "bg-white border-gray-300 text-gray-900"
                             } rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500`}
                         />
                       </div>
@@ -426,7 +384,7 @@ const Login = () => {
                             setSelectedCountry(country);
                             setShowDropDown(false);
                           }}
-                          className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600"
+                          className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer"
                         >
                           <div className="flex items-center gap-2">
                             <span className="text-lg">{country.flag}</span>
@@ -451,7 +409,7 @@ const Login = () => {
                     const onlyNumbers = e.target.value.replace(/\D/g, "");
                     setPhoneNumber(onlyNumbers);
                   }}
-                  className={`w-2/3 px-4 py-2 border text-black ${theme === "dark" ? "bg-gray-700 text-white" : "bg-white border-gray-300 "} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${loginErrors.phoneNumber ? "border-red-500" : ""}`}
+                  className={`w-2/3 px-4 py-2 border transition-all duration-200 text-black hover:border-gray-400 dark:hover:border-gray-500 ${theme === "dark" ? "bg-gray-700 text-white" : "bg-white border-gray-300 "} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500 ${loginErrors.phoneNumber ? "border-red-500" : ""}`}
                 />
               </div>
               {loginErrors.phoneNumber && (
@@ -472,7 +430,7 @@ const Login = () => {
             </div>
 
             <div
-              className={`flex items-center border rounded-md px-3 py-2 ${theme === "dark" ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"}`}
+              className={`flex items-center border rounded-md px-3 py-2 transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500 focus-within:border-green-500 focus-within:ring-2 focus-within:ring-green-500/30 ${theme === "dark" ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"}`}
             >
               <FaUser
                 className={`mr-2 text-gray-400 ${theme === "dark" ? "text-gray-400 " : " text-gray-500 "} `}
@@ -576,7 +534,7 @@ const Login = () => {
                       )
                       ?.focus();
                   }}
-                  className={`w-12 h-12 text-center text-xl font-bold border transition-all rounded-xl outline-none${theme === "dark" ? "bg-[#202c33] border-gray-700 text-white focus:ring-2 focus:ring-green-500" : "bg-white border-gray-300 text-black focus:ring-2 focus:ring-green-600 shadow-sm"} ${otpErrors.otp ? "border-red-500" : ""}`}
+                  className={`w-12 h-12 text-center text-xl font-bold border transition-all duration-200 rounded-xl outline-none hover:border-green-400 dark:hover:border-green-400 ${theme === "dark" ? "bg-[#202c33] border-gray-700 text-white focus:border-green-500 focus:ring-2 focus:ring-green-500/30" : "bg-white border-gray-300 text-black focus:border-green-500 focus:ring-2 focus:ring-green-600/30 shadow-sm"} ${otpErrors.otp ? "border-red-500" : ""}`}
                 />
               ))}
             </div>
@@ -606,8 +564,8 @@ const Login = () => {
               type="button"
               onClick={handleBack}
               className={`w-full mt-2 cursor-pointer ${theme === "dark"
-                  ? "bg-gray-700 text-gray-300"
-                  : "bg-gray-200 text-gray-700"
+                ? "bg-gray-700 text-gray-300"
+                : "bg-gray-200 text-gray-700"
                 } py-2 rounded-md hover:font-bold transition flex items-center justify-center`}
             >
               <FaArrowLeft className="mr-2" />
@@ -629,7 +587,8 @@ const Login = () => {
                 />
                 <label
                   htmlFor="profile-picture"
-                  className="absolute bottom-0 right-0 bg-green-500 text-white p-2 rounded-full cursor-pointer hover:bg-green-700 transition duration-300"
+                  title="Upload profile photo"
+                  className="absolute bottom-0 right-0 bg-green-500 text-white p-2 rounded-full cursor-pointer hover:bg-green-600 transition duration-300 active:scale-95 shadow-md"
                 >
                   <FaPlus className="w-4 h-4" />
                 </label>
@@ -654,6 +613,7 @@ const Login = () => {
                     src={avatar}
                     key={index}
                     alt={`avatar ${index + 1}`}
+                    title="Select avatar"
                     className={`w-12 h-12 rounded-full cursor-pointer transition duration-300 ease-in-out transform hover:scale-110 ${selectedAvatar === avatar ? "ring-2 ring-green-500" : ""
                       }`}
                     onClick={() => setSelectedAvatar(avatar)}
@@ -662,15 +622,15 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="relative">
+            <div className="relative group">
               <FaUser
-                className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme === "dark" ? "text-gray-400" : "text-gray-400"}`}
+                className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${theme === "dark" ? "text-gray-400 group-focus-within:text-green-500" : "text-gray-400 group-focus-within:text-green-600"}`}
               />
               <input
                 type="text"
                 {...profileRegister("username")}
                 placeholder="Username"
-                className={`w-full pl-10 pr-3 py-2 border text-black ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-lg`}
+                className={`w-full pl-10 pr-3 py-2 border transition-all duration-200 hover:border-emerald-500/60 text-black ${theme === "dark" ? "bg-gray-700 border-gray-600 text-white" : "bg-white border-gray-300"} rounded-md focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 text-lg`}
               />
               {ProfileErrors.username && (
                 <p className="text-red-500 text-sm mt-1">
