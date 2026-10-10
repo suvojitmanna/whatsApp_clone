@@ -66,7 +66,9 @@ function initializeSocket(server) {
 
         if (!messages.length) return;
         const senderIds = [
-          ...new Set(messages.map((msg) => msg.sender?.toString()).filter(Boolean)),
+          ...new Set(
+            messages.map((msg) => msg.sender?.toString()).filter(Boolean),
+          ),
         ];
 
         await Message.updateMany(
@@ -187,13 +189,14 @@ function initializeSocket(server) {
 
         if (!updated) return;
 
-        const validReactions = (updated.reactions || []).filter(
-          (r) => Boolean(r && r.emoji)
+        const validReactions = (updated.reactions || []).filter((r) =>
+          Boolean(r && r.emoji),
         );
 
         const targets = new Set();
         if (updated?.sender?._id) targets.add(updated.sender._id.toString());
-        if (updated?.receiver?._id) targets.add(updated.receiver._id.toString());
+        if (updated?.receiver?._id)
+          targets.add(updated.receiver._id.toString());
         targets.add(reactionUserId.toString());
 
         targets.forEach((targetId) => {

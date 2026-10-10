@@ -13,6 +13,8 @@ import {
   FaLock,
   FaPhone,
   FaVideo,
+  FaEye,
+  FaPlus,
 } from "react-icons/fa";
 import { IoSend } from "react-icons/io5";
 import { FaSquarePollHorizontal } from "react-icons/fa6";
@@ -38,6 +40,7 @@ import PollModal from "../../components/pollModal";
 import ContactModal from "../../components/ContactModal";
 import EventModal from "../../components/EventModal";
 import StickerModal from "../../components/StickerModal";
+import FileViewerModal from "../../components/FileViewerModal";
 
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -46,8 +49,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showFileMenu, setShowFileMenu] = useState(false);
-  const [filePreview, setFilePreview] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [activeFileIndex, setActiveFileIndex] = useState(0);
+  const [isSending, setIsSending] = useState(false);
+  const [previewModalFile, setPreviewModalFile] = useState(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -166,7 +171,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
   }, [conversations?.data, selectedContact?._id, isMessagesLoading]);
 
-  // Automatically mark unread incoming messages as read when viewing this conversation
   const lastMsgId = messages[messages.length - 1]?._id;
   useEffect(() => {
     if (!selectedContact?._id || !messages.length) return;
@@ -180,7 +184,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
   }, [selectedContact?._id, messages.length, lastMsgId, markMessageAsRead]);
 
-  // When window receives focus, ensure unread messages in open chat are marked as read
   useEffect(() => {
     const handleFocus = () => {
       if (!selectedContact?._id || !messages.length) return;
@@ -285,61 +288,127 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   });
 
   const handleFileChange = (e, typeHint = null) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      setShowFileMenu(false);
+    const rawFiles = Array.from(e.target.files || []);
+    if (!rawFiles.length) return;
+
+    setShowFileMenu(false);
+    const newItems = rawFiles.map((file) => {
+      let type = "document";
       if (typeHint === "sticker") {
-        setIsStickerMode(true);
+        type = "sticker";
+      } else if (file.type.startsWith("image/")) {
+        type = "image";
+      } else if (file.type.startsWith("video/")) {
+        type = "video";
+      } else if (file.type.startsWith("audio/")) {
+        type = "audio";
       } else {
-        setIsStickerMode(false);
+        type = "document";
       }
 
-      if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
-        setFilePreview(URL.createObjectURL(file));
-      } else if (file.type.startsWith("audio/")) {
-        setFilePreview("audio:" + file.name);
-      } else {
-        setFilePreview("doc:" + file.name);
-      }
+      return {
+        id: Math.random().toString(36).substring(2, 9) + Date.now(),
+        file,
+        name: file.name,
+        size: (file.size / 1024).toFixed(1) + " KB",
+        type,
+        previewUrl: URL.createObjectURL(file),
+      };
+    });
+
+    setSelectedFiles((prev) => [...prev, ...newItems]);
+    if (typeHint === "sticker") {
+      setIsStickerMode(true);
+    }
+
+    if (e.target) {
+      e.target.value = "";
     }
   };
 
+  const handleRemoveFile = (idToRemove) => {
+    setSelectedFiles((prev) => {
+      const target = prev.find((item) => item.id === idToRemove);
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      const updated = prev.filter((item) => item.id !== idToRemove);
+      if (updated.length === 0) {
+        setIsStickerMode(false);
+      }
+      return updated;
+    });
+    setActiveFileIndex(0);
+  };
+
+  const handleClearAllFiles = () => {
+    selectedFiles.forEach((item) => {
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    });
+    setSelectedFiles([]);
+    setActiveFileIndex(0);
+    setIsStickerMode(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (documentInputRef.current) documentInputRef.current.value = "";
+    if (audioInputRef.current) audioInputRef.current.value = "";
+    if (stickerInputRef.current) stickerInputRef.current.value = "";
+  };
+
   const handleSendMessage = async () => {
-    if (!selectedContact) return;
+    if (!selectedContact || isSending) return;
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage && selectedFiles.length === 0) return;
+
+    setIsSending(true);
     try {
-      const formData = new FormData();
-      formData.append("senderId", user?._id);
-      formData.append("receiverId", selectedContact?._id);
-
       const status = online ? "delivered" : "send";
-      formData.append("messageStatus", status);
-      formData.append("content", message.trim() || "");
 
-      if (selectedFile) {
-        formData.append("media", selectedFile);
-        formData.append("fileName", selectedFile.name);
-        formData.append(
-          "fileSize",
-          `${(selectedFile.size / 1024).toFixed(1)} KB`
-        );
+      if (selectedFiles.length > 0) {
+        // Send all selected files one by one (multi-file send)
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const item = selectedFiles[i];
+          const formData = new FormData();
+          formData.append("senderId", user?._id);
+          formData.append("receiverId", selectedContact?._id);
+          formData.append("messageStatus", status);
+          formData.append("media", item.file);
+          formData.append("fileName", item.name);
+          formData.append("fileSize", item.size);
+          formData.append("contentType", item.type);
 
-        if (isStickerMode) {
-          formData.append("contentType", "sticker");
-        } else if (selectedFile.type.startsWith("image/")) {
-          formData.append("contentType", "image");
-        } else if (selectedFile.type.startsWith("video/")) {
-          formData.append("contentType", "video");
-        } else if (selectedFile.type.startsWith("audio/")) {
-          formData.append("contentType", "audio");
-        } else {
-          formData.append("contentType", "document");
+          // Attach caption to the first file if user typed message
+          if (i === 0 && trimmedMessage) {
+            formData.append("content", trimmedMessage);
+          } else {
+            formData.append("content", "");
+          }
+
+          await sendMessage(formData);
         }
+      } else if (trimmedMessage) {
+        // Plain text message
+        const formData = new FormData();
+        formData.append("senderId", user?._id);
+        formData.append("receiverId", selectedContact?._id);
+        formData.append("messageStatus", status);
+        formData.append("content", trimmedMessage);
+        formData.append("contentType", "text");
+        await sendMessage(formData);
       }
 
-      if (!message.trim() && !selectedFile) return;
-
-      await sendMessage(formData);
+      // After send: completely clear input box, message, and reset file inputs
+      setMessage("");
+      selectedFiles.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      setSelectedFiles([]);
+      setActiveFileIndex(0);
+      setIsStickerMode(false);
+      setShowFileMenu(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (documentInputRef.current) documentInputRef.current.value = "";
+      if (audioInputRef.current) audioInputRef.current.value = "";
+      if (stickerInputRef.current) stickerInputRef.current.value = "";
 
       if (selectedContact?._id) {
         saveScrollPosition(selectedContact._id, {
@@ -351,14 +420,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
-
-      setMessage("");
-      setFilePreview(null);
-      setSelectedFile(null);
-      setIsStickerMode(false);
-      setShowFileMenu(false);
     } catch (error) {
       console.error("Failed to send message", error);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -1042,82 +1107,174 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
             <div ref={messageEndRef} className="h-4" />
           </div>
-          {filePreview && (
-            <div
-              className={`p-3 border-t flex items-center justify-between transition-colors ${theme === "dark"
-                ? "bg-[#1f2c33] border-white/10 text-white"
-                : "bg-gray-100 border-gray-200 text-gray-800"
-                }`}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                {filePreview.startsWith("doc:") ? (
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#7f66ff]/20 text-[#7f66ff] flex items-center justify-center shrink-0">
-                      <FaFileAlt size={22} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
-                        {selectedFile?.name}
-                      </p>
-                      <p className="text-xs opacity-60">
-                        {(selectedFile?.size / 1024).toFixed(1)} KB • Document
-                      </p>
-                    </div>
-                  </div>
-                ) : filePreview.startsWith("audio:") ? (
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#f2790f]/20 text-[#f2790f] flex items-center justify-center shrink-0">
-                      <FaHeadphones size={22} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
-                        {selectedFile?.name}
-                      </p>
-                      <p className="text-xs opacity-60">
-                        {(selectedFile?.size / 1024).toFixed(1)} KB • Audio
-                      </p>
-                    </div>
-                  </div>
-                ) : selectedFile?.type?.startsWith("video/") ? (
-                  <div className="relative">
-                    <video
-                      src={filePreview}
-                      className="w-16 h-16 rounded-xl object-cover"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-xl">
-                      <FaVideo className="text-white text-xs" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <img
-                      src={filePreview}
-                      alt="preview"
-                      className="w-16 h-16 rounded-xl object-cover ring-1 ring-black/10"
-                    />
-                    {isStickerMode && (
-                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#02b875] text-white shadow">
-                        Sticker
-                      </span>
+          {selectedFiles.length > 0 && (() => {
+            const activeFile = selectedFiles[activeFileIndex] || selectedFiles[0];
+            return (
+              <div
+                className={`p-3 border-t flex flex-col gap-2.5 transition-colors ${theme === "dark"
+                  ? "bg-[#1f2c33] border-white/10 text-white"
+                  : "bg-gray-100 border-gray-200 text-gray-800"
+                  }`}
+              >
+                {/* Active file preview row */}
+                <div className="flex items-center justify-between gap-3">
+                  <div
+                    onClick={() => {
+                      if (activeFile) {
+                        setPreviewModalFile({
+                          url: activeFile.previewUrl,
+                          name: activeFile.name,
+                          type: activeFile.type,
+                          size: activeFile.size,
+                        });
+                      }
+                    }}
+                    className="flex items-center gap-3 min-w-0 cursor-pointer group flex-1"
+                    title="Click to view/open full preview"
+                  >
+                    {activeFile.type === "document" ? (
+                      <div className="w-12 h-12 rounded-xl bg-[#7f66ff]/20 text-[#7f66ff] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <FaFileAlt size={22} />
+                      </div>
+                    ) : activeFile.type === "audio" ? (
+                      <div className="w-12 h-12 rounded-xl bg-[#f2790f]/20 text-[#f2790f] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <FaHeadphones size={22} />
+                      </div>
+                    ) : activeFile.type === "video" ? (
+                      <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0">
+                        <video
+                          src={activeFile.previewUrl}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                          <FaVideo className="text-white text-xs" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 ring-1 ring-black/10">
+                        <img
+                          src={activeFile.previewUrl}
+                          alt="preview"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        {isStickerMode && (
+                          <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 rounded text-[8px] font-bold bg-[#02b875] text-white">
+                            Sticker
+                          </span>
+                        )}
+                      </div>
                     )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
+                          {activeFile.name}
+                        </p>
+                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 shrink-0">
+                          {activeFile.type}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs opacity-60 mt-0.5">
+                        <span>{activeFile.size}</span>
+                        <span>•</span>
+                        <span className="text-emerald-500 font-medium group-hover:underline flex items-center gap-1">
+                          <FaEye size={11} /> Open preview
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeFile) {
+                          setPreviewModalFile({
+                            url: activeFile.previewUrl,
+                            name: activeFile.name,
+                            type: activeFile.type,
+                            size: activeFile.size,
+                          });
+                        }
+                      }}
+                      className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-emerald-500 cursor-pointer transition-colors"
+                      title="Open full preview"
+                    >
+                      <FaEye size={16} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleClearAllFiles}
+                      className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-red-500 cursor-pointer transition-colors"
+                      title="Remove all files"
+                    >
+                      <RxCross2 size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Thumbnail strip for multiple files */}
+                {selectedFiles.length > 1 && (
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 border-t border-black/5 dark:border-white/5">
+                    {selectedFiles.map((item, idx) => (
+                      <div
+                        key={item.id}
+                        onClick={() => setActiveFileIndex(idx)}
+                        className={`relative group/thumb shrink-0 w-12 h-12 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
+                          activeFileIndex === idx
+                            ? "border-emerald-500 scale-105 shadow-md"
+                            : "border-transparent opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        {item.type === "image" ? (
+                          <img
+                            src={item.previewUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : item.type === "video" ? (
+                          <div className="w-full h-full bg-black/40 flex items-center justify-center">
+                            <FaVideo className="text-white text-xs" />
+                          </div>
+                        ) : item.type === "audio" ? (
+                          <div className="w-full h-full bg-[#f2790f]/30 flex items-center justify-center text-[#f2790f]">
+                            <FaHeadphones size={14} />
+                          </div>
+                        ) : (
+                          <div className="w-full h-full bg-[#7f66ff]/30 flex items-center justify-center text-[#7f66ff]">
+                            <FaFileAlt size={16} />
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveFile(item.id);
+                          }}
+                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] opacity-0 group-hover/thumb:opacity-100 transition-opacity shadow"
+                          title="Remove file"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="shrink-0 w-12 h-12 rounded-xl border border-dashed border-gray-400 dark:border-white/20 flex flex-col items-center justify-center gap-0.5 hover:border-emerald-500 hover:text-emerald-500 transition-colors cursor-pointer text-xs"
+                      title="Add more files"
+                    >
+                      <FaPlus size={11} />
+                      <span className="text-[8px] font-medium">Add</span>
+                    </button>
                   </div>
                 )}
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedFile(null);
-                  setFilePreview(null);
-                  setIsStickerMode(false);
-                }}
-                className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-red-500 cursor-pointer transition"
-                title="Remove"
-              >
-                <RxCross2 size={18} />
-              </button>
-            </div>
-          )}
+            );
+          })()}
 
           <div
             className={`p-3 sm:p-4 ${theme === "dark" ? "" : ""
@@ -1153,6 +1310,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   ref={fileInputRef}
                   onChange={(e) => handleFileChange(e, "media")}
                   accept="image/*,video/*"
+                  multiple
                   className="hidden"
                 />
 
@@ -1161,6 +1319,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   ref={documentInputRef}
                   onChange={(e) => handleFileChange(e, "document")}
                   accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,application/*"
+                  multiple
                   className="hidden"
                 />
 
@@ -1169,6 +1328,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   ref={audioInputRef}
                   onChange={(e) => handleFileChange(e, "audio")}
                   accept="audio/*"
+                  multiple
                   className="hidden"
                 />
 
@@ -1414,10 +1574,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               <button
                 type="button"
                 onClick={handleSendMessage}
-                className="shrink-0 p-2 sm:p-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-90 text-white shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer"
-                title="Send message"
+                disabled={isSending}
+                className="shrink-0 p-2 sm:p-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-90 text-white shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50"
+                title={isSending ? "Sending..." : "Send message"}
               >
-                <IoSend className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white" />
+                {isSending ? (
+                  <div className="h-4 w-4 sm:h-4.5 sm:w-4.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <IoSend className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white" />
+                )}
               </button>
             </div>
           </div>
@@ -1426,8 +1591,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             <CameraModal
               onClose={() => setShowCamera(false)}
               onCapture={(file) => {
-                setSelectedFile(file);
-                setFilePreview(URL.createObjectURL(file));
+                const item = {
+                  id: Math.random().toString(36).substring(2, 9) + Date.now(),
+                  file,
+                  name: file.name || "camera-photo.jpg",
+                  size: (file.size / 1024).toFixed(1) + " KB",
+                  type: "image",
+                  previewUrl: URL.createObjectURL(file),
+                };
+                setSelectedFiles((prev) => [...prev, item]);
                 setShowCamera(false);
               }}
             />
@@ -1475,6 +1647,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       )}
 
       <VideoCallManager socket={socket} />
+
+      {previewModalFile && (
+        <FileViewerModal
+          isOpen={Boolean(previewModalFile)}
+          onClose={() => setPreviewModalFile(null)}
+          file={previewModalFile}
+          theme={theme}
+        />
+      )}
     </>
   );
 };

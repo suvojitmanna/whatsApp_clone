@@ -287,7 +287,12 @@ exports.markAsRead = async (req, res) => {
     });
 
     if (!messages.length) {
-      return response(res, 200, "Messages already marked as read or not found", []);
+      return response(
+        res,
+        200,
+        "Messages already marked as read or not found",
+        [],
+      );
     }
 
     await Message.updateMany(
@@ -322,7 +327,9 @@ exports.markAsRead = async (req, res) => {
         if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
           const senderSocketId = req.socketUserMap.get(sId);
           if (senderSocketId) {
-            req.io.to(senderSocketId).emit("message_status_update_bulk", payload);
+            req.io
+              .to(senderSocketId)
+              .emit("message_status_update_bulk", payload);
             req.io.to(senderSocketId).emit("message_read", payload);
           }
         }

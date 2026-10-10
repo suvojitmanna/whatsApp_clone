@@ -13,6 +13,7 @@ import {
   FaFileAlt,
   FaRegStar,
   FaLock,
+  FaEye,
 } from "react-icons/fa";
 import { RiDeleteBin6Line, RiEditLine, RiContactsFill } from "react-icons/ri";
 import { FiCheck, FiChevronDown, FiThumbsDown } from "react-icons/fi";
@@ -33,6 +34,7 @@ import { useChatStore } from "../../store/chatStore";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
 import ReactionDetailsModal from "../../components/ReactionDetailsModal";
+import FileViewerModal from "../../components/FileViewerModal";
 
 const formatEventSchedule = (eventData) => {
   if (!eventData?.eventDate) return "Date TBD";
@@ -96,6 +98,62 @@ const MessageBuble = ({
   const [deleteModal, setDeleteModal] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message?.content || "");
+  const [downloading, setDownloading] = useState(false);
+  const [viewerModalFile, setViewerModalFile] = useState(null);
+
+  const handleDownloadFile = async (e, url, fileName) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    if (!url) return;
+
+    setDownloading(true);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 404) {
+          throw new Error("CLOUDINARY_RESTRICTED");
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "document.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("Download started");
+    } catch (err) {
+      console.warn("Blob download failed:", err);
+      if (err.message === "CLOUDINARY_RESTRICTED") {
+        toast.error(
+          "Cloudinary is blocking PDF delivery. Please enable 'Allow delivery of PDF and ZIP files' in your Cloudinary Security Settings."
+        );
+      }
+      // Fallback: If Cloudinary URL, use fl_attachment transformation flag to trigger download header
+      try {
+        let downloadUrl = url;
+        if (url.includes("/upload/")) {
+          downloadUrl = url.replace("/upload/", "/upload/fl_attachment/");
+        }
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.setAttribute("download", fileName || "document.pdf");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (fallbackErr) {
+        window.open(url, "_blank");
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const emojiPickerRef = useRef(null);
   const reactionsMenuRef = useRef(null);
@@ -218,7 +276,6 @@ const MessageBuble = ({
     }
   });
 
-  // Ensure only one message context menu is open at a time across the entire chat
   useEffect(() => {
     const handleCloseOthers = (e) => {
       if (e.detail !== message._id) {
@@ -231,7 +288,6 @@ const MessageBuble = ({
     };
   }, [message._id]);
 
-  // Close context menu dynamically when user scrolls, resizes window, or presses Escape
   useEffect(() => {
     if (!showOptions) return;
 
@@ -256,7 +312,6 @@ const MessageBuble = ({
     };
   }, [showOptions]);
 
-  // Dynamically re-adjust position once menu is rendered to ensure it never overflows any edge
   useLayoutEffect(() => {
     if (showOptions && optionRef.current && menuCoords?.triggerRect) {
       const el = optionRef.current;
@@ -320,7 +375,6 @@ const MessageBuble = ({
     }
   }, [showOptions]);
 
-  // Open context menu dynamically at trigger chevron button
   const handleToggleOptions = (e) => {
     e.stopPropagation();
     if (showOptions) {
@@ -388,7 +442,6 @@ const MessageBuble = ({
     setShowOptions(true);
   };
 
-  // WhatsApp-style right-click context menu on message bubble
   const handleContextMenu = (e) => {
     const selection = window.getSelection();
     if (selection && selection.toString().length > 0) return;
@@ -679,11 +732,30 @@ const MessageBuble = ({
 
             {message.contentType === "image" && (
               <div className="max-w-full">
-                <img
-                  src={message.imageOrVideoUrl}
-                  alt="img"
-                  className="rounded-xl w-full max-w-[280px] sm:max-w-xs md:max-w-sm object-cover ring-1 ring-black/[0.06]"
-                />
+                <div
+                  className="relative group/img cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setViewerModalFile({
+                      url: message.imageOrVideoUrl,
+                      name: message.fileName || "image.jpg",
+                      type: "image",
+                      size: message.fileSize,
+                    });
+                  }}
+                  title="Click to view image"
+                >
+                  <img
+                    src={message.imageOrVideoUrl}
+                    alt="img"
+                    className="rounded-xl w-full max-w-[280px] sm:max-w-xs md:max-w-sm object-cover ring-1 ring-black/[0.06] transition-transform hover:scale-[1.01]"
+                  />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 rounded-xl flex items-center justify-center transition-opacity">
+                    <span className="px-2.5 py-1 rounded-full bg-black/60 text-white text-xs font-medium flex items-center gap-1.5 shadow">
+                      <FaEye size={12} /> View
+                    </span>
+                  </div>
+                </div>
                 {message.content && (
                   <p className="mt-1.5 break-words text-[14.5px] leading-relaxed">
                     {searchTerm
@@ -710,31 +782,82 @@ const MessageBuble = ({
             )}
             {message.contentType === "document" && (
               <div className="flex flex-col gap-1 min-w-[220px] max-w-[320px]">
-                <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${isDark ? "bg-white/[0.04] border-white/10" : "bg-black/[0.03] border-black/5"
-                  }`}>
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (message.imageOrVideoUrl) {
+                      setViewerModalFile({
+                        url: message.imageOrVideoUrl,
+                        name: message.fileName || message.content || "document.pdf",
+                        type: "document",
+                        size: message.fileSize,
+                      });
+                    }
+                  }}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer select-none group/doc ${isDark
+                    ? "bg-white/[0.04] border-white/10 hover:bg-white/[0.08]"
+                    : "bg-black/[0.03] border-black/5 hover:bg-black/[0.06]"
+                    }`}
+                  title="Click to view or download"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 group-hover/doc:scale-105 transition-transform">
                     <FaFileAlt size={20} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate leading-tight">
                       {message.fileName || message.content || "Document"}
                     </p>
-                    <p className="text-[11px] opacity-60 mt-0.5">
-                      {message.fileSize || "File"}
-                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <p className="text-[11px] opacity-60">
+                        {message.fileSize || "File"}
+                      </p>
+                      <span className="text-[11px] text-emerald-400 font-medium opacity-0 group-hover/doc:opacity-100 transition-opacity">
+                        • View
+                      </span>
+                    </div>
                   </div>
-                  {message.imageOrVideoUrl && (
-                    <a
-                      href={message.imageOrVideoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download={message.fileName || "document"}
-                      className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
-                      title="Download"
-                    >
-                      <FaDownload size={14} className="opacity-80" />
-                    </a>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {message.imageOrVideoUrl && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewerModalFile({
+                            url: message.imageOrVideoUrl,
+                            name: message.fileName || message.content || "document.pdf",
+                            type: "document",
+                            size: message.fileSize,
+                          });
+                        }}
+                        className="p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-emerald-400 transition-colors cursor-pointer"
+                        title="View document"
+                      >
+                        <FaEye size={14} />
+                      </button>
+                    )}
+                    {message.imageOrVideoUrl && (
+                      <button
+                        type="button"
+                        disabled={downloading}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadFile(
+                            e,
+                            message.imageOrVideoUrl,
+                            message.fileName || "document.pdf"
+                          );
+                        }}
+                        className="p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+                        title="Download"
+                      >
+                        {downloading ? (
+                          <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <FaDownload size={13} className="opacity-80 hover:opacity-100 text-emerald-500" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {message.content && message.content !== message.fileName && (
                   <p className="mt-1 break-words text-[14px] leading-relaxed">
@@ -1137,13 +1260,6 @@ const MessageBuble = ({
 
         {message.contentType !== "text" && message.contentType !== "poll" && message.contentType !== "event" && (
           <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-60 mt-1 select-none">
-            {message.isEncrypted && (
-              <FaLock
-                size={9}
-                className="opacity-70 text-emerald-500 mr-0.5 inline-block shrink-0"
-                title="End-to-end encrypted"
-              />
-            )}
             {message.edited && (
               <span className="italic opacity-80 mr-0.5">Edited</span>
             )}
@@ -1324,7 +1440,6 @@ const MessageBuble = ({
             <AnimatePresence>
               {showOptions && menuCoords && (
                 <>
-                  {/* Invisible backdrop to capture outside clicks and prevent accidental underlying actions */}
                   <div
                     className="fixed inset-0 z-[9998] bg-transparent"
                     onClick={(e) => {
@@ -1460,6 +1575,25 @@ const MessageBuble = ({
                       >
                         <FaRegCopy size={15} className="opacity-80 shrink-0" />
                         <span className="font-normal text-[14px]">Copy</span>
+                      </button>
+                    )}
+
+                    {["document", "image", "video"].includes(message.contentType) && message.imageOrVideoUrl && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          setShowOptions(false);
+                          handleDownloadFile(
+                            e,
+                            message.imageOrVideoUrl,
+                            message.fileName || (message.contentType === "document" ? "document.pdf" : `${message.contentType}-${message._id}`)
+                          );
+                        }}
+                        className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                          }`}
+                      >
+                        <FaDownload size={15} className="opacity-80 shrink-0" />
+                        <span className="font-normal text-[14px]">Download</span>
                       </button>
                     )}
 
@@ -1704,6 +1838,15 @@ const MessageBuble = ({
           bubbleRef={bubbleRef}
           isUserMessage={isUserMessage}
         />
+
+        {viewerModalFile && (
+          <FileViewerModal
+            isOpen={Boolean(viewerModalFile)}
+            onClose={() => setViewerModalFile(null)}
+            file={viewerModalFile}
+            theme={theme}
+          />
+        )}
       </div>
     </div>
   );

@@ -194,7 +194,6 @@ const SecurityVerifyModal = ({
                     )}
                   </div>
 
-                  {/* WhatsApp Hover Overlay matching media_1791564616709.png */}
                   <div
                     className={`absolute inset-0 rounded-full flex flex-col items-center justify-center transition-all duration-200 ${downloadSuccess
                       ? "bg-[#717d84]/95 opacity-100"

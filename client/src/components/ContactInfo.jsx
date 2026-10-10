@@ -23,6 +23,31 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { FaArrowLeft } from "react-icons/fa6";
+
+const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
+  <button
+    type="button"
+    onClick={!disabled ? onClick : undefined}
+    className={`flex flex-col items-center gap-2 group transition-all duration-300 ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer active:scale-95"
+      }`}
+  >
+    <div
+      className={`relative w-14 h-14 flex items-center justify-center rounded-2xl backdrop-blur-md ${theme === "dark"
+        ? "bg-white/5 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
+        : "bg-black/5 border-black/5 shadow-[0_4px_16px_0_rgba(31,38,135,0.05)]"
+        } border group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10 transition-all duration-500 overflow-hidden`}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="text-emerald-500 group-hover:text-emerald-400 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-all">
+        {icon}
+      </div>
+    </div>
+    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 group-hover:text-emerald-500 transition-colors">
+      {label}
+    </span>
+  </button>
+);
+
 const ContactInfo = () => {
   const contactInfoRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -115,7 +140,9 @@ const ContactInfo = () => {
       streamRef.current.getTracks().forEach((track) => {
         try {
           track.stop();
-        } catch (e) { }
+        } catch {
+          // ignore
+        }
       });
       streamRef.current = null;
     }
@@ -185,17 +212,20 @@ const ContactInfo = () => {
   );
 
   useEffect(() => {
+    const videoEl = videoRef.current;
     if (!isCameraOpen) {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => {
           try {
             track.stop();
-          } catch (e) { }
+          } catch {
+            // ignore
+          }
         });
         streamRef.current = null;
       }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
+      if (videoEl) {
+        videoEl.srcObject = null;
       }
       return;
     }
@@ -215,7 +245,7 @@ const ContactInfo = () => {
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => { });
+          videoRef.current.play().catch(() => {});
         }
       } catch (err) {
         console.warn("Unable to access camera:", err);
@@ -229,16 +259,19 @@ const ContactInfo = () => {
 
     return () => {
       isMounted = false;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => {
+      const currentStream = streamRef.current;
+      if (currentStream) {
+        currentStream.getTracks().forEach((track) => {
           try {
             track.stop();
-          } catch (e) { }
+          } catch {
+            // ignore
+          }
         });
         streamRef.current = null;
       }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
+      if (videoEl) {
+        videoEl.srcObject = null;
       }
     };
   }, [isCameraOpen]);
@@ -271,7 +304,8 @@ const ContactInfo = () => {
             handleValidateScannedCode(code.data);
             return;
           }
-        } catch (e) {
+        } catch {
+          // ignore
         }
       }
       animId = requestAnimationFrame(checkFrame);
@@ -286,10 +320,10 @@ const ContactInfo = () => {
   }, [isCameraOpen, handleValidateScannedCode]);
 
   useEffect(() => {
-    if (!showContactInfo || contactInfoTab !== "security") {
+    return () => {
       stopCamera();
-    }
-  }, [showContactInfo, contactInfoTab, stopCamera]);
+    };
+  }, [stopCamera]);
 
   const handleVideoCall = () => {
     if (selectedContact && online) {
@@ -369,7 +403,7 @@ const ContactInfo = () => {
                 "Couldn't find a valid QR code in this image. Please select an image containing a WhatsApp security QR code.",
             });
           }
-        } catch (err) {
+        } catch {
           setScanError({
             title: "Error reading image",
             message: "Failed to process the uploaded image. Please try again.",
@@ -381,29 +415,6 @@ const ContactInfo = () => {
     reader.readAsDataURL(file);
     e.target.value = "";
   };
-
-  const ActionButton = ({ icon, label, onClick, disabled }) => (
-    <button
-      onClick={!disabled ? onClick : undefined}
-      className={`flex flex-col items-center gap-2 group transition-all duration-300 ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer active:scale-95"
-        }`}
-    >
-      <div
-        className={`relative w-14 h-14 flex items-center justify-center rounded-2xl backdrop-blur-md ${theme === "dark"
-          ? "bg-white/5 border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)]"
-          : "bg-black/5 border-black/5 shadow-[0_4px_16px_0_rgba(31,38,135,0.05)]"
-          } border group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10 transition-all duration-500 overflow-hidden`}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div className="text-emerald-500 group-hover:text-emerald-400 group-hover:drop-shadow-[0_0_8px_rgba(16,185,129,0.5)] transition-all">
-          {icon}
-        </div>
-      </div>
-      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 group-hover:text-emerald-500 transition-colors">
-        {label}
-      </span>
-    </button>
-  );
 
   return (
     <AnimatePresence>
@@ -550,13 +561,18 @@ const ContactInfo = () => {
                 </div>
 
                 <div className="flex justify-center gap-8">
-                  <ActionButton icon={<FaSearch size={18} />} label="Search" />
+                  <ActionButton
+                    icon={<FaSearch size={18} />}
+                    label="Search"
+                    theme={theme}
+                  />
 
                   <ActionButton
                     icon={<FaPhone size={18} />}
                     label="Audio"
                     onClick={handleAudioCall}
                     disabled={!selectedContact?.isOnline}
+                    theme={theme}
                   />
 
                   <ActionButton
@@ -564,6 +580,7 @@ const ContactInfo = () => {
                     label="Video"
                     onClick={handleVideoCall}
                     disabled={!selectedContact?.isOnline}
+                    theme={theme}
                   />
                 </div>
 
@@ -572,7 +589,7 @@ const ContactInfo = () => {
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.4, type: "spring", stiffness: 100 }}
-                    className={`relative p-3 rounded-[28px] overflow-hidden transition-all duration-500 backdrop-blur-2xl border ${theme === "dark"
+                    className={`relative p-3 rounded-2xl overflow-hidden transition-all duration-500 backdrop-blur-2xl border ${theme === "dark"
                       ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
                       : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
                       }`}
@@ -580,7 +597,7 @@ const ContactInfo = () => {
                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
 
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                      <div className="w-1.5 h-1.5  bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
                       <p className="text-[11px] text-emerald-500 font-bold uppercase tracking-[0.15em]">
                         About
                       </p>
@@ -612,7 +629,7 @@ const ContactInfo = () => {
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.45, type: "spring", stiffness: 100 }}
                     onClick={() => setContactInfoTab("security")}
-                    className={`relative p-3.5 rounded-[24px] cursor-pointer transition-all duration-300 backdrop-blur-2xl border active:scale-98 ${theme === "dark"
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl border active:scale-98 ${theme === "dark"
                       ? "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
                       : "bg-black/[0.02] border-black/5 hover:bg-black/[0.04] shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
                       }`}
@@ -786,7 +803,6 @@ const ContactInfo = () => {
                       )}
                     </div>
 
-                    {/* WhatsApp Hover Overlay matching media_1791564616709.png */}
                     <div
                       className={`absolute inset-0 rounded-full flex flex-col items-center justify-center transition-all duration-200 ${downloadSuccess
                         ? "bg-[#717d84]/95 opacity-100"

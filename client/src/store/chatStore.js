@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getSocket } from "../services/chatService";
+import { getSocket, initializeSocket } from "../services/chatService";
 import axiosInstance from "../services/url.services";
 import useUserStore from "./useUserStore";
 import useLayoutStore from "./layoutStore";
@@ -155,8 +155,13 @@ export const useChatStore = create((set, get) => ({
 
         let convsChanged = false;
         const nextConversationsData = state.conversations?.data?.map((conv) => {
-          const lastMsgId = (conv.lastMessage?._id || conv.lastMessage)?.toString();
-          if (strIds.has(lastMsgId) && conv.lastMessage?.messageStatus !== status) {
+          const lastMsgId = (
+            conv.lastMessage?._id || conv.lastMessage
+          )?.toString();
+          if (
+            strIds.has(lastMsgId) &&
+            conv.lastMessage?.messageStatus !== status
+          ) {
             convsChanged = true;
             return {
               ...conv,
@@ -172,9 +177,10 @@ export const useChatStore = create((set, get) => ({
         if (!changed && !convsChanged) return {};
 
         const convId = state.currentConversation?._id;
-        const nextCache = convId && changed
-          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
-          : state.messagesCache;
+        const nextCache =
+          convId && changed
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
 
         return {
           messages: changed ? nextMessages : state.messages,
@@ -214,7 +220,13 @@ export const useChatStore = create((set, get) => ({
     });
 
     socket.on("message_read", (payload) => {
-      const rawIds = payload?.messageIds || (payload?._id ? [payload._id] : (payload?.messageId ? [payload.messageId] : []));
+      const rawIds =
+        payload?.messageIds ||
+        (payload?._id
+          ? [payload._id]
+          : payload?.messageId
+            ? [payload.messageId]
+            : []);
       const ids = Array.isArray(rawIds) ? rawIds : [];
       handleStatusBulk(ids, payload?.messageStatus || "read");
     });
@@ -453,7 +465,6 @@ export const useChatStore = create((set, get) => ({
     const convIdStr = conversationId.toString();
     const cachedMessages = get().messagesCache?.get(convIdStr);
 
-    // If cached, render immediately with ZERO latency!
     if (cachedMessages && cachedMessages.length > 0) {
       set({
         messages: cachedMessages,
@@ -489,7 +500,6 @@ export const useChatStore = create((set, get) => ({
         peerPubKey = foundUser?.publicKey;
       }
 
-      // High-speed parallel batch decryption
       const decryptedMessages = await batchDecryptMessages(
         rawMessages,
         currentUserId,
@@ -528,7 +538,6 @@ export const useChatStore = create((set, get) => ({
     const messageStatus = formData.get("messageStatus");
     const customContentType = formData.get("contentType");
 
-    const socket = getSocket();
     const { conversations } = get();
     let conversationId = null;
 
@@ -649,7 +658,9 @@ export const useChatStore = create((set, get) => ({
       const isAlreadyRead = readStatusCache.has(savedMsgId);
       const savedMessage = {
         ...messageData,
-        messageStatus: isAlreadyRead ? "read" : (messageData.messageStatus || "delivered"),
+        messageStatus: isAlreadyRead
+          ? "read"
+          : messageData.messageStatus || "delivered",
         content: rawContentToKeep,
         _isDecrypted: true,
         isEncrypted: messageData.isEncrypted ?? isEncrypted,
@@ -735,12 +746,12 @@ export const useChatStore = create((set, get) => ({
     const isCurrentConversation =
       Boolean(
         conversationId &&
-          currentConversation?._id &&
-          String(conversationId) === String(currentConversation._id),
+        currentConversation?._id &&
+        String(conversationId) === String(currentConversation._id),
       ) ||
       Boolean(
         activeContactId &&
-          (senderId === activeContactId || receiverId === activeContactId),
+        (senderId === activeContactId || receiverId === activeContactId),
       );
 
     const isForCurrentUser =
@@ -811,7 +822,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   markMessageAsRead: async (explicitIds = null) => {
-    const { messages, currentUser, currentConversation } = get();
+    const { messages, currentUser } = get();
     const effectiveUser = currentUser || useUserStore.getState().user;
     const myId = (effectiveUser?._id || effectiveUser?.id)?.toString();
 

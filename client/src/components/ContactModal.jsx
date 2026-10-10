@@ -10,19 +10,13 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
     const [email, setEmail] = useState("");
     const [activeTab, setActiveTab] = useState("chats");
     const isDark = theme === "dark";
-
     const storeUsers = useChatStore((state) => state.users) || [];
-
     const userMap = new Map();
     storeUsers.forEach((u) => {
         if (u?._id) userMap.set(u._id.toString(), u);
     });
-
-    const allConversationParticipants =
-        conversations?.data?.flatMap((c) => c.participants) || [];
-
+    const allConversationParticipants = conversations?.data?.flatMap((c) => c.participants) || [];
     const combinedList = [...storeUsers, ...allConversationParticipants].filter(Boolean);
-
     const uniqueContacts = Array.from(
         new Map(
             combinedList.map((contact) => {
@@ -41,7 +35,6 @@ const ContactModal = ({ onClose, onSend, conversations, theme }) => {
             })
         ).values()
     );
-
     const handleShare = (contactData) => {
         onSend(contactData);
         if (typeof onClose === "function") {
