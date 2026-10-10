@@ -34,7 +34,6 @@ function initializeSocket(server) {
 
         io.emit("user_status", { userId, isOnline: true });
 
-        // Deliver pending messages sent to this user while they were offline
         const now = new Date();
         const pendingMessages = await Message.find({
           receiver: userId,
@@ -44,7 +43,7 @@ function initializeSocket(server) {
         if (pendingMessages.length > 0) {
           await Message.updateMany(
             { receiver: userId, messageStatus: "send" },
-            { $set: { messageStatus: "delivered", deliveredAt: now } }
+            { $set: { messageStatus: "delivered", deliveredAt: now } },
           );
 
           const senderMap = new Map();
@@ -66,7 +65,7 @@ function initializeSocket(server) {
             if (onlineUsers.has(sId)) {
               io.to(onlineUsers.get(sId)).emit(
                 "message_status_update_bulk",
-                payload
+                payload,
               );
             }
           }
@@ -357,134 +356,155 @@ function initializeSocket(server) {
       }
     });
 
-    socket.on("pin_message", async ({ conversationId, message, duration, pinnedBy, receiverId, secondaryId }) => {
-      try {
-        const pinnedAt = Date.now();
-        let durationMs = 7 * 24 * 60 * 60 * 1000;
-        if (duration === "24 hours") durationMs = 24 * 60 * 60 * 1000;
-        if (duration === "30 days") durationMs = 30 * 24 * 60 * 60 * 1000;
-        const expiresAt = pinnedAt + durationMs;
+    socket.on(
+      "pin_message",
+      async ({
+        conversationId,
+        message,
+        duration,
+        pinnedBy,
+        receiverId,
+        secondaryId,
+      }) => {
+        try {
+          const pinnedAt = Date.now();
+          let durationMs = 7 * 24 * 60 * 60 * 1000;
+          if (duration === "24 hours") durationMs = 24 * 60 * 60 * 1000;
+          if (duration === "30 days") durationMs = 30 * 24 * 60 * 60 * 1000;
+          const expiresAt = pinnedAt + durationMs;
 
-        let resolvedConvId = conversationId;
-        const targets = new Set();
-        if (receiverId) targets.add((receiverId._id || receiverId).toString());
-        if (pinnedBy) targets.add((pinnedBy._id || pinnedBy).toString());
-        if (secondaryId) targets.add((secondaryId._id || secondaryId).toString());
+          let resolvedConvId = conversationId;
+          const targets = new Set();
+          if (receiverId)
+            targets.add((receiverId._id || receiverId).toString());
+          if (pinnedBy) targets.add((pinnedBy._id || pinnedBy).toString());
+          if (secondaryId)
+            targets.add((secondaryId._id || secondaryId).toString());
 
-        if (message?.sender) {
-          const sId = (message.sender._id || message.sender).toString();
-          targets.add(sId);
-        }
-        if (message?.receiver) {
-          const rId = (message.receiver._id || message.receiver).toString();
-          targets.add(rId);
-        }
-
-        if (!resolvedConvId && (receiverId || secondaryId) && pinnedBy) {
-          try {
-            const otherId = (receiverId || secondaryId).toString();
-            const participants = [pinnedBy.toString(), otherId].sort();
-            const foundConv = await Conversation.findOne({ participants });
-            if (foundConv) {
-              resolvedConvId = foundConv._id.toString();
-            }
-          } catch (e) {}
-        }
-
-        if (resolvedConvId) {
-          try {
-            const conv = await Conversation.findById(resolvedConvId);
-            if (conv && conv.participants) {
-              conv.participants.forEach((p) => targets.add(p.toString()));
-            }
-            await Conversation.findByIdAndUpdate(resolvedConvId, {
-              pinnedMessage: {
-                message: message?._id || message,
-                pinnedBy: pinnedBy,
-                duration: duration || "7 days",
-                pinnedAt: new Date(pinnedAt),
-                expiresAt: new Date(expiresAt),
-              },
-            });
-          } catch (e) {
-            console.error("Error saving pinned message to conversation:", e);
+          if (message?.sender) {
+            const sId = (message.sender._id || message.sender).toString();
+            targets.add(sId);
           }
-        }
-
-        const payload = {
-          conversationId: resolvedConvId || conversationId,
-          message,
-          duration,
-          pinnedBy,
-          secondaryId,
-          receiverId,
-          pinnedAt,
-          expiresAt,
-        };
-
-        targets.forEach((targetId) => {
-          io.to(targetId).emit("message_pinned", payload);
-          const socketId = onlineUsers.get(targetId);
-          if (socketId) {
-            io.to(socketId).emit("message_pinned", payload);
+          if (message?.receiver) {
+            const rId = (message.receiver._id || message.receiver).toString();
+            targets.add(rId);
           }
-        });
-      } catch (error) {
-        console.error("Error in pin_message socket event:", error);
-      }
-    });
 
-    socket.on("unpin_message", async ({ conversationId, receiverId, secondaryId, unpinnedBy }) => {
-      try {
-        let resolvedConvId = conversationId;
-        const targets = new Set();
-        if (receiverId) targets.add((receiverId._id || receiverId).toString());
-        if (unpinnedBy) targets.add((unpinnedBy._id || unpinnedBy).toString());
-        if (secondaryId) targets.add((secondaryId._id || secondaryId).toString());
+          if (!resolvedConvId && (receiverId || secondaryId) && pinnedBy) {
+            try {
+              const otherId = (receiverId || secondaryId).toString();
+              const participants = [pinnedBy.toString(), otherId].sort();
+              const foundConv = await Conversation.findOne({ participants });
+              if (foundConv) {
+                resolvedConvId = foundConv._id.toString();
+              }
+            } catch (e) {}
+          }
 
-        if (!resolvedConvId && (receiverId || secondaryId) && unpinnedBy) {
-          try {
-            const otherId = (receiverId || secondaryId).toString();
-            const participants = [unpinnedBy.toString(), otherId].sort();
-            const foundConv = await Conversation.findOne({ participants });
-            if (foundConv) {
-              resolvedConvId = foundConv._id.toString();
+          if (resolvedConvId) {
+            try {
+              const conv = await Conversation.findById(resolvedConvId);
+              if (conv && conv.participants) {
+                conv.participants.forEach((p) => targets.add(p.toString()));
+              }
+              await Conversation.findByIdAndUpdate(resolvedConvId, {
+                pinnedMessage: {
+                  message: message?._id || message,
+                  pinnedBy: pinnedBy,
+                  duration: duration || "7 days",
+                  pinnedAt: new Date(pinnedAt),
+                  expiresAt: new Date(expiresAt),
+                },
+              });
+            } catch (e) {
+              console.error("Error saving pinned message to conversation:", e);
             }
-          } catch (e) {}
-        }
+          }
 
-        if (resolvedConvId) {
-          try {
-            const conv = await Conversation.findById(resolvedConvId);
-            if (conv && conv.participants) {
-              conv.participants.forEach((p) => targets.add(p.toString()));
+          const payload = {
+            conversationId: resolvedConvId || conversationId,
+            message,
+            duration,
+            pinnedBy,
+            secondaryId,
+            receiverId,
+            pinnedAt,
+            expiresAt,
+          };
+
+          targets.forEach((targetId) => {
+            io.to(targetId).emit("message_pinned", payload);
+            const socketId = onlineUsers.get(targetId);
+            if (socketId) {
+              io.to(socketId).emit("message_pinned", payload);
             }
-            await Conversation.findByIdAndUpdate(resolvedConvId, {
-              $unset: { pinnedMessage: 1 },
-            });
-          } catch (e) {
-            console.error("Error unsetting pinned message from conversation:", e);
-          }
+          });
+        } catch (error) {
+          console.error("Error in pin_message socket event:", error);
         }
+      },
+    );
 
-        const payload = {
-          conversationId: resolvedConvId || conversationId,
-          secondaryId,
-          receiverId,
-          unpinnedBy,
-        };
+    socket.on(
+      "unpin_message",
+      async ({ conversationId, receiverId, secondaryId, unpinnedBy }) => {
+        try {
+          let resolvedConvId = conversationId;
+          const targets = new Set();
+          if (receiverId)
+            targets.add((receiverId._id || receiverId).toString());
+          if (unpinnedBy)
+            targets.add((unpinnedBy._id || unpinnedBy).toString());
+          if (secondaryId)
+            targets.add((secondaryId._id || secondaryId).toString());
 
-        targets.forEach((targetId) => {
-          io.to(targetId).emit("message_unpinned", payload);
-          const socketId = onlineUsers.get(targetId);
-          if (socketId) {
-            io.to(socketId).emit("message_unpinned", payload);
+          if (!resolvedConvId && (receiverId || secondaryId) && unpinnedBy) {
+            try {
+              const otherId = (receiverId || secondaryId).toString();
+              const participants = [unpinnedBy.toString(), otherId].sort();
+              const foundConv = await Conversation.findOne({ participants });
+              if (foundConv) {
+                resolvedConvId = foundConv._id.toString();
+              }
+            } catch (e) {}
           }
-        });
-      } catch (error) {
-        console.error("Error in unpin_message socket event:", error);
-      }
-    });
+
+          if (resolvedConvId) {
+            try {
+              const conv = await Conversation.findById(resolvedConvId);
+              if (conv && conv.participants) {
+                conv.participants.forEach((p) => targets.add(p.toString()));
+              }
+              await Conversation.findByIdAndUpdate(resolvedConvId, {
+                $unset: { pinnedMessage: 1 },
+              });
+            } catch (e) {
+              console.error(
+                "Error unsetting pinned message from conversation:",
+                e,
+              );
+            }
+          }
+
+          const payload = {
+            conversationId: resolvedConvId || conversationId,
+            secondaryId,
+            receiverId,
+            unpinnedBy,
+          };
+
+          targets.forEach((targetId) => {
+            io.to(targetId).emit("message_unpinned", payload);
+            const socketId = onlineUsers.get(targetId);
+            if (socketId) {
+              io.to(socketId).emit("message_unpinned", payload);
+            }
+          });
+        } catch (error) {
+          console.error("Error in unpin_message socket event:", error);
+        }
+      },
+    );
 
     handleVideoCallEvent(socket, io, onlineUsers);
 

@@ -2088,28 +2088,26 @@ const MessageBuble = ({
                           className={`my-1 border-t ${isDark ? "border-[#313d45]" : "border-black/10"
                             }`}
                         />
-
                         <button
                           type="button"
                           onClick={() => {
                             setShowOptions(false);
                             setShowReportModal(true);
                           }}
-                          className={`group flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                            ? "hover:bg-[#182229] text-[#d1d7db]"
-                            : "hover:bg-[#f5f6f6] text-[#111b21]"
+                          className={`group relative flex w-full items-center gap-4 overflow-hidden rounded-lg border border-transparent px-5 py-2.5 cursor-pointer backdrop-blur-xl transition-all duration-300 ${isDark
+                            ? "text-[#d1d7db] hover:bg-red-500/[0.08] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.08)]"
+                            : "text-[#111b21] hover:bg-red-500/[0.05] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.06)]"
                             }`}
                         >
                           <FiThumbsDown
                             size={17}
-                            className="shrink-0 text-[#8696a0] transition-colors group-hover:text-red-500"
+                            className="shrink-0 text-[#8696a0] transition-colors duration-300 group-hover:text-red-500"
                           />
 
-                          <span className="font-normal text-[14.5px] transition-colors group-hover:text-red-500">
+                          <span className="text-[14.5px] font-normal transition-colors duration-300 group-hover:text-red-500">
                             Report
                           </span>
                         </button>
-
 
                         <button
                           type="button"
@@ -2117,17 +2115,17 @@ const MessageBuble = ({
                             setDeleteModal(message);
                             setShowOptions(false);
                           }}
-                          className={`group flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                            ? "hover:bg-[#182229] text-[#d1d7db]"
-                            : "hover:bg-[#f5f6f6] text-[#111b21]"
+                          className={`group relative flex w-full items-center gap-4 overflow-hidden rounded-lg border border-transparent px-5 py-2.5 cursor-pointer backdrop-blur-xl transition-all duration-300 ${isDark
+                            ? "text-[#d1d7db] hover:bg-red-500/[0.08] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.08)]"
+                            : "text-[#111b21] hover:bg-red-500/[0.05] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.06)]"
                             }`}
                         >
                           <RiDeleteBin6Line
                             size={17}
-                            className="shrink-0 text-[#8696a0] transition-colors group-hover:text-red-500"
+                            className="shrink-0 text-[#8696a0] transition-colors duration-300 group-hover:text-red-500"
                           />
 
-                          <span className="font-normal text-[14.5px] transition-colors group-hover:text-red-500">
+                          <span className="text-[14.5px] font-normal transition-colors duration-300 group-hover:text-red-500">
                             Delete
                           </span>
                         </button>

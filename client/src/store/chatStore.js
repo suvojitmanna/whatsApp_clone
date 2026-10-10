@@ -125,6 +125,36 @@ export const useChatStore = create((set, get) => ({
   isMessagesLoading: false,
   setIsMessagesLoading: (isMessagesLoading) => set({ isMessagesLoading }),
   clearMessages: () => set({ messages: [], isMessagesLoading: false }),
+  clearUnreadCount: (targetId) => {
+    if (!targetId) return;
+    const strId = (targetId?._id || targetId)?.toString();
+    set((state) => ({
+      conversations: {
+        ...state.conversations,
+        data: state.conversations?.data?.map((conv) => {
+          const isMatch =
+            String(conv._id) === strId ||
+            conv.participants?.some((p) => String(p?._id || p) === strId);
+          return isMatch ? { ...conv, unreadCount: 0 } : conv;
+        }),
+      },
+      users: state.users?.map((u) => {
+        const isMatch =
+          String(u._id) === strId ||
+          (u.conversation && String(u.conversation._id) === strId);
+        if (isMatch && u.conversation) {
+          return {
+            ...u,
+            conversation: {
+              ...u.conversation,
+              unreadCount: 0,
+            },
+          };
+        }
+        return u;
+      }),
+    }));
+  },
   loading: false,
   error: null,
   onlineUsers: new Map(),
@@ -364,13 +394,17 @@ export const useChatStore = create((set, get) => ({
     }
   },
   scrollPositions: {},
-  saveScrollPosition: (id, pos) =>
+  saveScrollPosition: (id, pos) => {
+    if (!id || !pos) return;
+    const strId = (id?._id || id)?.toString();
+    if (!strId) return;
     set((state) => ({
       scrollPositions: {
         ...state.scrollPositions,
-        [id]: pos,
+        [strId]: pos,
       },
-    })),
+    }));
+  },
 
   initSocketListener: () => {
     const socket = getSocket();
@@ -456,8 +490,7 @@ export const useChatStore = create((set, get) => ({
                   nowIso,
               }),
               ...(status === "delivered" && {
-                deliveredAt:
-                  extraData.deliveredAt || msg.deliveredAt || nowIso,
+                deliveredAt: extraData.deliveredAt || msg.deliveredAt || nowIso,
               }),
               ...extraData,
             };
@@ -482,9 +515,7 @@ export const useChatStore = create((set, get) => ({
                 messageStatus: status,
                 ...(status === "read" && {
                   readAt:
-                    extraData.readAt ||
-                    conv.lastMessage?.readAt ||
-                    nowIso,
+                    extraData.readAt || conv.lastMessage?.readAt || nowIso,
                   deliveredAt:
                     conv.lastMessage?.deliveredAt ||
                     extraData.deliveredAt ||
@@ -882,12 +913,20 @@ export const useChatStore = create((set, get) => ({
     const cachedMessages = get().messagesCache?.get(convIdStr);
 
     if (cachedMessages && cachedMessages.length > 0) {
-      set({
+      set((state) => ({
         messages: cachedMessages,
         currentConversation: { _id: conversationId },
         isMessagesLoading: false,
         loading: false,
-      });
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) =>
+            String(conv._id) === String(conversationId)
+              ? { ...conv, unreadCount: 0 }
+              : conv,
+          ),
+        },
+      }));
       get().markMessageAsRead();
     } else {
       set({
@@ -926,13 +965,25 @@ export const useChatStore = create((set, get) => ({
       const cache = get().messagesCache || new Map();
       cache.set(convIdStr, decryptedMessages);
 
-      set({
+      set((state) => ({
         messages: decryptedMessages,
         messagesCache: cache,
         currentConversation: { _id: conversationId },
         loading: false,
         isMessagesLoading: false,
-      });
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) => {
+            const isMatch =
+              String(conv._id) === String(conversationId) ||
+              (peerId &&
+                conv.participants?.some(
+                  (p) => String(p?._id || p) === String(peerId),
+                ));
+            return isMatch ? { ...conv, unreadCount: 0 } : conv;
+          }),
+        },
+      }));
       get().markMessageAsRead();
 
       return decryptedMessages;
@@ -1169,12 +1220,15 @@ export const useChatStore = create((set, get) => ({
       decryptedMessage.sender?._id || decryptedMessage.sender
     )?.toString();
 
+    const activeConvId = (
+      currentConversation?._id || selectedContact?.conversation?._id
+    )?.toString();
     const activeContactId = selectedContact?._id?.toString();
     const isCurrentConversation =
       Boolean(
         conversationId &&
-        currentConversation?._id &&
-        String(conversationId) === String(currentConversation._id),
+        activeConvId &&
+        String(conversationId) === String(activeConvId),
       ) ||
       Boolean(
         activeContactId &&
@@ -1232,7 +1286,15 @@ export const useChatStore = create((set, get) => ({
       conversations: {
         ...state.conversations,
         data: state.conversations?.data?.map((conv) => {
-          if (String(conv._id) !== String(conversationId)) {
+          const isTarget =
+            (conversationId && String(conv._id) === String(conversationId)) ||
+            conv.participants?.some(
+              (p) =>
+                String(p?._id || p) === String(senderId) ||
+                String(p?._id || p) === String(receiverId),
+            );
+
+          if (!isTarget) {
             return conv;
           }
 
@@ -1259,9 +1321,35 @@ export const useChatStore = create((set, get) => ({
   },
 
   markMessageAsRead: async (explicitIds = null) => {
-    const { messages, currentUser } = get();
+    const { messages, currentUser, currentConversation } = get();
     const effectiveUser = currentUser || useUserStore.getState().user;
     const myId = (effectiveUser?._id || effectiveUser?.id)?.toString();
+    const selectedContact = useLayoutStore.getState()?.selectedContact;
+    const peerId = (selectedContact?._id || selectedContact?.id)?.toString();
+    const activeConvId = (
+      currentConversation?._id ||
+      selectedContact?.conversation?._id ||
+      messages[0]?.conversation?._id ||
+      messages[0]?.conversation
+    )?.toString();
+
+    // Always clear unread count for the active chat in the conversations list
+    if (activeConvId || peerId) {
+      set((state) => ({
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) => {
+            const isMatch =
+              (activeConvId && String(conv._id) === String(activeConvId)) ||
+              (peerId &&
+                conv.participants?.some(
+                  (p) => String(p?._id || p) === String(peerId),
+                ));
+            return isMatch ? { ...conv, unreadCount: 0 } : conv;
+          }),
+        },
+      }));
+    }
 
     let unreadIds = [];
     if (Array.isArray(explicitIds) && explicitIds.length > 0) {
@@ -1305,6 +1393,7 @@ export const useChatStore = create((set, get) => ({
         );
 
         const convId =
+          activeConvId ||
           state.currentConversation?._id ||
           messages[0]?.conversation?._id ||
           messages[0]?.conversation;
@@ -1317,15 +1406,20 @@ export const useChatStore = create((set, get) => ({
           messagesCache: nextCache,
           conversations: {
             ...state.conversations,
-            data: state.conversations?.data?.map((conv) =>
-              String(conv._id) ===
-              String(state.currentConversation?._id || convId)
+            data: state.conversations?.data?.map((conv) => {
+              const isMatch =
+                (convId && String(conv._id) === String(convId)) ||
+                (peerId &&
+                  conv.participants?.some(
+                    (p) => String(p?._id || p) === String(peerId),
+                  ));
+              return isMatch
                 ? {
                     ...conv,
                     unreadCount: 0,
                   }
-                : conv,
-            ),
+                : conv;
+            }),
           },
         };
       });
@@ -1700,3 +1794,5 @@ export const useChatStore = create((set, get) => ({
     });
   },
 }));
+
+export default useChatStore;

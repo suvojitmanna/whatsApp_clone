@@ -7,7 +7,7 @@ import { RiContactsFill } from "react-icons/ri";
 import { format, isToday, isYesterday } from "date-fns";
 import useLayoutStore from "../store/layoutStore";
 import useThemeStore from "../store/themeStore";
-import useChatStore from "../store/chatStore";
+import { useChatStore } from "../store/chatStore";
 import useOutsideClick from "../hook/useOutsideClick";
 
 const formatReceiptDate = (dateObj) => {
@@ -24,7 +24,6 @@ const MessageInfoPanel = () => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
 
-  // Subscribe to live messages so receipts update in real-time
   const liveMsg = useChatStore((state) => {
     if (!selectedMessageInfo) return null;
     const targetId = (
@@ -60,8 +59,6 @@ const MessageInfoPanel = () => {
   if (!selectedMessageInfo) return null;
 
   const msg = liveMsg || selectedMessageInfo;
-
-  // 1. Sent time & date (when message was sent / created)
   const sentDate = msg.createdAt
     ? new Date(msg.createdAt)
     : new Date(msg.timestamp || Date.now());
@@ -70,7 +67,6 @@ const MessageInfoPanel = () => {
   const sentDateLabel =
     !isNaN(sentDate.getTime()) ? formatReceiptDate(sentDate) : "";
 
-  // 2. Delivered status, time & date
   const isDelivered =
     msg.messageStatus === "delivered" || msg.messageStatus === "read";
   const deliveredDate = msg.deliveredAt
@@ -89,7 +85,6 @@ const MessageInfoPanel = () => {
       ? formatReceiptDate(deliveredDate)
       : "";
 
-  // 3. Read status, time & date
   const isRead = msg.messageStatus === "read";
   const readDate = msg.readAt
     ? new Date(msg.readAt)

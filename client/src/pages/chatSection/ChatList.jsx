@@ -489,8 +489,13 @@ const ChatList = ({ contacts }) => {
                 key={contact._id}
                 data-contact-id={contact._id}
                 title={`Chat with ${contact?.username || "user"}`}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setSelectedContact(contact)}
+                onClick={() => {
+                  setSelectedContact(contact);
+                  useChatStore.getState().clearUnreadCount(contact._id);
+                  if (contact?.conversation?._id) {
+                    useChatStore.getState().clearUnreadCount(contact.conversation._id);
+                  }
+                }}
                 className={`p-3 flex items-center cursor-pointer transition-colors ${theme === "dark"
                   ? selectedContact?._id === contact._id
                     ? "bg-gray-700"
@@ -597,6 +602,18 @@ const ChatList = ({ contacts }) => {
                         />
                       )}
                       {(() => {
+                        const isCurrentOpen = Boolean(
+                          selectedContact?._id &&
+                          (String(contact?._id) === String(selectedContact._id) ||
+                            (contact?.conversation?._id &&
+                              selectedContact?.conversation?._id &&
+                              String(contact.conversation._id) === String(selectedContact.conversation._id)))
+                        );
+
+                        if (isCurrentOpen) {
+                          return null;
+                        }
+
                         const unread = contact?.conversation?.unreadCount;
                         const currentUserId = user?._id?.toString();
                         const lastMsgSenderId = (

@@ -417,6 +417,18 @@ exports.markAsRead = async (req, res) => {
       },
     );
 
+    const convIds = [
+      ...new Set(
+        messages.map((m) => m.conversation?.toString()).filter(Boolean),
+      ),
+    ];
+    if (convIds.length > 0) {
+      await Conversation.updateMany(
+        { _id: { $in: convIds } },
+        { $set: { unreadCount: 0 } },
+      );
+    }
+
     messages = messages.map((msg) => ({
       ...msg._doc,
       messageStatus: "read",

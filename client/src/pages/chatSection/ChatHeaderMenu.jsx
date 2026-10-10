@@ -50,7 +50,7 @@ const ChatHeaderMenu = ({
 
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState(null); // { type: 'clear' | 'delete' | 'block' }
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   const menuRef = useRef(null);
   const submenuRef = useRef(null);
@@ -61,7 +61,6 @@ const ChatHeaderMenu = ({
       selectedContact?._id ||
       "")?.toString();
 
-  // Local storage state for favorites
   const [favorites, setFavorites] = useState(() => {
     try {
       return JSON.parse(
@@ -76,7 +75,6 @@ const ChatHeaderMenu = ({
     return Boolean(chatId && favorites.includes(chatId));
   }, [chatId, favorites]);
 
-  // Local storage state for muted chats
   const [mutedChats, setMutedChats] = useState(() => {
     try {
       return JSON.parse(
@@ -94,7 +92,6 @@ const ChatHeaderMenu = ({
     return typeof val === "number" && val > Date.now();
   }, [chatId, mutedChats]);
 
-  // Local storage state for blocked contacts
   const [blockedContacts, setBlockedContacts] = useState(() => {
     try {
       return JSON.parse(
@@ -109,7 +106,6 @@ const ChatHeaderMenu = ({
     return Boolean(chatId && blockedContacts.includes(chatId));
   }, [chatId, blockedContacts]);
 
-  // Local storage state for disappearing messages
   const [disappearingSettings, setDisappearingSettings] = useState(() => {
     try {
       return JSON.parse(
@@ -122,7 +118,6 @@ const ChatHeaderMenu = ({
 
   const disappearingDuration = disappearingSettings[chatId] || "Off";
 
-  // Close on Escape
   useEffect(() => {
     if (!isOpen) {
       setActiveSubmenu(null);
@@ -143,7 +138,6 @@ const ChatHeaderMenu = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, activeSubmenu, onClose]);
 
-  // Toggle favorite
   const handleToggleFavorite = () => {
     if (!chatId) return;
     let next;
@@ -159,7 +153,6 @@ const ChatHeaderMenu = ({
     onClose();
   };
 
-  // Mute notifications
   const handleMute = (duration) => {
     if (!chatId) return;
     const now = Date.now();
@@ -184,7 +177,6 @@ const ChatHeaderMenu = ({
     onClose();
   };
 
-  // Disappearing messages
   const handleSetDisappearing = (duration) => {
     if (!chatId) return;
     const next = { ...disappearingSettings, [chatId]: duration };
@@ -201,7 +193,6 @@ const ChatHeaderMenu = ({
     onClose();
   };
 
-  // Export chat to txt
   const handleExportChat = () => {
     const contactName =
       selectedContact?.username || selectedContact?.name || "Chat";
@@ -259,7 +250,6 @@ const ChatHeaderMenu = ({
     onClose();
   };
 
-  // Send call link
   const handleSendCallLink = () => {
     const randomCode = Math.random().toString(36).substring(2, 9);
     const callLink = `https://call.whatsapp.com/video/${randomCode}`;
@@ -268,14 +258,12 @@ const ChatHeaderMenu = ({
     onClose();
   };
 
-  // Close chat
   const handleCloseChat = () => {
     setSelectedContact?.(null);
     setCurrentConversation?.(null);
     onClose();
   };
 
-  // Block / Unblock
   const handleToggleBlock = () => {
     if (!chatId) return;
     if (isBlocked) {
@@ -289,30 +277,35 @@ const ChatHeaderMenu = ({
     }
   };
 
-  // Clear Chat execution
   const handleExecuteClearChat = () => {
-    useChatStore.setState((state) => ({
-      messages: [],
-      messagesCache: chatId
-        ? { ...state.messagesCache, [chatId]: [] }
-        : state.messagesCache,
-    }));
+    useChatStore.setState((state) => {
+      const nextCache = new Map(state.messagesCache || new Map());
+      if (chatId) nextCache.set(String(chatId), []);
+      return {
+        messages: [],
+        messagesCache: nextCache,
+      };
+    });
     toast.success("Chat cleared");
     setConfirmDialog(null);
     onClose();
   };
 
-  // Delete Chat execution
   const handleExecuteDeleteChat = () => {
-    useChatStore.setState((state) => ({
-      messages: [],
-      conversations: {
-        ...state.conversations,
-        data: (state.conversations?.data || []).filter(
-          (c) => c._id?.toString() !== chatId
-        ),
-      },
-    }));
+    useChatStore.setState((state) => {
+      const nextCache = new Map(state.messagesCache || new Map());
+      if (chatId) nextCache.delete(String(chatId));
+      return {
+        messages: [],
+        messagesCache: nextCache,
+        conversations: {
+          ...state.conversations,
+          data: (state.conversations?.data || []).filter(
+            (c) => c._id?.toString() !== chatId
+          ),
+        },
+      };
+    });
     setSelectedContact?.(null);
     setCurrentConversation?.(null);
     toast.success("Chat deleted");
@@ -320,7 +313,6 @@ const ChatHeaderMenu = ({
     onClose();
   };
 
-  // Block execution
   const handleExecuteBlock = () => {
     if (!chatId) return;
     const next = [...blockedContacts, chatId];
@@ -331,8 +323,7 @@ const ChatHeaderMenu = ({
     onClose();
   };
 
-  // Dynamic coordinates with boundary protection & submenus flipping
-  const [coords, setCoords] = useState(() => {
+  const coords = useMemo(() => {
     const menuWidth = 242;
     const estimatedHeight = 500;
     const isRightClick = Boolean(anchorCoords?.isContextMenu);
@@ -371,101 +362,31 @@ const ChatHeaderMenu = ({
     } else {
       left = Math.max(padding, clickX - menuWidth);
       originX = "right";
-      if (top + estimatedHeight > viewportHeight - padding) {
+      if (clickY + estimatedHeight > viewportHeight - padding) {
         top = Math.max(padding, viewportHeight - estimatedHeight - padding);
         originY = "bottom";
       } else {
+        top = Math.max(padding, clickY);
         originY = "top";
       }
     }
 
     return {
-      top,
-      left,
+      top: Math.round(top),
+      left: Math.round(left),
       originX,
       originY,
       openSubmenuToLeft: left >= 170,
       submenuAlignBottom: originY === "bottom" || top > viewportHeight - 280,
     };
-  });
+  }, [anchorCoords]);
 
-  useLayoutEffect(() => {
-    if (!isOpen) return;
-
-    const menuEl = menuRef.current;
-    const menuWidth = menuEl?.offsetWidth || 242;
-    const menuHeight = menuEl?.offsetHeight || 500;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const padding = 10;
-    const isRightClick = Boolean(anchorCoords?.isContextMenu);
-
-    const clickX = anchorCoords?.x ?? (viewportWidth - menuWidth - 20);
-    const clickY = anchorCoords?.y ?? 60;
-
-    let left = clickX;
-    let top = clickY;
-    let originX = "left";
-    let originY = "top";
-
-    if (isRightClick) {
-      // Horizontal boundary check
-      if (clickX + menuWidth > viewportWidth - padding) {
-        left = Math.max(padding, clickX - menuWidth);
-        originX = "right";
-      } else {
-        left = Math.max(padding, clickX);
-        originX = "left";
-      }
-
-      // Vertical boundary check
-      if (clickY + menuHeight > viewportHeight - padding) {
-        if (clickY - menuHeight >= padding) {
-          top = clickY - menuHeight;
-          originY = "bottom";
-        } else {
-          top = Math.max(padding, viewportHeight - menuHeight - padding);
-          originY = clickY > viewportHeight / 2 ? "bottom" : "top";
-        }
-      } else {
-        top = Math.max(padding, clickY);
-        originY = "top";
-      }
-    } else {
-      // Anchored to 3-dots button (top right header)
-      left = Math.max(padding, clickX - menuWidth);
-      originX = "right";
-      if (clickY + menuHeight > viewportHeight - padding) {
-        top = Math.max(padding, viewportHeight - menuHeight - padding);
-        originY = "bottom";
-      } else {
-        top = Math.max(padding, clickY);
-        originY = "top";
-      }
-    }
-
-    const openSubmenuToLeft = left >= 170;
-    const submenuAlignBottom = originY === "bottom" || top > viewportHeight - 280;
-
-    setCoords({
-      top: Math.round(top),
-      left: Math.round(left),
-      originX,
-      originY,
-      openSubmenuToLeft,
-      submenuAlignBottom,
-    });
-  }, [isOpen, anchorCoords]);
-
-  // Close on window resize or scroll
   useEffect(() => {
     if (!isOpen) return;
     const handleDismiss = () => onClose();
     window.addEventListener("resize", handleDismiss);
-    window.addEventListener("scroll", handleDismiss, true);
     return () => {
       window.removeEventListener("resize", handleDismiss);
-      window.removeEventListener("scroll", handleDismiss, true);
     };
   }, [isOpen, onClose]);
 
@@ -488,7 +409,6 @@ const ChatHeaderMenu = ({
         typeof document !== "undefined" &&
         createPortal(
           <>
-            {/* Backdrop */}
             <div
               className="fixed inset-0 z-[9998] bg-transparent"
               onClick={onClose}
@@ -506,7 +426,6 @@ const ChatHeaderMenu = ({
               }}
             />
 
-            {/* Context Menu Dropdown */}
             <motion.div
               ref={menuRef}
               initial={{ opacity: 0, scale: 0.94 }}
@@ -525,7 +444,6 @@ const ChatHeaderMenu = ({
                 }`}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* 1. Contact info */}
               <button
                 type="button"
                 onClick={() => {
@@ -540,7 +458,6 @@ const ChatHeaderMenu = ({
                 </span>
               </button>
 
-              {/* 2. Search */}
               <button
                 type="button"
                 onClick={() => {
@@ -553,7 +470,6 @@ const ChatHeaderMenu = ({
                 <span>Search</span>
               </button>
 
-              {/* 3. Select messages */}
               <button
                 type="button"
                 onClick={() => {
@@ -566,7 +482,6 @@ const ChatHeaderMenu = ({
                 <span>Select messages</span>
               </button>
 
-              {/* 4. Mute notifications ▸ */}
               <div
                 className="relative"
                 onMouseEnter={() => !isMuted && setActiveSubmenu("mute")}
@@ -601,7 +516,6 @@ const ChatHeaderMenu = ({
                   )}
                 </button>
 
-                {/* Submenu for mute */}
                 <AnimatePresence>
                   {activeSubmenu === "mute" && !isMuted && (
                     <motion.div
@@ -632,7 +546,6 @@ const ChatHeaderMenu = ({
                 </AnimatePresence>
               </div>
 
-              {/* 5. Disappearing messages */}
               <div
                 className="relative"
                 onMouseEnter={() => setActiveSubmenu("disappearing")}
@@ -660,7 +573,6 @@ const ChatHeaderMenu = ({
                   />
                 </button>
 
-                {/* Submenu for disappearing */}
                 <AnimatePresence>
                   {activeSubmenu === "disappearing" && (
                     <motion.div
@@ -696,7 +608,6 @@ const ChatHeaderMenu = ({
                 </AnimatePresence>
               </div>
 
-              {/* 6. Chat theme */}
               <div
                 className="relative"
                 onMouseEnter={() => setActiveSubmenu("theme")}
@@ -722,7 +633,6 @@ const ChatHeaderMenu = ({
                   />
                 </button>
 
-                {/* Submenu for theme */}
                 <AnimatePresence>
                   {activeSubmenu === "theme" && (
                     <motion.div
@@ -776,7 +686,6 @@ const ChatHeaderMenu = ({
                 </AnimatePresence>
               </div>
 
-              {/* 7. Add to favourites / Remove from favourites */}
               <button
                 type="button"
                 onClick={handleToggleFavorite}
@@ -794,7 +703,6 @@ const ChatHeaderMenu = ({
                 </span>
               </button>
 
-              {/* 8. Add to list ▸ */}
               <div
                 className="relative"
                 onMouseEnter={() => setActiveSubmenu("list")}
@@ -820,7 +728,6 @@ const ChatHeaderMenu = ({
                   />
                 </button>
 
-                {/* Submenu for list */}
                 <AnimatePresence>
                   {activeSubmenu === "list" && (
                     <motion.div
@@ -855,7 +762,6 @@ const ChatHeaderMenu = ({
                 </AnimatePresence>
               </div>
 
-              {/* 9. Export chat */}
               <button
                 type="button"
                 onClick={handleExportChat}
@@ -865,7 +771,6 @@ const ChatHeaderMenu = ({
                 <span>Export chat</span>
               </button>
 
-              {/* 10. Close chat */}
               <button
                 type="button"
                 onClick={handleCloseChat}
@@ -878,13 +783,10 @@ const ChatHeaderMenu = ({
                 <span>Close chat</span>
               </button>
 
-              {/* Divider 1 */}
               <div
                 className={`my-1 border-t ${isDark ? "border-[#2a3942]/80" : "border-black/10"
                   }`}
               />
-
-              {/* 11. Send call link */}
               <button
                 type="button"
                 onClick={handleSendCallLink}
@@ -894,7 +796,6 @@ const ChatHeaderMenu = ({
                 <span>Send call link</span>
               </button>
 
-              {/* 12. New group call */}
               <button
                 type="button"
                 onClick={() => {
@@ -907,13 +808,11 @@ const ChatHeaderMenu = ({
                 <span>New group call</span>
               </button>
 
-              {/* Divider 2 */}
               <div
                 className={`my-1 border-t ${isDark ? "border-[#2a3942]/80" : "border-black/10"
                   }`}
               />
 
-              {/* 13. Report */}
               <button
                 type="button"
                 onClick={() => {
@@ -926,7 +825,6 @@ const ChatHeaderMenu = ({
                 <span>Report</span>
               </button>
 
-              {/* 14. Block */}
               <button
                 type="button"
                 onClick={handleToggleBlock}
@@ -937,8 +835,6 @@ const ChatHeaderMenu = ({
                   {isBlocked ? "Unblock" : "Block"}
                 </span>
               </button>
-
-              {/* 15. Clear chat */}
               <button
                 type="button"
                 onClick={() => setConfirmDialog({ type: "clear" })}
@@ -955,7 +851,6 @@ const ChatHeaderMenu = ({
           document.body
         )}
 
-      {/* Confirmation Modals for Clear Chat / Delete Chat / Block */}
       {confirmDialog &&
         typeof document !== "undefined" &&
         createPortal(
@@ -1027,7 +922,6 @@ const ChatHeaderMenu = ({
           document.body
         )}
 
-      {/* Report Modal */}
       <ReportModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
