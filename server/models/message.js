@@ -23,6 +23,10 @@ const messageSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    deletedForEveryone: {
+      type: Boolean,
+      default: false,
+    },
 
     content: String,
     imageOrVideoUrl: String,
@@ -104,6 +108,14 @@ const messageSchema = new mongoose.Schema(
       type: String,
       enum: ["send", "delivered", "read"],
       default: "send",
+    },
+    deliveredAt: {
+      type: Date,
+      default: null,
+    },
+    readAt: {
+      type: Date,
+      default: null,
     },
     statusId: {
       type: mongoose.Schema.Types.ObjectId,

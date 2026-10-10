@@ -33,6 +33,44 @@ function initializeSocket(server) {
         });
 
         io.emit("user_status", { userId, isOnline: true });
+
+        // Deliver pending messages sent to this user while they were offline
+        const now = new Date();
+        const pendingMessages = await Message.find({
+          receiver: userId,
+          messageStatus: "send",
+        });
+
+        if (pendingMessages.length > 0) {
+          await Message.updateMany(
+            { receiver: userId, messageStatus: "send" },
+            { $set: { messageStatus: "delivered", deliveredAt: now } }
+          );
+
+          const senderMap = new Map();
+          pendingMessages.forEach((msg) => {
+            const sId = msg.sender?.toString();
+            if (sId) {
+              if (!senderMap.has(sId)) senderMap.set(sId, []);
+              senderMap.get(sId).push(msg._id.toString());
+            }
+          });
+
+          for (const [sId, msgIds] of senderMap.entries()) {
+            const payload = {
+              messageIds: msgIds,
+              messageStatus: "delivered",
+              deliveredAt: now.toISOString(),
+            };
+            io.to(sId).emit("message_status_update_bulk", payload);
+            if (onlineUsers.has(sId)) {
+              io.to(onlineUsers.get(sId)).emit(
+                "message_status_update_bulk",
+                payload
+              );
+            }
+          }
+        }
       } catch (error) {
         console.error("Error in user_connected:", error);
       }
@@ -63,6 +101,7 @@ function initializeSocket(server) {
     socket.on("message_read", async ({ messageIds }) => {
       try {
         if (!messageIds || !messageIds.length) return;
+        const now = new Date();
         const messages = await Message.find({ _id: { $in: messageIds } });
 
         if (!messages.length) return;
@@ -74,13 +113,20 @@ function initializeSocket(server) {
 
         await Message.updateMany(
           { _id: { $in: messageIds } },
-          { $set: { messageStatus: "read" } },
+          { $set: { messageStatus: "read", readAt: now } },
         );
+        await Message.updateMany(
+          { _id: { $in: messageIds }, deliveredAt: null },
+          { $set: { deliveredAt: now } },
+        );
+
         senderIds.forEach((senderId) => {
           const sId = senderId.toString();
           const payload = {
             messageIds: messageIds.map(String),
             messageStatus: "read",
+            readAt: now.toISOString(),
+            deliveredAt: now.toISOString(),
           };
           io.to(sId).emit("message_status_update_bulk", payload);
           io.to(sId).emit("message_read", payload);
@@ -92,6 +138,45 @@ function initializeSocket(server) {
         });
       } catch (error) {
         console.error("Error marking message as read:", error);
+      }
+    });
+
+    socket.on("message_delivered", async ({ messageIds }) => {
+      try {
+        if (!messageIds || !messageIds.length) return;
+        const now = new Date();
+        const messages = await Message.find({
+          _id: { $in: messageIds },
+          messageStatus: "send",
+        });
+
+        if (!messages.length) return;
+        const senderIds = [
+          ...new Set(
+            messages.map((msg) => msg.sender?.toString()).filter(Boolean),
+          ),
+        ];
+
+        await Message.updateMany(
+          { _id: { $in: messages.map((m) => m._id) }, messageStatus: "send" },
+          { $set: { messageStatus: "delivered", deliveredAt: now } },
+        );
+
+        senderIds.forEach((senderId) => {
+          const sId = senderId.toString();
+          const payload = {
+            messageIds: messages.map((m) => m._id.toString()),
+            messageStatus: "delivered",
+            deliveredAt: now.toISOString(),
+          };
+          io.to(sId).emit("message_status_update_bulk", payload);
+          if (onlineUsers.has(sId)) {
+            const socketId = onlineUsers.get(sId);
+            io.to(socketId).emit("message_status_update_bulk", payload);
+          }
+        });
+      } catch (error) {
+        console.error("Error in message_delivered:", error);
       }
     });
     socket.on("typing_start", ({ conversationId, receiverId }) => {

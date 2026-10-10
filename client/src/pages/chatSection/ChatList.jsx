@@ -22,15 +22,39 @@ import { WhatsAppPinIcon } from "./MessageBuble";
 
 const getContactPin = (contact, pinnedMessages) => {
   if (!contact) return null;
+  const currentUserId = useUserStore.getState()?.user?._id;
   const convId = (contact.conversation?._id || contact.conversation)?.toString();
   const contactId = contact._id?.toString();
 
+  const isMsgDeleted = (msg) => {
+    if (!msg) return true;
+    if (msg.deletedForEveryone) return true;
+    if (
+      msg.content === "This message was deleted" ||
+      msg.content === "You deleted this message"
+    ) {
+      return true;
+    }
+    if (
+      currentUserId &&
+      msg.deletedFor &&
+      Array.isArray(msg.deletedFor) &&
+      msg.deletedFor.some((id) => String(id) === String(currentUserId))
+    ) {
+      return true;
+    }
+    return false;
+  };
+
   if (contact.conversation?.pinnedMessage && contact.conversation.pinnedMessage.message) {
-    const expires = contact.conversation.pinnedMessage.expiresAt
-      ? new Date(contact.conversation.pinnedMessage.expiresAt).getTime()
+    const pin = contact.conversation.pinnedMessage;
+    const expires = pin.expiresAt
+      ? new Date(pin.expiresAt).getTime()
       : null;
     if (!expires || expires > Date.now()) {
-      return contact.conversation.pinnedMessage;
+      if (!isMsgDeleted(pin.message)) {
+        return pin;
+      }
     }
   }
 
@@ -55,6 +79,7 @@ const getContactPin = (contact, pinnedMessages) => {
   }
 
   if (!pin || !pin.message) return null;
+  if (isMsgDeleted(pin.message)) return null;
   if (pin.expiresAt && new Date(pin.expiresAt).getTime() <= Date.now()) return null;
   return pin;
 };
@@ -63,6 +88,40 @@ const getLastMessagePreview = (lastMessage) => {
   if (!lastMessage) return null;
 
   const currentUserId = useUserStore.getState()?.user?._id;
+
+  const isDeletedForEveryone = Boolean(
+    lastMessage.deletedForEveryone ||
+    lastMessage.content === "This message was deleted" ||
+    lastMessage.content === "You deleted this message"
+  );
+
+  if (isDeletedForEveryone) {
+    const isMe =
+      currentUserId &&
+      String(lastMessage.sender?._id || lastMessage.sender) === String(currentUserId);
+    return {
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          className="inline mr-1 text-[#8696a0] shrink-0"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+        </svg>
+      ),
+      text: isMe ? "You deleted this message" : "This message was deleted",
+      isDeleted: true,
+      isEncrypted: false,
+    };
+  }
+
   if (
     currentUserId &&
     lastMessage?.deletedFor &&
@@ -70,8 +129,24 @@ const getLastMessagePreview = (lastMessage) => {
     lastMessage.deletedFor.some((id) => String(id) === String(currentUserId))
   ) {
     return {
-      icon: null,
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          className="inline mr-1 text-[#8696a0] shrink-0"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+        </svg>
+      ),
       text: "You deleted this message",
+      isDeleted: true,
       isEncrypted: false,
     };
   }
@@ -488,7 +563,7 @@ const ChatList = ({ contacts }) => {
                           return (
                             <>
                               {preview.icon}
-                              <span className="truncate">
+                              <span className={`truncate ${preview.isDeleted ? "italic opacity-80" : ""}`}>
                                 {preview.text}
                               </span>
                               {lastMsg?.edited && (

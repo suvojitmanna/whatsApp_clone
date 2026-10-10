@@ -107,8 +107,8 @@ const ForwardModal = ({ isOpen, onClose, message, theme = "dark" }) => {
           transition={{ duration: 0.15, ease: "easeOut" }}
           onClick={(e) => e.stopPropagation()}
           className={`w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border flex flex-col max-h-[85vh] ${isDark
-              ? "bg-[#111b21] border-white/10 text-[#e9edef]"
-              : "bg-white border-black/10 text-[#111b21]"
+            ? "bg-[#111b21] border-white/10 text-[#e9edef]"
+            : "bg-white border-black/10 text-[#111b21]"
             }`}
         >
           <div
@@ -128,8 +128,8 @@ const ForwardModal = ({ isOpen, onClose, message, theme = "dark" }) => {
           <div className="p-3 border-b border-black/5 dark:border-white/5">
             <div
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${isDark
-                  ? "bg-[#202c33] border-white/10 text-white"
-                  : "bg-gray-100 border-gray-200 text-gray-800"
+                ? "bg-[#202c33] border-white/10 text-white"
+                : "bg-gray-100 border-gray-200 text-gray-800"
                 }`}
             >
               <FiSearch size={16} className="opacity-60 shrink-0" />
@@ -156,12 +156,12 @@ const ForwardModal = ({ isOpen, onClose, message, theme = "dark" }) => {
                     key={contact._id}
                     onClick={() => toggleSelect(contact._id)}
                     className={`flex items-center justify-between px-5 py-3 cursor-pointer transition-colors ${isSelected
-                        ? isDark
-                          ? "bg-emerald-500/15"
-                          : "bg-emerald-50"
-                        : isDark
-                          ? "hover:bg-[#202c33]"
-                          : "hover:bg-gray-50"
+                      ? isDark
+                        ? "bg-emerald-500/15"
+                        : "bg-emerald-50"
+                      : isDark
+                        ? "hover:bg-[#202c33]"
+                        : "hover:bg-gray-50"
                       }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">

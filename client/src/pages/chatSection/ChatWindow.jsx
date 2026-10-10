@@ -516,13 +516,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       const status = online ? "delivered" : "send";
       const replyData = replyingTo
         ? {
-            _id: replyingTo._id,
-            content: replyingTo.content || "",
-            contentType: replyingTo.contentType || "text",
-            fileName: replyingTo.fileName || null,
-            sender: replyingTo.sender,
-            imageOrVideoUrl: replyingTo.imageOrVideoUrl || null,
-          }
+          _id: replyingTo._id,
+          content: replyingTo.content || "",
+          contentType: replyingTo.contentType || "text",
+          fileName: replyingTo.fileName || null,
+          sender: replyingTo.sender,
+          imageOrVideoUrl: replyingTo.imageOrVideoUrl || null,
+        }
         : null;
 
       if (selectedFiles.length > 0) {
@@ -1634,11 +1634,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.98 }}
                   transition={{ duration: 0.15, ease: "easeOut" }}
-                  className={`w-full mb-2 px-3 py-2 rounded-xl flex items-center justify-between border shadow-sm transition-colors ${
-                    theme === "dark"
-                      ? "bg-[#1f2c34] border-white/5 text-[#d1d7db]"
-                      : "bg-white border-black/5 text-[#111b21]"
-                  }`}
+                  className={`w-full mb-2 px-3 py-2 rounded-xl flex items-center justify-between border shadow-sm transition-colors ${theme === "dark"
+                    ? "bg-[#1f2c34] border-white/5 text-[#d1d7db]"
+                    : "bg-white border-black/5 text-[#111b21]"
+                    }`}
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     {/* Purple vertical bar */}

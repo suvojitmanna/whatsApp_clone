@@ -427,7 +427,7 @@ export const useChatStore = create((set, get) => ({
       get().receiveMessage(message);
     });
 
-    const handleStatusBulk = (ids, status) => {
+    const handleStatusBulk = (ids, status, extraData = {}) => {
       if (!ids || !ids.length) return;
       const strIds = new Set(
         ids.map((id) => (id?._id || id)?.toString()).filter(Boolean),
@@ -439,13 +439,28 @@ export const useChatStore = create((set, get) => ({
 
       set((state) => {
         let changed = false;
+        const nowIso = new Date().toISOString();
         const nextMessages = state.messages.map((msg) => {
           const msgIdStr = (msg._id?._id || msg._id)?.toString();
           if (strIds.has(msgIdStr)) {
-            if (msg.messageStatus !== status) {
-              changed = true;
-            }
-            return { ...msg, messageStatus: status };
+            changed = true;
+            return {
+              ...msg,
+              messageStatus: status,
+              ...(status === "read" && {
+                readAt: extraData.readAt || msg.readAt || nowIso,
+                deliveredAt:
+                  msg.deliveredAt ||
+                  extraData.deliveredAt ||
+                  msg.createdAt ||
+                  nowIso,
+              }),
+              ...(status === "delivered" && {
+                deliveredAt:
+                  extraData.deliveredAt || msg.deliveredAt || nowIso,
+              }),
+              ...extraData,
+            };
           }
           return msg;
         });
@@ -465,6 +480,24 @@ export const useChatStore = create((set, get) => ({
               lastMessage: {
                 ...conv.lastMessage,
                 messageStatus: status,
+                ...(status === "read" && {
+                  readAt:
+                    extraData.readAt ||
+                    conv.lastMessage?.readAt ||
+                    nowIso,
+                  deliveredAt:
+                    conv.lastMessage?.deliveredAt ||
+                    extraData.deliveredAt ||
+                    conv.lastMessage?.createdAt ||
+                    nowIso,
+                }),
+                ...(status === "delivered" && {
+                  deliveredAt:
+                    extraData.deliveredAt ||
+                    conv.lastMessage?.deliveredAt ||
+                    nowIso,
+                }),
+                ...extraData,
               },
             };
           }
@@ -489,10 +522,16 @@ export const useChatStore = create((set, get) => ({
       });
     };
 
-    socket.on("message_status_update_bulk", ({ messageIds, messageStatus }) => {
-      const ids = Array.isArray(messageIds) ? messageIds : [];
-      handleStatusBulk(ids, messageStatus || "read");
-    });
+    socket.on(
+      "message_status_update_bulk",
+      ({ messageIds, messageStatus, readAt, deliveredAt }) => {
+        const ids = Array.isArray(messageIds) ? messageIds : [];
+        handleStatusBulk(ids, messageStatus || "read", {
+          readAt,
+          deliveredAt,
+        });
+      },
+    );
 
     socket.on("message_send", (message) => {
       set((state) => {
@@ -510,11 +549,17 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
-    socket.on("message_status_update", ({ messageId, messageStatus }) => {
-      if (messageId) {
-        handleStatusBulk([messageId], messageStatus || "read");
-      }
-    });
+    socket.on(
+      "message_status_update",
+      ({ messageId, messageStatus, readAt, deliveredAt }) => {
+        if (messageId) {
+          handleStatusBulk([messageId], messageStatus || "read", {
+            readAt,
+            deliveredAt,
+          });
+        }
+      },
+    );
 
     socket.on("message_read", (payload) => {
       const rawIds =
@@ -525,7 +570,10 @@ export const useChatStore = create((set, get) => ({
             ? [payload.messageId]
             : []);
       const ids = Array.isArray(rawIds) ? rawIds : [];
-      handleStatusBulk(ids, payload?.messageStatus || "read");
+      handleStatusBulk(ids, payload?.messageStatus || "read", {
+        readAt: payload?.readAt,
+        deliveredAt: payload?.deliveredAt,
+      });
     });
 
     socket.on("reaction_update", ({ messageId, reactions }) => {
@@ -1157,15 +1205,25 @@ export const useChatStore = create((set, get) => ({
       if (isForCurrentUser && decryptedMessage._id) {
         get().markMessageAsRead([decryptedMessage._id]);
       }
-    } else if (conversationId) {
-      const cache = get().messagesCache;
-      const convKey = String(conversationId);
-      if (cache && cache.has(convKey)) {
-        const cached = cache.get(convKey);
-        if (!cached.some((m) => m._id === decryptedMessage._id)) {
-          const nextCache = new Map(cache);
-          nextCache.set(convKey, [...cached, decryptedMessage]);
-          set({ messagesCache: nextCache });
+    } else {
+      if (isForCurrentUser && decryptedMessage._id) {
+        const socket = getSocket();
+        if (socket) {
+          socket.emit("message_delivered", {
+            messageIds: [decryptedMessage._id],
+          });
+        }
+      }
+      if (conversationId) {
+        const cache = get().messagesCache;
+        const convKey = String(conversationId);
+        if (cache && cache.has(convKey)) {
+          const cached = cache.get(convKey);
+          if (!cached.some((m) => m._id === decryptedMessage._id)) {
+            const nextCache = new Map(cache);
+            nextCache.set(convKey, [...cached, decryptedMessage]);
+            set({ messagesCache: nextCache });
+          }
         }
       }
     }
@@ -1233,12 +1291,15 @@ export const useChatStore = create((set, get) => ({
     try {
       const unreadIdStrs = new Set(unreadIds.map(String));
       unreadIdStrs.forEach((id) => readStatusCache.add(id));
+      const nowIso = new Date().toISOString();
       set((state) => {
         const nextMessages = state.messages.map((msg) =>
           unreadIdStrs.has(String(msg._id))
             ? {
                 ...msg,
                 messageStatus: "read",
+                readAt: msg.readAt || nowIso,
+                deliveredAt: msg.deliveredAt || msg.createdAt || nowIso,
               }
             : msg,
         );
@@ -1273,6 +1334,7 @@ export const useChatStore = create((set, get) => ({
       if (socket) {
         socket.emit("message_read", {
           messageIds: unreadIds,
+          readAt: nowIso,
         });
       }
 

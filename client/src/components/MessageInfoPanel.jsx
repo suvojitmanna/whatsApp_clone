@@ -7,6 +7,7 @@ import { RiContactsFill } from "react-icons/ri";
 import { format, isToday, isYesterday } from "date-fns";
 import useLayoutStore from "../store/layoutStore";
 import useThemeStore from "../store/themeStore";
+import useChatStore from "../store/chatStore";
 import useOutsideClick from "../hook/useOutsideClick";
 
 const formatReceiptDate = (dateObj) => {
@@ -22,6 +23,17 @@ const MessageInfoPanel = () => {
   const { selectedMessageInfo, setSelectedMessageInfo } = useLayoutStore();
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
+
+  // Subscribe to live messages so receipts update in real-time
+  const liveMsg = useChatStore((state) => {
+    if (!selectedMessageInfo) return null;
+    const targetId = (
+      selectedMessageInfo._id?._id || selectedMessageInfo._id
+    )?.toString();
+    return state.messages.find(
+      (m) => (m._id?._id || m._id)?.toString() === targetId
+    );
+  });
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -47,14 +59,53 @@ const MessageInfoPanel = () => {
 
   if (!selectedMessageInfo) return null;
 
-  const msg = selectedMessageInfo;
-  const createdDate = new Date(msg.createdAt || msg.timestamp || Date.now());
-  const formattedTime = format(createdDate, "HH:mm");
-  const dateLabel = formatReceiptDate(createdDate);
+  const msg = liveMsg || selectedMessageInfo;
 
+  // 1. Sent time & date (when message was sent / created)
+  const sentDate = msg.createdAt
+    ? new Date(msg.createdAt)
+    : new Date(msg.timestamp || Date.now());
+  const sentTime =
+    !isNaN(sentDate.getTime()) ? format(sentDate, "HH:mm") : "—";
+  const sentDateLabel =
+    !isNaN(sentDate.getTime()) ? formatReceiptDate(sentDate) : "";
+
+  // 2. Delivered status, time & date
   const isDelivered =
     msg.messageStatus === "delivered" || msg.messageStatus === "read";
+  const deliveredDate = msg.deliveredAt
+    ? new Date(msg.deliveredAt)
+    : isDelivered
+      ? msg.updatedAt && new Date(msg.updatedAt) > sentDate
+        ? new Date(msg.updatedAt)
+        : sentDate
+      : null;
+  const deliveredTime =
+    isDelivered && deliveredDate && !isNaN(deliveredDate.getTime())
+      ? format(deliveredDate, "HH:mm")
+      : "—";
+  const deliveredDateLabel =
+    isDelivered && deliveredDate && !isNaN(deliveredDate.getTime())
+      ? formatReceiptDate(deliveredDate)
+      : "";
+
+  // 3. Read status, time & date
   const isRead = msg.messageStatus === "read";
+  const readDate = msg.readAt
+    ? new Date(msg.readAt)
+    : isRead
+      ? msg.updatedAt && new Date(msg.updatedAt) > (deliveredDate || sentDate)
+        ? new Date(msg.updatedAt)
+        : deliveredDate || sentDate
+      : null;
+  const readTime =
+    isRead && readDate && !isNaN(readDate.getTime())
+      ? format(readDate, "HH:mm")
+      : "—";
+  const readDateLabel =
+    isRead && readDate && !isNaN(readDate.getTime())
+      ? formatReceiptDate(readDate)
+      : "";
 
   return (
     <AnimatePresence>
@@ -210,11 +261,14 @@ const MessageInfoPanel = () => {
 
               <div className="flex items-center justify-end gap-1 text-[11px] opacity-75 mt-1 select-none">
                 {msg.edited && <span className="italic mr-0.5">Edited</span>}
-                <span>{formattedTime}</span>
-                <FaCheckDouble
-                  size={11}
-                  className={isRead ? "text-[#53bdeb]" : "opacity-80"}
-                />
+                <span>{sentTime}</span>
+                {isRead ? (
+                  <FaCheckDouble size={11} className="text-[#53bdeb]" />
+                ) : isDelivered ? (
+                  <FaCheckDouble size={11} className="opacity-80" />
+                ) : (
+                  <FiCheck size={11} className="opacity-80" />
+                )}
               </div>
             </div>
           </div>
@@ -227,7 +281,12 @@ const MessageInfoPanel = () => {
           >
             <div className="flex items-center justify-between px-5 py-4">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-[#53bdeb]/15 text-[#53bdeb] flex items-center justify-center shrink-0">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isRead
+                    ? "bg-[#53bdeb]/15 text-[#53bdeb]"
+                    : "bg-gray-500/10 text-gray-400/40"
+                    }`}
+                >
                   <FaCheckDouble size={16} />
                 </div>
                 <div>
@@ -244,14 +303,14 @@ const MessageInfoPanel = () => {
               </div>
               <div className="text-right">
                 <span className="text-xs font-medium tabular-nums">
-                  {isRead ? formattedTime : "—"}
+                  {readTime}
                 </span>
-                {isRead && (
+                {isRead && readDateLabel && (
                   <p
                     className={`text-[11px] ${isDark ? "text-[#8696a0]" : "text-gray-400"
                       }`}
                   >
-                    {dateLabel}
+                    {readDateLabel}
                   </p>
                 )}
               </div>
@@ -285,14 +344,14 @@ const MessageInfoPanel = () => {
               </div>
               <div className="text-right">
                 <span className="text-xs font-medium tabular-nums">
-                  {isDelivered ? formattedTime : "—"}
+                  {deliveredTime}
                 </span>
-                {isDelivered && (
+                {isDelivered && deliveredDateLabel && (
                   <p
                     className={`text-[11px] ${isDark ? "text-[#8696a0]" : "text-gray-400"
                       }`}
                   >
-                    {dateLabel}
+                    {deliveredDateLabel}
                   </p>
                 )}
               </div>
@@ -320,14 +379,16 @@ const MessageInfoPanel = () => {
               </div>
               <div className="text-right">
                 <span className="text-xs font-medium tabular-nums">
-                  {formattedTime}
+                  {sentTime}
                 </span>
-                <p
-                  className={`text-[11px] ${isDark ? "text-[#8696a0]" : "text-gray-400"
-                    }`}
-                >
-                  {dateLabel}
-                </p>
+                {sentDateLabel && (
+                  <p
+                    className={`text-[11px] ${isDark ? "text-[#8696a0]" : "text-gray-400"
+                      }`}
+                  >
+                    {sentDateLabel}
+                  </p>
+                )}
               </div>
             </div>
           </div>
