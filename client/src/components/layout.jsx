@@ -8,6 +8,7 @@ import ChatWindow from "../pages/chatSection/ChatWindow";
 import ContactInfo from "../components/ContactInfo";
 import ProfilePicture from "../components/profilePicture";
 import PollDetailsPanel from "../components/PollDetailsPanel";
+import MessageInfoPanel from "../components/MessageInfoPanel";
 import StatusPlaceholder from "./StatusPlaceholder";
 
 const Layout = ({
@@ -28,6 +29,7 @@ const Layout = ({
   const { theme, setTheme } = useThemeStore();
   const showContactInfo = useLayoutStore((state) => state.showContactInfo);
   const selectedPollMessage = useLayoutStore((state) => state.selectedPollMessage);
+  const selectedMessageInfo = useLayoutStore((state) => state.selectedMessageInfo);
   const showProfilePicture = useLayoutStore(
     (state) => state.showProfilePicture,
   );
@@ -67,7 +69,7 @@ const Layout = ({
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         <AnimatePresence initial={false}>
           {(!effectiveSelectedContact || !isMobile) && (
             <motion.div
@@ -103,6 +105,29 @@ const Layout = ({
             </div>
           )}
         </AnimatePresence>
+
+        <AnimatePresence>
+          {isChatPage && selectedMessageInfo && (
+            <motion.div
+              initial={{ x: "-100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "-100%", opacity: 0 }}
+              transition={{ type: "tween", duration: 0.22, ease: "easeInOut" }}
+              className={`h-full flex flex-col select-none ${
+                isMobile
+                  ? "fixed inset-0 z-[100]"
+                  : "absolute top-0 bottom-0 left-0 w-full md:w-[30%] lg:w-[25%] md:min-w-[320px] md:max-w-[420px] z-40 border-r shadow-2xl"
+              } ${
+                theme === "dark"
+                  ? "bg-[#111b21] border-[#222d34]"
+                  : "bg-white border-gray-200"
+              }`}
+            >
+              <MessageInfoPanel />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {isChatPage && showContactInfo && <ContactInfo />}
         {isChatPage && selectedPollMessage && <PollDetailsPanel />}
         {isChatPage && showProfilePicture && (

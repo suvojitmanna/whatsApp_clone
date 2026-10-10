@@ -15,6 +15,7 @@ import {
   FaLock,
   FaEye,
 } from "react-icons/fa";
+import { IoIosInformationCircleOutline } from "react-icons/io";
 import { RiDeleteBin6Line, RiEditLine, RiContactsFill } from "react-icons/ri";
 import { FiCheck, FiChevronDown, FiThumbsDown } from "react-icons/fi";
 import {
@@ -22,9 +23,9 @@ import {
   MdLocationOn,
   MdAccessTime,
   MdReply,
-  MdOutlineReplyAll,
 } from "react-icons/md";
-import { BsChatSquareText, BsEmojiSmile } from "react-icons/bs";
+import { LuForward, LuReply } from "react-icons/lu";
+import { BsEmojiSmile } from "react-icons/bs";
 import { TbPin } from "react-icons/tb";
 import { RxCross2 } from "react-icons/rx";
 import useOutsideClick from "../../hook/useOutsideClick";
@@ -35,6 +36,7 @@ import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
 import ReactionDetailsModal from "../../components/ReactionDetailsModal";
 import FileViewerModal from "../../components/FileViewerModal";
+import ForwardModal from "../../components/ForwardModal";
 
 const formatEventSchedule = (eventData) => {
   if (!eventData?.eventDate) return "Date TBD";
@@ -100,6 +102,7 @@ const MessageBuble = ({
   const [editText, setEditText] = useState(message?.content || "");
   const [downloading, setDownloading] = useState(false);
   const [viewerModalFile, setViewerModalFile] = useState(null);
+  const [showForwardModal, setShowForwardModal] = useState(false);
 
   const handleDownloadFile = async (e, url, fileName) => {
     if (e) {
@@ -133,7 +136,6 @@ const MessageBuble = ({
           "Cloudinary is blocking PDF delivery. Please enable 'Allow delivery of PDF and ZIP files' in your Cloudinary Security Settings."
         );
       }
-      // Fallback: If Cloudinary URL, use fl_attachment transformation flag to trigger download header
       try {
         let downloadUrl = url;
         if (url.includes("/upload/")) {
@@ -169,6 +171,9 @@ const MessageBuble = ({
   const removeReaction = useChatStore((state) => state.removeReaction);
   const setSelectedPollDetails = useLayoutStore(
     (state) => state.setSelectedPollDetails
+  );
+  const setSelectedMessageInfo = useLayoutStore(
+    (state) => state.setSelectedMessageInfo
   );
   const storeUser = useUserStore((state) => state.user);
   const effectiveUser = currentUser || storeUser;
@@ -488,6 +493,97 @@ const MessageBuble = ({
     setShowOptions(true);
   };
 
+  const renderStatusIcon = (isOverlay = false) => {
+    if (!isUserMessage) return null;
+    const status = message.messageStatus || message.status;
+    if (!status || status === "pending" || status === "sending" || message.isPending) {
+      return (
+        <MdAccessTime
+          size={isOverlay ? 11 : 11}
+          className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
+          title="Sending / Offline"
+        />
+      );
+    }
+    if (status === "send" || status === "sent") {
+      return (
+        <FiCheck
+          size={isOverlay ? 13 : 13}
+          className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
+          title="Sent"
+        />
+      );
+    }
+    if (status === "delivered") {
+      return (
+        <FaCheckDouble
+          size={isOverlay ? 12 : 11}
+          className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
+          title="Delivered"
+        />
+      );
+    }
+    if (status === "read") {
+      return (
+        <FaCheckDouble
+          size={isOverlay ? 12 : 11}
+          className="text-[#53bdeb] shrink-0"
+          title="Read"
+        />
+      );
+    }
+    return (
+      <FiCheck
+        size={isOverlay ? 13 : 13}
+        className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
+      />
+    );
+  };
+
+  const renderTimestampAndStatus = (isOverlay = false) => {
+    if (isOverlay) {
+      return (
+        <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/50 backdrop-blur-[2px] text-white text-[10.5px] select-none pointer-events-auto shadow-sm z-10">
+          {message.edited && (
+            <span className="text-[9.5px] italic opacity-90 mr-0.5">Edited</span>
+          )}
+          <span>{format(new Date(message.createdAt || Date.now()), "HH:mm")}</span>
+          {renderStatusIcon(true)}
+          <button
+            type="button"
+            onClick={handleToggleOptions}
+            className={`${showOptions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              } transition-opacity p-0.5 text-white/90 hover:text-white cursor-pointer ml-0.5`}
+            title="Menu"
+          >
+            <FiChevronDown size={13} />
+          </button>
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 select-none shrink-0 pointer-events-auto">
+        {message.edited && (
+          <span className="text-[10px] italic opacity-75 mr-0.5">Edited</span>
+        )}
+        <span className="text-[11px] leading-none opacity-60 font-normal">
+          {format(new Date(message.createdAt || Date.now()), "HH:mm")}
+        </span>
+        {renderStatusIcon(false)}
+        <button
+          type="button"
+          onClick={handleToggleOptions}
+          className={`${showOptions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            } transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5`}
+          title="Menu"
+        >
+          <FiChevronDown size={14} />
+        </button>
+      </span>
+    );
+  };
+
   if (!message) return null;
   return (
     <div
@@ -693,37 +789,7 @@ const MessageBuble = ({
                         : message.content}
                     </span>
                     <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
-
-                      {message.edited && (
-                        <span className="text-[10px] italic opacity-75 mr-0.5">
-                          Edited
-                        </span>
-                      )}
-                      <span className="text-[11px] leading-none opacity-60 font-normal">
-                        {format(new Date(message.createdAt), "HH:mm")}
-                      </span>
-                      {isUserMessage && (
-                        <span className="inline-flex items-center ml-0.5">
-                          {message.messageStatus === "send" && (
-                            <FiCheck size={14} className="opacity-60" />
-                          )}
-                          {message.messageStatus === "delivered" && (
-                            <FaCheckDouble size={12} className="opacity-60" />
-                          )}
-                          {message.messageStatus === "read" && (
-                            <FaCheckDouble size={12} className="text-[#53bdeb]" />
-                          )}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleToggleOptions}
-                        className={`${showOptions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                          } transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5`}
-                        title="Menu"
-                      >
-                        <FiChevronDown size={14} />
-                      </button>
+                      {renderTimestampAndStatus(false)}
                     </span>
                   </div>
                 )}
@@ -733,7 +799,7 @@ const MessageBuble = ({
             {message.contentType === "image" && (
               <div className="max-w-full">
                 <div
-                  className="relative group/img cursor-pointer"
+                  className="relative group/img cursor-pointer overflow-hidden rounded-xl"
                   onClick={(e) => {
                     e.stopPropagation();
                     setViewerModalFile({
@@ -755,33 +821,51 @@ const MessageBuble = ({
                       <FaEye size={12} /> View
                     </span>
                   </div>
+                  {!message.content && renderTimestampAndStatus(true)}
                 </div>
                 {message.content && (
-                  <p className="mt-1.5 break-words text-[14.5px] leading-relaxed">
-                    {searchTerm
-                      ? safeHighlight(message.content || "", searchTerm)
-                      : message.content}
-                  </p>
+                  <div className="mt-1.5 text-[14.2px] leading-[19px] select-text">
+                    <span className="break-words whitespace-pre-wrap">
+                      {searchTerm
+                        ? safeHighlight(message.content || "", searchTerm)
+                        : message.content}
+                    </span>
+                    <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
+                      {renderTimestampAndStatus(false)}
+                    </span>
+                  </div>
                 )}
               </div>
             )}
 
             {message.contentType === "video" && (
               <div className="max-w-full">
-                <video
-                  src={message.imageOrVideoUrl}
-                  controls
-                  className="rounded-xl w-full max-w-[280px] sm:max-w-xs md:max-w-sm ring-1 ring-black/[0.06]"
-                />
+                <div className="relative rounded-xl overflow-hidden">
+                  <video
+                    src={message.imageOrVideoUrl}
+                    controls
+                    className="rounded-xl w-full max-w-[280px] sm:max-w-xs md:max-w-sm ring-1 ring-black/[0.06]"
+                  />
+                  {!message.content && (
+                    <div className="absolute top-2 right-2 pointer-events-auto">
+                      {renderTimestampAndStatus(true)}
+                    </div>
+                  )}
+                </div>
                 {message.content && (
-                  <p className="mt-1.5 break-words text-[14.5px] leading-relaxed">
-                    {message.content}
-                  </p>
+                  <div className="mt-1.5 text-[14.2px] leading-[19px] select-text">
+                    <span className="break-words whitespace-pre-wrap">
+                      {message.content}
+                    </span>
+                    <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
+                      {renderTimestampAndStatus(false)}
+                    </span>
+                  </div>
                 )}
               </div>
             )}
             {message.contentType === "document" && (
-              <div className="flex flex-col gap-1 min-w-[220px] max-w-[320px]">
+              <div className="flex flex-col gap-1 min-w-[230px] max-w-[320px]">
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
@@ -864,6 +948,9 @@ const MessageBuble = ({
                     {message.content}
                   </p>
                 )}
+                <div className="flex items-center justify-end mt-0.5 select-none">
+                  {renderTimestampAndStatus(false)}
+                </div>
               </div>
             )}
 
@@ -880,6 +967,9 @@ const MessageBuble = ({
                   controls
                   className="w-full h-9 rounded-lg"
                 />
+                <div className="flex items-center justify-end mt-0.5 select-none">
+                  {renderTimestampAndStatus(false)}
+                </div>
               </div>
             )}
 
@@ -927,6 +1017,9 @@ const MessageBuble = ({
                         </p>
                       )}
                     </div>
+                  </div>
+                  <div className="flex items-center justify-end mt-1 px-1 select-none">
+                    {renderTimestampAndStatus(false)}
                   </div>
                 </div>
               );
@@ -1195,32 +1288,7 @@ const MessageBuble = ({
                       className={`flex items-center gap-1 text-[11px] ${isDark ? "text-white/60" : "text-gray-500"
                         }`}
                     >
-                      {message.edited && (
-                        <span className="italic mr-0.5">Edited</span>
-                      )}
-                      <span>{format(new Date(message.createdAt), "HH:mm")}</span>
-                      {isUserMessage && (
-                        <>
-                          {message.messageStatus === "send" && (
-                            <FiCheck size={14} />
-                          )}
-                          {message.messageStatus === "delivered" && (
-                            <FaCheckDouble size={12} />
-                          )}
-                          {message.messageStatus === "read" && (
-                            <FaCheckDouble size={12} className="text-[#53bdeb]" />
-                          )}
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={handleToggleOptions}
-                        className={`${showOptions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                          } transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5`}
-                        title="Menu"
-                      >
-                        <FiChevronDown size={14} />
-                      </button>
+                      {renderTimestampAndStatus(false)}
                     </div>
                   </div>
 
@@ -1253,39 +1321,13 @@ const MessageBuble = ({
                   alt="Sticker"
                   className="w-36 h-36 object-contain select-none filter drop-shadow-md transition-transform hover:scale-105"
                 />
+                <div className="flex items-center justify-end mt-0.5 select-none">
+                  {renderTimestampAndStatus(false)}
+                </div>
               </div>
             )}
           </div>
         </div>
-
-        {message.contentType !== "text" && message.contentType !== "poll" && message.contentType !== "event" && (
-          <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-60 mt-1 select-none">
-            {message.edited && (
-              <span className="italic opacity-80 mr-0.5">Edited</span>
-            )}
-            <span>{format(new Date(message.createdAt), "HH:mm")}</span>
-            {isUserMessage && (
-              <>
-                {message.messageStatus === "send" && <FiCheck size={14} />}
-                {message.messageStatus === "delivered" && (
-                  <FaCheckDouble size={12} />
-                )}
-                {message.messageStatus === "read" && (
-                  <FaCheckDouble size={12} className="text-[#53bdeb]" />
-                )}
-              </>
-            )}
-            <button
-              type="button"
-              onClick={handleToggleOptions}
-              className={`${showOptions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                } transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5`}
-              title="Menu"
-            >
-              <FiChevronDown size={14} />
-            </button>
-          </div>
-        )}
 
         <div
           className={`absolute ${isUserMessage ? "-left-8" : "-right-8"
@@ -1471,15 +1513,18 @@ const MessageBuble = ({
                       }`}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div
-                      className={`flex items-center px-4 py-2 gap-2 text-xs font-medium border-b select-none mb-1 ${isDark
-                        ? "border-white/10 text-emerald-400 bg-white/[0.03]"
-                        : "border-black/5 text-emerald-700 bg-emerald-50/60"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        setSelectedMessageInfo(message);
+                      }}
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <FaLock size={11} className="shrink-0 text-emerald-500" />
-                      <span>End-to-end encrypted</span>
-                    </div>
+                      <IoIosInformationCircleOutline size={20} className="shrink-0 text-[#8696a0]" />
+                      <span className="font-normal text-[14.5px]">Message info</span>
+                    </button>
 
                     <button
                       type="button"
@@ -1487,40 +1532,31 @@ const MessageBuble = ({
                         setShowOptions(false);
                         toast.info("Reply to message");
                       }}
-                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <MdReply size={18} className="opacity-80 shrink-0" />
-                      <span className="font-normal text-[14px]">Reply</span>
+                      <LuReply size={18} className="shrink-0 text-[#8696a0]" />
+                      <span className="font-normal text-[14.5px]">Reply</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => {
                         setShowOptions(false);
-                        toast.info("Reply privately");
+                        const textToCopy =
+                          message.contentType === "text"
+                            ? (message.content || "")
+                            : (message.imageOrVideoUrl || message.content || "");
+                        if (textToCopy) {
+                          navigator.clipboard.writeText(textToCopy);
+                          toast.success("Copied to clipboard");
+                        }
                       }}
-                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <MdOutlineReplyAll size={18} className="opacity-80 shrink-0" />
-                      <span className="font-normal text-[14px]">Reply privately</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowOptions(false);
-                        const senderName = message.sender?.username || "Contact";
-                        toast.info(`Message ${senderName}`);
-                      }}
-                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                        }`}
-                    >
-                      <BsChatSquareText size={16} className="opacity-80 shrink-0" />
-                      <span className="font-normal text-[14px] truncate">
-                        Message {message.sender?.username ? message.sender.username.toUpperCase() : "CONTACT"}
-                      </span>
+                      <FaRegCopy size={16} className="shrink-0 text-[#8696a0]" />
+                      <span className="font-normal text-[14.5px]">Copy</span>
                     </button>
 
                     <button
@@ -1529,11 +1565,24 @@ const MessageBuble = ({
                         setShowOptions(false);
                         setShowReactions(true);
                       }}
-                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <BsEmojiSmile size={17} className="opacity-80 shrink-0" />
-                      <span className="font-normal text-[14px]">React</span>
+                      <BsEmojiSmile size={18} className="shrink-0 text-[#8696a0]" />
+                      <span className="font-normal text-[14.5px]">React</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        setShowForwardModal(true);
+                      }}
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                        }`}
+                    >
+                      <LuForward size={18} className="shrink-0 text-[#8696a0]" />
+                      <span className="font-normal text-[14.5px]">Forward</span>
                     </button>
 
                     <button
@@ -1542,11 +1591,11 @@ const MessageBuble = ({
                         setShowOptions(false);
                         toast.success("Message pinned");
                       }}
-                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <TbPin size={18} className="opacity-80 shrink-0" />
-                      <span className="font-normal text-[14px]">Pin</span>
+                      <TbPin size={18} className="shrink-0 text-[#8696a0]" />
+                      <span className="font-normal text-[14.5px]">Pin</span>
                     </button>
 
                     <button
@@ -1555,30 +1604,30 @@ const MessageBuble = ({
                         setShowOptions(false);
                         toast.success("Message starred");
                       }}
-                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <FaRegStar size={16} className="opacity-80 shrink-0" />
-                      <span className="font-normal text-[14px]">Star</span>
+                      <FaRegStar size={16} className="shrink-0 text-[#8696a0]" />
+                      <span className="font-normal text-[14.5px]">Star</span>
                     </button>
 
-                    {message.contentType === "text" && (
+                    {isUserMessage && message.contentType === "text" && (
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(message.content || "");
-                          toast.success("Copied");
+                          setEditText(message.content || "");
+                          setIsEditing(true);
                           setShowOptions(false);
                         }}
-                        className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                           }`}
                       >
-                        <FaRegCopy size={15} className="opacity-80 shrink-0" />
-                        <span className="font-normal text-[14px]">Copy</span>
+                        <RiEditLine size={17} className="shrink-0 text-[#8696a0]" />
+                        <span className="font-normal text-[14.5px]">Edit</span>
                       </button>
                     )}
 
-                    {["document", "image", "video"].includes(message.contentType) && message.imageOrVideoUrl && (
+                    {["document", "image", "video", "audio"].includes(message.contentType) && message.imageOrVideoUrl && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1589,27 +1638,11 @@ const MessageBuble = ({
                             message.fileName || (message.contentType === "document" ? "document.pdf" : `${message.contentType}-${message._id}`)
                           );
                         }}
-                        className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                        className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                           }`}
                       >
-                        <FaDownload size={15} className="opacity-80 shrink-0" />
-                        <span className="font-normal text-[14px]">Download</span>
-                      </button>
-                    )}
-
-                    {isUserMessage && message.contentType === "text" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditText(message.content || "");
-                          setIsEditing(true);
-                          setShowOptions(false);
-                        }}
-                        className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
-                          }`}
-                      >
-                        <RiEditLine size={16} className="opacity-80 shrink-0" />
-                        <span className="font-normal text-[14px]">Edit</span>
+                        <FaDownload size={15} className="shrink-0 text-[#8696a0]" />
+                        <span className="font-normal text-[14.5px]">Download</span>
                       </button>
                     )}
 
@@ -1624,11 +1657,11 @@ const MessageBuble = ({
                         setShowOptions(false);
                         toast.info("Report submitted");
                       }}
-                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <FiThumbsDown size={17} className="opacity-80 shrink-0" />
-                      <span className="font-normal text-[14px]">Report</span>
+                      <FiThumbsDown size={17} className="shrink-0 text-[#8696a0]" />
+                      <span className="font-normal text-[14.5px]">Report</span>
                     </button>
 
                     <button
@@ -1637,11 +1670,11 @@ const MessageBuble = ({
                         setDeleteModal(message);
                         setShowOptions(false);
                       }}
-                      className={`flex w-full items-center px-4 py-2 gap-3.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-gray-100"
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <RiDeleteBin6Line size={17} className="opacity-80 shrink-0" />
-                      <span className="font-normal text-[14px]">Delete</span>
+                      <RiDeleteBin6Line size={17} className="shrink-0 text-[#8696a0]" />
+                      <span className="font-normal text-[14.5px]">Delete</span>
                     </button>
                   </motion.div>
                 </>
@@ -1847,6 +1880,13 @@ const MessageBuble = ({
             theme={theme}
           />
         )}
+
+        <ForwardModal
+          isOpen={showForwardModal}
+          onClose={() => setShowForwardModal(false)}
+          message={message}
+          theme={theme}
+        />
       </div>
     </div>
   );

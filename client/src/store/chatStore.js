@@ -84,6 +84,24 @@ async function decryptSingleMessage(
   return msg;
 }
 
+const getStoredPinned = () => {
+  try {
+    const raw = localStorage.getItem("whatsapp_pinned_messages");
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    const now = Date.now();
+    const valid = {};
+    for (const [convId, data] of Object.entries(parsed)) {
+      if (data && (!data.expiresAt || data.expiresAt > now)) {
+        valid[convId] = data;
+      }
+    }
+    return valid;
+  } catch (e) {
+    return {};
+  }
+};
+
 export const useChatStore = create((set, get) => ({
   users: [],
   setUsers: (users) => set({ users }),
@@ -101,6 +119,42 @@ export const useChatStore = create((set, get) => ({
   error: null,
   onlineUsers: new Map(),
   typingUsers: new Map(),
+  pinnedMessages: getStoredPinned(),
+  pinMessage: (conversationId, message, duration = "7 days") => {
+    if (!conversationId || !message) return;
+    const pinnedAt = Date.now();
+    let durationMs = 7 * 24 * 60 * 60 * 1000;
+    if (duration === "24 hours") durationMs = 24 * 60 * 60 * 1000;
+    if (duration === "30 days") durationMs = 30 * 24 * 60 * 60 * 1000;
+    const expiresAt = pinnedAt + durationMs;
+
+    const newPinned = {
+      ...get().pinnedMessages,
+      [conversationId]: {
+        message,
+        duration,
+        pinnedAt,
+        expiresAt,
+      },
+    };
+
+    try {
+      localStorage.setItem("whatsapp_pinned_messages", JSON.stringify(newPinned));
+    } catch (e) {}
+
+    set({ pinnedMessages: newPinned });
+  },
+  unpinMessage: (conversationId) => {
+    if (!conversationId) return;
+    const updated = { ...get().pinnedMessages };
+    delete updated[conversationId];
+
+    try {
+      localStorage.setItem("whatsapp_pinned_messages", JSON.stringify(updated));
+    } catch (e) {}
+
+    set({ pinnedMessages: updated });
+  },
   scrollPositions: {},
   saveScrollPosition: (id, pos) =>
     set((state) => ({

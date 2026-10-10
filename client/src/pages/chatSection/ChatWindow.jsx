@@ -111,9 +111,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const lastSeen = getUserLastSeen(selectedContact?._id);
   const conversationId = selectedContact?.conversation?._id;
   const isTyping = isUserTyping(conversationId, selectedContact?._id);
-
   const { setShowContactInfo, openContactInfoWithTab } = useLayoutStore();
-
   const setCurrentConversation = useChatStore(
     (state) => state.setCurrentConversation,
   );
@@ -364,7 +362,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       const status = online ? "delivered" : "send";
 
       if (selectedFiles.length > 0) {
-        // Send all selected files one by one (multi-file send)
         for (let i = 0; i < selectedFiles.length; i++) {
           const item = selectedFiles[i];
           const formData = new FormData();
@@ -376,7 +373,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           formData.append("fileSize", item.size);
           formData.append("contentType", item.type);
 
-          // Attach caption to the first file if user typed message
           if (i === 0 && trimmedMessage) {
             formData.append("content", trimmedMessage);
           } else {
@@ -386,7 +382,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           await sendMessage(formData);
         }
       } else if (trimmedMessage) {
-        // Plain text message
         const formData = new FormData();
         formData.append("senderId", user?._id);
         formData.append("receiverId", selectedContact?._id);
@@ -395,8 +390,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         formData.append("contentType", "text");
         await sendMessage(formData);
       }
-
-      // After send: completely clear input box, message, and reset file inputs
+      
       setMessage("");
       selectedFiles.forEach((item) => {
         if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
@@ -1221,11 +1215,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                       <div
                         key={item.id}
                         onClick={() => setActiveFileIndex(idx)}
-                        className={`relative group/thumb shrink-0 w-12 h-12 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${
-                          activeFileIndex === idx
-                            ? "border-emerald-500 scale-105 shadow-md"
-                            : "border-transparent opacity-70 hover:opacity-100"
-                        }`}
+                        className={`relative group/thumb shrink-0 w-12 h-12 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${activeFileIndex === idx
+                          ? "border-emerald-500 scale-105 shadow-md"
+                          : "border-transparent opacity-70 hover:opacity-100"
+                          }`}
                       >
                         {item.type === "image" ? (
                           <img

@@ -72,7 +72,6 @@ const FileViewerModal = ({ isOpen, onClose, file, theme = "dark" }) => {
           "Cloudinary is blocking PDF delivery. Please enable 'Allow delivery of PDF and ZIP files' in your Cloudinary Security Settings."
         );
       }
-      // Fallback
       let downloadUrl = fileUrl;
       if (fileUrl.includes("/upload/")) {
         downloadUrl = fileUrl.replace("/upload/", "/upload/fl_attachment/");

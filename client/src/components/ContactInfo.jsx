@@ -140,8 +140,8 @@ const ContactInfo = () => {
       streamRef.current.getTracks().forEach((track) => {
         try {
           track.stop();
-        } catch {
-          // ignore
+        } catch (e) {
+          console.error("Error stopping camera stream", e)
         }
       });
       streamRef.current = null;
@@ -218,9 +218,9 @@ const ContactInfo = () => {
         streamRef.current.getTracks().forEach((track) => {
           try {
             track.stop();
-          } catch {
-            // ignore
-          }
+          } catch (e) {
+          console.error("Error stopping camera stream", e)
+        }
         });
         streamRef.current = null;
       }
@@ -264,9 +264,9 @@ const ContactInfo = () => {
         currentStream.getTracks().forEach((track) => {
           try {
             track.stop();
-          } catch {
-            // ignore
-          }
+          } catch (e) {
+          console.error("Error stopping camera stream", e)
+        }
         });
         streamRef.current = null;
       }
@@ -304,8 +304,8 @@ const ContactInfo = () => {
             handleValidateScannedCode(code.data);
             return;
           }
-        } catch {
-          // ignore
+        } catch (e) {
+          console.error("Error stopping camera stream", e)
         }
       }
       animId = requestAnimationFrame(checkFrame);

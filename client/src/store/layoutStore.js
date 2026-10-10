@@ -23,8 +23,15 @@ const useLayoutStore = create(
       selectedPollMessage: null,
       selectedPollMessageId: null,
 
+      selectedMessageInfo: null,
+      setSelectedMessageInfo: (message) =>
+        set({
+          selectedMessageInfo: message,
+          ...(message ? { showContactInfo: false, selectedPollMessage: null, selectedPollMessageId: null } : {}),
+        }),
+
       setSelectedContact: (contact) => {
-        set({ selectedContact: contact });
+        set({ selectedContact: contact, selectedMessageInfo: null });
       },
       updateSelectedContact: (updates) =>
         set((state) => ({
@@ -43,7 +50,7 @@ const useLayoutStore = create(
       setShowContactInfo: (value) =>
         set((state) => ({
           showContactInfo: value,
-          ...(value ? { selectedPollMessage: null, selectedPollMessageId: null } : { contactInfoTab: "info" }),
+          ...(value ? { selectedPollMessage: null, selectedPollMessageId: null, selectedMessageInfo: null } : { contactInfoTab: "info" }),
         })),
       setContactInfoTab: (tab) => set({ contactInfoTab: tab }),
       openContactInfoWithTab: (tab = "info") =>
@@ -52,13 +59,14 @@ const useLayoutStore = create(
           contactInfoTab: tab,
           selectedPollMessage: null,
           selectedPollMessageId: null,
+          selectedMessageInfo: null,
         }),
       setShowProfilePicture: (value) => set({ showProfilePicture: value }),
       setSelectedPollDetails: (pollMessage) =>
         set({
           selectedPollMessage: pollMessage,
           selectedPollMessageId: pollMessage?._id || null,
-          ...(pollMessage ? { showContactInfo: false } : {}),
+          ...(pollMessage ? { showContactInfo: false, selectedMessageInfo: null } : {}),
         }),
       chatListScrollTop: 0,
       setChatListScrollTop: (pos) => set({ chatListScrollTop: pos }),
