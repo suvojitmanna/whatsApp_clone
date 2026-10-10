@@ -163,6 +163,8 @@ const MessageBuble = ({
   onEdit,
   onEditEvent,
   isFirstInSequence = true,
+  onReply,
+  selectedContact,
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
@@ -745,6 +747,10 @@ const MessageBuble = ({
       <div
         ref={bubbleRef}
         onContextMenu={handleContextMenu}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          onReply?.(message);
+        }}
         className={`${bubbleContentClass} relative group ${isActive
           ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
           : ""
@@ -783,6 +789,98 @@ const MessageBuble = ({
           onClick={() => setShowReactions((prev) => !prev)}
           className="relative"
         >
+          {/* Quoted Message / Reply Preview */}
+          {(() => {
+            const replyMsg =
+              message.replyMessage ||
+              (typeof message.replyTo === "object" ? message.replyTo : null);
+            if (!replyMsg) return null;
+
+            const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
+            const replySenderId = (
+              replyMsg.sender?._id || replyMsg.sender
+            )?.toString();
+            const isRepliedSenderMe = Boolean(
+              currentUserId && replySenderId && currentUserId === replySenderId
+            );
+            const replySenderName =
+              replyMsg.sender?.username ||
+              (isRepliedSenderMe ? "You" : selectedContact?.username || "Contact");
+
+            let replyPreviewText = replyMsg.content || "";
+            if (replyMsg.contentType === "image") {
+              replyPreviewText = replyMsg.content ? `📷 ${replyMsg.content}` : "📷 Photo";
+            } else if (replyMsg.contentType === "video") {
+              replyPreviewText = replyMsg.content ? `🎥 ${replyMsg.content}` : "🎥 Video";
+            } else if (replyMsg.contentType === "audio") {
+              replyPreviewText = "🎵 Voice message";
+            } else if (replyMsg.contentType === "document") {
+              replyPreviewText = replyMsg.fileName ? `📄 ${replyMsg.fileName}` : "📄 Document";
+            } else if (replyMsg.contentType === "poll") {
+              replyPreviewText = `📊 ${replyMsg.pollData?.question || "Poll"}`;
+            } else if (replyMsg.contentType === "event") {
+              replyPreviewText = `📅 ${replyMsg.eventData?.eventName || "Event"}`;
+            } else if (replyMsg.contentType === "contact") {
+              replyPreviewText = `👤 ${replyMsg.contactData?.name || "Contact"}`;
+            } else if (replyMsg.contentType === "sticker") {
+              replyPreviewText = "💟 Sticker";
+            }
+
+            return (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const targetId = replyMsg._id;
+                  if (!targetId) return;
+                  const el = document.getElementById(`msg-${targetId}`);
+                  if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    el.classList.add(
+                      "ring-2",
+                      "ring-emerald-400",
+                      "shadow-[0_0_15px_rgba(16,185,129,0.55)]",
+                      "rounded-xl",
+                      "transition-all",
+                      "duration-500"
+                    );
+                    setTimeout(() => {
+                      el.classList.remove(
+                        "ring-2",
+                        "ring-emerald-400",
+                        "shadow-[0_0_15px_rgba(16,185,129,0.55)]",
+                        "rounded-xl"
+                      );
+                    }, 2000);
+                  } else {
+                    toast.info("Original message is earlier in chat history");
+                  }
+                }}
+                className={`mb-1.5 p-2 rounded-lg border-l-[3.5px] cursor-pointer transition-all hover:brightness-105 active:scale-[0.99] select-none flex items-center justify-between gap-2 overflow-hidden ${
+                  isDark
+                    ? "bg-black/25 border-[#8b7ff5] text-[#d1d7db]"
+                    : "bg-black/[0.05] border-[#7f66ff] text-zinc-900"
+                }`}
+                title="Click to jump to quoted message"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-[#8b7ff5] truncate">
+                    {isRepliedSenderMe ? "You" : replySenderName}
+                  </p>
+                  <p className="text-xs opacity-75 truncate mt-0.5">
+                    {replyPreviewText || "Message"}
+                  </p>
+                </div>
+                {replyMsg.imageOrVideoUrl &&
+                  ["image", "video", "sticker"].includes(replyMsg.contentType) && (
+                    <img
+                      src={replyMsg.imageOrVideoUrl}
+                      alt="quote thumb"
+                      className="w-8 h-8 rounded object-cover shrink-0 ml-2"
+                    />
+                  )}
+              </div>
+            );
+          })()}
           {message.statusId && (
             <button
               type="button"
@@ -1678,7 +1776,9 @@ const MessageBuble = ({
                       type="button"
                       onClick={() => {
                         setShowOptions(false);
-                        toast.info("Reply to message");
+                        if (onReply) {
+                          onReply(message);
+                        }
                       }}
                       className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}

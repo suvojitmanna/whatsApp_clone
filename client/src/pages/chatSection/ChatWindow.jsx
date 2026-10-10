@@ -15,6 +15,7 @@ import {
   FaVideo,
   FaEye,
   FaPlus,
+  FaMicrophone,
 } from "react-icons/fa";
 import { IoSend } from "react-icons/io5";
 import { TiArrowRight } from "react-icons/ti";
@@ -67,6 +68,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
   const [showPinnedMenu, setShowPinnedMenu] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const messageInputRef = useRef(null);
 
   const typingTimeOutRef = useRef(null);
   const messageEndRef = useRef(null);
@@ -223,6 +226,46 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     toast.info("Message unpinned");
   };
 
+  const handleStartReply = (msg) => {
+    if (!msg) return;
+    setReplyingTo(msg);
+    setTimeout(() => {
+      messageInputRef.current?.focus();
+    }, 50);
+  };
+
+  const getReplyPreviewText = (msg) => {
+    if (!msg) return "";
+    if (msg.contentType === "text" || (!msg.contentType && msg.content)) {
+      return msg.content || "";
+    }
+    if (msg.contentType === "image") {
+      return msg.content ? `📷 ${msg.content}` : "📷 Photo";
+    }
+    if (msg.contentType === "video") {
+      return msg.content ? `🎥 ${msg.content}` : "🎥 Video";
+    }
+    if (msg.contentType === "audio") {
+      return "🎵 Voice message";
+    }
+    if (msg.contentType === "document") {
+      return msg.fileName ? `📄 ${msg.fileName}` : "📄 Document";
+    }
+    if (msg.contentType === "poll") {
+      return `📊 ${msg.pollData?.question || "Poll"}`;
+    }
+    if (msg.contentType === "event") {
+      return `📅 ${msg.eventData?.eventName || "Event"}`;
+    }
+    if (msg.contentType === "contact") {
+      return `👤 ${msg.contactData?.name || "Contact"}`;
+    }
+    if (msg.contentType === "sticker") {
+      return "💟 Sticker";
+    }
+    return msg.content || "Message";
+  };
+
   useOutsideClick(pinnedMenuRef, () => setShowPinnedMenu(false));
 
   useEffect(() => {
@@ -240,6 +283,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     prevContactIdRef.current = selectedContact._id;
     setSearchTerm("");
     setIsSearchOpen(false);
+    setReplyingTo(null);
 
     const targetConvId =
       selectedContact?.conversation?._id ||
@@ -470,6 +514,16 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     setIsSending(true);
     try {
       const status = online ? "delivered" : "send";
+      const replyData = replyingTo
+        ? {
+            _id: replyingTo._id,
+            content: replyingTo.content || "",
+            contentType: replyingTo.contentType || "text",
+            fileName: replyingTo.fileName || null,
+            sender: replyingTo.sender,
+            imageOrVideoUrl: replyingTo.imageOrVideoUrl || null,
+          }
+        : null;
 
       if (selectedFiles.length > 0) {
         for (let i = 0; i < selectedFiles.length; i++) {
@@ -489,6 +543,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             formData.append("content", "");
           }
 
+          if (i === 0 && replyData) {
+            formData.append("replyTo", replyData._id);
+            formData.append("replyMessage", JSON.stringify(replyData));
+          }
+
           await sendMessage(formData);
         }
       } else if (trimmedMessage) {
@@ -498,10 +557,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         formData.append("messageStatus", status);
         formData.append("content", trimmedMessage);
         formData.append("contentType", "text");
+        if (replyData) {
+          formData.append("replyTo", replyData._id);
+          formData.append("replyMessage", JSON.stringify(replyData));
+        }
         await sendMessage(formData);
       }
 
       setMessage("");
+      setReplyingTo(null);
       selectedFiles.forEach((item) => {
         if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
       });
@@ -655,33 +719,93 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
   };
 
-  const renderDateSeparator = (date) => {
+  const renderDateSeparator = (date, includePinNotification = false) => {
     if (!isValidate(date)) {
       return null;
     }
 
     let dateString;
     if (isToday(date)) {
-      dateString = "TODAY";
+      dateString = "Today";
     } else if (isYesterday(date)) {
-      dateString = "YESTERDAY";
+      dateString = "Yesterday";
     } else {
       dateString = format(date, "EEEE, MMMM d");
     }
 
+    const isPinnedByMe =
+      !activePin?.pinnedBy ||
+      String(activePin?.pinnedBy?._id || activePin?.pinnedBy) === String(user?._id);
+
     return (
-      <div className="flex justify-center my-3 select-none">
+      <div className="flex flex-col items-center justify-center my-2 select-none gap-1.5">
         <span
-          className={`px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors ${theme === "dark"
+          className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-colors ${theme === "dark"
             ? "bg-[#182229] text-[#8696a0]"
-            : "bg-white text-[#54656f]"
+            : "bg-white text-[#54656f] border border-black/5"
             }`}
         >
           {dateString}
         </span>
+
+        {includePinNotification && activePin?.message && (
+          <button
+            type="button"
+            onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
+            className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-all duration-200 cursor-pointer active:scale-95 ${theme === "dark"
+              ? "bg-[#182229] hover:bg-[#202c33] text-[#8696a0] hover:text-[#d1d7db]"
+              : "bg-white hover:bg-gray-50 text-[#54656f] border border-black/5"
+              }`}
+            title="Click to jump to pinned message"
+          >
+            {isPinnedByMe
+              ? "You pinned a message"
+              : `${selectedContact?.username || "Contact"} pinned a message`}
+          </button>
+        )}
       </div>
     );
   };
+
+  const renderPinSystemNotification = () => {
+    if (!activePin || !activePin.message) return null;
+    const isPinnedByMe =
+      !activePin.pinnedBy ||
+      String(activePin.pinnedBy?._id || activePin.pinnedBy) === String(user?._id);
+
+    return (
+      <div className="flex justify-center my-1 select-none">
+        <button
+          type="button"
+          onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
+          className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-all duration-200 cursor-pointer active:scale-95 ${theme === "dark"
+            ? "bg-[#182229] hover:bg-[#202c33] text-[#8696a0] hover:text-[#d1d7db]"
+            : "bg-white hover:bg-gray-50 text-[#54656f] border border-black/5"
+            }`}
+          title="Click to jump to pinned message"
+        >
+          {isPinnedByMe
+            ? "You pinned a message"
+            : `${selectedContact?.username || "Contact"} pinned a message`}
+        </button>
+      </div>
+    );
+  };
+
+  const pinDate = useMemo(() => {
+    if (!activePin) return null;
+    const rawTime = activePin.pinnedAt || activePin.message?.createdAt;
+    if (rawTime) {
+      const d = new Date(rawTime);
+      if (isValidate(d)) return d;
+    }
+    return new Date();
+  }, [activePin]);
+
+  const pinDateStr = useMemo(() => {
+    if (!pinDate || !isValidate(pinDate)) return null;
+    return format(pinDate, "yyyy-MM-dd");
+  }, [pinDate]);
 
   const groupedMessages = useMemo(() => {
     if (!Array.isArray(messages) || messages.length === 0) return {};
@@ -721,6 +845,16 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
     return { finalMessagesToRender: filtered, resultCount: count };
   }, [groupedMessages, searchTerm]);
+
+  const allDateEntries = useMemo(() => {
+    const entries = { ...finalMessagesToRender };
+    if (!searchTerm && activePin && pinDateStr && !entries[pinDateStr]) {
+      entries[pinDateStr] = [];
+    }
+    return Object.entries(entries).sort(([dateA], [dateB]) => {
+      return new Date(dateA).getTime() - new Date(dateB).getTime();
+    });
+  }, [finalMessagesToRender, activePin, pinDateStr, searchTerm]);
   const highlightText = (text, term) => {
     if (!term) return text;
 
@@ -1119,8 +1253,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             <div
               onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
               className={`h-[42px] px-4 flex items-center justify-between border-b cursor-pointer transition-colors duration-150 select-none z-20 shrink-0 relative group ${theme === "dark"
-                  ? "bg-[#111b21] hover:bg-[#182229] border-[#222d34] text-[#e9edef]"
-                  : "bg-[#f0f2f5] hover:bg-[#eaecef] border-[#e9edef] text-[#111b21]"
+                ? "bg-[#111b21] hover:bg-[#182229] border-[#222d34] text-[#e9edef]"
+                : "bg-[#f0f2f5] hover:bg-[#eaecef] border-[#e9edef] text-[#111b21]"
                 }`}
               title="Click to jump to pinned message"
             >
@@ -1167,8 +1301,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                     transition={{ duration: 0.12 }}
                     onClick={(e) => e.stopPropagation()}
                     className={`absolute right-3 top-[43px] z-50 min-w-[175px] rounded-xl shadow-2xl py-1.5 border select-none ${theme === "dark"
-                        ? "bg-[#233138] border-white/10 text-[#d1d7db]"
-                        : "bg-white border-black/10 text-[#111b21]"
+                      ? "bg-[#233138] border-white/10 text-[#d1d7db]"
+                      : "bg-white border-black/10 text-[#111b21]"
                       }`}
                   >
                     <button
@@ -1178,8 +1312,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                         handleUnpinFromBanner(e);
                       }}
                       className={`group w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
-                          ? "hover:bg-[#182229] hover:text-white"
-                          : "hover:bg-[#f5f6f6] text-[#111b21]"
+                        ? "hover:bg-[#182229] hover:text-white"
+                        : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
                       <span className="w-5 h-5 flex items-center justify-center shrink-0 text-[#8696a0] group-hover:text-inherit">
@@ -1195,8 +1329,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                         handleScrollToPinnedMessage(activePin.message?._id);
                       }}
                       className={`group w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
-                          ? "hover:bg-[#182229] hover:text-white"
-                          : "hover:bg-[#f5f6f6] text-[#111b21]"
+                        ? "hover:bg-[#182229] hover:text-white"
+                        : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
                       <span className="w-5 h-5 flex items-center justify-center shrink-0 text-[#8696a0] group-hover:text-inherit">
@@ -1244,7 +1378,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
               {isMessagesLoading ? (
                 <MessageSkeletonLoader theme={theme} />
-              ) : Object.keys(finalMessagesToRender).length === 0 ? (
+              ) : allDateEntries.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 opacity-70 text-center select-none">
                   <p className="text-xs sm:text-sm font-medium">
                     {searchTerm
@@ -1253,55 +1387,68 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   </p>
                 </div>
               ) : (
-                Object.entries(finalMessagesToRender).map(([date, msgs]) => {
-                  if (msgs.length === 0) return null;
+                (() => {
+                  let pinAlreadyRendered = false;
+                  return allDateEntries.map(([date, msgs], entryIndex) => {
+                    const isLastGroup = entryIndex === allDateEntries.length - 1;
+                    const shouldRenderPin =
+                      !searchTerm &&
+                      Boolean(activePin) &&
+                      !pinAlreadyRendered &&
+                      (date === pinDateStr || (isLastGroup && !pinAlreadyRendered));
 
-                  return (
-                    <React.Fragment key={date}>
-                      {renderDateSeparator(new Date(date))}
+                    if (shouldRenderPin) {
+                      pinAlreadyRendered = true;
+                    }
 
-                      {msgs.map((msg, index) => {
-                        const prevMsg = index > 0 ? msgs[index - 1] : null;
-                        const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
-                        const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
-                        const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
+                    return (
+                      <React.Fragment key={date}>
+                        {renderDateSeparator(new Date(date), shouldRenderPin)}
 
-                        const isMatch =
-                          searchTerm &&
-                          (msg.content || "")
-                            .toLowerCase()
-                            .includes(searchTerm.toLowerCase());
-                        if (isMatch) {
-                          matchCounter++;
-                        }
-                        return (
-                          <MessageBuble
-                            key={msg._id || msg.temp}
-                            message={msg}
-                            theme={theme}
-                            currentUser={user}
-                            selectedContact={selectedContact}
-                            onReact={handleReaction}
-                            deleteMessage={deleteMessage}
-                            onEdit={editMessage}
-                            onEditEvent={handleEditEventClick}
-                            onStatusClick={onStatusClick}
-                            searchTerm={searchTerm}
-                            highlightText={highlightText}
-                            dataMatch={isMatch}
-                            isActive={isMatch && matchCounter === currentIndex}
-                            isFirstInSequence={isFirstInSequence}
-                            setRef={(el) => {
-                              if (isMatch && el) {
-                                messageRefs.current.push(el);
-                              }
-                            }}
-                          />
-                        );
-                      })}
-                    </React.Fragment>
-                  );
-                })
+                        {msgs.map((msg, index) => {
+                          const prevMsg = index > 0 ? msgs[index - 1] : null;
+                          const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
+                          const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
+                          const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
+
+                          const isMatch =
+                            searchTerm &&
+                            (msg.content || "")
+                              .toLowerCase()
+                              .includes(searchTerm.toLowerCase());
+                          if (isMatch) {
+                            matchCounter++;
+                          }
+                          return (
+                            <MessageBuble
+                              key={msg._id || msg.temp}
+                              message={msg}
+                              theme={theme}
+                              currentUser={user}
+                              selectedContact={selectedContact}
+                              onReact={handleReaction}
+                              deleteMessage={deleteMessage}
+                              onEdit={editMessage}
+                              onEditEvent={handleEditEventClick}
+                              onStatusClick={onStatusClick}
+                              searchTerm={searchTerm}
+                              highlightText={highlightText}
+                              dataMatch={isMatch}
+                              isActive={isMatch && matchCounter === currentIndex}
+                              isFirstInSequence={isFirstInSequence}
+                              onReply={handleStartReply}
+                              setRef={(el) => {
+                                if (isMatch && el) {
+                                  messageRefs.current.push(el);
+                                }
+                              }}
+                            />
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  });
+                })()
               )}
             </div>
 
@@ -1474,9 +1621,63 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           })()}
 
           <div
-            className={`p-3 sm:p-4 ${theme === "dark" ? "" : ""
-              } flex items-center relative transition-colors`}
+            className={`p-2.5 sm:p-3 border-t flex flex-col relative transition-colors ${theme === "dark"
+              ? "bg-[#202c33] border-[#222d34]"
+              : "bg-[#f0f2f5] border-gray-200"
+              }`}
           >
+            {/* Reply Preview Banner */}
+            <AnimatePresence>
+              {replyingTo && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className={`w-full mb-2 px-3 py-2 rounded-xl flex items-center justify-between border shadow-sm transition-colors ${
+                    theme === "dark"
+                      ? "bg-[#1f2c34] border-white/5 text-[#d1d7db]"
+                      : "bg-white border-black/5 text-[#111b21]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {/* Purple vertical bar */}
+                    <div className="w-[4px] self-stretch rounded-full bg-[#7f66ff] shrink-0" />
+
+                    {/* Text info */}
+                    <div className="min-w-0 flex-1 flex flex-col justify-center">
+                      <span className="text-[13px] font-semibold text-[#8b7ff5] leading-tight truncate">
+                        {String(replyingTo.sender?._id || replyingTo.sender) === String(user?._id)
+                          ? "You"
+                          : (replyingTo.sender?.username || selectedContact?.username || "Contact")}
+                      </span>
+                      <span className="text-xs text-[#8696a0] leading-tight truncate mt-0.5">
+                        {getReplyPreviewText(replyingTo)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {replyingTo.imageOrVideoUrl &&
+                    ["image", "video", "sticker"].includes(replyingTo.contentType) && (
+                      <img
+                        src={replyingTo.imageOrVideoUrl}
+                        alt="reply thumb"
+                        className="w-10 h-10 rounded-lg object-cover shrink-0 ml-2"
+                      />
+                    )}
+
+                  <button
+                    type="button"
+                    onClick={() => setReplyingTo(null)}
+                    className="p-1 rounded-full text-[#8696a0] hover:text-white hover:bg-white/10 active:scale-90 transition-all cursor-pointer shrink-0 ml-2"
+                    title="Close reply"
+                  >
+                    <RxCross2 className="w-4 h-4" />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div
               className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 border ${theme === "dark"
                 ? "bg-[#2a3942] border-white/5 hover:border-emerald-500/50 hover:bg-[#32424b] focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
@@ -1752,6 +1953,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               </div>
 
               <input
+                ref={messageInputRef}
                 type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -1759,6 +1961,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleSendMessage();
+                  } else if (e.key === "Escape" && replyingTo) {
+                    setReplyingTo(null);
                   }
                 }}
                 placeholder="Type a message"
@@ -1768,19 +1972,29 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   }`}
               />
 
-              <button
-                type="button"
-                onClick={handleSendMessage}
-                disabled={isSending}
-                className="shrink-0 p-2 sm:p-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-90 text-white shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50"
-                title={isSending ? "Sending..." : "Send message"}
-              >
-                {isSending ? (
-                  <div className="h-4 w-4 sm:h-4.5 sm:w-4.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <IoSend className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white" />
-                )}
-              </button>
+              {message.trim() || selectedFiles.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleSendMessage}
+                  disabled={isSending}
+                  className="shrink-0 p-2 sm:p-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-90 text-white shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50"
+                  title={isSending ? "Sending..." : "Send message"}
+                >
+                  {isSending ? (
+                    <div className="h-4 w-4 sm:h-4.5 sm:w-4.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <IoSend className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white" />
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="shrink-0 p-2 sm:p-2.5 rounded-full text-gray-500 dark:text-[#8696a0] hover:text-gray-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Voice message"
+                >
+                  <FaMicrophone className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                </button>
+              )}
             </div>
           </div>
 

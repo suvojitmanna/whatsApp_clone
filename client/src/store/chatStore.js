@@ -148,7 +148,10 @@ export const useChatStore = create((set, get) => ({
     }
 
     try {
-      localStorage.setItem("whatsapp_starred_messages", JSON.stringify(current));
+      localStorage.setItem(
+        "whatsapp_starred_messages",
+        JSON.stringify(current),
+      );
     } catch (e) {}
 
     set({ starredMessages: current });
@@ -203,10 +206,48 @@ export const useChatStore = create((set, get) => ({
     addKey(message?.receiver?._id || message?.receiver);
 
     try {
-      localStorage.setItem("whatsapp_pinned_messages", JSON.stringify(newPinned));
+      localStorage.setItem(
+        "whatsapp_pinned_messages",
+        JSON.stringify(newPinned),
+      );
     } catch (e) {}
 
-    set({ pinnedMessages: newPinned });
+    set((state) => ({
+      pinnedMessages: newPinned,
+      conversations: state.conversations?.data
+        ? {
+            ...state.conversations,
+            data: state.conversations.data.map((conv) => {
+              const cId = conv?._id?.toString();
+              const convTarget = (
+                conversationId?._id || conversationId
+              )?.toString();
+              const secTarget = (secondaryId?._id || secondaryId)?.toString();
+              const msgConvId = (
+                message?.conversation?._id ||
+                message?.conversation ||
+                message?.conversationId
+              )?.toString();
+              if (
+                cId &&
+                (cId === convTarget || cId === secTarget || cId === msgConvId)
+              ) {
+                return {
+                  ...conv,
+                  pinnedMessage: {
+                    message: message._id || message,
+                    duration,
+                    pinnedAt: new Date(pinnedAt),
+                    expiresAt: new Date(expiresAt),
+                    pinnedBy: pinData.pinnedBy,
+                  },
+                };
+              }
+              return conv;
+            }),
+          }
+        : state.conversations,
+    }));
 
     if (emitSocket) {
       const socket = getSocket();
@@ -216,8 +257,8 @@ export const useChatStore = create((set, get) => ({
         const targetReceiverId =
           receiverId ||
           (message.sender?._id?.toString() === currentUserId
-            ? (message.receiver?._id || message.receiver)
-            : (message.sender?._id || message.sender)) ||
+            ? message.receiver?._id || message.receiver
+            : message.sender?._id || message.sender) ||
           secondaryId;
 
         socket.emit("pin_message", {
@@ -260,11 +301,15 @@ export const useChatStore = create((set, get) => ({
     Object.keys(updated).forEach((key) => {
       const pin = updated[key];
       if (!pin) return;
-      const convMatch = convIdStr && (
-        key === convIdStr ||
-        (pin.message?.conversation && (pin.message.conversation._id || pin.message.conversation).toString() === convIdStr) ||
-        (pin.message?.conversationId && pin.message.conversationId.toString() === convIdStr)
-      );
+      const convMatch =
+        convIdStr &&
+        (key === convIdStr ||
+          (pin.message?.conversation &&
+            (
+              pin.message.conversation._id || pin.message.conversation
+            ).toString() === convIdStr) ||
+          (pin.message?.conversationId &&
+            pin.message.conversationId.toString() === convIdStr));
       const secMatch = secIdStr && key === secIdStr;
       const recMatch = recIdStr && key === recIdStr;
       if (convMatch || secMatch || recMatch) {
@@ -283,7 +328,26 @@ export const useChatStore = create((set, get) => ({
       localStorage.setItem("whatsapp_pinned_messages", JSON.stringify(updated));
     } catch (e) {}
 
-    set({ pinnedMessages: updated });
+    set((state) => ({
+      pinnedMessages: updated,
+      conversations: state.conversations?.data
+        ? {
+            ...state.conversations,
+            data: state.conversations.data.map((conv) => {
+              const cId = conv?._id?.toString();
+              if (
+                cId &&
+                (cId === convIdStr || cId === secIdStr || cId === recIdStr)
+              ) {
+                const nextConv = { ...conv };
+                delete nextConv.pinnedMessage;
+                return nextConv;
+              }
+              return conv;
+            }),
+          }
+        : state.conversations,
+    }));
 
     if (emitSocket) {
       const socket = getSocket();
@@ -328,7 +392,14 @@ export const useChatStore = create((set, get) => ({
 
     socket.on("message_pinned", (data) => {
       if (!data) return;
-      const { conversationId, message, duration, secondaryId, receiverId, pinnedBy } = data;
+      const {
+        conversationId,
+        message,
+        duration,
+        secondaryId,
+        receiverId,
+        pinnedBy,
+      } = data;
       get().pinMessage(
         conversationId,
         message,
@@ -343,7 +414,13 @@ export const useChatStore = create((set, get) => ({
     socket.on("message_unpinned", (data) => {
       if (!data) return;
       const { conversationId, secondaryId, receiverId, unpinnedBy } = data;
-      get().unpinMessage(conversationId, secondaryId, receiverId, false, unpinnedBy);
+      get().unpinMessage(
+        conversationId,
+        secondaryId,
+        receiverId,
+        false,
+        unpinnedBy,
+      );
     });
 
     socket.on("receive_message", (message) => {
@@ -606,6 +683,41 @@ export const useChatStore = create((set, get) => ({
         return { onlineUsers: newOnlineUsers };
       });
     });
+
+    socket.on(
+      "message_pinned",
+      ({
+        conversationId,
+        message,
+        duration,
+        pinnedBy,
+        secondaryId,
+        receiverId,
+      }) => {
+        get().pinMessage(
+          conversationId,
+          message,
+          duration,
+          secondaryId,
+          receiverId,
+          false,
+          pinnedBy,
+        );
+      },
+    );
+
+    socket.on(
+      "message_unpinned",
+      ({ conversationId, secondaryId, receiverId, unpinnedBy }) => {
+        get().unpinMessage(
+          conversationId,
+          secondaryId,
+          receiverId,
+          false,
+          unpinnedBy,
+        );
+      },
+    );
     const { conversations } = get();
 
     if (conversations?.data?.length > 0) {
@@ -856,6 +968,15 @@ export const useChatStore = create((set, get) => ({
     }
 
     const tempId = `temp-${Date.now()}`;
+    const replyTo = formData.get("replyTo");
+    const replyMessageStr = formData.get("replyMessage");
+    let parsedReplyMessage = null;
+    if (replyMessageStr) {
+      try {
+        parsedReplyMessage = JSON.parse(replyMessageStr);
+      } catch (e) {}
+    }
+
     const optimisticMessage = {
       _id: tempId,
       sender: { _id: senderId },
@@ -876,6 +997,8 @@ export const useChatStore = create((set, get) => ({
           : "text"),
       createdAt: new Date().toISOString(),
       messageStatus,
+      replyTo: replyTo || null,
+      replyMessage: parsedReplyMessage,
     };
 
     set((state) => {

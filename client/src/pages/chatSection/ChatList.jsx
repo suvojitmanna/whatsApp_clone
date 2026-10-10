@@ -18,6 +18,46 @@ import { RxCross2 } from "react-icons/rx";
 import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
+import { WhatsAppPinIcon } from "./MessageBuble";
+
+const getContactPin = (contact, pinnedMessages) => {
+  if (!contact) return null;
+  const convId = (contact.conversation?._id || contact.conversation)?.toString();
+  const contactId = contact._id?.toString();
+
+  if (contact.conversation?.pinnedMessage && contact.conversation.pinnedMessage.message) {
+    const expires = contact.conversation.pinnedMessage.expiresAt
+      ? new Date(contact.conversation.pinnedMessage.expiresAt).getTime()
+      : null;
+    if (!expires || expires > Date.now()) {
+      return contact.conversation.pinnedMessage;
+    }
+  }
+
+  if (!pinnedMessages) return null;
+
+  let pin =
+    (convId && pinnedMessages[convId]) ||
+    (contactId && pinnedMessages[contactId]);
+
+  if (!pin) {
+    const allPins = Object.values(pinnedMessages || {});
+    pin = allPins.find((p) => {
+      if (!p?.message) return false;
+      const msgConv = (p.message.conversation?._id || p.message.conversation || p.message.conversationId)?.toString();
+      const msgSender = (p.message.sender?._id || p.message.sender)?.toString();
+      const msgReceiver = (p.message.receiver?._id || p.message.receiver)?.toString();
+      return (
+        (convId && msgConv === convId) ||
+        (contactId && (msgSender === contactId || msgReceiver === contactId))
+      );
+    });
+  }
+
+  if (!pin || !pin.message) return null;
+  if (pin.expiresAt && new Date(pin.expiresAt).getTime() <= Date.now()) return null;
+  return pin;
+};
 
 const getLastMessagePreview = (lastMessage) => {
   if (!lastMessage) return null;
@@ -231,6 +271,7 @@ const getLastMessagePreview = (lastMessage) => {
 const ChatList = ({ contacts }) => {
   const { user } = useUserStore();
   const { isUserTyping } = useChatStore();
+  const pinnedMessages = useChatStore((state) => state.pinnedMessages);
   const selectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedContact = useLayoutStore(
     (state) => state.setSelectedContact,
@@ -253,16 +294,25 @@ const ChatList = ({ contacts }) => {
       : contacts;
 
     return [...list].sort((a, b) => {
-      const timeA = a?.conversation?.lastMessage?.createdAt
-        ? new Date(a.conversation.lastMessage.createdAt).getTime()
-        : (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0);
+      const pinA = getContactPin(a, pinnedMessages);
+      const pinB = getContactPin(b, pinnedMessages);
 
-      const timeB = b?.conversation?.lastMessage?.createdAt
-        ? new Date(b.conversation.lastMessage.createdAt).getTime()
-        : (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0);
+      const timeA = Math.max(
+        a?.conversation?.lastMessage?.createdAt
+          ? new Date(a.conversation.lastMessage.createdAt).getTime()
+          : (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0),
+        pinA?.pinnedAt ? new Date(pinA.pinnedAt).getTime() : 0,
+      );
+
+      const timeB = Math.max(
+        b?.conversation?.lastMessage?.createdAt
+          ? new Date(b.conversation.lastMessage.createdAt).getTime()
+          : (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0),
+        pinB?.pinnedAt ? new Date(pinB.pinnedAt).getTime() : 0,
+      );
       return timeB - timeA;
     });
-  }, [contacts, searchTerms]);
+  }, [contacts, searchTerms, pinnedMessages]);
 
   useEffect(() => {
     if (listContainerRef.current) {
@@ -357,6 +407,7 @@ const ChatList = ({ contacts }) => {
           filteredContact.map((contact) => {
             const conversationId = contact?.conversation?._id;
             const isTyping = isUserTyping(conversationId, contact?._id);
+            const contactPin = getContactPin(contact, pinnedMessages);
 
             return (
               <motion.div
@@ -380,22 +431,27 @@ const ChatList = ({ contacts }) => {
                   className="w-12 h-12 rounded-full"
                 />
 
-                <div className="ml-3 flex-1">
-                  <div className="flex justify-between items-baseline">
-                    <h2 className="font-semibold">{contact?.username}</h2>
-                    {contact?.conversation && (
+                <div className="ml-3 flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <h2 className="font-semibold truncate">{contact?.username}</h2>
+                    {(contact?.conversation || contactPin) && (
                       <span
-                        className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
+                        className={`text-xs shrink-0 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
                       >
                         {formatTimestamp(
-                          contact?.conversation?.lastMessage?.createdAt,
+                          contactPin?.pinnedAt &&
+                            (!contact?.conversation?.lastMessage?.createdAt ||
+                              new Date(contactPin.pinnedAt).getTime() >
+                              new Date(contact.conversation.lastMessage.createdAt).getTime())
+                            ? contactPin.pinnedAt
+                            : contact?.conversation?.lastMessage?.createdAt,
                         )}
                       </span>
                     )}
                   </div>
-                  <div className="flex justify-between items-baseline">
-                    <p
-                      className={`text-sm flex items-center gap-1.5 w-full ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                  <div className="flex justify-between items-center mt-0.5">
+                    <div
+                      className={`text-sm flex items-center gap-1.5 min-w-0 flex-1 truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
                         }`}
                     >
                       {(() => {
@@ -406,6 +462,24 @@ const ChatList = ({ contacts }) => {
                           return (
                             <span className="font-medium text-emerald-500 flex-shrink-0">
                               typing...
+                            </span>
+                          );
+                        }
+
+                        const pinTime = contactPin?.pinnedAt ? new Date(contactPin.pinnedAt).getTime() : 0;
+                        const msgTime = lastMsg?.createdAt ? new Date(lastMsg.createdAt).getTime() : 0;
+                        const isPinLatest = Boolean(contactPin && (!lastMsg || pinTime >= msgTime));
+
+                        if (isPinLatest) {
+                          const isPinnedByMe =
+                            !contactPin.pinnedBy ||
+                            String(contactPin.pinnedBy?._id || contactPin.pinnedBy) === String(user?._id);
+                          return (
+                            <span className="flex items-center gap-1.5 truncate text-[#8696a0]">
+                              <WhatsAppPinIcon size={12} className="inline shrink-0 text-[#8696a0]" />
+                              <span className="truncate">
+                                {isPinnedByMe ? "You pinned a message" : `${contact.username} pinned a message`}
+                              </span>
                             </span>
                           );
                         }
@@ -437,30 +511,40 @@ const ChatList = ({ contacts }) => {
                           </span>
                         );
                       })()}
-                    </p>
-                    {(() => {
-                      const unread = contact?.conversation?.unreadCount;
-                      const currentUserId = user?._id?.toString();
-                      const lastMsgSenderId = (
-                        contact?.conversation?.lastMessage?.sender?._id ||
-                        contact?.conversation?.lastMessage?.sender
-                      )?.toString();
-                      const isSenderOfLast = Boolean(
-                        currentUserId &&
-                        lastMsgSenderId &&
-                        lastMsgSenderId === currentUserId
-                      );
+                    </div>
 
-                      if (isSenderOfLast || !unread || unread <= 0) {
-                        return null;
-                      }
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      {contactPin && (
+                        <WhatsAppPinIcon
+                          size={13}
+                          className="text-[#8696a0] shrink-0"
+                          title="Pinned message in chat"
+                        />
+                      )}
+                      {(() => {
+                        const unread = contact?.conversation?.unreadCount;
+                        const currentUserId = user?._id?.toString();
+                        const lastMsgSenderId = (
+                          contact?.conversation?.lastMessage?.sender?._id ||
+                          contact?.conversation?.lastMessage?.sender
+                        )?.toString();
+                        const isSenderOfLast = Boolean(
+                          currentUserId &&
+                          lastMsgSenderId &&
+                          lastMsgSenderId === currentUserId
+                        );
 
-                      return (
-                        <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white">
-                          {unread}
-                        </p>
-                      );
-                    })()}
+                        if (isSenderOfLast || !unread || unread <= 0) {
+                          return null;
+                        }
+
+                        return (
+                          <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white shrink-0">
+                            {unread}
+                          </p>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               </motion.div>

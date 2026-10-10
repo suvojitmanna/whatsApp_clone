@@ -219,8 +219,8 @@ const ContactInfo = () => {
           try {
             track.stop();
           } catch (e) {
-          console.error("Error stopping camera stream", e)
-        }
+            console.error("Error stopping camera stream", e)
+          }
         });
         streamRef.current = null;
       }
@@ -245,7 +245,7 @@ const ContactInfo = () => {
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
+          videoRef.current.play().catch(() => { });
         }
       } catch (err) {
         console.warn("Unable to access camera:", err);
@@ -265,8 +265,8 @@ const ContactInfo = () => {
           try {
             track.stop();
           } catch (e) {
-          console.error("Error stopping camera stream", e)
-        }
+            console.error("Error stopping camera stream", e)
+          }
         });
         streamRef.current = null;
       }

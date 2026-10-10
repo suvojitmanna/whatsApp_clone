@@ -87,6 +87,19 @@ exports.sendMessage = async (req, res) => {
       return response(res, 400, "Message content is required");
     }
 
+    let parsedReply = null;
+    if (req.body.replyMessage) {
+      if (typeof req.body.replyMessage === "string") {
+        try {
+          parsedReply = JSON.parse(req.body.replyMessage);
+        } catch (e) {
+          parsedReply = null;
+        }
+      } else {
+        parsedReply = req.body.replyMessage;
+      }
+    }
+
     const message = new Message({
       conversation: conversation._id,
       sender: senderId,
@@ -106,6 +119,8 @@ exports.sendMessage = async (req, res) => {
       timestamp,
       reactions: [],
       statusId: statusId || null,
+      replyTo: req.body.replyTo || null,
+      replyMessage: parsedReply,
     });
     await message.save();
     conversation.lastMessage = message._id;
@@ -114,6 +129,7 @@ exports.sendMessage = async (req, res) => {
     const populatedMessage = await Message.findById(message._id)
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey")
+      .populate("replyTo")
       .populate({
         path: "statusId",
         populate: {
@@ -251,6 +267,7 @@ exports.getMessages = async (req, res) => {
       .populate("receiver", "username profilePicture publicKey")
       .populate("reactions.userId", "username profilePicture")
       .populate("pollData.options.votes", "username profilePicture")
+      .populate("replyTo")
       .populate({
         path: "statusId",
         populate: {

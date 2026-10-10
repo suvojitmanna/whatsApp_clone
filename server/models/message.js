@@ -110,6 +110,15 @@ const messageSchema = new mongoose.Schema(
       ref: "Status",
       default: null,
     },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
+    replyMessage: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true },
 );
