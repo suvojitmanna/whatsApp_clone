@@ -106,30 +106,9 @@ const Layout = ({
           )}
         </AnimatePresence>
 
-        <AnimatePresence>
-          {isChatPage && selectedMessageInfo && (
-            <motion.div
-              initial={{ x: "-100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "-100%", opacity: 0 }}
-              transition={{ type: "tween", duration: 0.22, ease: "easeInOut" }}
-              className={`h-full flex flex-col select-none ${
-                isMobile
-                  ? "fixed inset-0 z-[100]"
-                  : "absolute top-0 bottom-0 left-0 w-full md:w-[30%] lg:w-[25%] md:min-w-[320px] md:max-w-[420px] z-40 border-r shadow-2xl"
-              } ${
-                theme === "dark"
-                  ? "bg-[#111b21] border-[#222d34]"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <MessageInfoPanel />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {isChatPage && showContactInfo && <ContactInfo />}
         {isChatPage && selectedPollMessage && <PollDetailsPanel />}
+        {isChatPage && selectedMessageInfo && <MessageInfoPanel />}
         {isChatPage && showProfilePicture && (
           <ProfilePicture
             isOpen={showProfilePicture}
@@ -153,8 +132,8 @@ const Layout = ({
           <div
             onClick={(e) => e.stopPropagation()}
             className={`relative p-6 rounded-2xl shadow-2xl max-w-[360px] w-full transform transition-all animate-in fade-in zoom-in duration-200 ${theme === "dark"
-                ? "bg-[#2a3942] text-[#e9edef]"
-                : "bg-white text-[#111b21]"
+              ? "bg-[#2a3942] text-[#e9edef]"
+              : "bg-white text-[#111b21]"
               }`}
           >
             <h2 className="text-xl font-medium mb-6">Choose Theme</h2>
@@ -189,8 +168,8 @@ const Layout = ({
               <button
                 onClick={toggleThemeDialoge}
                 className={`px-5 py-2 rounded-full font-medium transition-colors cursor-pointer ${theme === "dark"
-                    ? "text-[#00a884] hover:bg-[#202c33]"
-                    : "text-[#00a884] hover:bg-gray-50"
+                  ? "text-[#00a884] hover:bg-[#202c33]"
+                  : "text-[#00a884] hover:bg-gray-50"
                   }`}
               >
                 Cancel

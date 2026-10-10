@@ -11,6 +11,26 @@ const conversationSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    pinnedMessage: {
+      message: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Message",
+      },
+      pinnedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      duration: {
+        type: String,
+        default: "7 days",
+      },
+      pinnedAt: {
+        type: Date,
+      },
+      expiresAt: {
+        type: Date,
+      },
+    },
   },
   { timestamps: true },
 );

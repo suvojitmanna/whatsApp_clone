@@ -38,31 +38,23 @@ const PinDurationModal = ({
           exit={{ opacity: 0, scale: 0.92, y: 10 }}
           transition={{ duration: 0.16, ease: "easeOut" }}
           onClick={(e) => e.stopPropagation()}
-          className={`w-full max-w-[340px] rounded-[22px] p-6 shadow-2xl border select-none ${
-            isDark
-              ? "bg-[#202c33] border-white/5 text-[#e9edef]"
-              : "bg-white border-black/10 text-[#111b21]"
-          }`}
-        >
-          {/* Title */}
-          <h3
-            className={`text-[17px] font-bold tracking-tight leading-snug ${
-              isDark ? "text-white" : "text-gray-900"
+          className={`w-full max-w-[340px] rounded-[22px] p-6 shadow-2xl border select-none ${isDark
+            ? "bg-[#202c33] border-white/5 text-[#e9edef]"
+            : "bg-white border-black/10 text-[#111b21]"
             }`}
+        >
+          <h3
+            className={`text-[17px] font-bold tracking-tight leading-snug ${isDark ? "text-white" : "text-gray-900"
+              }`}
           >
             Choose how long your pin lasts
           </h3>
-
-          {/* Subtitle */}
           <p
-            className={`text-[13.5px] mt-1.5 mb-5 leading-normal ${
-              isDark ? "text-[#8696a0]" : "text-gray-500"
-            }`}
+            className={`text-[13.5px] mt-1.5 mb-5 leading-normal ${isDark ? "text-[#8696a0]" : "text-gray-500"
+              }`}
           >
             You can unpin at any time.
           </p>
-
-          {/* Options */}
           <div className="space-y-4">
             {options.map((opt) => {
               const isSelected = duration === opt;
@@ -73,28 +65,26 @@ const PinDurationModal = ({
                   className="flex items-center gap-4 cursor-pointer group py-0.5"
                 >
                   <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      isSelected
-                        ? "border-[#00a884]"
-                        : isDark
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${isSelected
+                      ? "border-[#00a884]"
+                      : isDark
                         ? "border-[#8696a0]/80 group-hover:border-[#8696a0]"
                         : "border-gray-400 group-hover:border-gray-600"
-                    }`}
+                      }`}
                   >
                     {isSelected && (
                       <div className="w-2.5 h-2.5 rounded-full bg-[#00a884]" />
                     )}
                   </div>
                   <span
-                    className={`text-[15px] font-normal transition-colors ${
-                      isSelected
-                        ? isDark
-                          ? "text-white font-medium"
-                          : "text-gray-900 font-medium"
-                        : isDark
+                    className={`text-[15px] font-normal transition-colors ${isSelected
+                      ? isDark
+                        ? "text-white font-medium"
+                        : "text-gray-900 font-medium"
+                      : isDark
                         ? "text-[#d1d7db]"
                         : "text-gray-700"
-                    }`}
+                      }`}
                   >
                     {opt}
                   </span>
@@ -103,7 +93,6 @@ const PinDurationModal = ({
             })}
           </div>
 
-          {/* Actions */}
           <div className="flex items-center justify-end gap-2.5 mt-7">
             <button
               type="button"

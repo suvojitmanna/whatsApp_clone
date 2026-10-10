@@ -171,6 +171,14 @@ exports.getConversation = async (req, res) => {
           select: "username profilePicture email phoneNumber publicKey",
         },
       })
+      .populate({
+        path: "pinnedMessage.message",
+        populate: {
+          path: "sender receiver",
+          select: "username profilePicture email phoneNumber publicKey",
+        },
+      })
+      .populate("pinnedMessage.pinnedBy", "username profilePicture")
       .sort({ updatedAt: -1 })
       .lean();
 

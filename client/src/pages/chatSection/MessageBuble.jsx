@@ -12,7 +12,7 @@ import {
   FaHeadphones,
   FaFileAlt,
   FaRegStar,
-  FaLock,
+  FaStar,
   FaEye,
 } from "react-icons/fa";
 import { IoIosInformationCircleOutline } from "react-icons/io";
@@ -22,7 +22,6 @@ import {
   MdEventNote,
   MdLocationOn,
   MdAccessTime,
-  MdReply,
 } from "react-icons/md";
 import { LuForward, LuReply } from "react-icons/lu";
 import { BsEmojiSmile } from "react-icons/bs";
@@ -37,6 +36,78 @@ import useLayoutStore from "../../store/layoutStore";
 import ReactionDetailsModal from "../../components/ReactionDetailsModal";
 import FileViewerModal from "../../components/FileViewerModal";
 import ForwardModal from "../../components/ForwardModal";
+import PinDurationModal from "../../components/PinDurationModal";
+import ReportModal from "../../components/ReportModal";
+
+export const WhatsAppPinIcon = ({
+  size = 12,
+  width,
+  height,
+  className = "shrink-0",
+  ...props
+}) => {
+  const w = width || Math.abs(size);
+  const h = height || Math.round(w * 1.25);
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 12 15"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      title="Pinned message"
+      {...props}
+    >
+      <path d="M2.5 1.5h7" />
+      <path d="M3.5 1.5v3.6l-1.8 3.2v1.5h8.6V8.3L8.5 5.1V1.5" />
+      <path d="M6 9.8v4.2" />
+    </svg>
+  );
+};
+
+export const WhatsAppUnpinIcon = ({
+  size = 16,
+  width,
+  height,
+  className = "shrink-0",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="Unpin message"
+      role="img"
+      {...props}
+    >
+      <g
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M7 3.5H13" />
+
+        <path d="M8 3.5V7L6 10V12H14V10L12 7V3.5" />
+
+        <path d="M10 12V16.5" />
+
+        <path d="M4 3.5L16 16.5" />
+      </g>
+    </svg>
+  );
+};
 
 const formatEventSchedule = (eventData) => {
   if (!eventData?.eventDate) return "Date TBD";
@@ -103,6 +174,8 @@ const MessageBuble = ({
   const [downloading, setDownloading] = useState(false);
   const [viewerModalFile, setViewerModalFile] = useState(null);
   const [showForwardModal, setShowForwardModal] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const handleDownloadFile = async (e, url, fileName) => {
     if (e) {
@@ -169,6 +242,13 @@ const MessageBuble = ({
   const [showReactionDetails, setShowReactionDetails] = useState(false);
   const votePoll = useChatStore((state) => state.votePoll);
   const removeReaction = useChatStore((state) => state.removeReaction);
+  const currentConversation = useChatStore((state) => state.currentConversation);
+  const pinnedMessages = useChatStore((state) => state.pinnedMessages);
+  const pinMessage = useChatStore((state) => state.pinMessage);
+  const unpinMessage = useChatStore((state) => state.unpinMessage);
+  const starredMessages = useChatStore((state) => state.starredMessages);
+  const toggleStarMessage = useChatStore((state) => state.toggleStarMessage);
+  const layoutSelectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedPollDetails = useLayoutStore(
     (state) => state.setSelectedPollDetails
   );
@@ -188,6 +268,61 @@ const MessageBuble = ({
   );
   const isDark = theme === "dark";
   const isSticker = message.contentType === "sticker";
+
+  const conversationId =
+    currentConversation?._id ||
+    message?.conversationId ||
+    layoutSelectedContact?._id;
+  const secondaryConvId = layoutSelectedContact?._id;
+
+  const activePin = useMemo(() => {
+    const currConv = currentConversation?._id?.toString();
+    const msgConv = (message?.conversation?._id || message?.conversation || message?.conversationId)?.toString();
+    const secConv = layoutSelectedContact?._id?.toString();
+    const sender = (message?.sender?._id || message?.sender)?.toString();
+    const receiver = (message?.receiver?._id || message?.receiver)?.toString();
+
+    let pin =
+      (currConv && pinnedMessages?.[currConv]) ||
+      (msgConv && pinnedMessages?.[msgConv]) ||
+      (secConv && pinnedMessages?.[secConv]) ||
+      (sender && pinnedMessages?.[sender]) ||
+      (receiver && pinnedMessages?.[receiver]);
+
+    if (!pin) {
+      const allPins = Object.values(pinnedMessages || {});
+      const msgIdStr = (message?._id?._id || message?._id)?.toString();
+      pin = allPins.find((p) => {
+        if (!p?.message) return false;
+        const pMsgId = (p.message?._id?._id || p.message?._id)?.toString();
+        return pMsgId && msgIdStr && pMsgId === msgIdStr;
+      });
+    }
+
+    if (!pin || !pin.message) return null;
+    if (pin.expiresAt && pin.expiresAt <= Date.now()) return null;
+    return pin;
+  }, [
+    pinnedMessages,
+    currentConversation?._id,
+    layoutSelectedContact?._id,
+    message?.conversation,
+    message?.conversationId,
+    message?.sender,
+    message?.receiver,
+    message?._id,
+  ]);
+
+  const isPinned = useMemo(() => {
+    if (!activePin?.message) return false;
+    const activeMsgId = (activePin.message?._id?._id || activePin.message?._id || activePin.message)?.toString();
+    const currentMsgId = (message?._id?._id || message?._id)?.toString();
+    return Boolean(activeMsgId && currentMsgId && activeMsgId === currentMsgId);
+  }, [activePin, message?._id]);
+
+  const isStarred = Boolean(
+    starredMessages?.[message?._id] || message?.isStarred
+  );
 
   const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
@@ -544,6 +679,12 @@ const MessageBuble = ({
     if (isOverlay) {
       return (
         <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/50 backdrop-blur-[2px] text-white text-[10.5px] select-none pointer-events-auto shadow-sm z-10">
+          {isPinned && (
+            <WhatsAppPinIcon className="w-[11px] h-[13px] text-white/80 shrink-0" />
+          )}
+          {isStarred && (
+            <FaStar size={10} className="text-white/80 shrink-0" title="Starred message" />
+          )}
           {message.edited && (
             <span className="text-[9.5px] italic opacity-90 mr-0.5">Edited</span>
           )}
@@ -564,6 +705,12 @@ const MessageBuble = ({
 
     return (
       <span className="inline-flex items-center gap-1 select-none shrink-0 pointer-events-auto">
+        {isPinned && (
+          <WhatsAppPinIcon className="w-[11px] h-[13px] opacity-65 shrink-0 text-inherit" />
+        )}
+        {isStarred && (
+          <FaStar size={10} className="opacity-65 shrink-0 text-inherit" title="Starred message" />
+        )}
         {message.edited && (
           <span className="text-[10px] italic opacity-75 mr-0.5">Edited</span>
         )}
@@ -587,6 +734,7 @@ const MessageBuble = ({
   if (!message) return null;
   return (
     <div
+      id={`msg-${message._id}`}
       className={`w-full flex ${isUserMessage
         ? "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
         : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
@@ -1029,7 +1177,7 @@ const MessageBuble = ({
               <div className="flex flex-col w-[280px] xs:w-[305px] sm:w-[320px] max-w-full select-none">
                 <div className="flex items-center justify-between pb-1 -mt-0.5">
                   <span className="text-[13px] font-bold text-[#53bdeb] tracking-wide truncate uppercase">
-                    {isUserMessage ? "YOU" : (message.sender?.username ? message.sender.username.toUpperCase() : "RUPAK MONDAL")}
+                    {isUserMessage ? "YOU" : (message.sender?.username ? message.sender.username.toUpperCase() : "Name")}
                   </span>
                   <button
                     type="button"
@@ -1584,31 +1732,63 @@ const MessageBuble = ({
                       <LuForward size={18} className="shrink-0 text-[#8696a0]" />
                       <span className="font-normal text-[14.5px]">Forward</span>
                     </button>
-
                     <button
                       type="button"
                       onClick={() => {
                         setShowOptions(false);
-                        toast.success("Message pinned");
+
+                        if (isPinned) {
+                          unpinMessage(conversationId, secondaryConvId);
+                          toast.info("Message unpinned");
+                        } else {
+                          setShowPinModal(true);
+                        }
                       }}
-                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                      className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                        ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                        : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <TbPin size={18} className="shrink-0 text-[#8696a0]" />
-                      <span className="font-normal text-[14.5px]">Pin</span>
+                      {isPinned ? (
+                        <WhatsAppUnpinIcon
+                          size={18}
+                          className="shrink-0 text-[#8696a0]"
+                        />
+                      ) : (
+                        <TbPin
+                          size={18}
+                          className="shrink-0 text-[#8696a0]"
+                        />
+                      )}
+
+                      <span className="font-normal text-[14.5px]">
+                        {isPinned ? "Unpin" : "Pin"}
+                      </span>
                     </button>
 
+
                     <button
                       type="button"
                       onClick={() => {
                         setShowOptions(false);
-                        toast.success("Message starred");
+                        const nowStarred = toggleStarMessage(message._id, message);
+                        if (nowStarred) {
+                          toast.success("Message starred");
+                        } else {
+                          toast.info("Message unstarred");
+                        }
                       }}
                       className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                     >
-                      <FaRegStar size={16} className="shrink-0 text-[#8696a0]" />
-                      <span className="font-normal text-[14.5px]">Star</span>
+                      {isStarred ? (
+                        <FaStar size={16} className="shrink-0 text-amber-400" />
+                      ) : (
+                        <FaRegStar size={16} className="shrink-0 text-[#8696a0]" />
+                      )}
+                      <span className="font-normal text-[14.5px]">
+                        {isStarred ? "Unstar" : "Star"}
+                      </span>
                     </button>
 
                     {isUserMessage && message.contentType === "text" && (
@@ -1655,7 +1835,7 @@ const MessageBuble = ({
                       type="button"
                       onClick={() => {
                         setShowOptions(false);
-                        toast.info("Report submitted");
+                        setShowReportModal(true);
                       }}
                       className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
@@ -1885,6 +2065,35 @@ const MessageBuble = ({
           isOpen={showForwardModal}
           onClose={() => setShowForwardModal(false)}
           message={message}
+          theme={theme}
+        />
+
+        <PinDurationModal
+          isOpen={showPinModal}
+          onClose={() => setShowPinModal(false)}
+          onPin={(duration) => {
+            pinMessage(conversationId, message, duration, secondaryConvId);
+            toast.success(`Message pinned for ${duration}`);
+          }}
+          message={message}
+          theme={theme}
+        />
+
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          onReport={({ block }) => {
+            if (block) {
+              toast.success("Reported and blocked successfully");
+            } else {
+              toast.success("Report sent to WhatsApp");
+            }
+          }}
+          contactName={
+            message?.sender?.name ||
+            layoutSelectedContact?.name ||
+            "this person"
+          }
           theme={theme}
         />
       </div>

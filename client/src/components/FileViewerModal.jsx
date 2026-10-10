@@ -92,7 +92,6 @@ const FileViewerModal = ({ isOpen, onClose, file, theme = "dark" }) => {
   const modalContent = (
     <AnimatePresence>
       <div className="fixed inset-0 z-[10000] flex flex-col bg-black/90 backdrop-blur-md">
-        {/* Top bar */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10 text-white z-10 shrink-0">
           <div className="flex items-center gap-3 min-w-0 pr-4">
             <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
@@ -147,7 +146,6 @@ const FileViewerModal = ({ isOpen, onClose, file, theme = "dark" }) => {
           </div>
         </div>
 
-        {/* Content viewer body */}
         <div
           className="flex-1 w-full p-2 sm:p-6 flex items-center justify-center overflow-auto"
           onClick={onClose}

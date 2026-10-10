@@ -35,17 +35,14 @@ const MessageInfoModal = ({ isOpen, onClose, message, theme = "dark" }) => {
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
           onClick={(e) => e.stopPropagation()}
-          className={`w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border ${
-            isDark
-              ? "bg-[#111b21] border-white/10 text-[#e9edef]"
-              : "bg-white border-black/10 text-[#111b21]"
-          }`}
-        >
-          {/* Header */}
-          <div
-            className={`flex items-center justify-between px-5 py-4 border-b ${
-              isDark ? "bg-[#202c33] border-white/10" : "bg-[#f0f2f5] border-black/10"
+          className={`w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border ${isDark
+            ? "bg-[#111b21] border-white/10 text-[#e9edef]"
+            : "bg-white border-black/10 text-[#111b21]"
             }`}
+        >
+          <div
+            className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? "bg-[#202c33] border-white/10" : "bg-[#f0f2f5] border-black/10"
+              }`}
           >
             <div className="flex items-center gap-3">
               <h3 className="font-semibold text-base">Message info</h3>
@@ -59,15 +56,12 @@ const MessageInfoModal = ({ isOpen, onClose, message, theme = "dark" }) => {
             </button>
           </div>
 
-          {/* Body */}
           <div className="p-5 flex flex-col gap-5 max-h-[75vh] overflow-y-auto">
-            {/* Message preview snippet */}
             <div
-              className={`p-3.5 rounded-xl border ${
-                isDark
-                  ? "bg-[#202c33]/60 border-white/5"
-                  : "bg-gray-50 border-black/5"
-              }`}
+              className={`p-3.5 rounded-xl border ${isDark
+                ? "bg-[#202c33]/60 border-white/5"
+                : "bg-gray-50 border-black/5"
+                }`}
             >
               <span className="text-[11px] font-semibold text-emerald-500 uppercase tracking-wider block mb-1">
                 Selected Message
@@ -121,13 +115,10 @@ const MessageInfoModal = ({ isOpen, onClose, message, theme = "dark" }) => {
               )}
             </div>
 
-            {/* Status Receipts List */}
             <div
-              className={`rounded-xl divide-y border overflow-hidden ${
-                isDark ? "bg-[#202c33]/30 border-white/10 divide-white/5" : "bg-white border-black/5 divide-black/5"
-              }`}
+              className={`rounded-xl divide-y border overflow-hidden ${isDark ? "bg-[#202c33]/30 border-white/10 divide-white/5" : "bg-white border-black/5 divide-black/5"
+                }`}
             >
-              {/* Read Receipt */}
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-3.5">
                   <div className="w-9 h-9 rounded-full bg-[#53bdeb]/15 flex items-center justify-center shrink-0">
@@ -152,7 +143,6 @@ const MessageInfoModal = ({ isOpen, onClose, message, theme = "dark" }) => {
                 </div>
               </div>
 
-              {/* Delivered Receipt */}
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-3.5">
                   <div className="w-9 h-9 rounded-full bg-gray-500/15 flex items-center justify-center shrink-0">
@@ -186,7 +176,6 @@ const MessageInfoModal = ({ isOpen, onClose, message, theme = "dark" }) => {
                 </div>
               </div>
 
-              {/* Sent Receipt */}
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-3.5">
                   <div className="w-9 h-9 rounded-full bg-gray-500/15 flex items-center justify-center shrink-0">
@@ -204,7 +193,6 @@ const MessageInfoModal = ({ isOpen, onClose, message, theme = "dark" }) => {
               </div>
             </div>
 
-            {/* End-to-end encryption note */}
             <div className="flex items-start gap-2.5 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs">
               <FaLock size={12} className="shrink-0 mt-0.5" />
               <p className="leading-relaxed">

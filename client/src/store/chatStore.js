@@ -102,6 +102,16 @@ const getStoredPinned = () => {
   }
 };
 
+const getStoredStarred = () => {
+  try {
+    const raw = localStorage.getItem("whatsapp_starred_messages");
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch (e) {
+    return {};
+  }
+};
+
 export const useChatStore = create((set, get) => ({
   users: [],
   setUsers: (users) => set({ users }),
@@ -120,40 +130,174 @@ export const useChatStore = create((set, get) => ({
   onlineUsers: new Map(),
   typingUsers: new Map(),
   pinnedMessages: getStoredPinned(),
-  pinMessage: (conversationId, message, duration = "7 days") => {
-    if (!conversationId || !message) return;
+  starredMessages: getStoredStarred(),
+  toggleStarMessage: (messageId, message = null) => {
+    if (!messageId) return false;
+    const current = { ...get().starredMessages };
+    let isStarred = false;
+    if (current[messageId]) {
+      delete current[messageId];
+      isStarred = false;
+    } else {
+      current[messageId] = {
+        messageId,
+        message,
+        starredAt: Date.now(),
+      };
+      isStarred = true;
+    }
+
+    try {
+      localStorage.setItem("whatsapp_starred_messages", JSON.stringify(current));
+    } catch (e) {}
+
+    set({ starredMessages: current });
+    return isStarred;
+  },
+  isMessageStarred: (messageId) => {
+    if (!messageId) return false;
+    return Boolean(get().starredMessages[messageId]);
+  },
+  pinMessage: (
+    conversationId,
+    message,
+    duration = "7 days",
+    secondaryId = null,
+    receiverId = null,
+    emitSocket = true,
+    pinnedBy = null,
+  ) => {
+    if (!conversationId && !secondaryId && !receiverId) return;
+    if (!message) return;
     const pinnedAt = Date.now();
     let durationMs = 7 * 24 * 60 * 60 * 1000;
     if (duration === "24 hours") durationMs = 24 * 60 * 60 * 1000;
     if (duration === "30 days") durationMs = 30 * 24 * 60 * 60 * 1000;
     const expiresAt = pinnedAt + durationMs;
 
+    const pinData = {
+      message,
+      duration,
+      pinnedAt,
+      expiresAt,
+      pinnedBy: pinnedBy || useUserStore.getState()?.user?._id,
+    };
+
     const newPinned = {
       ...get().pinnedMessages,
-      [conversationId]: {
-        message,
-        duration,
-        pinnedAt,
-        expiresAt,
-      },
     };
+
+    const addKey = (k) => {
+      if (!k) return;
+      const str = (k?._id || k)?.toString();
+      if (str) newPinned[str] = pinData;
+    };
+
+    addKey(conversationId);
+    addKey(secondaryId);
+    addKey(receiverId);
+    addKey(pinnedBy);
+    addKey(message?.conversationId);
+    addKey(message?.conversation?._id || message?.conversation);
+    addKey(message?.sender?._id || message?.sender);
+    addKey(message?.receiver?._id || message?.receiver);
 
     try {
       localStorage.setItem("whatsapp_pinned_messages", JSON.stringify(newPinned));
     } catch (e) {}
 
     set({ pinnedMessages: newPinned });
+
+    if (emitSocket) {
+      const socket = getSocket();
+      if (socket) {
+        const user = useUserStore.getState()?.user;
+        const currentUserId = (user?._id || user?.id)?.toString();
+        const targetReceiverId =
+          receiverId ||
+          (message.sender?._id?.toString() === currentUserId
+            ? (message.receiver?._id || message.receiver)
+            : (message.sender?._id || message.sender)) ||
+          secondaryId;
+
+        socket.emit("pin_message", {
+          conversationId: (conversationId?._id || conversationId)?.toString(),
+          message,
+          duration,
+          pinnedBy: currentUserId,
+          receiverId: (targetReceiverId?._id || targetReceiverId)?.toString(),
+          secondaryId: (secondaryId?._id || secondaryId)?.toString(),
+        });
+      }
+    }
   },
-  unpinMessage: (conversationId) => {
-    if (!conversationId) return;
+  unpinMessage: (
+    conversationId,
+    secondaryId = null,
+    receiverId = null,
+    emitSocket = true,
+    unpinnedBy = null,
+  ) => {
+    if (!conversationId && !secondaryId && !receiverId) return;
     const updated = { ...get().pinnedMessages };
-    delete updated[conversationId];
+
+    const keysToRemove = new Set();
+    const addKey = (k) => {
+      if (!k) return;
+      const str = (k?._id || k)?.toString();
+      if (str) keysToRemove.add(str);
+    };
+
+    addKey(conversationId);
+    addKey(secondaryId);
+    addKey(receiverId);
+    addKey(unpinnedBy);
+
+    const convIdStr = (conversationId?._id || conversationId)?.toString();
+    const secIdStr = (secondaryId?._id || secondaryId)?.toString();
+    const recIdStr = (receiverId?._id || receiverId)?.toString();
+
+    Object.keys(updated).forEach((key) => {
+      const pin = updated[key];
+      if (!pin) return;
+      const convMatch = convIdStr && (
+        key === convIdStr ||
+        (pin.message?.conversation && (pin.message.conversation._id || pin.message.conversation).toString() === convIdStr) ||
+        (pin.message?.conversationId && pin.message.conversationId.toString() === convIdStr)
+      );
+      const secMatch = secIdStr && key === secIdStr;
+      const recMatch = recIdStr && key === recIdStr;
+      if (convMatch || secMatch || recMatch) {
+        keysToRemove.add(key);
+        if (pin.message?.sender) addKey(pin.message.sender);
+        if (pin.message?.receiver) addKey(pin.message.receiver);
+        if (pin.message?.conversation) addKey(pin.message.conversation);
+      }
+    });
+
+    keysToRemove.forEach((k) => {
+      delete updated[k];
+    });
 
     try {
       localStorage.setItem("whatsapp_pinned_messages", JSON.stringify(updated));
     } catch (e) {}
 
     set({ pinnedMessages: updated });
+
+    if (emitSocket) {
+      const socket = getSocket();
+      if (socket) {
+        const user = useUserStore.getState()?.user;
+        const currentUserId = (user?._id || user?.id)?.toString();
+        socket.emit("unpin_message", {
+          conversationId: convIdStr,
+          receiverId: recIdStr || secIdStr,
+          secondaryId: secIdStr,
+          unpinnedBy: currentUserId,
+        });
+      }
+    }
   },
   scrollPositions: {},
   saveScrollPosition: (id, pos) =>
@@ -179,6 +323,28 @@ export const useChatStore = create((set, get) => ({
     socket.off("reaction_update");
     socket.off("poll_update");
     socket.off("message_status_update_bulk");
+    socket.off("message_pinned");
+    socket.off("message_unpinned");
+
+    socket.on("message_pinned", (data) => {
+      if (!data) return;
+      const { conversationId, message, duration, secondaryId, receiverId, pinnedBy } = data;
+      get().pinMessage(
+        conversationId,
+        message,
+        duration || "7 days",
+        secondaryId,
+        receiverId,
+        false,
+        pinnedBy,
+      );
+    });
+
+    socket.on("message_unpinned", (data) => {
+      if (!data) return;
+      const { conversationId, secondaryId, receiverId, unpinnedBy } = data;
+      get().unpinMessage(conversationId, secondaryId, receiverId, false, unpinnedBy);
+    });
 
     socket.on("receive_message", (message) => {
       get().receiveMessage(message);
@@ -496,6 +662,42 @@ export const useChatStore = create((set, get) => ({
           }),
         );
         convData = { ...data, data: decryptedList };
+
+        const syncedPins = { ...get().pinnedMessages };
+        let hasNewPins = false;
+        data.data.forEach((conv) => {
+          if (conv.pinnedMessage && conv.pinnedMessage.message) {
+            const expires = conv.pinnedMessage.expiresAt
+              ? new Date(conv.pinnedMessage.expiresAt).getTime()
+              : null;
+            if (!expires || expires > Date.now()) {
+              const pinData = {
+                message: conv.pinnedMessage.message,
+                duration: conv.pinnedMessage.duration || "7 days",
+                pinnedAt: conv.pinnedMessage.pinnedAt
+                  ? new Date(conv.pinnedMessage.pinnedAt).getTime()
+                  : Date.now(),
+                expiresAt: expires,
+                pinnedBy: conv.pinnedMessage.pinnedBy,
+              };
+              if (conv._id) syncedPins[conv._id.toString()] = pinData;
+              conv.participants?.forEach((p) => {
+                const pid = (p?._id || p)?.toString();
+                if (pid) syncedPins[pid] = pinData;
+              });
+              hasNewPins = true;
+            }
+          }
+        });
+        if (hasNewPins) {
+          try {
+            localStorage.setItem(
+              "whatsapp_pinned_messages",
+              JSON.stringify(syncedPins),
+            );
+          } catch (e) {}
+          set({ pinnedMessages: syncedPins });
+        }
       }
 
       set({ conversations: convData, loading: false });

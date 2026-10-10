@@ -17,11 +17,12 @@ import {
   FaPlus,
 } from "react-icons/fa";
 import { IoSend } from "react-icons/io5";
+import { TiArrowRight } from "react-icons/ti";
 import { FaSquarePollHorizontal } from "react-icons/fa6";
-import { MdEventNote } from "react-icons/md";
+import { MdEventNote, MdKeyboardArrowUp, MdKeyboardArrowDown } from "react-icons/md";
 import { TfiClip } from "react-icons/tfi";
 import { MdAddReaction } from "react-icons/md";
-import MessageBuble from "./MessageBuble";
+import MessageBuble, { WhatsAppPinIcon, WhatsAppUnpinIcon } from "./MessageBuble";
 import MessageSkeletonLoader from "./MessageSkeletonLoader";
 import EmojiPicker from "emoji-picker-react";
 import useOutsideClick from "../../hook/useOutsideClick";
@@ -34,6 +35,8 @@ import { HiDotsVertical } from "react-icons/hi";
 import { FiSearch } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
+import { TbPin } from "react-icons/tb";
+import { toast } from "react-toastify";
 import { RiContactsFill, RiEmojiStickerLine } from "react-icons/ri";
 import CameraModal from "../../components/CameraModal";
 import PollModal from "../../components/pollModal";
@@ -63,10 +66,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [editingEventMessage, setEditingEventMessage] = useState(null);
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
+  const [showPinnedMenu, setShowPinnedMenu] = useState(false);
 
   const typingTimeOutRef = useRef(null);
   const messageEndRef = useRef(null);
   const emojiPickerRef = useRef(null);
+  const pinnedMenuRef = useRef(null);
   const fileInputRef = useRef(null);
   const documentInputRef = useRef(null);
   const audioInputRef = useRef(null);
@@ -78,7 +83,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const { socket } = getSocket();
+  const socket = getSocket();
   const {
     messages,
     isMessagesLoading,
@@ -99,6 +104,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     markMessageAsRead,
     scrollPositions,
     saveScrollPosition,
+    pinnedMessages,
+    unpinMessage,
   } = useChatStore();
 
   const messagesContainerRef = useRef(null);
@@ -116,7 +123,110 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     (state) => state.setCurrentConversation,
   );
 
+  const activePin = useMemo(() => {
+    const currConv = currentConversation?._id?.toString();
+    const selContactId = selectedContact?._id?.toString();
+    const selConvId = (selectedContact?.conversation?._id || selectedContact?.conversation)?.toString();
+
+    let pin =
+      (currConv && pinnedMessages?.[currConv]) ||
+      (selContactId && pinnedMessages?.[selContactId]) ||
+      (selConvId && pinnedMessages?.[selConvId]);
+
+    if (!pin) {
+      const allPins = Object.values(pinnedMessages || {});
+      pin = allPins.find((p) => {
+        if (!p?.message) return false;
+        const msgConv = (p.message.conversation?._id || p.message.conversation || p.message.conversationId)?.toString();
+        const msgSender = (p.message.sender?._id || p.message.sender)?.toString();
+        const msgReceiver = (p.message.receiver?._id || p.message.receiver)?.toString();
+        return (
+          (currConv && msgConv === currConv) ||
+          (selConvId && msgConv === selConvId) ||
+          (selContactId && (msgSender === selContactId || msgReceiver === selContactId))
+        );
+      });
+    }
+
+    if (!pin || !pin.message) return null;
+    if (pin.expiresAt && pin.expiresAt <= Date.now()) return null;
+    return pin;
+  }, [
+    pinnedMessages,
+    currentConversation?._id,
+    selectedContact?._id,
+    selectedContact?.conversation,
+  ]);
+
+  const getPinnedPreviewText = (msg) => {
+    if (!msg) return "";
+    if (msg.contentType === "text" || (!msg.contentType && msg.content)) {
+      return msg.content || "";
+    }
+    if (msg.contentType === "image") {
+      return msg.content ? `📷 ${msg.content}` : "📷 Photo";
+    }
+    if (msg.contentType === "video") {
+      return msg.content ? `🎥 ${msg.content}` : "🎥 Video";
+    }
+    if (msg.contentType === "audio") {
+      return "🎵 Voice message";
+    }
+    if (msg.contentType === "document") {
+      return msg.fileName ? `📄 ${msg.fileName}` : "📄 Document";
+    }
+    if (msg.contentType === "poll") {
+      return `📊 ${msg.pollData?.question || "Poll"}`;
+    }
+    if (msg.contentType === "event") {
+      return `📅 ${msg.eventData?.eventName || "Event"}`;
+    }
+    if (msg.contentType === "contact") {
+      return `👤 ${msg.contactData?.name || "Contact"}`;
+    }
+    if (msg.contentType === "sticker") {
+      return "💟 Sticker";
+    }
+    return msg.content || "Pinned message";
+  };
+
+  const handleScrollToPinnedMessage = (msgId) => {
+    if (!msgId) return;
+    const el = document.getElementById(`msg-${msgId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add(
+        "ring-2",
+        "ring-emerald-400",
+        "shadow-[0_0_15px_rgba(16,185,129,0.55)]",
+        "rounded-xl",
+        "transition-all",
+        "duration-500",
+      );
+      setTimeout(() => {
+        el.classList.remove(
+          "ring-2",
+          "ring-emerald-400",
+          "shadow-[0_0_15px_rgba(16,185,129,0.55)]",
+          "rounded-xl",
+        );
+      }, 2000);
+    } else {
+      toast.info("Pinned message is earlier in the chat history");
+    }
+  };
+
+  const handleUnpinFromBanner = (e) => {
+    e.stopPropagation();
+    setShowPinnedMenu(false);
+    unpinMessage(currentConversation?._id, selectedContact?._id);
+    toast.info("Message unpinned");
+  };
+
+  useOutsideClick(pinnedMenuRef, () => setShowPinnedMenu(false));
+
   useEffect(() => {
+    useChatStore.getState().initSocketListener();
     if (!selectedContact?._id) {
       prevContactIdRef.current = null;
       clearMessages();
@@ -390,7 +500,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         formData.append("contentType", "text");
         await sendMessage(formData);
       }
-      
+
       setMessage("");
       selectedFiles.forEach((item) => {
         if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
@@ -1005,6 +1115,101 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         </div>
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+          {activePin && (
+            <div
+              onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
+              className={`h-[42px] px-4 flex items-center justify-between border-b cursor-pointer transition-colors duration-150 select-none z-20 shrink-0 relative group ${theme === "dark"
+                  ? "bg-[#111b21] hover:bg-[#182229] border-[#222d34] text-[#e9edef]"
+                  : "bg-[#f0f2f5] hover:bg-[#eaecef] border-[#e9edef] text-[#111b21]"
+                }`}
+              title="Click to jump to pinned message"
+            >
+              <div className="flex items-center gap-3 overflow-hidden min-w-0 pr-2">
+                <WhatsAppPinIcon
+                  size={13}
+                  className={`shrink-0 ${theme === "dark" ? "text-[#8696a0]" : "text-gray-500"
+                    }`}
+                />
+                <span
+                  className={`text-[13.5px] truncate font-normal ${theme === "dark" ? "text-[#d1d7db]" : "text-gray-800"
+                    }`}
+                >
+                  {getPinnedPreviewText(activePin.message)}
+                </span>
+              </div>
+
+              <div className="flex items-center shrink-0">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPinnedMenu((prev) => !prev);
+                  }}
+                  className={`p-1 rounded-full text-[#8696a0] ${theme === "dark" ? "hover:text-white" : "hover:text-black"} ${theme === "dark" ? "hover:bg-white/10" : "hover:bg-black/10"} transition-all cursor-pointer ${showPinnedMenu ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    }`}
+                  title="Options"
+                >
+                  {showPinnedMenu ? (
+                    <MdKeyboardArrowUp size={24} />
+                  ) : (
+                    <MdKeyboardArrowDown size={24} />
+                  )}
+                </button>
+              </div>
+
+              <AnimatePresence>
+                {showPinnedMenu && (
+                  <motion.div
+                    ref={pinnedMenuRef}
+                    initial={{ opacity: 0, scale: 0.95, y: -2 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -2 }}
+                    transition={{ duration: 0.12 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`absolute right-3 top-[43px] z-50 min-w-[175px] rounded-xl shadow-2xl py-1.5 border select-none ${theme === "dark"
+                        ? "bg-[#233138] border-white/10 text-[#d1d7db]"
+                        : "bg-white border-black/10 text-[#111b21]"
+                      }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        setShowPinnedMenu(false);
+                        handleUnpinFromBanner(e);
+                      }}
+                      className={`group w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
+                          ? "hover:bg-[#182229] hover:text-white"
+                          : "hover:bg-[#f5f6f6] text-[#111b21]"
+                        }`}
+                    >
+                      <span className="w-5 h-5 flex items-center justify-center shrink-0 text-[#8696a0] group-hover:text-inherit">
+                        <WhatsAppUnpinIcon size={18} />
+                      </span>
+                      <span>Unpin</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPinnedMenu(false);
+                        handleScrollToPinnedMessage(activePin.message?._id);
+                      }}
+                      className={`group w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
+                          ? "hover:bg-[#182229] hover:text-white"
+                          : "hover:bg-[#f5f6f6] text-[#111b21]"
+                        }`}
+                    >
+                      <span className="w-5 h-5 flex items-center justify-center shrink-0 text-[#8696a0] group-hover:text-inherit">
+                        <TiArrowRight size={20} />
+                      </span>
+                      <span>Go to message</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
           <div
             ref={messagesContainerRef}
             onScroll={handleMessageScroll}
@@ -1075,6 +1280,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             message={msg}
                             theme={theme}
                             currentUser={user}
+                            selectedContact={selectedContact}
                             onReact={handleReaction}
                             deleteMessage={deleteMessage}
                             onEdit={editMessage}
@@ -1110,7 +1316,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   : "bg-gray-100 border-gray-200 text-gray-800"
                   }`}
               >
-                {/* Active file preview row */}
                 <div className="flex items-center justify-between gap-3">
                   <div
                     onClick={() => {
@@ -1208,7 +1413,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   </div>
                 </div>
 
-                {/* Thumbnail strip for multiple files */}
                 {selectedFiles.length > 1 && (
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 border-t border-black/5 dark:border-white/5">
                     {selectedFiles.map((item, idx) => (
