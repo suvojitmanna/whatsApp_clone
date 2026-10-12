@@ -1,31 +1,104 @@
-import React from 'react'
+import React from "react";
+import { toast } from "react-toastify";
+import { IoIosInformationCircleOutline } from "react-icons/io";
+import { LuReply, LuForward } from "react-icons/lu";
+import { FaRegCopy, FaStar, FaRegStar, FaDownload } from "react-icons/fa";
+import { BsEmojiSmile } from "react-icons/bs";
+import { TbPin } from "react-icons/tb";
+import { SiMetaai } from "react-icons/si";
+import { RiEditLine, RiDeleteBin6Line } from "react-icons/ri";
+import { FiThumbsDown, FiCheckSquare } from "react-icons/fi";
+import { useChatStore } from "../../store/chatStore";
+import useLayoutStore from "../../store/layoutStore";
+import { WhatsAppUnpinIcon } from "./MessageBuble";
 
-const MessageMenu = () => {
+const MessageMenu = ({
+    message,
+    isUserMessage,
+    isDark,
+    isPinned,
+    isStarred,
+    isDeletedForEveryone,
+    conversationId,
+    secondaryConvId,
+    onReply,
+    setShowOptions,
+    setSelectedMessageInfo: propSetSelectedMessageInfo,
+    setShowReactions,
+    setShowForwardModal,
+    setShowPinModal,
+    toggleStarMessage: propToggleStarMessage,
+    unpinMessage: propUnpinMessage,
+    setEditText,
+    setIsEditing,
+    handleDownloadFile,
+    setShowReportModal,
+    setDeleteModal,
+    onEnterSelectMode,
+}) => {
+    const chatToggleStar = useChatStore((state) => state.toggleStarMessage);
+    const chatUnpinMessage = useChatStore((state) => state.unpinMessage);
+    const layoutSetSelectedMessageInfo = useLayoutStore(
+        (state) => state.setSelectedMessageInfo
+    );
+
+    const toggleStarMessage = propToggleStarMessage || chatToggleStar;
+    const unpinMessage = propUnpinMessage || chatUnpinMessage;
+    const setSelectedMessageInfo =
+        propSetSelectedMessageInfo || layoutSetSelectedMessageInfo;
+
+    if (isDeletedForEveryone) {
+        return (
+            <button
+                type="button"
+                onClick={() => {
+                    setDeleteModal?.(message);
+                    setShowOptions?.(false);
+                }}
+                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                    : "hover:bg-[#f5f6f6] text-[#111b21]"
+                    }`}
+            >
+                <RiDeleteBin6Line size={17} className="shrink-0 text-[#8696a0]" />
+                <span className="font-normal text-[14.5px]">Delete for me</span>
+            </button>
+        );
+    }
+
     return (
         <>
             {isUserMessage && (
                 <button
                     type="button"
                     onClick={() => {
-                        setShowOptions(false);
-                        setSelectedMessageInfo(message);
+                        setShowOptions?.(false);
+                        setSelectedMessageInfo?.(message);
                     }}
-                    className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                    className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                        ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                        : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                 >
-                    <IoIosInformationCircleOutline size={20} className="shrink-0 text-[#8696a0]" />
+                    <IoIosInformationCircleOutline
+                        size={20}
+                        className="shrink-0 text-[#8696a0]"
+                    />
                     <span className="font-normal text-[14.5px]">Message info</span>
-                </button>)}
+                </button>
+            )}
 
             <button
                 type="button"
                 onClick={() => {
-                    setShowOptions(false);
+                    setShowOptions?.(false);
                     if (onReply) {
                         onReply(message);
                     }
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                    : "hover:bg-[#f5f6f6] text-[#111b21]"
                     }`}
             >
                 <LuReply size={18} className="shrink-0 text-[#8696a0]" />
@@ -35,17 +108,19 @@ const MessageMenu = () => {
             <button
                 type="button"
                 onClick={() => {
-                    setShowOptions(false);
+                    setShowOptions?.(false);
                     const textToCopy =
-                        message.contentType === "text"
-                            ? (message.content || "")
-                            : (message.imageOrVideoUrl || message.content || "");
+                        message?.contentType === "text"
+                            ? message?.content || ""
+                            : message?.imageOrVideoUrl || message?.content || "";
                     if (textToCopy) {
                         navigator.clipboard.writeText(textToCopy);
                         toast.success("Copied to clipboard");
                     }
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                    : "hover:bg-[#f5f6f6] text-[#111b21]"
                     }`}
             >
                 <FaRegCopy size={16} className="shrink-0 text-[#8696a0]" />
@@ -55,10 +130,12 @@ const MessageMenu = () => {
             <button
                 type="button"
                 onClick={() => {
-                    setShowOptions(false);
-                    setShowReactions(true);
+                    setShowOptions?.(false);
+                    setShowReactions?.(true);
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                    : "hover:bg-[#f5f6f6] text-[#111b21]"
                     }`}
             >
                 <BsEmojiSmile size={18} className="shrink-0 text-[#8696a0]" />
@@ -68,10 +145,12 @@ const MessageMenu = () => {
             <button
                 type="button"
                 onClick={() => {
-                    setShowOptions(false);
-                    setShowForwardModal(true);
+                    setShowOptions?.(false);
+                    setShowForwardModal?.(true);
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                    : "hover:bg-[#f5f6f6] text-[#111b21]"
                     }`}
             >
                 <LuForward size={18} className="shrink-0 text-[#8696a0]" />
@@ -81,13 +160,12 @@ const MessageMenu = () => {
             <button
                 type="button"
                 onClick={() => {
-                    setShowOptions(false);
-
+                    setShowOptions?.(false);
                     if (isPinned) {
-                        unpinMessage(conversationId, secondaryConvId);
+                        unpinMessage?.(conversationId, secondaryConvId);
                         toast.info("Message unpinned");
                     } else {
-                        setShowPinModal(true);
+                        setShowPinModal?.(true);
                     }
                 }}
                 className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
@@ -101,12 +179,8 @@ const MessageMenu = () => {
                         className="shrink-0 text-[#8696a0]"
                     />
                 ) : (
-                    <TbPin
-                        size={18}
-                        className="shrink-0 text-[#8696a0]"
-                    />
+                    <TbPin size={18} className="shrink-0 text-[#8696a0]" />
                 )}
-
                 <span className="font-normal text-[14.5px]">
                     {isPinned ? "Unpin" : "Pin"}
                 </span>
@@ -115,10 +189,12 @@ const MessageMenu = () => {
             <button
                 type="button"
                 onClick={() => {
-                    setShowOptions(false);
-                    setShowForwardModal(true);
+                    setShowOptions?.(false);
+                    setShowForwardModal?.(true);
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                    : "hover:bg-[#f5f6f6] text-[#111b21]"
                     }`}
             >
                 <SiMetaai size={18} className="shrink-0 text-[#8696a0]" />
@@ -128,15 +204,17 @@ const MessageMenu = () => {
             <button
                 type="button"
                 onClick={() => {
-                    setShowOptions(false);
-                    const nowStarred = toggleStarMessage(message._id, message);
+                    setShowOptions?.(false);
+                    const nowStarred = toggleStarMessage?.(message?._id, message);
                     if (nowStarred) {
                         toast.success("Message starred");
                     } else {
                         toast.info("Message unstarred");
                     }
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                    : "hover:bg-[#f5f6f6] text-[#111b21]"
                     }`}
             >
                 {isStarred ? (
@@ -149,15 +227,17 @@ const MessageMenu = () => {
                 </span>
             </button>
 
-            {isUserMessage && message.contentType === "text" && (
+            {isUserMessage && message?.contentType === "text" && (
                 <button
                     type="button"
                     onClick={() => {
-                        setEditText(message.content || "");
-                        setIsEditing(true);
-                        setShowOptions(false);
+                        setEditText?.(message?.content || "");
+                        setIsEditing?.(true);
+                        setShowOptions?.(false);
                     }}
-                    className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
+                    className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                        ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                        : "hover:bg-[#f5f6f6] text-[#111b21]"
                         }`}
                 >
                     <RiEditLine size={17} className="shrink-0 text-[#8696a0]" />
@@ -165,34 +245,56 @@ const MessageMenu = () => {
                 </button>
             )}
 
-            {["document", "image", "video", "audio"].includes(message.contentType) && message.imageOrVideoUrl && (
-                <button
-                    type="button"
-                    onClick={(e) => {
-                        setShowOptions(false);
-                        handleDownloadFile(
-                            e,
-                            message.imageOrVideoUrl,
-                            message.fileName || (message.contentType === "document" ? "document.pdf" : `${message.contentType}-${message._id}`)
-                        );
-                    }}
-                    className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"
-                        }`}
-                >
-                    <FaDownload size={15} className="shrink-0 text-[#8696a0]" />
-                    <span className="font-normal text-[14.5px]">Download</span>
-                </button>
-            )}
+            {["document", "image", "video", "audio"].includes(message?.contentType) &&
+                message?.imageOrVideoUrl && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            setShowOptions?.(false);
+                            handleDownloadFile?.(
+                                e,
+                                message.imageOrVideoUrl,
+                                message.fileName ||
+                                (message.contentType === "document"
+                                    ? "document.pdf"
+                                    : `${message.contentType}-${message._id}`)
+                            );
+                        }}
+                        className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                            ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                            : "hover:bg-[#f5f6f6] text-[#111b21]"
+                            }`}
+                    >
+                        <FaDownload size={15} className="shrink-0 text-[#8696a0]" />
+                        <span className="font-normal text-[14.5px]">Download</span>
+                    </button>
+                )}
+
+            <button
+                type="button"
+                onClick={() => {
+                    setShowOptions?.(false);
+                    onEnterSelectMode?.(message._id);
+                }}
+                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
+                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
+                    : "hover:bg-[#f5f6f6] text-[#111b21]"
+                    }`}
+            >
+                <FiCheckSquare size={17} className="shrink-0 text-[#8696a0]" />
+                <span className="font-normal text-[14.5px]">Select message</span>
+            </button>
 
             <div
                 className={`my-1 border-t ${isDark ? "border-[#313d45]" : "border-black/10"
                     }`}
             />
+
             <button
                 type="button"
                 onClick={() => {
-                    setShowOptions(false);
-                    setShowReportModal(true);
+                    setShowOptions?.(false);
+                    setShowReportModal?.(true);
                 }}
                 className={`group relative flex w-full items-center gap-4 overflow-hidden rounded-lg border border-transparent px-5 py-2.5 cursor-pointer backdrop-blur-xl transition-all duration-300 ${isDark
                     ? "text-[#d1d7db] hover:bg-red-500/[0.08] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.08)]"
@@ -203,7 +305,6 @@ const MessageMenu = () => {
                     size={17}
                     className="shrink-0 text-[#8696a0] transition-colors duration-300 group-hover:text-red-500"
                 />
-
                 <span className="text-[14.5px] font-normal transition-colors duration-300 group-hover:text-red-500">
                     Report
                 </span>
@@ -212,8 +313,8 @@ const MessageMenu = () => {
             <button
                 type="button"
                 onClick={() => {
-                    setDeleteModal(message);
-                    setShowOptions(false);
+                    setDeleteModal?.(message);
+                    setShowOptions?.(false);
                 }}
                 className={`group relative flex w-full items-center gap-4 overflow-hidden rounded-lg border border-transparent px-5 py-2.5 cursor-pointer backdrop-blur-xl transition-all duration-300 ${isDark
                     ? "text-[#d1d7db] hover:bg-red-500/[0.08] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.08)]"
@@ -224,13 +325,12 @@ const MessageMenu = () => {
                     size={17}
                     className="shrink-0 text-[#8696a0] transition-colors duration-300 group-hover:text-red-500"
                 />
-
                 <span className="text-[14.5px] font-normal transition-colors duration-300 group-hover:text-red-500">
                     Delete
                 </span>
             </button>
         </>
-    )
-}
+    );
+};
 
-export default MessageMenu
+export default MessageMenu;

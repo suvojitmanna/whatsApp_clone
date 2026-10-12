@@ -1333,7 +1333,6 @@ export const useChatStore = create((set, get) => ({
       messages[0]?.conversation
     )?.toString();
 
-    // Always clear unread count for the active chat in the conversations list
     if (activeConvId || peerId) {
       set((state) => ({
         conversations: {

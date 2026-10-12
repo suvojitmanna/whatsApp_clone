@@ -16,6 +16,8 @@ import {
   FaEye,
   FaPlus,
   FaMicrophone,
+  FaRegStar,
+  FaStar,
 } from "react-icons/fa";
 import { IoSend } from "react-icons/io5";
 import { TiArrowRight } from "react-icons/ti";
@@ -33,18 +35,21 @@ import { getSocket } from "../../services/chatService";
 import useVideoCallStore from "../../store/videoCallStore";
 import useLayoutStore from "../../store/layoutStore";
 import { HiDotsVertical } from "react-icons/hi";
-import { FiSearch } from "react-icons/fi";
+import { FiSearch, FiDownload } from "react-icons/fi";
+import { LuForward } from "react-icons/lu";
 import { motion, AnimatePresence } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
 import { TbPin } from "react-icons/tb";
 import { toast } from "react-toastify";
-import { RiContactsFill, RiEmojiStickerLine } from "react-icons/ri";
+import { RiContactsFill, RiEmojiStickerLine, RiDeleteBin6Line } from "react-icons/ri";
 import CameraModal from "../../components/CameraModal";
 import PollModal from "../../components/pollModal";
 import ContactModal from "../../components/ContactModal";
 import EventModal from "../../components/EventModal";
 import StickerModal from "../../components/StickerModal";
 import FileViewerModal from "../../components/FileViewerModal";
+import ForwardModal from "../../components/ForwardModal";
+import AttachInput from "../../components/AttachInput";
 import ChatHeaderMenu from "./ChatHeaderMenu";
 
 const isValidate = (date) => {
@@ -72,6 +77,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [replyingTo, setReplyingTo] = useState(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [headerMenuAnchor, setHeaderMenuAnchor] = useState(null);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState([]);
+  const [showForwardSelectedModal, setShowForwardSelectedModal] = useState(false);
+  const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
   const headerMenuBtnRef = useRef(null);
   const messageInputRef = useRef(null);
 
@@ -112,6 +121,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     saveScrollPosition,
     pinnedMessages,
     unpinMessage,
+    toggleStarMessage,
+    isMessageStarred,
+    starredMessages,
   } = useChatStore();
 
   const messagesContainerRef = useRef(null);
@@ -168,6 +180,149 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     selectedContact?._id,
     selectedContact?.conversation,
   ]);
+
+  const selectedMsgsList = useMemo(() => {
+    return messages.filter((m) =>
+      selectedMessageIds.includes(String(m._id || m.temp))
+    );
+  }, [messages, selectedMessageIds]);
+
+  const areAllSelectedStarred = useMemo(() => {
+    return (
+      selectedMsgsList.length > 0 &&
+      selectedMsgsList.every((m) => isMessageStarred(m._id))
+    );
+  }, [selectedMsgsList, isMessageStarred, starredMessages]);
+
+  const canDeleteForEveryone = useMemo(() => {
+    return (
+      selectedMsgsList.length > 0 &&
+      selectedMsgsList.every(
+        (m) =>
+          String(m.sender?._id || m.sender) === String(user?._id || user?.id)
+      )
+    );
+  }, [selectedMsgsList, user]);
+
+  const handleToggleSelectMessage = (msgId) => {
+    if (!msgId) return;
+    const idStr = String(msgId);
+    setSelectedMessageIds((prev) =>
+      prev.includes(idStr) ? prev.filter((id) => id !== idStr) : [...prev, idStr]
+    );
+  };
+
+  const handleEnterSelectMode = (initialMsgId) => {
+    setIsSelectMode(true);
+    if (initialMsgId) {
+      setSelectedMessageIds([String(initialMsgId)]);
+    } else {
+      setSelectedMessageIds([]);
+    }
+  };
+
+  useEffect(() => {
+    setIsSelectMode(false);
+    setSelectedMessageIds([]);
+  }, [selectedContact?._id]);
+
+  useEffect(() => {
+    if (!isSelectMode) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setIsSelectMode(false);
+        setSelectedMessageIds([]);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSelectMode]);
+
+  const handleStarSelectedMessages = () => {
+    if (selectedMsgsList.length === 0) return;
+    if (areAllSelectedStarred) {
+      selectedMsgsList.forEach((m) => {
+        if (isMessageStarred(m._id)) {
+          toggleStarMessage(m._id, m);
+        }
+      });
+      toast.info(
+        `Unstarred ${selectedMsgsList.length} message${selectedMsgsList.length > 1 ? "s" : ""
+        }`
+      );
+    } else {
+      selectedMsgsList.forEach((m) => {
+        if (!isMessageStarred(m._id)) {
+          toggleStarMessage(m._id, m);
+        }
+      });
+      toast.success(
+        `Starred ${selectedMsgsList.length} message${selectedMsgsList.length > 1 ? "s" : ""
+        }`
+      );
+    }
+  };
+
+  const handleDownloadSelectedMessages = async () => {
+    if (selectedMsgsList.length === 0) return;
+    const mediaMsgs = selectedMsgsList.filter(
+      (m) =>
+        m.imageOrVideoUrl &&
+        ["image", "video", "document", "audio"].includes(m.contentType)
+    );
+    if (mediaMsgs.length === 0) {
+      toast.info("No media or document files to download in selected messages");
+      return;
+    }
+    toast.info(
+      `Downloading ${mediaMsgs.length} file${mediaMsgs.length > 1 ? "s" : ""
+      }...`
+    );
+    for (const msg of mediaMsgs) {
+      try {
+        const url = msg.imageOrVideoUrl;
+        const fileName =
+          msg.fileName ||
+          (msg.contentType === "document"
+            ? "document.pdf"
+            : `${msg.contentType}-${msg._id}`);
+        const response = await fetch(url);
+        if (response.ok) {
+          const blob = await response.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(blobUrl);
+        } else {
+          window.open(url, "_blank");
+        }
+      } catch (e) {
+        window.open(msg.imageOrVideoUrl, "_blank");
+      }
+    }
+  };
+
+  const executeDeleteSelected = async (deleteFor) => {
+    try {
+      for (const m of selectedMsgsList) {
+        await deleteMessage(m._id, deleteFor);
+      }
+      toast.success(
+        `Deleted ${selectedMsgsList.length} message${selectedMsgsList.length > 1 ? "s" : ""
+        }`
+      );
+    } catch (err) {
+      toast.error("Failed to delete some messages");
+    } finally {
+      setShowDeleteSelectedModal(false);
+      setIsSelectMode(false);
+      setSelectedMessageIds([]);
+    }
+  };
 
   const getPinnedPreviewText = (msg) => {
     if (!msg) return "";
@@ -439,7 +594,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }, 150);
   };
 
-  // Save outgoing chat scroll position when switching contacts
   useEffect(() => {
     const nextContactId = selectedContact?._id?.toString() || null;
     const nextConvId = (selectedContact?.conversation?._id || currentConversation?._id)?.toString() || null;
@@ -474,7 +628,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     previousChatRef.current = { contactId: nextContactId, convId: nextConvId };
   }, [selectedContact?._id]);
 
-  // Save current scroll on unmount
   useEffect(() => {
     return () => {
       if (scrollDebounceTimerRef.current) {
@@ -498,7 +651,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     };
   }, []);
 
-  // Restore scroll position when chat messages are ready, or follow bottom on new messages
   useEffect(() => {
     const el = messagesContainerRef.current;
     const contactId = selectedContact?._id?.toString();
@@ -1672,6 +1824,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                               isActive={isMatch && matchCounter === currentIndex}
                               isFirstInSequence={isFirstInSequence}
                               onReply={handleStartReply}
+                              isSelectMode={isSelectMode}
+                              isSelected={selectedMessageIds.includes(String(msg._id || msg.temp))}
+                              onToggleSelect={handleToggleSelectMessage}
+                              onEnterSelectMode={handleEnterSelectMode}
                               setRef={(el) => {
                                 if (isMatch && el) {
                                   messageRefs.current.push(el);
@@ -1689,545 +1845,489 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
             <div ref={messageEndRef} className="h-4" />
           </div>
-          {selectedFiles.length > 0 && (() => {
-            const activeFile = selectedFiles[activeFileIndex] || selectedFiles[0];
-            return (
-              <div
-                className={`p-3 border-t flex flex-col gap-2.5 transition-colors ${theme === "dark"
-                  ? "bg-[#1f2c33] border-white/10 text-white"
-                  : "bg-gray-100 border-gray-200 text-gray-800"
-                  }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div
-                    onClick={() => {
-                      if (activeFile) {
-                        setPreviewModalFile({
-                          url: activeFile.previewUrl,
-                          name: activeFile.name,
-                          type: activeFile.type,
-                          size: activeFile.size,
-                        });
-                      }
-                    }}
-                    className="flex items-center gap-3 min-w-0 cursor-pointer group flex-1"
-                    title="Click to view/open full preview"
-                  >
-                    {activeFile.type === "document" ? (
-                      <div className="w-12 h-12 rounded-xl bg-[#7f66ff]/20 text-[#7f66ff] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <FaFileAlt size={22} />
-                      </div>
-                    ) : activeFile.type === "audio" ? (
-                      <div className="w-12 h-12 rounded-xl bg-[#f2790f]/20 text-[#f2790f] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <FaHeadphones size={22} />
-                      </div>
-                    ) : activeFile.type === "video" ? (
-                      <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0">
-                        <video
-                          src={activeFile.previewUrl}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                          <FaVideo className="text-white text-xs" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 ring-1 ring-black/10">
-                        <img
-                          src={activeFile.previewUrl}
-                          alt="preview"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        />
-                        {isStickerMode && (
-                          <span className="absolute bottom-0.5 left-0.5 px-1 py-0.2 rounded text-[8px] font-bold bg-[#02b875] text-white">
-                            Sticker
-                          </span>
-                        )}
-                      </div>
-                    )}
+          <AttachInput
+            selectedFiles={selectedFiles}
+            activeFileIndex={activeFileIndex}
+            setActiveFileIndex={setActiveFileIndex}
+            theme={theme}
+            isStickerMode={isStickerMode}
+            setPreviewModalFile={setPreviewModalFile}
+            handleClearAllFiles={handleClearAllFiles}
+            handleRemoveFile={handleRemoveFile}
+            fileInputRef={fileInputRef}
+          />
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold truncate max-w-xs sm:max-w-md">
-                          {activeFile.name}
-                        </p>
-                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 shrink-0">
-                          {activeFile.type}
+          {isSelectMode ? (
+            <div
+              className={`h-[62px] px-6 sm:px-8 border-t flex items-center justify-between transition-colors z-20 ${theme === "dark"
+                ? "bg-[#202c33] border-[#222d34]"
+                : "bg-[#f0f2f5] border-gray-200"
+                }`}
+            >
+              <div className="flex items-center gap-6 select-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSelectMode(false);
+                    setSelectedMessageIds([]);
+                  }}
+                  className={`p-1.5 rounded-full transition-colors cursor-pointer active:scale-95 ${theme === "dark"
+                    ? "text-[#aebac1] hover:text-white hover:bg-white/10"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-black/5"
+                    }`}
+                  title="Close"
+                >
+                  <RxCross2 size={21} />
+                </button>
+                <span
+                  className={`text-[15px] font-medium tracking-tight ${theme === "dark" ? "text-[#e9edef]" : "text-gray-800"
+                    }`}
+                >
+                  {selectedMessageIds.length} selected
+                </span>
+              </div>
+
+              <div className="flex items-center gap-7 sm:gap-8">
+                <button
+                  type="button"
+                  onClick={handleStarSelectedMessages}
+                  disabled={selectedMessageIds.length === 0}
+                  className={`p-1.5 rounded-full transition-all ${selectedMessageIds.length === 0
+                    ? "opacity-30 cursor-not-allowed text-[#8696a0]"
+                    : theme === "dark"
+                      ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10"
+                      : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5"
+                    }`}
+                  title="Star messages"
+                >
+                  {areAllSelectedStarred ? (
+                    <FaStar size={20} className="text-amber-400" />
+                  ) : (
+                    <FaRegStar size={20} />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteSelectedModal(true)}
+                  disabled={selectedMessageIds.length === 0}
+                  className={`p-1.5 rounded-full transition-all ${selectedMessageIds.length === 0
+                    ? "opacity-30 cursor-not-allowed text-[#8696a0]"
+                    : theme === "dark"
+                      ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10"
+                      : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5"
+                    }`}
+                  title="Delete messages"
+                >
+                  <RiDeleteBin6Line size={21} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowForwardSelectedModal(true)}
+                  disabled={selectedMessageIds.length === 0}
+                  className={`p-1.5 rounded-full transition-all ${selectedMessageIds.length === 0
+                    ? "opacity-30 cursor-not-allowed text-[#8696a0]"
+                    : theme === "dark"
+                      ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10"
+                      : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5"
+                    }`}
+                  title="Forward messages"
+                >
+                  <LuForward size={22} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadSelectedMessages}
+                  disabled={selectedMessageIds.length === 0}
+                  className={`p-1.5 rounded-full transition-all ${selectedMessageIds.length === 0
+                    ? "opacity-30 cursor-not-allowed text-[#8696a0]"
+                    : theme === "dark"
+                      ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10"
+                      : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5"
+                    }`}
+                  title="Download media"
+                >
+                  <FiDownload size={20} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`p-2.5 sm:p-3 border-t flex flex-col relative transition-colors ${theme === "dark"
+                ? "bg-[#202c33] border-[#222d34]"
+                : "bg-[#f0f2f5] border-gray-200"
+                }`}
+            >
+              <AnimatePresence>
+                {replyingTo && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    className={`w-full mb-2 px-3 py-2 rounded-xl flex items-center justify-between border shadow-sm transition-colors ${theme === "dark"
+                      ? "bg-[#1f2c34] border-white/5 text-[#d1d7db]"
+                      : "bg-white border-black/5 text-[#111b21]"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-[4px] self-stretch rounded-full bg-[#7f66ff] shrink-0" />
+
+                      <div className="min-w-0 flex-1 flex flex-col justify-center">
+                        <span className="text-[13px] font-semibold text-[#8b7ff5] leading-tight truncate">
+                          {String(replyingTo.sender?._id || replyingTo.sender) === String(user?._id)
+                            ? "You"
+                            : (replyingTo.sender?.username || selectedContact?.username || "Contact")}
                         </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs opacity-60 mt-0.5">
-                        <span>{activeFile.size}</span>
-                        <span>•</span>
-                        <span className="text-emerald-500 font-medium group-hover:underline flex items-center gap-1">
-                          <FaEye size={11} /> Open preview
+                        <span className="text-xs text-[#8696a0] leading-tight truncate mt-0.5">
+                          {getReplyPreviewText(replyingTo)}
                         </span>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (activeFile) {
-                          setPreviewModalFile({
-                            url: activeFile.previewUrl,
-                            name: activeFile.name,
-                            type: activeFile.type,
-                            size: activeFile.size,
-                          });
-                        }
-                      }}
-                      className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-emerald-500 cursor-pointer transition-colors"
-                      title="Open full preview"
-                    >
-                      <FaEye size={16} />
-                    </button>
+                    {replyingTo.imageOrVideoUrl &&
+                      ["image", "video", "sticker"].includes(replyingTo.contentType) && (
+                        <img
+                          src={replyingTo.imageOrVideoUrl}
+                          alt="reply thumb"
+                          className="w-10 h-10 rounded-lg object-cover shrink-0 ml-2"
+                        />
+                      )}
 
                     <button
                       type="button"
-                      onClick={handleClearAllFiles}
-                      className="p-2 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-red-500 cursor-pointer transition-colors"
-                      title="Remove all files"
+                      onClick={() => setReplyingTo(null)}
+                      className="p-1 rounded-full text-[#8696a0] hover:text-white hover:bg-white/10 active:scale-90 transition-all cursor-pointer shrink-0 ml-2"
+                      title="Close reply"
                     >
-                      <RxCross2 size={18} />
+                      <RxCross2 className="w-4 h-4" />
                     </button>
-                  </div>
-                </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                {selectedFiles.length > 1 && (
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 border-t border-black/5 dark:border-white/5">
-                    {selectedFiles.map((item, idx) => (
-                      <div
-                        key={item.id}
-                        onClick={() => setActiveFileIndex(idx)}
-                        className={`relative group/thumb shrink-0 w-12 h-12 rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${activeFileIndex === idx
-                          ? "border-emerald-500 scale-105 shadow-md"
-                          : "border-transparent opacity-70 hover:opacity-100"
+              <div
+                className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 border ${theme === "dark"
+                  ? "bg-[#2a3942] border-white/5 hover:border-emerald-500/50 hover:bg-[#32424b] focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
+                  : "bg-white shadow-sm border-gray-200 hover:border-emerald-500/50 hover:bg-gray-50 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
+                  }`}
+              >
+                <div className="relative shrink-0" ref={fileMenuRef}>
+                  <button
+                    type="button"
+                    className={`focus:outline-none p-2 rounded-full transition-all duration-200 cursor-pointer active:scale-95 ${showFileMenu
+                      ? "bg-black/10 dark:bg-white/15 scale-105"
+                      : "hover:bg-black/5 dark:hover:bg-white/10 hover:scale-105"
+                      }`}
+                    onClick={() => setShowFileMenu(!showFileMenu)}
+                    title="Attach"
+                  >
+                    <TfiClip
+                      className={`h-5 w-5 transform transition-transform duration-200 ${showFileMenu ? "rotate-45" : ""
+                        } ${theme === "dark"
+                          ? "text-gray-400"
+                          : "text-gray-500"
+                        }`}
+                    />
+                  </button>
+
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={(e) => handleFileChange(e, "media")}
+                    accept="image/*,video/*"
+                    multiple
+                    className="hidden"
+                  />
+
+                  <input
+                    type="file"
+                    ref={documentInputRef}
+                    onChange={(e) => handleFileChange(e, "document")}
+                    accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,application/*"
+                    multiple
+                    className="hidden"
+                  />
+
+                  <input
+                    type="file"
+                    ref={audioInputRef}
+                    onChange={(e) => handleFileChange(e, "audio")}
+                    accept="audio/*"
+                    multiple
+                    className="hidden"
+                  />
+
+                  <input
+                    type="file"
+                    ref={stickerInputRef}
+                    onChange={(e) => handleFileChange(e, "sticker")}
+                    accept="image/png,image/webp,image/gif,image/jpeg"
+                    className="hidden"
+                  />
+
+                  <AnimatePresence>
+                    {showFileMenu && (
+                      <motion.div
+                        initial={{
+                          opacity: 0,
+                          scale: 0.85,
+                          y: 15,
+                        }}
+                        animate={{
+                          opacity: 1,
+                          scale: 1,
+                          y: 0,
+                        }}
+                        exit={{
+                          opacity: 0,
+                          scale: 0.85,
+                          y: 15,
+                        }}
+                        transition={{
+                          duration: 0.16,
+                          ease: "easeOut",
+                        }}
+                        className={`absolute bottom-full left-0 sm:-left-6 mb-4 sm:mb-7 w-[230px] sm:w-56 rounded-2xl p-2 z-50 border shadow-2xl backdrop-blur-xl ${theme === "dark"
+                          ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/70"
+                          : "bg-white border-gray-100 text-[#3b4a54] shadow-black/15"
                           }`}
                       >
-                        {item.type === "image" ? (
-                          <img
-                            src={item.previewUrl}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : item.type === "video" ? (
-                          <div className="w-full h-full bg-black/40 flex items-center justify-center">
-                            <FaVideo className="text-white text-xs" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            documentInputRef.current?.click();
+                          }}
+                          title="Send document"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <FaFileAlt className="text-white text-[16px]" />
                           </div>
-                        ) : item.type === "audio" ? (
-                          <div className="w-full h-full bg-[#f2790f]/30 flex items-center justify-center text-[#f2790f]">
-                            <FaHeadphones size={14} />
+
+                          <span className="text-[14px] font-medium tracking-tight">
+                            Document
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            fileInputRef.current?.click();
+                          }}
+                          title="Send photos & videos"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <FaImage className="text-white text-[16px]" />
                           </div>
-                        ) : (
-                          <div className="w-full h-full bg-[#7f66ff]/30 flex items-center justify-center text-[#7f66ff]">
-                            <FaFileAlt size={16} />
-                          </div>
-                        )}
+
+                          <span className="text-[14px] font-medium tracking-tight">
+                            Photos & videos
+                          </span>
+                        </button>
 
                         <button
                           type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveFile(item.id);
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            setShowCamera(true);
                           }}
-                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] opacity-0 group-hover/thumb:opacity-100 transition-opacity shadow"
-                          title="Remove file"
+                          title="Take photo with camera"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                         >
-                          ×
+                          <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <FaCamera className="text-white text-[16px]" />
+                          </div>
+
+                          <span className="text-[14px] font-medium tracking-tight">
+                            Camera
+                          </span>
                         </button>
-                      </div>
-                    ))}
 
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="shrink-0 w-12 h-12 rounded-xl border border-dashed border-gray-400 dark:border-white/20 flex flex-col items-center justify-center gap-0.5 hover:border-emerald-500 hover:text-emerald-500 transition-colors cursor-pointer text-xs"
-                      title="Add more files"
-                    >
-                      <FaPlus size={11} />
-                      <span className="text-[8px] font-medium">Add</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            audioInputRef.current?.click();
+                          }}
+                          title="Send audio"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <FaHeadphones className="text-white text-[16px]" />
+                          </div>
 
-          <div
-            className={`p-2.5 sm:p-3 border-t flex flex-col relative transition-colors ${theme === "dark"
-              ? "bg-[#202c33] border-[#222d34]"
-              : "bg-[#f0f2f5] border-gray-200"
-              }`}
-          >
-            <AnimatePresence>
-              {replyingTo && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                  className={`w-full mb-2 px-3 py-2 rounded-xl flex items-center justify-between border shadow-sm transition-colors ${theme === "dark"
-                    ? "bg-[#1f2c34] border-white/5 text-[#d1d7db]"
-                    : "bg-white border-black/5 text-[#111b21]"
-                    }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-[4px] self-stretch rounded-full bg-[#7f66ff] shrink-0" />
+                          <span className="text-[14px] font-medium tracking-tight">
+                            Audio
+                          </span>
+                        </button>
 
-                    <div className="min-w-0 flex-1 flex flex-col justify-center">
-                      <span className="text-[13px] font-semibold text-[#8b7ff5] leading-tight truncate">
-                        {String(replyingTo.sender?._id || replyingTo.sender) === String(user?._id)
-                          ? "You"
-                          : (replyingTo.sender?.username || selectedContact?.username || "Contact")}
-                      </span>
-                      <span className="text-xs text-[#8696a0] leading-tight truncate mt-0.5">
-                        {getReplyPreviewText(replyingTo)}
-                      </span>
-                    </div>
-                  </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            setShowContactModal(true);
+                          }}
+                          title="Share contact"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <RiContactsFill className="text-white text-[17px]" />
+                          </div>
 
-                  {replyingTo.imageOrVideoUrl &&
-                    ["image", "video", "sticker"].includes(replyingTo.contentType) && (
-                      <img
-                        src={replyingTo.imageOrVideoUrl}
-                        alt="reply thumb"
-                        className="w-10 h-10 rounded-lg object-cover shrink-0 ml-2"
-                      />
+                          <span className="text-[14px] font-medium tracking-tight">
+                            Contact
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            setShowPollModal(true);
+                          }}
+                          title="Create poll"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <FaSquarePollHorizontal className="text-white text-[17px]" />
+                          </div>
+
+                          <span className="text-[14px] font-medium tracking-tight">
+                            Poll
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            setShowEventModal(true);
+                          }}
+                          title="Create event"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <MdEventNote className="text-white text-[17px]" />
+                          </div>
+
+                          <span className="text-[14px] font-medium tracking-tight">
+                            Event
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            setShowStickerModal(true);
+                          }}
+                          title="Send sticker"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <MdAddReaction className="text-white text-[17px]" />
+                          </div>
+
+                          <span className="text-[14px] font-medium tracking-tight">
+                            New sticker
+                          </span>
+                        </button>
+                      </motion.div>
                     )}
+                  </AnimatePresence>
+                </div>
 
+
+                <div className="relative shrink-0">
                   <button
                     type="button"
-                    onClick={() => setReplyingTo(null)}
-                    className="p-1 rounded-full text-[#8696a0] hover:text-white hover:bg-white/10 active:scale-90 transition-all cursor-pointer shrink-0 ml-2"
-                    title="Close reply"
+                    className="focus:outline-none p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
+                    onClick={() =>
+                      setShowEmojiPicker(!showEmojiPicker)
+                    }
+                    title="Emoji and stickers"
                   >
-                    <RxCross2 className="w-4 h-4" />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div
-              className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 border ${theme === "dark"
-                ? "bg-[#2a3942] border-white/5 hover:border-emerald-500/50 hover:bg-[#32424b] focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
-                : "bg-white shadow-sm border-gray-200 hover:border-emerald-500/50 hover:bg-gray-50 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
-                }`}
-            >
-              <div className="relative shrink-0" ref={fileMenuRef}>
-                <button
-                  type="button"
-                  className={`focus:outline-none p-2 rounded-full transition-all duration-200 cursor-pointer active:scale-95 ${showFileMenu
-                    ? "bg-black/10 dark:bg-white/15 scale-105"
-                    : "hover:bg-black/5 dark:hover:bg-white/10 hover:scale-105"
-                    }`}
-                  onClick={() => setShowFileMenu(!showFileMenu)}
-                  title="Attach"
-                >
-                  <TfiClip
-                    className={`h-5 w-5 transform transition-transform duration-200 ${showFileMenu ? "rotate-45" : ""
-                      } ${theme === "dark"
-                        ? "text-gray-400"
-                        : "text-gray-500"
-                      }`}
-                  />
-                </button>
-
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={(e) => handleFileChange(e, "media")}
-                  accept="image/*,video/*"
-                  multiple
-                  className="hidden"
-                />
-
-                <input
-                  type="file"
-                  ref={documentInputRef}
-                  onChange={(e) => handleFileChange(e, "document")}
-                  accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,application/*"
-                  multiple
-                  className="hidden"
-                />
-
-                <input
-                  type="file"
-                  ref={audioInputRef}
-                  onChange={(e) => handleFileChange(e, "audio")}
-                  accept="audio/*"
-                  multiple
-                  className="hidden"
-                />
-
-                <input
-                  type="file"
-                  ref={stickerInputRef}
-                  onChange={(e) => handleFileChange(e, "sticker")}
-                  accept="image/png,image/webp,image/gif,image/jpeg"
-                  className="hidden"
-                />
-
-                <AnimatePresence>
-                  {showFileMenu && (
-                    <motion.div
-                      initial={{
-                        opacity: 0,
-                        scale: 0.85,
-                        y: 15,
-                      }}
-                      animate={{
-                        opacity: 1,
-                        scale: 1,
-                        y: 0,
-                      }}
-                      exit={{
-                        opacity: 0,
-                        scale: 0.85,
-                        y: 15,
-                      }}
-                      transition={{
-                        duration: 0.16,
-                        ease: "easeOut",
-                      }}
-                      className={`absolute bottom-full left-0 sm:-left-6 mb-4 sm:mb-7 w-[230px] sm:w-56 rounded-2xl p-2 z-50 border shadow-2xl backdrop-blur-xl ${theme === "dark"
-                        ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/70"
-                        : "bg-white border-gray-100 text-[#3b4a54] shadow-black/15"
+                    <RiEmojiStickerLine
+                      className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors ${theme === "dark"
+                        ? "text-gray-400 hover:text-emerald-400"
+                        : "text-gray-500 hover:text-emerald-600"
                         }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowFileMenu(false);
-                          documentInputRef.current?.click();
-                        }}
-                        title="Send document"
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                          <FaFileAlt className="text-white text-[16px]" />
-                        </div>
-
-                        <span className="text-[14px] font-medium tracking-tight">
-                          Document
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowFileMenu(false);
-                          fileInputRef.current?.click();
-                        }}
-                        title="Send photos & videos"
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                          <FaImage className="text-white text-[16px]" />
-                        </div>
-
-                        <span className="text-[14px] font-medium tracking-tight">
-                          Photos & videos
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowFileMenu(false);
-                          setShowCamera(true);
-                        }}
-                        title="Take photo with camera"
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                          <FaCamera className="text-white text-[16px]" />
-                        </div>
-
-                        <span className="text-[14px] font-medium tracking-tight">
-                          Camera
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowFileMenu(false);
-                          audioInputRef.current?.click();
-                        }}
-                        title="Send audio"
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                          <FaHeadphones className="text-white text-[16px]" />
-                        </div>
-
-                        <span className="text-[14px] font-medium tracking-tight">
-                          Audio
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowFileMenu(false);
-                          setShowContactModal(true);
-                        }}
-                        title="Share contact"
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                          <RiContactsFill className="text-white text-[17px]" />
-                        </div>
-
-                        <span className="text-[14px] font-medium tracking-tight">
-                          Contact
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowFileMenu(false);
-                          setShowPollModal(true);
-                        }}
-                        title="Create poll"
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                          <FaSquarePollHorizontal className="text-white text-[17px]" />
-                        </div>
-
-                        <span className="text-[14px] font-medium tracking-tight">
-                          Poll
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowFileMenu(false);
-                          setShowEventModal(true);
-                        }}
-                        title="Create event"
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                          <MdEventNote className="text-white text-[17px]" />
-                        </div>
-
-                        <span className="text-[14px] font-medium tracking-tight">
-                          Event
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowFileMenu(false);
-                          setShowStickerModal(true);
-                        }}
-                        title="Send sticker"
-                        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                          <MdAddReaction className="text-white text-[17px]" />
-                        </div>
-
-                        <span className="text-[14px] font-medium tracking-tight">
-                          New sticker
-                        </span>
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-
-              <div className="relative shrink-0">
-                <button
-                  type="button"
-                  className="focus:outline-none p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
-                  onClick={() =>
-                    setShowEmojiPicker(!showEmojiPicker)
-                  }
-                  title="Emoji and stickers"
-                >
-                  <RiEmojiStickerLine
-                    className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors ${theme === "dark"
-                      ? "text-gray-400 hover:text-emerald-400"
-                      : "text-gray-500 hover:text-emerald-600"
-                      }`}
-                  />
-                </button>
-
-
-                {showEmojiPicker && (
-                  <div
-                    ref={emojiPickerRef}
-                    className="absolute left-0 sm:left-4 bottom-14 sm:bottom-16 z-50 shadow-2xl"
-                  >
-                    <EmojiPicker
-                      onEmojiClick={(emojiObject) => {
-                        if (emojiObject?.emoji) {
-                          setMessage(
-                            (prev) => prev + emojiObject.emoji
-                          );
-                        }
-
-                        setShowEmojiPicker(false);
-                      }}
-                      theme={theme}
                     />
-                  </div>
+                  </button>
+
+
+                  {showEmojiPicker && (
+                    <div
+                      ref={emojiPickerRef}
+                      className="absolute left-0 sm:left-4 bottom-14 sm:bottom-16 z-50 shadow-2xl"
+                    >
+                      <EmojiPicker
+                        onEmojiClick={(emojiObject) => {
+                          if (emojiObject?.emoji) {
+                            setMessage(
+                              (prev) => prev + emojiObject.emoji
+                            );
+                          }
+
+                          setShowEmojiPicker(false);
+                        }}
+                        theme={theme}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <input
+                  ref={messageInputRef}
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    } else if (e.key === "Escape" && replyingTo) {
+                      setReplyingTo(null);
+                    }
+                  }}
+                  placeholder="Type a message"
+                  className={`flex-1 min-w-0 w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm sm:text-base transition-colors ${theme === "dark"
+                    ? "text-white placeholder-gray-400 hover:placeholder-gray-300"
+                    : "text-black placeholder-gray-500 hover:placeholder-gray-400"
+                    }`}
+                />
+
+                {message.trim() || selectedFiles.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleSendMessage}
+                    disabled={isSending}
+                    className="shrink-0 p-2 sm:p-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-90 text-white shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50"
+                    title={isSending ? "Sending..." : "Send message"}
+                  >
+                    {isSending ? (
+                      <div className="h-4 w-4 sm:h-4.5 sm:w-4.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <IoSend className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white" />
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="shrink-0 p-2 sm:p-2.5 rounded-full text-gray-500 dark:text-[#8696a0] hover:text-gray-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                    title="Voice message"
+                  >
+                    <FaMicrophone className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                  </button>
                 )}
               </div>
-
-              <input
-                ref={messageInputRef}
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  } else if (e.key === "Escape" && replyingTo) {
-                    setReplyingTo(null);
-                  }
-                }}
-                placeholder="Type a message"
-                className={`flex-1 min-w-0 w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm sm:text-base transition-colors ${theme === "dark"
-                  ? "text-white placeholder-gray-400 hover:placeholder-gray-300"
-                  : "text-black placeholder-gray-500 hover:placeholder-gray-400"
-                  }`}
-              />
-
-              {message.trim() || selectedFiles.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={handleSendMessage}
-                  disabled={isSending}
-                  className="shrink-0 p-2 sm:p-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 hover:scale-105 active:scale-90 text-white shadow-md hover:shadow-lg transition-all duration-150 cursor-pointer disabled:opacity-50"
-                  title={isSending ? "Sending..." : "Send message"}
-                >
-                  {isSending ? (
-                    <div className="h-4 w-4 sm:h-4.5 sm:w-4.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <IoSend className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-white" />
-                  )}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="shrink-0 p-2 sm:p-2.5 rounded-full text-gray-500 dark:text-[#8696a0] hover:text-gray-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Voice message"
-                >
-                  <FaMicrophone className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
-                </button>
-              )}
             </div>
-          </div>
+          )}
 
           {showCamera && (
             <CameraModal
@@ -2288,6 +2388,128 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         />
       )}
 
+      {showForwardSelectedModal && (
+        <ForwardModal
+          isOpen={showForwardSelectedModal}
+          onClose={() => {
+            setShowForwardSelectedModal(false);
+            setIsSelectMode(false);
+            setSelectedMessageIds([]);
+          }}
+          messages={selectedMsgsList}
+          theme={theme}
+        />
+      )}
+
+      {showDeleteSelectedModal && (
+        <div
+          className={`fixed inset-0 z-[10000] flex items-center justify-center px-4 backdrop-blur-xl ${theme === "dark" ? "bg-black/70" : "bg-black/30"
+            }`}
+          onClick={() => setShowDeleteSelectedModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 20 }}
+            transition={{ type: "spring", stiffness: 280, damping: 22 }}
+            className={`relative w-full max-w-sm overflow-hidden rounded-[28px] border p-6 shadow-2xl backdrop-blur-2xl ${theme === "dark"
+              ? "border-white/[0.08] bg-gradient-to-br from-[#202c33]/95 via-[#111b21]/95 to-[#0b141a]/95 shadow-black/50"
+              : "border-white/70 bg-gradient-to-br from-white/95 via-white/90 to-zinc-100/95 shadow-black/10"
+              }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className={`pointer-events-none absolute -top-24 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full blur-3xl ${theme === "dark" ? "bg-red-500/10" : "bg-red-400/10"
+                }`}
+            />
+            <button
+              type="button"
+              aria-label="Close"
+              title="Close"
+              onClick={() => setShowDeleteSelectedModal(false)}
+              className={`absolute right-4 top-4 z-30 flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 cursor-pointer ${theme === "dark"
+                ? "bg-white/[0.06] text-gray-400 hover:bg-white/15 hover:text-white"
+                : "bg-black/[0.05] text-gray-500 hover:bg-black/10 hover:text-gray-900"
+                }`}
+            >
+              <RxCross2 size={16} />
+            </button>
+
+            <div className="relative flex flex-col items-center text-center">
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                transition={{
+                  delay: 0.1,
+                  type: "spring",
+                  stiffness: 300,
+                }}
+                className={`relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border shadow-lg ${theme === "dark"
+                  ? "border-red-400/10 bg-gradient-to-br from-red-500/20 to-red-600/5 text-red-400 shadow-red-500/10"
+                  : "border-red-500/10 bg-gradient-to-br from-red-500/10 to-red-500/5 text-red-500 shadow-red-500/10"
+                  }`}
+              >
+                <RiDeleteBin6Line size={27} />
+              </motion.div>
+              <h2
+                className={`text-xl font-bold tracking-tight ${theme === "dark" ? "text-white" : "text-zinc-900"
+                  }`}
+              >
+                Delete {selectedMessageIds.length} message{selectedMessageIds.length > 1 ? "s" : ""}?
+              </h2>
+              <p
+                className={`mt-2 max-w-[290px] text-sm leading-6 ${theme === "dark" ? "text-zinc-400" : "text-zinc-500"
+                  }`}
+              >
+                Choose how you want to delete selected messages. This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="relative mt-7 flex flex-col gap-3">
+              {canDeleteForEveryone && (
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => executeDeleteSelected("everyone")}
+                  className="group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 cursor-pointer border-red-500/10 bg-gradient-to-r from-red-500/90 to-rose-600/90 text-white shadow-lg shadow-red-500/10 hover:border-red-300/20 hover:from-red-500 hover:to-rose-500"
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2.5">
+                    <RiDeleteBin6Line size={17} />
+                    <span>Delete for everyone</span>
+                  </span>
+                </motion.button>
+              )}
+
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.97 }}
+                onClick={() => executeDeleteSelected("me")}
+                className={`group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 cursor-pointer ${theme === "dark"
+                  ? "border-white/[0.08] bg-gradient-to-r from-zinc-800/90 to-zinc-900/90 text-zinc-100 shadow-lg shadow-black/10 hover:border-emerald-400/20 hover:from-zinc-700/90 hover:to-zinc-800/90 hover:text-emerald-300"
+                  : "border-black/[0.06] bg-gradient-to-r from-zinc-100 to-white text-zinc-800 shadow-md hover:border-emerald-500/20 hover:from-emerald-50 hover:to-white hover:text-emerald-700"
+                  }`}
+              >
+                <span className="relative z-10 flex items-center justify-center gap-2.5">
+                  <RiDeleteBin6Line size={17} />
+                  <span>Delete for me</span>
+                </span>
+              </motion.button>
+
+              <button
+                type="button"
+                onClick={() => setShowDeleteSelectedModal(false)}
+                className={`w-full py-2.5 text-sm font-medium rounded-xl transition-colors cursor-pointer ${theme === "dark"
+                  ? "text-gray-400 hover:text-white hover:bg-white/5"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-black/5"
+                  }`}
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <VideoCallManager socket={socket} />
 
       {previewModalFile && (
@@ -2313,7 +2535,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         messages={messages}
         onSearchClick={() => setIsSearchOpen(true)}
         onSelectMessages={() => {
-          toast.info("Select messages mode");
+          setIsSelectMode(true);
+          setSelectedMessageIds([]);
         }}
         onStartCall={(type) => {
           if (type === "video") handleVideoCall();

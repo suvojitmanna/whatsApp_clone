@@ -8,7 +8,7 @@ import { useChatStore } from "../store/chatStore";
 import useUserStore from "../store/useUserStore";
 import { toast } from "react-toastify";
 
-const ForwardModal = ({ isOpen, onClose, message, theme = "dark" }) => {
+const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [isForwarding, setIsForwarding] = useState(false);
@@ -22,7 +22,8 @@ const ForwardModal = ({ isOpen, onClose, message, theme = "dark" }) => {
     }
   }, [isOpen]);
 
-  if (!isOpen || !message) return null;
+  const messageList = messages && messages.length > 0 ? messages : (message ? [message] : []);
+  if (!isOpen || messageList.length === 0) return null;
 
   const isDark = theme === "dark";
   const contactList = [];
@@ -61,24 +62,26 @@ const ForwardModal = ({ isOpen, onClose, message, theme = "dark" }) => {
 
     try {
       for (const targetId of selectedContacts) {
-        const formData = new FormData();
-        formData.append("senderId", user?._id || user?.id);
-        formData.append("receiverId", targetId);
-        formData.append("messageStatus", "send");
-        formData.append("contentType", message.contentType || "text");
-        formData.append("content", message.content || "");
+        for (const msg of messageList) {
+          const formData = new FormData();
+          formData.append("senderId", user?._id || user?.id);
+          formData.append("receiverId", targetId);
+          formData.append("messageStatus", "send");
+          formData.append("contentType", msg.contentType || "text");
+          formData.append("content", msg.content || "");
 
-        if (message.imageOrVideoUrl) {
-          formData.append("imageOrVideoUrl", message.imageOrVideoUrl);
-        }
-        if (message.fileName) {
-          formData.append("fileName", message.fileName);
-        }
-        if (message.fileSize) {
-          formData.append("fileSize", message.fileSize);
-        }
+          if (msg.imageOrVideoUrl) {
+            formData.append("imageOrVideoUrl", msg.imageOrVideoUrl);
+          }
+          if (msg.fileName) {
+            formData.append("fileName", msg.fileName);
+          }
+          if (msg.fileSize) {
+            formData.append("fileSize", msg.fileSize);
+          }
 
-        await sendMessage(formData);
+          await sendMessage(formData);
+        }
       }
 
       toast.success(
@@ -198,29 +201,30 @@ const ForwardModal = ({ isOpen, onClose, message, theme = "dark" }) => {
             )}
           </div>
 
-          <div
-            className={`p-4 border-t flex items-center justify-between ${isDark ? "bg-[#202c33]/50 border-white/10" : "bg-gray-50 border-black/10"
-              }`}
-          >
-            <span className="text-xs opacity-75">
-              {selectedContacts.length} contact
-              {selectedContacts.length === 1 ? "" : "s"} selected
-            </span>
-
-            <button
-              type="button"
-              disabled={selectedContacts.length === 0 || isForwarding}
-              onClick={handleForward}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-medium text-sm transition-all shadow-md shadow-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          {selectedContacts.length > 0 &&
+            <div
+              className={`p-4 border-t flex items-center justify-between ${isDark ? "bg-[#202c33]/50 border-white/10" : "bg-gray-50 border-black/10"
+                }`}
             >
-              {isForwarding ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <IoSend size={15} />
-              )}
-              <span>Forward</span>
-            </button>
-          </div>
+              <span className="text-xs opacity-75">
+                {selectedContacts.length} contact
+                {selectedContacts.length === 1 ? "" : "s"} selected
+              </span>
+
+              <button
+                type="button"
+                disabled={selectedContacts.length === 0 || isForwarding}
+                onClick={handleForward}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-medium text-sm transition-all shadow-md shadow-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isForwarding ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <IoSend size={15} />
+                )}
+                <span>Forward</span>
+              </button>
+            </div>}
         </motion.div>
       </div>
     </AnimatePresence>

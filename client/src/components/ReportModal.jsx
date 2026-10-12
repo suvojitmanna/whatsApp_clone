@@ -6,7 +6,6 @@ const ReportModal = ({
   isOpen,
   onClose,
   onReport,
-  contactName,
   theme = "dark",
 }) => {
   useEffect(() => {
