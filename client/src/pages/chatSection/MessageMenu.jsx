@@ -47,22 +47,44 @@ const MessageMenu = ({
     const setSelectedMessageInfo =
         propSetSelectedMessageInfo || layoutSetSelectedMessageInfo;
 
+    const itemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-4 py-2 gap-3.5 cursor-pointer rounded-2xl border border-transparent transition-all duration-200 ${isDark
+            ? "text-[#d1d7db] hover:text-white hover:bg-white/10 hover:border-white/15"
+            : "text-[#111b21] hover:text-black hover:bg-black/5 hover:border-black/10"
+        }`;
+
+    const dangerItemClass = `mx-1.5 my-0.5 group relative flex w-[calc(100%-12px)] items-center gap-3.5 overflow-hidden rounded-2xl border border-transparent px-4 py-2 cursor-pointer backdrop-blur-xl transition-all duration-300 ${isDark
+            ? "text-[#d1d7db] hover:bg-red-500/[0.08] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.08)]"
+            : "text-[#111b21] hover:bg-red-500/[0.05] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.06)]"
+        }`;
+
     if (isDeletedForEveryone) {
         return (
-            <button
-                type="button"
-                onClick={() => {
-                    setDeleteModal?.(message);
-                    setShowOptions?.(false);
-                }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                    : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
-            >
-                <RiDeleteBin6Line size={17} className="shrink-0 text-[#8696a0]" />
-                <span className="font-normal text-[14.5px]">Delete for me</span>
-            </button>
+            <>
+                <button
+                    type="button"
+                    onClick={() => {
+                        setDeleteModal?.(message);
+                        setShowOptions?.(false);
+                    }}
+                    className={itemClass}
+                >
+                    <RiDeleteBin6Line size={17} className="shrink-0 text-[#8696a0]" />
+                    <span className="font-normal text-[14.5px]">Delete for me</span>
+                </button>
+                {onEnterSelectMode && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowOptions?.(false);
+                            onEnterSelectMode(message._id || message.temp);
+                        }}
+                        className={itemClass}
+                    >
+                        <FiCheckSquare size={17} className="shrink-0 text-[#8696a0]" />
+                        <span className="font-normal text-[14.5px]">Select message</span>
+                    </button>
+                )}
+            </>
         );
     }
 
@@ -75,10 +97,7 @@ const MessageMenu = ({
                         setShowOptions?.(false);
                         setSelectedMessageInfo?.(message);
                     }}
-                    className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                        ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                        : "hover:bg-[#f5f6f6] text-[#111b21]"
-                        }`}
+                    className={itemClass}
                 >
                     <IoIosInformationCircleOutline
                         size={20}
@@ -96,10 +115,7 @@ const MessageMenu = ({
                         onReply(message);
                     }
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                    : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                className={itemClass}
             >
                 <LuReply size={18} className="shrink-0 text-[#8696a0]" />
                 <span className="font-normal text-[14.5px]">Reply</span>
@@ -118,10 +134,7 @@ const MessageMenu = ({
                         toast.success("Copied to clipboard");
                     }
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                    : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                className={itemClass}
             >
                 <FaRegCopy size={16} className="shrink-0 text-[#8696a0]" />
                 <span className="font-normal text-[14.5px]">Copy</span>
@@ -133,10 +146,7 @@ const MessageMenu = ({
                     setShowOptions?.(false);
                     setShowReactions?.(true);
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                    : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                className={itemClass}
             >
                 <BsEmojiSmile size={18} className="shrink-0 text-[#8696a0]" />
                 <span className="font-normal text-[14.5px]">React</span>
@@ -148,10 +158,7 @@ const MessageMenu = ({
                     setShowOptions?.(false);
                     setShowForwardModal?.(true);
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                    : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                className={itemClass}
             >
                 <LuForward size={18} className="shrink-0 text-[#8696a0]" />
                 <span className="font-normal text-[14.5px]">Forward</span>
@@ -168,10 +175,7 @@ const MessageMenu = ({
                         setShowPinModal?.(true);
                     }
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                    : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                className={itemClass}
             >
                 {isPinned ? (
                     <WhatsAppUnpinIcon
@@ -192,10 +196,7 @@ const MessageMenu = ({
                     setShowOptions?.(false);
                     setShowForwardModal?.(true);
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                    : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                className={itemClass}
             >
                 <SiMetaai size={18} className="shrink-0 text-[#8696a0]" />
                 <span className="font-normal text-[14.5px]">Ask Meta AI</span>
@@ -212,10 +213,7 @@ const MessageMenu = ({
                         toast.info("Message unstarred");
                     }
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                    : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                className={itemClass}
             >
                 {isStarred ? (
                     <FaStar size={16} className="shrink-0 text-amber-400" />
@@ -235,10 +233,7 @@ const MessageMenu = ({
                         setIsEditing?.(true);
                         setShowOptions?.(false);
                     }}
-                    className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                        ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                        : "hover:bg-[#f5f6f6] text-[#111b21]"
-                        }`}
+                    className={itemClass}
                 >
                     <RiEditLine size={17} className="shrink-0 text-[#8696a0]" />
                     <span className="font-normal text-[14.5px]">Edit</span>
@@ -260,10 +255,7 @@ const MessageMenu = ({
                                     : `${message.contentType}-${message._id}`)
                             );
                         }}
-                        className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                            ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                            : "hover:bg-[#f5f6f6] text-[#111b21]"
-                            }`}
+                        className={itemClass}
                     >
                         <FaDownload size={15} className="shrink-0 text-[#8696a0]" />
                         <span className="font-normal text-[14.5px]">Download</span>
@@ -276,10 +268,7 @@ const MessageMenu = ({
                     setShowOptions?.(false);
                     onEnterSelectMode?.(message._id);
                 }}
-                className={`flex w-full items-center px-5 py-2.5 gap-4 cursor-pointer transition-colors ${isDark
-                    ? "hover:bg-[#182229] text-[#d1d7db] hover:text-white"
-                    : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                className={itemClass}
             >
                 <FiCheckSquare size={17} className="shrink-0 text-[#8696a0]" />
                 <span className="font-normal text-[14.5px]">Select message</span>
@@ -296,10 +285,7 @@ const MessageMenu = ({
                     setShowOptions?.(false);
                     setShowReportModal?.(true);
                 }}
-                className={`group relative flex w-full items-center gap-4 overflow-hidden rounded-lg border border-transparent px-5 py-2.5 cursor-pointer backdrop-blur-xl transition-all duration-300 ${isDark
-                    ? "text-[#d1d7db] hover:bg-red-500/[0.08] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.08)]"
-                    : "text-[#111b21] hover:bg-red-500/[0.05] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.06)]"
-                    }`}
+                className={dangerItemClass}
             >
                 <FiThumbsDown
                     size={17}
@@ -316,10 +302,7 @@ const MessageMenu = ({
                     setDeleteModal?.(message);
                     setShowOptions?.(false);
                 }}
-                className={`group relative flex w-full items-center gap-4 overflow-hidden rounded-lg border border-transparent px-5 py-2.5 cursor-pointer backdrop-blur-xl transition-all duration-300 ${isDark
-                    ? "text-[#d1d7db] hover:bg-red-500/[0.08] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.08)]"
-                    : "text-[#111b21] hover:bg-red-500/[0.05] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.06)]"
-                    }`}
+                className={dangerItemClass}
             >
                 <RiDeleteBin6Line
                     size={17}

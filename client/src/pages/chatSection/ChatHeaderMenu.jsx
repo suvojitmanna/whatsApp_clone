@@ -393,14 +393,19 @@ const ChatHeaderMenu = ({
   const contactName =
     selectedContact?.username || selectedContact?.name || "this contact";
 
-  const itemClass = `flex w-full items-center px-4 py-[7px] gap-3.5 cursor-pointer transition-colors text-left font-normal text-[14px] ${isDark
-    ? "hover:bg-[#182229] hover:text-white"
-    : "hover:bg-[#f5f6f6] hover:text-black"
+  const itemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7px] gap-3.5 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] ${isDark
+    ? "hover:bg-white/10 hover:border-white/15 hover:text-white"
+    : "hover:bg-black/5 hover:border-black/10 hover:text-black"
     }`;
 
-  const submenuItemClass = `w-full flex items-center justify-between px-4 py-2 text-[13.5px] cursor-pointer transition-colors ${isDark
-    ? "hover:bg-[#182229] hover:text-white"
-    : "hover:bg-[#f5f6f6] hover:text-black"
+  const dangerItemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7px] gap-3.5 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] group ${isDark
+    ? "hover:bg-red-500/10 hover:border-red-400/25 text-[#d1d7db] hover:text-red-400"
+    : "hover:bg-red-50 hover:border-red-300 text-gray-800 hover:text-red-600"
+    }`;
+
+  const submenuItemClass = `mx-1.5 my-0.5 w-[calc(100%-12px)] flex items-center justify-between px-3.5 py-2 text-[13.5px] cursor-pointer rounded-lg border border-transparent transition-all duration-150 ${isDark
+    ? "hover:bg-white/10 hover:border-white/15 hover:text-white"
+    : "hover:bg-black/5 hover:border-black/10 hover:text-black"
     }`;
 
   return (
@@ -819,18 +824,18 @@ const ChatHeaderMenu = ({
                   onClose();
                   setShowReportModal(true);
                 }}
-                className={itemClass}
+                className={dangerItemClass}
               >
-                <FiThumbsDown size={18} className="text-[#8696a0] shrink-0" />
+                <FiThumbsDown size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
                 <span>Report</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleToggleBlock}
-                className={itemClass}
+                className={dangerItemClass}
               >
-                <MdBlock size={18} className="text-[#8696a0] shrink-0" />
+                <MdBlock size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
                 <span>
                   {isBlocked ? "Unblock" : "Block"}
                 </span>
@@ -838,11 +843,11 @@ const ChatHeaderMenu = ({
               <button
                 type="button"
                 onClick={() => setConfirmDialog({ type: "clear" })}
-                className={itemClass}
+                className={dangerItemClass}
               >
                 <FiMinusCircle
                   size={18}
-                  className="text-[#8696a0] shrink-0"
+                  className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
                 />
                 <span>Clear chat</span>
               </button>

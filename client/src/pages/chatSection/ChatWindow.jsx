@@ -199,10 +199,36 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       selectedMsgsList.length > 0 &&
       selectedMsgsList.every(
         (m) =>
+          !m.deletedForEveryone &&
+          m.content !== "This message was deleted" &&
+          m.content !== "You deleted this message" &&
           String(m.sender?._id || m.sender) === String(user?._id || user?.id)
       )
     );
   }, [selectedMsgsList, user]);
+
+  const hasDeletedSelected = useMemo(() => {
+    return (
+      selectedMsgsList.length > 0 &&
+      selectedMsgsList.some(
+        (m) =>
+          m.deletedForEveryone ||
+          m.content === "This message was deleted" ||
+          m.content === "You deleted this message"
+      )
+    );
+  }, [selectedMsgsList]);
+
+  const hasDownloadableSelected = useMemo(() => {
+    return (
+      selectedMsgsList.length > 0 &&
+      selectedMsgsList.some(
+        (m) =>
+          (m.contentType && m.contentType !== "text") ||
+          Boolean(m.imageOrVideoUrl && m.contentType !== "text")
+      )
+    );
+  }, [selectedMsgsList]);
 
   const handleToggleSelectMessage = (msgId) => {
     if (!msgId) return;
@@ -1590,7 +1616,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
           <div className="flex items-center space-x-2 sm:space-x-3">
             <button
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
               onClick={handleVideoCall}
               title={online ? "Start video call" : "user is offline"}
             >
@@ -1598,7 +1624,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             </button>
 
             <button
-              className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
               onClick={handleAudioCall}
               title={online ? "Start audio call" : "user is offline"}
             >
@@ -1628,7 +1654,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                 setShowHeaderMenu(true);
               }}
               title="Menu"
-              className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
             >
               <HiDotsVertical className="h-5 w-5" />
             </button>
@@ -1871,9 +1897,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                     setIsSelectMode(false);
                     setSelectedMessageIds([]);
                   }}
-                  className={`p-1.5 rounded-full transition-colors cursor-pointer active:scale-95 ${theme === "dark"
-                    ? "text-[#aebac1] hover:text-white hover:bg-white/10"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-black/5"
+                  className={`p-1.5 rounded-full border border-transparent transition-all cursor-pointer active:scale-95 ${theme === "dark"
+                    ? "text-[#aebac1] hover:text-white hover:bg-white/10 hover:border-white/15"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-black/5 hover:border-black/10"
                     }`}
                   title="Close"
                 >
@@ -1888,69 +1914,75 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               </div>
 
               <div className="flex items-center gap-7 sm:gap-8">
-                <button
-                  type="button"
-                  onClick={handleStarSelectedMessages}
-                  disabled={selectedMessageIds.length === 0}
-                  className={`p-1.5 rounded-full transition-all ${selectedMessageIds.length === 0
-                    ? "opacity-30 cursor-not-allowed text-[#8696a0]"
-                    : theme === "dark"
-                      ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10"
-                      : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5"
-                    }`}
-                  title="Star messages"
-                >
-                  {areAllSelectedStarred ? (
-                    <FaStar size={20} className="text-amber-400" />
-                  ) : (
-                    <FaRegStar size={20} />
-                  )}
-                </button>
+                {!hasDeletedSelected && (
+                  <button
+                    type="button"
+                    onClick={handleStarSelectedMessages}
+                    disabled={selectedMessageIds.length === 0}
+                    className={`p-1.5 rounded-full border border-transparent transition-all ${selectedMessageIds.length === 0
+                      ? "opacity-30 cursor-not-allowed text-[#8696a0]"
+                      : theme === "dark"
+                        ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10 hover:border-white/15"
+                        : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5 hover:border-black/10"
+                      }`}
+                    title="Star messages"
+                  >
+                    {areAllSelectedStarred ? (
+                      <FaStar size={20} className="text-amber-400" />
+                    ) : (
+                      <FaRegStar size={20} />
+                    )}
+                  </button>
+                )}
 
                 <button
                   type="button"
                   onClick={() => setShowDeleteSelectedModal(true)}
                   disabled={selectedMessageIds.length === 0}
-                  className={`p-1.5 rounded-full transition-all ${selectedMessageIds.length === 0
+                  className={`p-1.5 rounded-full border border-transparent transition-all ${selectedMessageIds.length === 0
                     ? "opacity-30 cursor-not-allowed text-[#8696a0]"
                     : theme === "dark"
-                      ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10"
-                      : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5"
+                      ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10 hover:border-white/15"
+                      : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5 hover:border-black/10"
                     }`}
                   title="Delete messages"
                 >
                   <RiDeleteBin6Line size={21} />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setShowForwardSelectedModal(true)}
-                  disabled={selectedMessageIds.length === 0}
-                  className={`p-1.5 rounded-full transition-all ${selectedMessageIds.length === 0
-                    ? "opacity-30 cursor-not-allowed text-[#8696a0]"
-                    : theme === "dark"
-                      ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10"
-                      : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5"
-                    }`}
-                  title="Forward messages"
-                >
-                  <LuForward size={22} />
-                </button>
+                {!hasDeletedSelected && (
+                  <button
+                    type="button"
+                    onClick={() => setShowForwardSelectedModal(true)}
+                    disabled={selectedMessageIds.length === 0}
+                    className={`p-1.5 rounded-full border border-transparent transition-all ${selectedMessageIds.length === 0
+                      ? "opacity-30 cursor-not-allowed text-[#8696a0]"
+                      : theme === "dark"
+                        ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10 hover:border-white/15"
+                        : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5 hover:border-black/10"
+                      }`}
+                    title="Forward messages"
+                  >
+                    <LuForward size={22} />
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={handleDownloadSelectedMessages}
-                  disabled={selectedMessageIds.length === 0}
-                  className={`p-1.5 rounded-full transition-all ${selectedMessageIds.length === 0
-                    ? "opacity-30 cursor-not-allowed text-[#8696a0]"
-                    : theme === "dark"
-                      ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10"
-                      : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5"
-                    }`}
-                  title="Download media"
-                >
-                  <FiDownload size={20} />
-                </button>
+                {!hasDeletedSelected && hasDownloadableSelected && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadSelectedMessages}
+                    disabled={selectedMessageIds.length === 0}
+                    className={`p-1.5 rounded-full border border-transparent transition-all ${selectedMessageIds.length === 0
+                      ? "opacity-30 cursor-not-allowed text-[#8696a0]"
+                      : theme === "dark"
+                        ? "text-[#aebac1] hover:text-white cursor-pointer active:scale-90 hover:bg-white/10 hover:border-white/15"
+                        : "text-gray-600 hover:text-gray-900 cursor-pointer active:scale-90 hover:bg-black/5 hover:border-black/10"
+                      }`}
+                    title="Download media"
+                  >
+                    <FiDownload size={20} />
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -2017,9 +2049,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                 <div className="relative shrink-0" ref={fileMenuRef}>
                   <button
                     type="button"
-                    className={`focus:outline-none p-2 rounded-full transition-all duration-200 cursor-pointer active:scale-95 ${showFileMenu
-                      ? "bg-black/10 dark:bg-white/15 scale-105"
-                      : "hover:bg-black/5 dark:hover:bg-white/10 hover:scale-105"
+                    className={`focus:outline-none p-2 rounded-full border border-transparent transition-all duration-200 cursor-pointer active:scale-95 ${showFileMenu
+                      ? "bg-black/10 dark:bg-white/15 border-black/15 dark:border-white/20 scale-105"
+                      : "hover:bg-black/5 dark:hover:bg-white/10 hover:border-black/10 dark:hover:border-white/15 hover:scale-105"
                       }`}
                     onClick={() => setShowFileMenu(!showFileMenu)}
                     title="Attach"
@@ -2102,7 +2134,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             documentInputRef.current?.click();
                           }}
                           title="Send document"
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                             <FaFileAlt className="text-white text-[16px]" />
@@ -2119,7 +2151,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             fileInputRef.current?.click();
                           }}
                           title="Send photos & videos"
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                             <FaImage className="text-white text-[16px]" />
@@ -2137,7 +2169,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             setShowCamera(true);
                           }}
                           title="Take photo with camera"
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                             <FaCamera className="text-white text-[16px]" />
@@ -2155,7 +2187,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             audioInputRef.current?.click();
                           }}
                           title="Send audio"
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                             <FaHeadphones className="text-white text-[16px]" />
@@ -2173,7 +2205,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             setShowContactModal(true);
                           }}
                           title="Share contact"
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                             <RiContactsFill className="text-white text-[17px]" />
@@ -2191,7 +2223,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             setShowPollModal(true);
                           }}
                           title="Create poll"
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                             <FaSquarePollHorizontal className="text-white text-[17px]" />
@@ -2209,7 +2241,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             setShowEventModal(true);
                           }}
                           title="Create event"
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                             <MdEventNote className="text-white text-[17px]" />
@@ -2227,7 +2259,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             setShowStickerModal(true);
                           }}
                           title="Send sticker"
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
                             <MdAddReaction className="text-white text-[17px]" />
@@ -2246,7 +2278,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                 <div className="relative shrink-0">
                   <button
                     type="button"
-                    className="focus:outline-none p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
+                    className="focus:outline-none p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/15 hover:bg-black/5 dark:hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
                     onClick={() =>
                       setShowEmojiPicker(!showEmojiPicker)
                     }
@@ -2319,7 +2351,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                 ) : (
                   <button
                     type="button"
-                    className="shrink-0 p-2 sm:p-2.5 rounded-full text-gray-500 dark:text-[#8696a0] hover:text-gray-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                    className="shrink-0 p-2 sm:p-2.5 rounded-full border border-transparent text-gray-500 dark:text-[#8696a0] hover:text-gray-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 hover:border-black/10 dark:hover:border-white/15 transition-all cursor-pointer"
                     title="Voice message"
                   >
                     <FaMicrophone className="h-4 w-4 sm:h-4.5 sm:w-4.5" />

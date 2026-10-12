@@ -6,7 +6,9 @@ import { FiSearch } from "react-icons/fi";
 import { IoSend } from "react-icons/io5";
 import { useChatStore } from "../store/chatStore";
 import useUserStore from "../store/useUserStore";
+import useStatusStore from "../store/statusStore";
 import { toast } from "react-toastify";
+import { HiOutlineDotsHorizontal } from "react-icons/hi";
 
 const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -62,6 +64,20 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
 
     try {
       for (const targetId of selectedContacts) {
+        if (targetId === "status") {
+          for (const msg of messageList) {
+            try {
+              await useStatusStore.getState().createStatus({
+                content: msg.content || "",
+                media: msg.imageOrVideoUrl || null,
+              });
+            } catch (statusErr) {
+              console.error("Status forward error:", statusErr);
+            }
+          }
+          continue;
+        }
+
         for (const msg of messageList) {
           const formData = new FormData();
           formData.append("senderId", user?._id || user?.id);
@@ -122,13 +138,13 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100 transition cursor-pointer"
+              className="p-1.5 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100 transition cursor-pointer"
             >
               <RxCross2 size={19} />
             </button>
           </div>
 
-          <div className="p-3 border-b border-black/5 dark:border-white/5">
+          <div className="p-3">
             <div
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${isDark
                 ? "bg-[#202c33] border-white/10 text-white"
@@ -146,7 +162,74 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-black/5 dark:divide-white/5">
+          {(!searchTerm || "my status".includes(searchTerm.toLowerCase())) && (
+            <div
+              onClick={() => toggleSelect("status")}
+              className={`mx-3 my-1 flex items-center gap-3.5 px-4 py-2.5 rounded-3xl border cursor-pointer transition-all ${selectedContacts.includes("status")
+                ? isDark
+                  ? "bg-emerald-500/15 border-emerald-500/50"
+                  : "bg-emerald-50 border-emerald-500/40"
+                : isDark
+                  ? "border-transparent hover:border-gray-500/40 hover:bg-[#202c33]"
+                  : "border-transparent hover:border-gray-400/40 hover:bg-gray-100"
+                }`}
+            >
+              <input
+                type="checkbox"
+                checked={selectedContacts.includes("status")}
+                onChange={() => { }}
+                className="checkbox checkbox-sm checkbox-success rounded-md cursor-pointer shrink-0"
+              />
+
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold text-sm shrink-0">
+                {user?.profilePicture ? (
+                  <img
+                    src={user.profilePicture}
+                    alt={user.username}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  (user?.username?.[0] || "U").toUpperCase()
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm truncate">My Status</div>
+                <div className="text-xs text-gray-500 truncate">
+                  Tap to add status update
+                </div>
+              </div>
+
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                title="Status options"
+                className={`text-lg p-1.5 rounded-full border border-transparent transition-all cursor-pointer ${isDark
+                  ? "text-gray-400 hover:text-white hover:border-gray-500/40 hover:bg-white/10"
+                  : "text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:bg-black/5"
+                  }`}
+              >
+                <HiOutlineDotsHorizontal />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 px-5 py-2 text-xs font-medium opacity-65 select-none">
+            <div
+              className={`h-px w-[8%] ${isDark ? "bg-white/10" : "bg-black/10"
+                }`}
+            />
+            <span className="whitespace-nowrap uppercase tracking-wider text-[11.5px]">
+              Recent chat
+            </span>
+            <div
+              className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-black/10"
+                }`}
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto py-1">
             {filteredContacts.length === 0 ? (
               <div className="p-8 text-center text-sm opacity-60">
                 No contacts found
@@ -158,43 +241,42 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
                   <div
                     key={contact._id}
                     onClick={() => toggleSelect(contact._id)}
-                    className={`flex items-center justify-between px-5 py-3 cursor-pointer transition-colors ${isSelected
+                    className={`mx-3 my-1 flex items-center gap-3.5 px-4 py-2.5 rounded-3xl border cursor-pointer transition-all ${isSelected
                       ? isDark
-                        ? "bg-emerald-500/15"
-                        : "bg-emerald-50"
+                        ? "bg-emerald-500/15 border-emerald-500/50"
+                        : "bg-emerald-50 border-emerald-500/40"
                       : isDark
-                        ? "hover:bg-[#202c33]"
-                        : "hover:bg-gray-50"
+                        ? "border-transparent hover:border-gray-500/40 hover:bg-[#202c33]"
+                        : "border-transparent hover:border-gray-400/40 hover:bg-gray-100"
                       }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold text-sm shrink-0">
-                        {contact.profilePicture ? (
-                          <img
-                            src={contact.profilePicture}
-                            alt={contact.username}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          (contact.username?.[0] || "U").toUpperCase()
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate">
-                          {contact.username}
-                        </p>
-                        <p className="text-xs opacity-60 truncate">
-                          {contact.about || "Hey there! I am using WhatsApp."}
-                        </p>
-                      </div>
-                    </div>
-
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => { }}
-                      className="checkbox checkbox-sm checkbox-success rounded-md cursor-pointer"
+                      className="checkbox checkbox-sm checkbox-success rounded-md cursor-pointer shrink-0"
                     />
+
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-emerald-500/20 text-emerald-500 flex items-center justify-center font-bold text-sm shrink-0">
+                      {contact.profilePicture ? (
+                        <img
+                          src={contact.profilePicture}
+                          alt={contact.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        (contact.username?.[0] || "U").toUpperCase()
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {contact.username}
+                      </p>
+                      <p className="text-xs opacity-60 truncate">
+                        {contact.about || "Hey there! I am using WhatsApp."}
+                      </p>
+                    </div>
                   </div>
                 );
               })
@@ -207,8 +289,7 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
                 }`}
             >
               <span className="text-xs opacity-75">
-                {selectedContacts.length} contact
-                {selectedContacts.length === 1 ? "" : "s"} selected
+                {selectedContacts.length} {selectedContacts.length === 1 ? "chat" : "chats"} selected
               </span>
 
               <button
