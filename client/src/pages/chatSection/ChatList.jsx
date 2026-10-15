@@ -18,11 +18,110 @@ import { RxCross2 } from "react-icons/rx";
 import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
+import { WhatsAppPinIcon } from "./MessageBuble";
+
+const getContactPin = (contact, pinnedMessages) => {
+  if (!contact) return null;
+  const currentUserId = useUserStore.getState()?.user?._id;
+  const convId = (contact.conversation?._id || contact.conversation)?.toString();
+  const contactId = contact._id?.toString();
+
+  const isMsgDeleted = (msg) => {
+    if (!msg) return true;
+    if (msg.deletedForEveryone) return true;
+    if (
+      msg.content === "This message was deleted" ||
+      msg.content === "You deleted this message"
+    ) {
+      return true;
+    }
+    if (
+      currentUserId &&
+      msg.deletedFor &&
+      Array.isArray(msg.deletedFor) &&
+      msg.deletedFor.some((id) => String(id) === String(currentUserId))
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  if (contact.conversation?.pinnedMessage && contact.conversation.pinnedMessage.message) {
+    const pin = contact.conversation.pinnedMessage;
+    const expires = pin.expiresAt
+      ? new Date(pin.expiresAt).getTime()
+      : null;
+    if (!expires || expires > Date.now()) {
+      if (!isMsgDeleted(pin.message)) {
+        return pin;
+      }
+    }
+  }
+
+  if (!pinnedMessages) return null;
+
+  let pin =
+    (convId && pinnedMessages[convId]) ||
+    (contactId && pinnedMessages[contactId]);
+
+  if (!pin) {
+    const allPins = Object.values(pinnedMessages || {});
+    pin = allPins.find((p) => {
+      if (!p?.message) return false;
+      const msgConv = (p.message.conversation?._id || p.message.conversation || p.message.conversationId)?.toString();
+      const msgSender = (p.message.sender?._id || p.message.sender)?.toString();
+      const msgReceiver = (p.message.receiver?._id || p.message.receiver)?.toString();
+      return (
+        (convId && msgConv === convId) ||
+        (contactId && (msgSender === contactId || msgReceiver === contactId))
+      );
+    });
+  }
+
+  if (!pin || !pin.message) return null;
+  if (isMsgDeleted(pin.message)) return null;
+  if (pin.expiresAt && new Date(pin.expiresAt).getTime() <= Date.now()) return null;
+  return pin;
+};
 
 const getLastMessagePreview = (lastMessage) => {
   if (!lastMessage) return null;
 
   const currentUserId = useUserStore.getState()?.user?._id;
+
+  const isDeletedForEveryone = Boolean(
+    lastMessage.deletedForEveryone ||
+    lastMessage.content === "This message was deleted" ||
+    lastMessage.content === "You deleted this message"
+  );
+
+  if (isDeletedForEveryone) {
+    const isMe =
+      currentUserId &&
+      String(lastMessage.sender?._id || lastMessage.sender) === String(currentUserId);
+    return {
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          className="inline mr-1 text-[#8696a0] shrink-0"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+        </svg>
+      ),
+      text: isMe ? "You deleted this message" : "This message was deleted",
+      isDeleted: true,
+      isEncrypted: false,
+    };
+  }
+
   if (
     currentUserId &&
     lastMessage?.deletedFor &&
@@ -30,8 +129,24 @@ const getLastMessagePreview = (lastMessage) => {
     lastMessage.deletedFor.some((id) => String(id) === String(currentUserId))
   ) {
     return {
-      icon: null,
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          width="13"
+          height="13"
+          className="inline mr-1 text-[#8696a0] shrink-0"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+        </svg>
+      ),
       text: "You deleted this message",
+      isDeleted: true,
       isEncrypted: false,
     };
   }
@@ -231,6 +346,7 @@ const getLastMessagePreview = (lastMessage) => {
 const ChatList = ({ contacts }) => {
   const { user } = useUserStore();
   const { isUserTyping } = useChatStore();
+  const pinnedMessages = useChatStore((state) => state.pinnedMessages);
   const selectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedContact = useLayoutStore(
     (state) => state.setSelectedContact,
@@ -253,16 +369,25 @@ const ChatList = ({ contacts }) => {
       : contacts;
 
     return [...list].sort((a, b) => {
-      const timeA = a?.conversation?.lastMessage?.createdAt
-        ? new Date(a.conversation.lastMessage.createdAt).getTime()
-        : (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0);
+      const pinA = getContactPin(a, pinnedMessages);
+      const pinB = getContactPin(b, pinnedMessages);
 
-      const timeB = b?.conversation?.lastMessage?.createdAt
-        ? new Date(b.conversation.lastMessage.createdAt).getTime()
-        : (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0);
+      const timeA = Math.max(
+        a?.conversation?.lastMessage?.createdAt
+          ? new Date(a.conversation.lastMessage.createdAt).getTime()
+          : (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0),
+        pinA?.pinnedAt ? new Date(pinA.pinnedAt).getTime() : 0,
+      );
+
+      const timeB = Math.max(
+        b?.conversation?.lastMessage?.createdAt
+          ? new Date(b.conversation.lastMessage.createdAt).getTime()
+          : (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0),
+        pinB?.pinnedAt ? new Date(pinB.pinnedAt).getTime() : 0,
+      );
       return timeB - timeA;
     });
-  }, [contacts, searchTerms]);
+  }, [contacts, searchTerms, pinnedMessages]);
 
   useEffect(() => {
     if (listContainerRef.current) {
@@ -357,14 +482,20 @@ const ChatList = ({ contacts }) => {
           filteredContact.map((contact) => {
             const conversationId = contact?.conversation?._id;
             const isTyping = isUserTyping(conversationId, contact?._id);
+            const contactPin = getContactPin(contact, pinnedMessages);
 
             return (
               <motion.div
                 key={contact._id}
                 data-contact-id={contact._id}
                 title={`Chat with ${contact?.username || "user"}`}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setSelectedContact(contact)}
+                onClick={() => {
+                  setSelectedContact(contact);
+                  useChatStore.getState().clearUnreadCount(contact._id);
+                  if (contact?.conversation?._id) {
+                    useChatStore.getState().clearUnreadCount(contact.conversation._id);
+                  }
+                }}
                 className={`p-3 flex items-center cursor-pointer transition-colors ${theme === "dark"
                   ? selectedContact?._id === contact._id
                     ? "bg-gray-700"
@@ -380,22 +511,27 @@ const ChatList = ({ contacts }) => {
                   className="w-12 h-12 rounded-full"
                 />
 
-                <div className="ml-3 flex-1">
-                  <div className="flex justify-between items-baseline">
-                    <h2 className="font-semibold">{contact?.username}</h2>
-                    {contact?.conversation && (
+                <div className="ml-3 flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <h2 className="font-semibold truncate">{contact?.username}</h2>
+                    {(contact?.conversation || contactPin) && (
                       <span
-                        className={`text-xs ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
+                        className={`text-xs shrink-0 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
                       >
                         {formatTimestamp(
-                          contact?.conversation?.lastMessage?.createdAt,
+                          contactPin?.pinnedAt &&
+                            (!contact?.conversation?.lastMessage?.createdAt ||
+                              new Date(contactPin.pinnedAt).getTime() >
+                              new Date(contact.conversation.lastMessage.createdAt).getTime())
+                            ? contactPin.pinnedAt
+                            : contact?.conversation?.lastMessage?.createdAt,
                         )}
                       </span>
                     )}
                   </div>
-                  <div className="flex justify-between items-baseline">
-                    <p
-                      className={`text-sm flex items-center gap-1.5 w-full ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                  <div className="flex justify-between items-center mt-0.5">
+                    <div
+                      className={`text-sm flex items-center gap-1.5 min-w-0 flex-1 truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
                         }`}
                     >
                       {(() => {
@@ -410,11 +546,29 @@ const ChatList = ({ contacts }) => {
                           );
                         }
 
+                        const pinTime = contactPin?.pinnedAt ? new Date(contactPin.pinnedAt).getTime() : 0;
+                        const msgTime = lastMsg?.createdAt ? new Date(lastMsg.createdAt).getTime() : 0;
+                        const isPinLatest = Boolean(contactPin && (!lastMsg || pinTime >= msgTime));
+
+                        if (isPinLatest) {
+                          const isPinnedByMe =
+                            !contactPin.pinnedBy ||
+                            String(contactPin.pinnedBy?._id || contactPin.pinnedBy) === String(user?._id);
+                          return (
+                            <span className="flex items-center gap-1.5 truncate text-[#8696a0]">
+                              <WhatsAppPinIcon size={12} className="inline shrink-0 text-[#8696a0]" />
+                              <span className="truncate">
+                                {isPinnedByMe ? "You pinned a message" : `${contact.username} pinned a message`}
+                              </span>
+                            </span>
+                          );
+                        }
+
                         if (preview && (preview.text || preview.icon)) {
                           return (
                             <>
                               {preview.icon}
-                              <span className="truncate">
+                              <span className={`truncate ${preview.isDeleted ? "italic opacity-80" : ""}`}>
                                 {preview.text}
                               </span>
                               {lastMsg?.edited && (
@@ -437,30 +591,52 @@ const ChatList = ({ contacts }) => {
                           </span>
                         );
                       })()}
-                    </p>
-                    {(() => {
-                      const unread = contact?.conversation?.unreadCount;
-                      const currentUserId = user?._id?.toString();
-                      const lastMsgSenderId = (
-                        contact?.conversation?.lastMessage?.sender?._id ||
-                        contact?.conversation?.lastMessage?.sender
-                      )?.toString();
-                      const isSenderOfLast = Boolean(
-                        currentUserId &&
-                        lastMsgSenderId &&
-                        lastMsgSenderId === currentUserId
-                      );
+                    </div>
 
-                      if (isSenderOfLast || !unread || unread <= 0) {
-                        return null;
-                      }
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      {contactPin && (
+                        <WhatsAppPinIcon
+                          size={13}
+                          className="text-[#8696a0] shrink-0"
+                          title="Pinned message in chat"
+                        />
+                      )}
+                      {(() => {
+                        const isCurrentOpen = Boolean(
+                          selectedContact?._id &&
+                          (String(contact?._id) === String(selectedContact._id) ||
+                            (contact?.conversation?._id &&
+                              selectedContact?.conversation?._id &&
+                              String(contact.conversation._id) === String(selectedContact.conversation._id)))
+                        );
 
-                      return (
-                        <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white">
-                          {unread}
-                        </p>
-                      );
-                    })()}
+                        if (isCurrentOpen) {
+                          return null;
+                        }
+
+                        const unread = contact?.conversation?.unreadCount;
+                        const currentUserId = user?._id?.toString();
+                        const lastMsgSenderId = (
+                          contact?.conversation?.lastMessage?.sender?._id ||
+                          contact?.conversation?.lastMessage?.sender
+                        )?.toString();
+                        const isSenderOfLast = Boolean(
+                          currentUserId &&
+                          lastMsgSenderId &&
+                          lastMsgSenderId === currentUserId
+                        );
+
+                        if (isSenderOfLast || !unread || unread <= 0) {
+                          return null;
+                        }
+
+                        return (
+                          <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white shrink-0">
+                            {unread}
+                          </p>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               </motion.div>

@@ -8,6 +8,7 @@ import ChatWindow from "../pages/chatSection/ChatWindow";
 import ContactInfo from "../components/ContactInfo";
 import ProfilePicture from "../components/profilePicture";
 import PollDetailsPanel from "../components/PollDetailsPanel";
+import MessageInfoPanel from "../components/MessageInfoPanel";
 import StatusPlaceholder from "./StatusPlaceholder";
 
 const Layout = ({
@@ -28,6 +29,7 @@ const Layout = ({
   const { theme, setTheme } = useThemeStore();
   const showContactInfo = useLayoutStore((state) => state.showContactInfo);
   const selectedPollMessage = useLayoutStore((state) => state.selectedPollMessage);
+  const selectedMessageInfo = useLayoutStore((state) => state.selectedMessageInfo);
   const showProfilePicture = useLayoutStore(
     (state) => state.showProfilePicture,
   );
@@ -39,12 +41,7 @@ const Layout = ({
   const location = useLocation();
   const isChatPage = location.pathname === "/";
   const isStatusPage = location.pathname.startsWith("/status");
-  const isSettingOrProfile =
-    location.pathname.startsWith("/setting") ||
-    location.pathname.startsWith("/user-profile");
-
   const effectiveSelectedContact = isChatPage ? selectedContact : null;
-
   const effectiveRightContent =
     rightContent || (isStatusPage ? <StatusPlaceholder /> : null);
 
@@ -58,16 +55,16 @@ const Layout = ({
 
   return (
     <div
-      className={`min-h-screen flex ${theme === "dark" ? "bg-[#111b21] text-white" : "bg-gray-100 text-gray-900"
+      className={`h-screen h-[100dvh] w-full flex overflow-hidden ${theme === "dark" ? "bg-[#111b21] text-white" : "bg-gray-100 text-gray-900"
         }`}
     >
       {!isMobile && (
-        <div className="w-20 flex-shrink-0">
+        <div className="w-20 flex-shrink-0 h-full">
           <SideBar />
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex h-full overflow-hidden relative">
         <AnimatePresence initial={false}>
           {(!effectiveSelectedContact || !isMobile) && (
             <motion.div
@@ -103,8 +100,10 @@ const Layout = ({
             </div>
           )}
         </AnimatePresence>
+
         {isChatPage && showContactInfo && <ContactInfo />}
         {isChatPage && selectedPollMessage && <PollDetailsPanel />}
+        {isChatPage && selectedMessageInfo && <MessageInfoPanel />}
         {isChatPage && showProfilePicture && (
           <ProfilePicture
             isOpen={showProfilePicture}
@@ -128,8 +127,8 @@ const Layout = ({
           <div
             onClick={(e) => e.stopPropagation()}
             className={`relative p-6 rounded-2xl shadow-2xl max-w-[360px] w-full transform transition-all animate-in fade-in zoom-in duration-200 ${theme === "dark"
-                ? "bg-[#2a3942] text-[#e9edef]"
-                : "bg-white text-[#111b21]"
+              ? "bg-[#2a3942] text-[#e9edef]"
+              : "bg-white text-[#111b21]"
               }`}
           >
             <h2 className="text-xl font-medium mb-6">Choose Theme</h2>
@@ -164,8 +163,8 @@ const Layout = ({
               <button
                 onClick={toggleThemeDialoge}
                 className={`px-5 py-2 rounded-full font-medium transition-colors cursor-pointer ${theme === "dark"
-                    ? "text-[#00a884] hover:bg-[#202c33]"
-                    : "text-[#00a884] hover:bg-gray-50"
+                  ? "text-[#00a884] hover:bg-[#202c33]"
+                  : "text-[#00a884] hover:bg-gray-50"
                   }`}
               >
                 Cancel

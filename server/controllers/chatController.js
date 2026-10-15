@@ -87,6 +87,30 @@ exports.sendMessage = async (req, res) => {
       return response(res, 400, "Message content is required");
     }
 
+    let parsedReply = null;
+    if (req.body.replyMessage) {
+      if (typeof req.body.replyMessage === "string") {
+        try {
+          parsedReply = JSON.parse(req.body.replyMessage);
+        } catch (e) {
+          parsedReply = null;
+        }
+      } else {
+        parsedReply = req.body.replyMessage;
+      }
+    }
+
+    const receiverRoom = receiverId?.toString();
+    const isReceiverOnline = Boolean(
+      (req.socketUserMap &&
+        typeof req.socketUserMap.get === "function" &&
+        req.socketUserMap.get(receiverRoom)) ||
+      (req.io && req.io.sockets?.adapter?.rooms?.get(receiverRoom)?.size > 0),
+    );
+    const now = new Date();
+    const finalStatus = isReceiverOnline ? "delivered" : "send";
+    const initialDeliveredAt = isReceiverOnline ? now : null;
+
     const message = new Message({
       conversation: conversation._id,
       sender: senderId,
@@ -102,10 +126,14 @@ exports.sendMessage = async (req, res) => {
       pollData: parsedPoll,
       contactData: parsedContact,
       eventData: parsedEvent,
-      messageStatus,
+      messageStatus: finalStatus,
+      deliveredAt: initialDeliveredAt,
+      readAt: null,
       timestamp,
       reactions: [],
       statusId: statusId || null,
+      replyTo: req.body.replyTo || null,
+      replyMessage: parsedReply,
     });
     await message.save();
     conversation.lastMessage = message._id;
@@ -114,6 +142,7 @@ exports.sendMessage = async (req, res) => {
     const populatedMessage = await Message.findById(message._id)
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey")
+      .populate("replyTo")
       .populate({
         path: "statusId",
         populate: {
@@ -123,7 +152,6 @@ exports.sendMessage = async (req, res) => {
       });
 
     if (req.io) {
-      const receiverRoom = receiverId?.toString();
       const receiverSocketId =
         req.socketUserMap && typeof req.socketUserMap.get === "function"
           ? req.socketUserMap.get(receiverRoom)
@@ -144,6 +172,24 @@ exports.sendMessage = async (req, res) => {
       req.io.to(receiverRoom).emit("receive_message", messagePayload);
       if (receiverSocketId && receiverSocketId !== receiverRoom) {
         req.io.to(receiverSocketId).emit("receive_message", messagePayload);
+      }
+
+      if (isReceiverOnline) {
+        const senderRoom = senderId.toString();
+        const statusPayload = {
+          messageId: message._id.toString(),
+          messageStatus: "delivered",
+          deliveredAt: initialDeliveredAt.toISOString(),
+        };
+        req.io.to(senderRoom).emit("message_status_update", statusPayload);
+        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          const senderSocketId = req.socketUserMap.get(senderRoom);
+          if (senderSocketId && senderSocketId !== senderRoom) {
+            req.io
+              .to(senderSocketId)
+              .emit("message_status_update", statusPayload);
+          }
+        }
       }
     }
 
@@ -171,6 +217,14 @@ exports.getConversation = async (req, res) => {
           select: "username profilePicture email phoneNumber publicKey",
         },
       })
+      .populate({
+        path: "pinnedMessage.message",
+        populate: {
+          path: "sender receiver",
+          select: "username profilePicture email phoneNumber publicKey",
+        },
+      })
+      .populate("pinnedMessage.pinnedBy", "username profilePicture")
       .sort({ updatedAt: -1 })
       .lean();
 
@@ -233,7 +287,69 @@ exports.getMessages = async (req, res) => {
       return response(res, 403, "Not Authorized Access denied");
     }
 
-    const messagesPromise = Message.find({
+    const now = new Date();
+    const unreadMessages = await Message.find({
+      conversation: conversationId,
+      receiver: userId,
+      messageStatus: { $in: ["send", "delivered"] },
+    }).select("_id sender");
+
+    if (unreadMessages.length > 0) {
+      const unreadIds = unreadMessages.map((m) => m._id);
+      await Promise.all([
+        Message.updateMany(
+          { _id: { $in: unreadIds } },
+          { $set: { messageStatus: "read", readAt: now } },
+        ),
+        Message.updateMany(
+          { _id: { $in: unreadIds }, deliveredAt: null },
+          { $set: { deliveredAt: now } },
+        ),
+        Conversation.findByIdAndUpdate(conversationId, {
+          $set: { unreadCount: 0 },
+        }),
+      ]);
+
+      if (req.io) {
+        const senderGroups = new Map();
+        unreadMessages.forEach((m) => {
+          const sId = m.sender?.toString();
+          if (sId) {
+            if (!senderGroups.has(sId)) senderGroups.set(sId, []);
+            senderGroups.get(sId).push(m._id.toString());
+          }
+        });
+
+        for (const [sId, mIds] of senderGroups.entries()) {
+          const payload = {
+            messageIds: mIds,
+            messageStatus: "read",
+            readAt: now.toISOString(),
+            deliveredAt: now.toISOString(),
+          };
+          req.io.to(sId).emit("message_status_update_bulk", payload);
+          req.io.to(sId).emit("message_read", payload);
+          if (
+            req.socketUserMap &&
+            typeof req.socketUserMap.get === "function"
+          ) {
+            const senderSocketId = req.socketUserMap.get(sId);
+            if (senderSocketId && senderSocketId !== sId) {
+              req.io
+                .to(senderSocketId)
+                .emit("message_status_update_bulk", payload);
+              req.io.to(senderSocketId).emit("message_read", payload);
+            }
+          }
+        }
+      }
+    } else {
+      await Conversation.findByIdAndUpdate(conversationId, {
+        $set: { unreadCount: 0 },
+      });
+    }
+
+    const messages = await Message.find({
       conversation: conversationId,
       deletedFor: {
         $ne: userId,
@@ -243,6 +359,7 @@ exports.getMessages = async (req, res) => {
       .populate("receiver", "username profilePicture publicKey")
       .populate("reactions.userId", "username profilePicture")
       .populate("pollData.options.votes", "username profilePicture")
+      .populate("replyTo")
       .populate({
         path: "statusId",
         populate: {
@@ -252,22 +369,6 @@ exports.getMessages = async (req, res) => {
       })
       .sort({ createdAt: 1 })
       .lean();
-
-    const updateReadPromise = Promise.all([
-      Message.updateMany(
-        {
-          conversation: conversationId,
-          receiver: userId,
-          messageStatus: { $in: ["send", "delivered"] },
-        },
-        { $set: { messageStatus: "read" } },
-      ),
-      Conversation.findByIdAndUpdate(conversationId, {
-        $set: { unreadCount: 0 },
-      }),
-    ]);
-
-    const [messages] = await Promise.all([messagesPromise, updateReadPromise]);
 
     return response(res, 200, "Messages retrieved successfully", messages);
   } catch (error) {
@@ -287,21 +388,52 @@ exports.markAsRead = async (req, res) => {
     });
 
     if (!messages.length) {
-      return response(res, 200, "Messages already marked as read or not found", []);
+      return response(
+        res,
+        200,
+        "Messages already marked as read or not found",
+        [],
+      );
     }
 
+    const now = new Date();
     await Message.updateMany(
       {
         _id: { $in: messageIds },
         receiver: userId,
       },
       {
-        $set: { messageStatus: "read" },
+        $set: { messageStatus: "read", readAt: now },
       },
     );
+    await Message.updateMany(
+      {
+        _id: { $in: messageIds },
+        receiver: userId,
+        deliveredAt: null,
+      },
+      {
+        $set: { deliveredAt: now },
+      },
+    );
+
+    const convIds = [
+      ...new Set(
+        messages.map((m) => m.conversation?.toString()).filter(Boolean),
+      ),
+    ];
+    if (convIds.length > 0) {
+      await Conversation.updateMany(
+        { _id: { $in: convIds } },
+        { $set: { unreadCount: 0 } },
+      );
+    }
+
     messages = messages.map((msg) => ({
       ...msg._doc,
       messageStatus: "read",
+      readAt: now,
+      deliveredAt: msg.deliveredAt || now,
     }));
 
     if (req.io) {
@@ -315,6 +447,8 @@ exports.markAsRead = async (req, res) => {
         const payload = {
           messageIds: readMessageIds,
           messageStatus: "read",
+          readAt: now.toISOString(),
+          deliveredAt: now.toISOString(),
         };
         req.io.to(sId).emit("message_status_update_bulk", payload);
         req.io.to(sId).emit("message_read", payload);
@@ -322,7 +456,9 @@ exports.markAsRead = async (req, res) => {
         if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
           const senderSocketId = req.socketUserMap.get(sId);
           if (senderSocketId) {
-            req.io.to(senderSocketId).emit("message_status_update_bulk", payload);
+            req.io
+              .to(senderSocketId)
+              .emit("message_status_update_bulk", payload);
             req.io.to(senderSocketId).emit("message_read", payload);
           }
         }
@@ -385,6 +521,34 @@ exports.deleteMessage = async (req, res) => {
         return response(res, 403, "Only sender can delete for everyone");
       }
       await Message.deleteOne({ _id: messageId });
+
+      const conv = await Conversation.findById(message.conversation);
+      const isPinned =
+        conv &&
+        conv.pinnedMessage &&
+        conv.pinnedMessage.message &&
+        conv.pinnedMessage.message.toString() === messageId.toString();
+
+      if (isPinned) {
+        await Conversation.findByIdAndUpdate(message.conversation, {
+          pinnedMessage: null,
+        });
+        if (req.io) {
+          const unpinPayload = {
+            conversationId: message.conversation.toString(),
+            secondaryId: null,
+            receiverId: message.receiver.toString(),
+            unpinnedBy: userId,
+          };
+          req.io
+            .to(message.conversation.toString())
+            .emit("message_unpinned", unpinPayload);
+          req.io
+            .to(message.receiver.toString())
+            .emit("message_unpinned", unpinPayload);
+          req.io.to(userId.toString()).emit("message_unpinned", unpinPayload);
+        }
+      }
 
       const previousMessage = await Message.findOne({
         conversation: message.conversation,

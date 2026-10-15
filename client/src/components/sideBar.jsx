@@ -31,15 +31,15 @@ const sideBar = () => {
 
   const getIconClass = (tabName) => {
     const isActive = activeTab === tabName;
-    return `relative transition-all duration-300 ease-in-out p-3 rounded-2xl flex items-center justify-center cursor-pointer
+    return `relative transition-all duration-300 ease-in-out p-3 rounded-2xl flex items-center justify-center cursor-pointer border
       ${
         isActive
           ? theme === "dark"
-            ? "bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500/30"
-            : "bg-emerald-50 text-emerald-600 shadow-sm ring-1 ring-emerald-500/20"
+            ? "bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] border-emerald-500/40 ring-1 ring-emerald-500/30"
+            : "bg-emerald-50 text-emerald-600 shadow-sm border-emerald-500/30 ring-1 ring-emerald-500/20"
           : theme === "dark"
-            ? "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
-            : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+            ? "border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 hover:border-gray-600/40"
+            : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-100 hover:border-gray-300/60"
       }`;
   };
 

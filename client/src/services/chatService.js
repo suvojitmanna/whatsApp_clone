@@ -18,6 +18,9 @@ export const initializeSocket = () => {
 
   socket.on("connect", () => {
     console.log(" Connected:", socket.id);
+    if (typeof window !== "undefined") {
+      window.__whatsapp_socket = socket;
+    }
     emitUserConnected();
   });
 

@@ -6,6 +6,8 @@ const twilloService = require("../services/twilloService.js");
 const generateToken = require("../utils/generateToken.js");
 const { uploadFileToCloudinary } = require("../config/cloudinary.js");
 const Conversation = require("../models/ConverSation.js");
+const Message = require("../models/message.js");
+const mongoose = require("mongoose");
 
 const sendOtp = async (req, res) => {
   const { phoneNumber, phoneSuffix, email } = req.body;
@@ -65,7 +67,6 @@ const verifyOtp = async (req, res) => {
     let user;
     if (email) {
       user = await User.findOne({ email });
-
       if (!user) {
         return response(res, 404, "User not found");
       }
@@ -124,23 +125,19 @@ const updateProfile = async (req, res) => {
 
   try {
     const user = await User.findById(userId);
-
     if (!user) {
       return response(res, 404, "User not found");
     }
     const file = req.file;
-
     if (file) {
       const uploadResult = await uploadFileToCloudinary(file);
       user.profilePicture = uploadResult.secure_url;
     } else if (req.body.profilePicture) {
       user.profilePicture = req.body.profilePicture;
     }
-
     if (username !== undefined) {
       user.username = username;
     }
-
     if (agreed !== undefined) {
       user.agreed = agreed;
     }
@@ -176,7 +173,6 @@ const updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("UPDATE PROFILE ERROR:", error);
-
     return response(res, 500, "Internal server error");
   }
 };
@@ -240,7 +236,29 @@ const getAllUsers = async (req, res) => {
       .lean();
     const conversationMap = {};
 
+    const unreadAgg = await Message.aggregate([
+      {
+        $match: {
+          receiver: new mongoose.Types.ObjectId(loggedInUserId),
+          messageStatus: { $in: ["send", "delivered"] },
+          deletedFor: { $ne: new mongoose.Types.ObjectId(loggedInUserId) },
+        },
+      },
+      {
+        $group: {
+          _id: "$conversation",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const unreadMap = new Map();
+    unreadAgg.forEach((item) => {
+      unreadMap.set(item._id.toString(), item.count);
+    });
+
     conversations.forEach((conv) => {
+      conv.unreadCount = unreadMap.get(conv._id.toString()) || 0;
       const otherUserId = conv.participants.find(
         (id) => id.toString() !== loggedInUserId.toString(),
       );

@@ -22,48 +22,348 @@ const useLayoutStore = create(
       showContactInfo: false,
       selectedPollMessage: null,
       selectedPollMessageId: null,
+      isChatSearchOpen: false,
+      setIsChatSearchOpen: (val) => set({ isChatSearchOpen: val }),
+
+      selectedMessageInfo: null,
+      setSelectedMessageInfo: (message) =>
+        set({
+          selectedMessageInfo: message,
+          ...(message
+            ? {
+                showContactInfo: false,
+                selectedPollMessage: null,
+                selectedPollMessageId: null,
+              }
+            : {}),
+        }),
 
       setSelectedContact: (contact) => {
-        set({ selectedContact: contact });
+        set({ selectedContact: contact, selectedMessageInfo: null });
       },
       updateSelectedContact: (updates) =>
         set((state) => ({
           selectedContact: state.selectedContact
             ? {
-              ...state.selectedContact,
-              ...updates,
-            }
+                ...state.selectedContact,
+                ...updates,
+              }
             : null,
         })),
       setActiveTab: (tab) => {
         set({ activeTab: tab });
       },
 
-      contactInfoTab: "info", // "info" | "security" | "privacy"
+      contactInfoTab: "info",
+      previousContactInfoTab: "info",
       setShowContactInfo: (value) =>
         set((state) => ({
           showContactInfo: value,
-          ...(value ? { selectedPollMessage: null, selectedPollMessageId: null } : { contactInfoTab: "info" }),
+          ...(value
+            ? {
+                selectedPollMessage: null,
+                selectedPollMessageId: null,
+                selectedMessageInfo: null,
+              }
+            : { contactInfoTab: "info", previousContactInfoTab: "info" }),
         })),
-      setContactInfoTab: (tab) => set({ contactInfoTab: tab }),
+      setContactInfoTab: (tab) =>
+        set((state) => ({
+          previousContactInfoTab: state.contactInfoTab,
+          contactInfoTab: tab,
+        })),
       openContactInfoWithTab: (tab = "info") =>
-        set({
+        set((state) => ({
           showContactInfo: true,
+          previousContactInfoTab: state.showContactInfo
+            ? state.contactInfoTab
+            : null,
           contactInfoTab: tab,
           selectedPollMessage: null,
           selectedPollMessageId: null,
+          selectedMessageInfo: null,
+        })),
+      disappearingDurations: (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem("whatsapp_disappearing_messages") || "{}",
+          );
+        } catch {
+          return {};
+        }
+      })(),
+      defaultMessageTimer: (() => {
+        try {
+          return (
+            localStorage.getItem("whatsapp_default_message_timer") || "Off"
+          );
+        } catch {
+          return "Off";
+        }
+      })(),
+      lastDisappearingActions: (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem("whatsapp_disappearing_actions") || "{}",
+          );
+        } catch {
+          return {};
+        }
+      })(),
+      disappearingEvents: (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem("whatsapp_disappearing_events") || "{}",
+          );
+        } catch {
+          return {};
+        }
+      })(),
+      setDisappearingDuration: (chatId, duration, setBy) =>
+        set((state) => {
+          if (!chatId) return state;
+          const prev =
+            state.disappearingDurations?.[chatId] ||
+            state.defaultMessageTimer ||
+            "Off";
+
+          if (
+            prev === duration &&
+            state.disappearingEvents?.[chatId]?.length > 0
+          ) {
+            return state;
+          }
+
+          const nextDurations = {
+            ...state.disappearingDurations,
+            [chatId]: duration,
+          };
+          const nextActions = {
+            ...state.lastDisappearingActions,
+            [chatId]: { duration, timestamp: Date.now() },
+          };
+
+          const prevEvents = state.disappearingEvents?.[chatId] || [];
+          const baselineEvents =
+            prevEvents.length === 0 && prev !== "Off"
+              ? [
+                  {
+                    _id: `disp_init_${chatId}`,
+                    isDisappearingSystemEvent: true,
+                    action: "turned_on",
+                    duration: prev,
+                    previousDuration: "Off",
+                    setBy: setBy || null,
+                    createdAt: new Date(Date.now() - 3600000).toISOString(),
+                    timestamp: Date.now() - 3600000,
+                  },
+                ]
+              : [...prevEvents];
+
+          let action = "updated";
+          if (
+            (prev === "Off" || baselineEvents.length === 0) &&
+            duration !== "Off"
+          ) {
+            action = "turned_on";
+          } else if (duration === "Off") {
+            action = "turned_off";
+          }
+
+          const newEvent = {
+            _id: `disp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            isDisappearingSystemEvent: true,
+            action,
+            duration,
+            previousDuration: prev,
+            setBy: setBy || null,
+            createdAt: new Date().toISOString(),
+            timestamp: Date.now(),
+          };
+
+          const nextEvents = {
+            ...state.disappearingEvents,
+            [chatId]: [...baselineEvents, newEvent],
+          };
+
+          try {
+            localStorage.setItem(
+              "whatsapp_disappearing_messages",
+              JSON.stringify(nextDurations),
+            );
+            localStorage.setItem(
+              "whatsapp_disappearing_actions",
+              JSON.stringify(nextActions),
+            );
+            localStorage.setItem(
+              "whatsapp_disappearing_events",
+              JSON.stringify(nextEvents),
+            );
+          } catch {}
+
+          try {
+            if (
+              typeof window !== "undefined" &&
+              window.__whatsapp_socket?.connected
+            ) {
+              window.__whatsapp_socket.emit("disappearing_update", {
+                chatId,
+                duration,
+                event: newEvent,
+                setBy: setBy || null,
+              });
+            }
+          } catch {}
+
+          return {
+            disappearingDurations: nextDurations,
+            lastDisappearingActions: nextActions,
+            disappearingEvents: nextEvents,
+          };
+        }),
+      receiveDisappearingEvent: (chatId, duration, event) =>
+        set((state) => {
+          if (!chatId || !event) return state;
+          const nextDurations = {
+            ...state.disappearingDurations,
+            [chatId]: duration,
+          };
+          const prevEvents = state.disappearingEvents?.[chatId] || [];
+          if (prevEvents.some((e) => e._id === event._id)) {
+            return { disappearingDurations: nextDurations };
+          }
+          const nextEvents = {
+            ...state.disappearingEvents,
+            [chatId]: [...prevEvents, event],
+          };
+          try {
+            localStorage.setItem(
+              "whatsapp_disappearing_messages",
+              JSON.stringify(nextDurations),
+            );
+            localStorage.setItem(
+              "whatsapp_disappearing_events",
+              JSON.stringify(nextEvents),
+            );
+          } catch {}
+          return {
+            disappearingDurations: nextDurations,
+            disappearingEvents: nextEvents,
+          };
+        }),
+      setDefaultMessageTimer: (duration) =>
+        set(() => {
+          try {
+            localStorage.setItem("whatsapp_default_message_timer", duration);
+          } catch {}
+          return { defaultMessageTimer: duration };
+        }),
+      chatThemes: (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem("whatsapp_chat_themes") || "{}",
+          );
+        } catch {
+          return {};
+        }
+      })(),
+      chatDoodles: (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem("whatsapp_chat_doodles") || "{}",
+          );
+        } catch {
+          return {};
+        }
+      })(),
+      chatBubbleColors: (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem("whatsapp_chat_bubble_colors") || "{}",
+          );
+        } catch {
+          return {};
+        }
+      })(),
+      setChatTheme: (chatId, themeId) =>
+        set((state) => {
+          const next = { ...state.chatThemes, [chatId]: themeId };
+          try {
+            localStorage.setItem("whatsapp_chat_themes", JSON.stringify(next));
+          } catch {}
+          return { chatThemes: next };
+        }),
+      setChatDoodles: (chatId, enabled) =>
+        set((state) => {
+          const next = { ...state.chatDoodles, [chatId]: enabled };
+          try {
+            localStorage.setItem("whatsapp_chat_doodles", JSON.stringify(next));
+          } catch {}
+          return { chatDoodles: next };
+        }),
+      setChatBubbleColor: (chatId, color) =>
+        set((state) => {
+          const next = { ...state.chatBubbleColors, [chatId]: color };
+          try {
+            localStorage.setItem(
+              "whatsapp_chat_bubble_colors",
+              JSON.stringify(next),
+            );
+          } catch {}
+          return { chatBubbleColors: next };
+        }),
+      resetChatBubbleColor: (chatId) =>
+        set((state) => {
+          const next = { ...state.chatBubbleColors };
+          delete next[chatId];
+          try {
+            localStorage.setItem(
+              "whatsapp_chat_bubble_colors",
+              JSON.stringify(next),
+            );
+          } catch {}
+          return { chatBubbleColors: next };
+        }),
+      resetChatTheme: (chatId) =>
+        set((state) => {
+          const nextThemes = { ...state.chatThemes };
+          delete nextThemes[chatId];
+          const nextDoodles = { ...state.chatDoodles };
+          delete nextDoodles[chatId];
+          const nextBubbles = { ...state.chatBubbleColors };
+          delete nextBubbles[chatId];
+          try {
+            localStorage.setItem(
+              "whatsapp_chat_themes",
+              JSON.stringify(nextThemes),
+            );
+            localStorage.setItem(
+              "whatsapp_chat_doodles",
+              JSON.stringify(nextDoodles),
+            );
+            localStorage.setItem(
+              "whatsapp_chat_bubble_colors",
+              JSON.stringify(nextBubbles),
+            );
+          } catch {}
+          return {
+            chatThemes: nextThemes,
+            chatDoodles: nextDoodles,
+            chatBubbleColors: nextBubbles,
+          };
         }),
       setShowProfilePicture: (value) => set({ showProfilePicture: value }),
       setSelectedPollDetails: (pollMessage) =>
         set({
           selectedPollMessage: pollMessage,
           selectedPollMessageId: pollMessage?._id || null,
-          ...(pollMessage ? { showContactInfo: false } : {}),
+          ...(pollMessage
+            ? { showContactInfo: false, selectedMessageInfo: null }
+            : {}),
         }),
       chatListScrollTop: 0,
       setChatListScrollTop: (pos) => set({ chatListScrollTop: pos }),
-    }
-    ),
+    }),
     {
       name: "layout-storage",
       storage: createJSONStorage(() => sessionStorage),
