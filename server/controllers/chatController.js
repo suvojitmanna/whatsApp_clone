@@ -2,6 +2,7 @@ const { uploadFileToCloudinary } = require("../config/cloudinary");
 const response = require("../utils/responseHandeler.js");
 const Message = require("../models/message.js");
 const Conversation = require("../models/ConverSation.js");
+const User = require("../models/user.js");
 const mongoose = require("mongoose");
 
 exports.sendMessage = async (req, res) => {
@@ -100,16 +101,30 @@ exports.sendMessage = async (req, res) => {
       }
     }
 
-    const receiverRoom = receiverId?.toString();
-    const isReceiverOnline = Boolean(
-      (req.socketUserMap &&
-        typeof req.socketUserMap.get === "function" &&
-        req.socketUserMap.get(receiverRoom)) ||
-      (req.io && req.io.sockets?.adapter?.rooms?.get(receiverRoom)?.size > 0),
+    const receiverUser = await User.findById(receiverId).select("blockedUsers");
+    const isSenderBlockedByReceiver = Boolean(
+      receiverUser?.blockedUsers?.some(
+        (bId) => bId.toString() === senderId.toString(),
+      ),
     );
+
+    const receiverRoom = receiverId?.toString();
+    const isReceiverOnline =
+      !isSenderBlockedByReceiver &&
+      Boolean(
+        (req.socketUserMap &&
+          typeof req.socketUserMap.get === "function" &&
+          req.socketUserMap.get(receiverRoom)) ||
+        (req.io && req.io.sockets?.adapter?.rooms?.get(receiverRoom)?.size > 0),
+      );
     const now = new Date();
-    const finalStatus = isReceiverOnline ? "delivered" : "send";
-    const initialDeliveredAt = isReceiverOnline ? now : null;
+    const finalStatus = isSenderBlockedByReceiver
+      ? "send"
+      : isReceiverOnline
+        ? "delivered"
+        : "send";
+    const initialDeliveredAt =
+      isReceiverOnline && !isSenderBlockedByReceiver ? now : null;
 
     const message = new Message({
       conversation: conversation._id,
@@ -128,6 +143,8 @@ exports.sendMessage = async (req, res) => {
       eventData: parsedEvent,
       messageStatus: finalStatus,
       deliveredAt: initialDeliveredAt,
+      blockedDelivery: isSenderBlockedByReceiver,
+      deletedFor: isSenderBlockedByReceiver ? [receiverId] : [],
       readAt: null,
       timestamp,
       reactions: [],
@@ -136,8 +153,11 @@ exports.sendMessage = async (req, res) => {
       replyMessage: parsedReply,
     });
     await message.save();
-    conversation.lastMessage = message._id;
-    await conversation.save();
+
+    if (!isSenderBlockedByReceiver) {
+      conversation.lastMessage = message._id;
+      await conversation.save();
+    }
 
     const populatedMessage = await Message.findById(message._id)
       .populate("sender", "username profilePicture publicKey")
@@ -151,7 +171,7 @@ exports.sendMessage = async (req, res) => {
         },
       });
 
-    if (req.io) {
+    if (req.io && !isSenderBlockedByReceiver) {
       const receiverSocketId =
         req.socketUserMap && typeof req.socketUserMap.get === "function"
           ? req.socketUserMap.get(receiverRoom)
@@ -252,10 +272,21 @@ exports.getConversation = async (req, res) => {
         unreadMap.set(item._id.toString(), item.count);
       });
 
-      conversation = conversation.map((conv) => ({
-        ...conv,
-        unreadCount: unreadMap.get(conv._id.toString()) || 0,
-      }));
+      conversation = conversation.map((conv) => {
+        let lastMsg = conv.lastMessage;
+        if (
+          lastMsg &&
+          Array.isArray(lastMsg.deletedFor) &&
+          lastMsg.deletedFor.some((dId) => dId.toString() === userId.toString())
+        ) {
+          lastMsg = null;
+        }
+        return {
+          ...conv,
+          lastMessage: lastMsg,
+          unreadCount: unreadMap.get(conv._id.toString()) || 0,
+        };
+      });
     }
 
     return response(
@@ -768,3 +799,59 @@ exports.votePoll = async (req, res) => {
     return response(res, 500, "Internal server error");
   }
 };
+
+exports.blockUser = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return response(res, 400, "Target user ID is required");
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { blockedUsers: targetUserId },
+    });
+
+    return response(res, 200, "User blocked successfully", {
+      targetUserId,
+    });
+  } catch (error) {
+    console.error("BLOCK USER ERROR:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.unblockUser = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { targetUserId } = req.body;
+    if (!targetUserId) {
+      return response(res, 400, "Target user ID is required");
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      $pull: { blockedUsers: targetUserId },
+    });
+
+    return response(res, 200, "User unblocked successfully", {
+      targetUserId,
+    });
+  } catch (error) {
+    console.error("UNBLOCK USER ERROR:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.getBlockedUsers = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await User.findById(userId).select("blockedUsers");
+    return response(res, 200, "Blocked users retrieved successfully", {
+      blockedUsers: user?.blockedUsers || [],
+    });
+  } catch (error) {
+    console.error("GET BLOCKED USERS ERROR:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+

@@ -38,8 +38,8 @@ const BlockModal = ({
           transition={{ duration: 0.16, ease: "easeOut" }}
           onClick={(e) => e.stopPropagation()}
           className={`w-full max-w-[360px] sm:max-w-[380px] rounded-[24px] p-6 sm:p-7 shadow-2xl border select-none ${isDark
-              ? "bg-[#202c33] border-white/5 text-[#e9edef]"
-              : "bg-white border-black/10 text-[#111b21]"
+            ? "bg-[#202c33] border-white/5 text-[#e9edef]"
+            : "bg-white border-black/10 text-[#111b21]"
             }`}
         >
           <h2
@@ -63,10 +63,10 @@ const BlockModal = ({
           >
             <div
               className={`w-5 h-5 rounded-[4px] border mt-0.5 flex items-center justify-center shrink-0 transition-colors ${reportToWhatsApp
-                  ? "bg-[#00a884] border-[#00a884] text-white"
-                  : isDark
-                    ? "border-[#8696a0]/60 group-hover:border-[#8696a0] bg-transparent"
-                    : "border-gray-400 group-hover:border-gray-600 bg-transparent"
+                ? "bg-[#00a884] border-[#00a884] text-white"
+                : isDark
+                  ? "border-[#8696a0]/60 group-hover:border-[#8696a0] bg-transparent"
+                  : "border-gray-400 group-hover:border-gray-600 bg-transparent"
                 }`}
             >
               {reportToWhatsApp && (
@@ -119,9 +119,9 @@ const BlockModal = ({
                 onBlock?.({ report: reportToWhatsApp });
                 onClose();
               }}
-              className={`w-full py-2.5 px-4 rounded-full text-[15px] font-medium transition-colors cursor-pointer select-none text-center border ${isDark
-                  ? "bg-[#182229] hover:bg-red-500 border-white/10 text-rose-500 hover:text-red-500"
-                  : "bg-white hover:bg-red-500 border-gray-300 text-[#dc2626] shadow-sm"
+              className={`w-full py-2.5 px-4 rounded-full text-[15px] font-semibold transition-all duration-150 cursor-pointer select-none text-center active:scale-[0.98] border border-transparent shadow-sm ${isDark
+                ? "bg-white/10 hover:bg-red-200 text-red-500"
+                : "bg-gray-200 hover:bg-red-200 text-red-500"
                 }`}
             >
               Block
@@ -130,7 +130,8 @@ const BlockModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-2 px-4 rounded-full text-[15px] font-medium text-[#00a884] hover:opacity-85 hover:bg-green-600 transition-opacity cursor-pointer select-none text-center"
+              className={`w-full py-2 px-4 rounded-full text-[15px] font-medium text-[#00a884] hover:bg-[#00a884]/10 active:bg-[#00a884]/20 transition-all duration-150 cursor-pointer select-none text-center active:scale-[0.98] ${isDark ? "hover:text-[#06cf9c]" : "hover:text-[#008f6f]"
+                }`}
             >
               Cancel
             </button>

@@ -519,12 +519,7 @@ const ChatList = ({ contacts }) => {
                         className={`text-xs shrink-0 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
                       >
                         {formatTimestamp(
-                          contactPin?.pinnedAt &&
-                            (!contact?.conversation?.lastMessage?.createdAt ||
-                              new Date(contactPin.pinnedAt).getTime() >
-                              new Date(contact.conversation.lastMessage.createdAt).getTime())
-                            ? contactPin.pinnedAt
-                            : contact?.conversation?.lastMessage?.createdAt,
+                          contactPin?.pinnedAt || contact?.conversation?.lastMessage?.createdAt,
                         )}
                       </span>
                     )}
@@ -546,20 +541,33 @@ const ChatList = ({ contacts }) => {
                           );
                         }
 
-                        const pinTime = contactPin?.pinnedAt ? new Date(contactPin.pinnedAt).getTime() : 0;
-                        const msgTime = lastMsg?.createdAt ? new Date(lastMsg.createdAt).getTime() : 0;
-                        const isPinLatest = Boolean(contactPin && (!lastMsg || pinTime >= msgTime));
+                        if (contactPin) {
+                          const currentUserId = (user?._id || user?.id)?.toString();
+                          const contactId = contact?._id?.toString();
+                          const pinnedById = (
+                            contactPin.pinnedBy?._id ||
+                            contactPin.pinnedBy?.id ||
+                            contactPin.pinnedBy
+                          )?.toString();
 
-                        if (isPinLatest) {
-                          const isPinnedByMe =
-                            !contactPin.pinnedBy ||
-                            String(contactPin.pinnedBy?._id || contactPin.pinnedBy) === String(user?._id);
+                          let isPinnedByMe = false;
+                          if (pinnedById) {
+                            isPinnedByMe = pinnedById === currentUserId;
+                          } else if (contactPin.message) {
+                            const msgSender = (
+                              contactPin.message?.sender?._id || contactPin.message?.sender
+                            )?.toString();
+                            isPinnedByMe = msgSender === currentUserId;
+                          }
+
+                          const pinText = isPinnedByMe
+                            ? "You pinned a message"
+                            : `${contact?.username || "Contact"} pinned a message`;
+
                           return (
                             <span className="flex items-center gap-1.5 truncate text-[#8696a0]">
                               <WhatsAppPinIcon size={12} className="inline shrink-0 text-[#8696a0]" />
-                              <span className="truncate">
-                                {isPinnedByMe ? "You pinned a message" : `${contact.username} pinned a message`}
-                              </span>
+                              <span className="truncate">{pinText}</span>
                             </span>
                           );
                         }

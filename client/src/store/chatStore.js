@@ -254,6 +254,8 @@ export const useChatStore = create((set, get) => ({
     receiverId = null,
     emitSocket = true,
     pinnedBy = null,
+    pinnedAtParam = null,
+    expiresAtParam = null,
   ) => {
     if (!conversationId && !secondaryId && !receiverId) return;
     if (!message) return;
@@ -270,18 +272,26 @@ export const useChatStore = create((set, get) => ({
       );
     }
 
-    const pinnedAt = Date.now();
+    const pinnedAt = pinnedAtParam
+      ? new Date(pinnedAtParam).getTime()
+      : Date.now();
     let durationMs = 7 * 24 * 60 * 60 * 1000;
     if (duration === "24 hours") durationMs = 24 * 60 * 60 * 1000;
     if (duration === "30 days") durationMs = 30 * 24 * 60 * 60 * 1000;
-    const expiresAt = pinnedAt + durationMs;
+    const expiresAt = expiresAtParam
+      ? new Date(expiresAtParam).getTime()
+      : pinnedAt + durationMs;
+
+    const user = useUserStore.getState()?.user;
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const effectivePinnedBy = pinnedBy || currentUserId;
 
     const pinData = {
       message: finalMessage,
       duration,
       pinnedAt,
       expiresAt,
-      pinnedBy: pinnedBy || useUserStore.getState()?.user?._id,
+      pinnedBy: effectivePinnedBy,
     };
 
     const newPinned = {
@@ -294,14 +304,21 @@ export const useChatStore = create((set, get) => ({
       if (str) newPinned[str] = pinData;
     };
 
+    const senderId = (message?.sender?._id || message?.sender)?.toString();
+    const receiverIdStr = (
+      message?.receiver?._id || message?.receiver
+    )?.toString();
+    const otherUserId = senderId === currentUserId ? receiverIdStr : senderId;
+
     addKey(conversationId);
     addKey(secondaryId);
     addKey(receiverId);
-    addKey(pinnedBy);
+    addKey(otherUserId);
+    addKey(senderId);
+    addKey(receiverIdStr);
+    addKey(effectivePinnedBy);
     addKey(message?.conversationId);
     addKey(message?.conversation?._id || message?.conversation);
-    addKey(message?.sender?._id || message?.sender);
-    addKey(message?.receiver?._id || message?.receiver);
 
     try {
       localStorage.setItem(
@@ -321,14 +338,29 @@ export const useChatStore = create((set, get) => ({
                 conversationId?._id || conversationId
               )?.toString();
               const secTarget = (secondaryId?._id || secondaryId)?.toString();
+              const recTarget = (receiverId?._id || receiverId)?.toString();
               const msgConvId = (
                 message?.conversation?._id ||
                 message?.conversation ||
                 message?.conversationId
               )?.toString();
+
+              const matchesParticipant = conv.participants?.some((p) => {
+                const pid = (p?._id || p)?.toString();
+                return (
+                  pid === secTarget ||
+                  pid === recTarget ||
+                  pid === senderId ||
+                  pid === receiverIdStr
+                );
+              });
+
               if (
                 cId &&
-                (cId === convTarget || cId === secTarget || cId === msgConvId)
+                (cId === convTarget ||
+                  cId === secTarget ||
+                  cId === msgConvId ||
+                  matchesParticipant)
               ) {
                 return {
                   ...conv,
@@ -337,7 +369,7 @@ export const useChatStore = create((set, get) => ({
                     duration,
                     pinnedAt: new Date(pinnedAt),
                     expiresAt: new Date(expiresAt),
-                    pinnedBy: pinData.pinnedBy,
+                    pinnedBy: effectivePinnedBy,
                   },
                 };
               }
@@ -501,6 +533,8 @@ export const useChatStore = create((set, get) => ({
         secondaryId,
         receiverId,
         pinnedBy,
+        pinnedAt,
+        expiresAt,
       } = data;
       let decMsg = message;
       if (decMsg?.isEncrypted && !decMsg?._isDecrypted) {
@@ -517,6 +551,8 @@ export const useChatStore = create((set, get) => ({
         receiverId,
         false,
         pinnedBy,
+        pinnedAt,
+        expiresAt,
       );
     });
 

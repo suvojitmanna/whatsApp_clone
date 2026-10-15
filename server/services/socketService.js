@@ -38,11 +38,14 @@ function initializeSocket(server) {
         const pendingMessages = await Message.find({
           receiver: userId,
           messageStatus: "send",
+          blockedDelivery: { $ne: true },
+          deletedFor: { $ne: userId },
         });
 
         if (pendingMessages.length > 0) {
+          const pendingIds = pendingMessages.map((m) => m._id);
           await Message.updateMany(
-            { receiver: userId, messageStatus: "send" },
+            { _id: { $in: pendingIds } },
             { $set: { messageStatus: "delivered", deliveredAt: now } },
           );
 
@@ -393,8 +396,9 @@ function initializeSocket(server) {
           if (!resolvedConvId && (receiverId || secondaryId) && pinnedBy) {
             try {
               const otherId = (receiverId || secondaryId).toString();
-              const participants = [pinnedBy.toString(), otherId].sort();
-              const foundConv = await Conversation.findOne({ participants });
+              const foundConv = await Conversation.findOne({
+                participants: { $all: [pinnedBy.toString(), otherId] },
+              });
               if (foundConv) {
                 resolvedConvId = foundConv._id.toString();
               }
@@ -461,8 +465,9 @@ function initializeSocket(server) {
           if (!resolvedConvId && (receiverId || secondaryId) && unpinnedBy) {
             try {
               const otherId = (receiverId || secondaryId).toString();
-              const participants = [unpinnedBy.toString(), otherId].sort();
-              const foundConv = await Conversation.findOne({ participants });
+              const foundConv = await Conversation.findOne({
+                participants: { $all: [unpinnedBy.toString(), otherId] },
+              });
               if (foundConv) {
                 resolvedConvId = foundConv._id.toString();
               }
@@ -508,11 +513,21 @@ function initializeSocket(server) {
 
     socket.on(
       "disappearing_update",
-      ({ chatId, conversationId, secondaryId, receiverId, duration, event, setBy }) => {
+      ({
+        chatId,
+        conversationId,
+        secondaryId,
+        receiverId,
+        duration,
+        event,
+        setBy,
+      }) => {
         try {
           const targets = new Set();
-          if (receiverId) targets.add((receiverId._id || receiverId).toString());
-          if (secondaryId) targets.add((secondaryId._id || secondaryId).toString());
+          if (receiverId)
+            targets.add((receiverId._id || receiverId).toString());
+          if (secondaryId)
+            targets.add((secondaryId._id || secondaryId).toString());
           if (chatId) targets.add(chatId.toString());
 
           const payload = {

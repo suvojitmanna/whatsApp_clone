@@ -231,7 +231,7 @@ const getAllUsers = async (req, res) => {
       .populate({
         path: "lastMessage",
         select:
-          "content sender receiver createdAt isEncrypted iv contentType imageOrVideoUrl fileName fileSize pollData contactData eventData edited editedAt",
+          "content sender receiver createdAt isEncrypted iv contentType imageOrVideoUrl fileName fileSize pollData contactData eventData edited editedAt deletedFor",
       })
       .lean();
     const conversationMap = {};
@@ -259,6 +259,15 @@ const getAllUsers = async (req, res) => {
 
     conversations.forEach((conv) => {
       conv.unreadCount = unreadMap.get(conv._id.toString()) || 0;
+      if (
+        conv.lastMessage &&
+        Array.isArray(conv.lastMessage.deletedFor) &&
+        conv.lastMessage.deletedFor.some(
+          (d) => d.toString() === loggedInUserId.toString(),
+        )
+      ) {
+        conv.lastMessage = null;
+      }
       const otherUserId = conv.participants.find(
         (id) => id.toString() !== loggedInUserId.toString(),
       );

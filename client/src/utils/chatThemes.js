@@ -178,12 +178,34 @@ export const CHAT_THEMES = [
 ];
 
 export const CURATED_THEME_IDS = [
+  // Page 1
   "default",
+  "emerald_doodles",
   "midnight_blue",
-  "dark_slate",
   "hologram",
   "blush_floral",
   "amber_silk",
+  // Page 2
+  "cobalt_doodles",
+  "dark_slate",
+  "dark_cyan",
+  "amber_silk",
+  "nature_alpine_lake",
+  "nature_waterfall",
+  // Page 3
+  "indigo_doodles",
+  "plum_doodles",
+  "teal_doodles",
+  "forest_moss",
+  "nature_aurora",
+  "nature_misty_forest",
+  // Page 4
+  "terracotta_doodles",
+  "sky_doodles",
+  "dark_violet",
+  "crimson_velvet",
+  "midnight_gold",
+  "nature_starry_galaxy",
 ];
 
 export const NATURE_WALLPAPERS = [

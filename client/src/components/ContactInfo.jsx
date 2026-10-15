@@ -29,6 +29,7 @@ import { FaArrowLeft } from "react-icons/fa6";
 import { IoMdRemoveCircleOutline } from "react-icons/io";
 import { IoTimerOutline, IoColorPaletteOutline } from "react-icons/io5";
 import {
+  MdChevronLeft,
   MdChevronRight,
   MdRefresh,
   MdOutlineChatBubbleOutline,
@@ -493,6 +494,14 @@ const ContactInfo = () => {
   const customBubbleColor = chatId && chatBubbleColors?.[chatId];
   const activeBubbleColor = customBubbleColor || activeChatTheme.bubbleColor;
   const doodlesEnabled = chatId ? chatDoodles?.[chatId] !== false : true;
+  const [themePageIndex, setThemePageIndex] = useState(0);
+
+  useEffect(() => {
+    const activeIdx = CURATED_THEME_IDS.indexOf(activeChatThemeId);
+    if (activeIdx !== -1) {
+      setThemePageIndex(Math.floor(activeIdx / 6));
+    }
+  }, [activeChatThemeId]);
 
   const handleSelectDisappearing = (duration) => {
     if (chatId) {
@@ -2266,47 +2275,98 @@ const ContactInfo = () => {
                     The chat color and wallpaper will both change.
                   </p>
 
-                  <div className="grid grid-cols-3 gap-2.5">
-                    {CURATED_THEME_IDS.map((id) => {
-                      const themeItem = getChatTheme(id);
-                      const isSelected = activeChatThemeId === themeItem.id;
-                      return (
-                        <div
-                          key={themeItem.id}
-                          onClick={() => handleSelectTheme(themeItem.id)}
-                          onMouseEnter={(e) => updateCursorTooltip(e, themeItem.name)}
-                          onMouseMove={(e) => updateCursorTooltip(e, themeItem.name)}
-                          onMouseLeave={hideCursorTooltip}
-                          className={`relative h-[80px] rounded-[18px] overflow-hidden cursor-pointer transition-all duration-200 select-none ${isSelected
-                            ? "border-2 border-white scale-[1.01] shadow-xl"
-                            : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
-                            }`}
-                          style={{
-                            background: themeItem.gradient || themeItem.bgColor,
-                            backgroundColor: themeItem.bgColor || "#0b141a",
-                            backgroundImage:
-                              themeItem.hasDoodles && doodlesEnabled
-                                ? "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"
-                                : undefined,
-                            backgroundSize: "120px",
-                            backgroundBlendMode: "overlay",
-                          }}
-                        >
-                          <div className="absolute top-2.5 left-2.5 w-10 h-3.5 rounded-[4.5px] bg-[#2a3942]/90 shadow-sm pointer-events-none" />
+                  <div className="relative group">
+                    {/* Left Navigation Arrow (shown only on hover, when not on first page) */}
+                    {themePageIndex > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          hideCursorTooltip();
+                          setThemePageIndex((prev) => Math.max(0, prev - 1));
+                        }}
+                        onMouseEnter={hideCursorTooltip}
+                        className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#182229]/90 hover:bg-[#202c33] active:bg-[#2a3942] text-white flex items-center justify-center shadow-xl border border-white/10 backdrop-blur-sm transition-all duration-200 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto cursor-pointer hover:scale-105 active:scale-95"
+                        title="Previous themes"
+                        aria-label="Previous themes"
+                      >
+                        <MdChevronLeft size={20} />
+                      </button>
+                    )}
 
+                    {/* Right Navigation Arrow (shown only on hover, when not on last page) */}
+                    {themePageIndex < Math.ceil(CURATED_THEME_IDS.length / 6) - 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          hideCursorTooltip();
+                          setThemePageIndex((prev) =>
+                            Math.min(Math.ceil(CURATED_THEME_IDS.length / 6) - 1, prev + 1)
+                          );
+                        }}
+                        onMouseEnter={hideCursorTooltip}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#182229]/90 hover:bg-[#202c33] active:bg-[#2a3942] text-white flex items-center justify-center shadow-xl border border-white/10 backdrop-blur-sm transition-all duration-200 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto cursor-pointer hover:scale-105 active:scale-95"
+                        title="Next themes"
+                        aria-label="Next themes"
+                      >
+                        <MdChevronRight size={20} />
+                      </button>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {CURATED_THEME_IDS.slice(themePageIndex * 6, (themePageIndex + 1) * 6).map((id) => {
+                        const themeItem = getChatTheme(id);
+                        const isSelected = activeChatThemeId === themeItem.id;
+                        return (
                           <div
-                            className="absolute top-5.5 right-2.5 w-11 h-3.5 rounded-[4.5px] shadow-sm pointer-events-none"
-                            style={{ backgroundColor: isSelected ? activeBubbleColor : themeItem.bubbleColor }}
-                          />
+                            key={themeItem.id}
+                            onClick={() => handleSelectTheme(themeItem.id)}
+                            onMouseEnter={(e) => updateCursorTooltip(e, themeItem.name)}
+                            onMouseMove={(e) => updateCursorTooltip(e, themeItem.name)}
+                            onMouseLeave={hideCursorTooltip}
+                            className={`relative h-[80px] rounded-[18px] overflow-hidden cursor-pointer transition-all duration-200 select-none ${isSelected
+                              ? "border-2 border-white scale-[1.01] shadow-xl"
+                              : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
+                              }`}
+                            style={{
+                              backgroundColor: themeItem.bgColor || "#0b141a",
+                              backgroundImage: themeItem.imageUrl
+                                ? `url('${themeItem.thumbnailUrl || themeItem.imageUrl}')`
+                                : themeItem.gradient || undefined,
+                              backgroundSize: "cover",
+                              backgroundPosition: "center",
+                              backgroundRepeat: "no-repeat",
+                            }}
+                          >
+                            {!themeItem.imageUrl && themeItem.hasDoodles && doodlesEnabled && (
+                              <div
+                                className="absolute inset-0 opacity-40 pointer-events-none"
+                                style={{
+                                  backgroundImage:
+                                    "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')",
+                                  backgroundSize: "120px",
+                                  backgroundBlendMode: "overlay",
+                                }}
+                              />
+                            )}
 
-                          {isSelected && (
-                            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-5.5 h-5.5 rounded-full bg-white text-[#111b21] flex items-center justify-center shadow-lg pointer-events-none">
-                              <FaCheck size={9.5} className="stroke-[1.5]" />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                            <div className="absolute top-2.5 left-2.5 w-10 h-3.5 rounded-[4.5px] bg-[#2a3942]/90 shadow-sm pointer-events-none" />
+
+                            <div
+                              className="absolute top-5.5 right-2.5 w-11 h-3.5 rounded-[4.5px] shadow-sm pointer-events-none"
+                              style={{ backgroundColor: isSelected ? activeBubbleColor : themeItem.bubbleColor }}
+                            />
+
+                            {isSelected && (
+                              <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-5.5 h-5.5 rounded-full bg-white text-[#111b21] flex items-center justify-center shadow-lg pointer-events-none">
+                                <FaCheck size={9.5} className="stroke-[1.5]" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 

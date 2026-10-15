@@ -27,6 +27,10 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    blockedDelivery: {
+      type: Boolean,
+      default: false,
+    },
 
     content: String,
     imageOrVideoUrl: String,

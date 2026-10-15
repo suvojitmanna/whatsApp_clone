@@ -2226,7 +2226,20 @@ const MessageBuble = ({
             isOpen={showPinModal}
             onClose={() => setShowPinModal(false)}
             onPin={(duration) => {
-              pinMessage(conversationId, message, duration, secondaryConvId);
+              const recId =
+                (layoutSelectedContact?._id ||
+                  (message.sender?._id?.toString() === currentUserId
+                    ? message.receiver?._id || message.receiver
+                    : message.sender?._id || message.sender))?.toString();
+              pinMessage(
+                conversationId,
+                message,
+                duration,
+                secondaryConvId,
+                recId,
+                true,
+                currentUserId,
+              );
               toast.success(`Message pinned for ${duration}`);
             }}
             message={message}
