@@ -4,7 +4,7 @@ import useOutsideClick from "../hook/useOutsideClick";
 import useLayoutStore from "../store/layoutStore";
 import useThemeStore from "../store/themeStore";
 import useUserStore from "../store/useUserStore";
-import { useChatStore } from "../store/chatStore";
+import { useChatStore, getTargetUserId } from "../store/chatStore";
 import useVideoCallStore from "../store/videoCallStore";
 import { generateSafetyNumber } from "../utils/cryptoUtils";
 import QRCode from "qrcode";
@@ -54,7 +54,8 @@ import {
   getChatTheme,
 } from "../utils/chatThemes";
 import { toast } from "react-toastify";
-import Media from "./media";
+import axiosInstance from "../services/url.services";
+import Media, { WhatsAppMediaFolderIcon } from "./Media";
 
 const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   <button
@@ -105,20 +106,13 @@ const ContactInfo = () => {
   } = useLayoutStore();
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const { isUserOnline, messages, starredMessages, toggleStarMessage, blockedContacts, blockContact, unblockContact } = useChatStore();
+  const { isUserOnline, messages, starredMessages, toggleStarMessage, blockedContacts, blockContact, unblockContact, clearChat } = useChatStore();
   const setIsChatSearchOpen = useLayoutStore((state) => state.setIsChatSearchOpen);
 
-  const handleExecuteClearChat = () => {
-    useChatStore.setState((state) => {
-      const nextCache = new Map(state.messagesCache || new Map());
-      if (chatId) nextCache.set(String(chatId), []);
-      return {
-        messages: [],
-        messagesCache: nextCache,
-      };
-    });
+  const handleExecuteClearChat = async () => {
+    const targetId = targetUserId || selectedContact?._id;
+    await clearChat(chatId, targetId);
     toast.success("Chat cleared");
-    setConfirmDialog(null);
     onClose();
   };
   const chatId = (
@@ -127,6 +121,11 @@ const ContactInfo = () => {
     selectedContact?._id ||
     ""
   )?.toString();
+
+  const targetUserId = useMemo(
+    () => getTargetUserId(selectedContact, user?._id),
+    [selectedContact, user?._id]
+  );
 
   const chatStarredMessages = useMemo(() => {
     if (!starredMessages) return [];
@@ -313,6 +312,40 @@ const ContactInfo = () => {
     } catch { }
   }, [chatId]);
 
+  const [chatMediaCount, setChatMediaCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCount = async () => {
+      if (!chatId) return;
+      try {
+        const { data } = await axiosInstance.get("/chat/media", {
+          params: { conversationId: chatId },
+        });
+        const total = data?.data?.counts?.total ?? data?.counts?.total ?? 0;
+        if (isMounted) setChatMediaCount(total);
+      } catch (err) {
+        if (Array.isArray(messages) && isMounted) {
+          const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+          const count = messages.filter((m) => {
+            if (!m || m.deletedForEveryone) return false;
+            return (
+              m.imageOrVideoUrl ||
+              m.fileUrl ||
+              m.fileName ||
+              (m.content && urlRegex.test(m.content))
+            );
+          }).length;
+          setChatMediaCount(count);
+        }
+      }
+    };
+    fetchCount();
+    return () => {
+      isMounted = false;
+    };
+  }, [chatId, messages?.length]);
+
   const [newListName, setNewListName] = useState("");
 
   const handleToggleContactList = (listName) => {
@@ -435,6 +468,7 @@ const ContactInfo = () => {
   const isBlocked = useMemo(() => {
     if (!blockedContacts || blockedContacts.length === 0) return false;
     const candidates = [
+      targetUserId,
       chatId,
       selectedContact?._id,
       selectedContact?.id,
@@ -442,16 +476,16 @@ const ContactInfo = () => {
       selectedContact?.conversation,
     ].filter(Boolean).map(String);
     return candidates.some((id) => blockedContacts.includes(id));
-  }, [chatId, selectedContact, blockedContacts]);
+  }, [targetUserId, chatId, selectedContact, blockedContacts]);
 
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
   const handleToggleBlock = () => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (!targetId) return;
     if (isBlocked) {
-      unblockContact(targetId);
+      unblockContact(targetId, chatId);
       toast.success(`${selectedContact?.username || "Contact"} unblocked`);
     } else {
       setShowBlockModal(true);
@@ -459,7 +493,7 @@ const ContactInfo = () => {
   };
 
   const handleConfirmBlock = ({ report } = {}) => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (!targetId) return;
     blockContact(targetId);
     if (report) {
@@ -473,7 +507,7 @@ const ContactInfo = () => {
   };
 
   const handleConfirmReport = ({ block }) => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (block && targetId) {
       blockContact(targetId);
       toast.success(
@@ -1032,8 +1066,10 @@ const ContactInfo = () => {
                 <h2 className="font-semibold text-[17px] tracking-tight truncate">
                   {contactInfoTab === "privacy"
                     ? "Your chats and calls are private"
-                    : contactInfoTab === "disappearing"
-                      ? "Disappearing messages"
+                    : contactInfoTab === "media"
+                      ? "Media, links and docs"
+                      : contactInfoTab === "disappearing"
+                        ? "Disappearing messages"
                       : contactInfoTab === "defaultTimer"
                         ? "Default message timer"
                         : contactInfoTab === "chatTheme"
@@ -1226,9 +1262,39 @@ const ContactInfo = () => {
                   </motion.div>
 
                   <div className="my-4 border-t border-white/10" />
-                  <Media />
-                  <div className="my-4 border-t border-white/10" />
                   
+                  {/* Media, links and docs Entry Tile - WhatsApp Style */}
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.42, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("media")}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${
+                      theme === "dark"
+                        ? "bg-[#202c33]/70 hover:bg-[#202c33] border border-white/5 hover:border-white/10 text-white"
+                        : "bg-black/5 hover:bg-black/8 border border-black/5 text-gray-900"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                          <WhatsAppMediaFolderIcon size={20} />
+                        </div>
+                        <span className="text-[15px] font-medium tracking-tight">
+                          Media, links and docs
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[#8696a0]">
+                        <span className="text-[14px] font-normal">
+                          {chatMediaCount}
+                        </span>
+                        <MdChevronRight size={18} />
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <div className="my-4 border-t border-white/10" />
+
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
@@ -2282,7 +2348,6 @@ const ContactInfo = () => {
                   </p>
 
                   <div className="relative group">
-                    {/* Left Navigation Arrow (shown only on hover, when not on first page) */}
                     {themePageIndex > 0 && (
                       <button
                         type="button"
@@ -2299,8 +2364,6 @@ const ContactInfo = () => {
                         <MdChevronLeft size={20} />
                       </button>
                     )}
-
-                    {/* Right Navigation Arrow (shown only on hover, when not on last page) */}
                     {themePageIndex < Math.ceil(CURATED_THEME_IDS.length / 6) - 1 && (
                       <button
                         type="button"
@@ -3017,6 +3080,25 @@ const ContactInfo = () => {
                     Add
                   </button>
                 </form>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "media" && (
+              <motion.div
+                key="tab-media"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col flex-1 overflow-hidden select-none"
+              >
+                <Media
+                  contact={selectedContact}
+                  chatId={chatId}
+                  mode="drawer"
+                  hideHeader={true}
+                  onClose={() => setContactInfoTab("info")}
+                />
               </motion.div>
             )}
           </AnimatePresence>

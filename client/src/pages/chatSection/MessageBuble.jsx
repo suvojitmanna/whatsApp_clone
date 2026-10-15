@@ -792,7 +792,7 @@ const MessageBuble = ({
           {format(new Date(message.createdAt || Date.now()), "HH:mm")}
         </span>
         {renderStatusIcon(false)}
-        {!isSelectMode && (
+        {!isSelectMode && message.contentType !== "poll" && (
           <button
             type="button"
             onClick={handleToggleOptions}
@@ -1609,9 +1609,8 @@ const MessageBuble = ({
                       })}
                     </div>
 
-                    <div className={`flex justify-end text-[11px] mt-2 mb-0.5 ${isDark ? "text-[#8696a0]" : "text-[#667781]"
-                      }`}>
-                      <span>{format(new Date(message.createdAt), "HH:mm")}</span>
+                    <div className="flex items-center justify-end mt-2 mb-0.5 px-1 select-none">
+                      {renderTimestampAndStatus(false)}
                     </div>
                     <div className={`border-t -mx-3 -mb-2.5 mt-2 rounded-b-2xl overflow-hidden ${isDark ? "border-[#2a3942]" : "border-black/10"
                       }`}>

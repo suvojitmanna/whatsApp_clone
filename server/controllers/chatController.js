@@ -7,7 +7,7 @@ const mongoose = require("mongoose");
 
 exports.sendMessage = async (req, res) => {
   try {
-    const {
+    let {
       senderId,
       receiverId,
       content,
@@ -22,7 +22,20 @@ exports.sendMessage = async (req, res) => {
       isEncrypted,
       iv,
     } = req.body;
-    const participants = [senderId, receiverId].sort();
+
+    let effectiveReceiverId = receiverId ? receiverId.toString() : null;
+    if (effectiveReceiverId) {
+      const possibleConv =
+        await Conversation.findById(effectiveReceiverId).select("participants");
+      if (possibleConv && Array.isArray(possibleConv.participants)) {
+        const other = possibleConv.participants.find(
+          (p) => p.toString() !== senderId.toString(),
+        );
+        if (other) effectiveReceiverId = other.toString();
+      }
+    }
+
+    const participants = [senderId, effectiveReceiverId].sort();
     const file = req.file;
     const timestamp = new Date();
 
@@ -101,14 +114,33 @@ exports.sendMessage = async (req, res) => {
       }
     }
 
-    const receiverUser = await User.findById(receiverId).select("blockedUsers");
+    const senderUser = await User.findById(senderId).select("blockedUsers");
+    const isReceiverBlockedBySender = Boolean(
+      senderUser?.blockedUsers?.some((bId) => {
+        const str = bId.toString();
+        return (
+          str === effectiveReceiverId.toString() ||
+          (conversation && str === conversation._id.toString())
+        );
+      }),
+    );
+    if (isReceiverBlockedBySender) {
+      return response(res, 400, "Unblock contact to send a message");
+    }
+
+    const receiverUser =
+      await User.findById(effectiveReceiverId).select("blockedUsers");
     const isSenderBlockedByReceiver = Boolean(
-      receiverUser?.blockedUsers?.some(
-        (bId) => bId.toString() === senderId.toString(),
-      ),
+      receiverUser?.blockedUsers?.some((bId) => {
+        const str = bId.toString();
+        return (
+          str === senderId.toString() ||
+          (conversation && str === conversation._id.toString())
+        );
+      }),
     );
 
-    const receiverRoom = receiverId?.toString();
+    const receiverRoom = effectiveReceiverId?.toString();
     const isReceiverOnline =
       !isSenderBlockedByReceiver &&
       Boolean(
@@ -129,7 +161,7 @@ exports.sendMessage = async (req, res) => {
     const message = new Message({
       conversation: conversation._id,
       sender: senderId,
-      receiver: receiverId,
+      receiver: effectiveReceiverId,
       content: content || "",
       contentType,
       isEncrypted: isEncrypted === true || isEncrypted === "true",
@@ -144,7 +176,7 @@ exports.sendMessage = async (req, res) => {
       messageStatus: finalStatus,
       deliveredAt: initialDeliveredAt,
       blockedDelivery: isSenderBlockedByReceiver,
-      deletedFor: isSenderBlockedByReceiver ? [receiverId] : [],
+      deletedFor: isSenderBlockedByReceiver ? [effectiveReceiverId] : [],
       readAt: null,
       timestamp,
       reactions: [],
@@ -154,10 +186,17 @@ exports.sendMessage = async (req, res) => {
     });
     await message.save();
 
+    conversation.deletedFor = (conversation.deletedFor || []).filter(
+      (dId) =>
+        dId.toString() !== senderId.toString() &&
+        (!isSenderBlockedByReceiver
+          ? dId.toString() !== effectiveReceiverId.toString()
+          : true),
+    );
     if (!isSenderBlockedByReceiver) {
       conversation.lastMessage = message._id;
-      await conversation.save();
     }
+    await conversation.save();
 
     const populatedMessage = await Message.findById(message._id)
       .populate("sender", "username profilePicture publicKey")
@@ -225,6 +264,7 @@ exports.getConversation = async (req, res) => {
   try {
     let conversation = await Conversation.find({
       participants: userId,
+      deletedFor: { $ne: userId },
     })
       .populate(
         "participants",
@@ -245,6 +285,7 @@ exports.getConversation = async (req, res) => {
         },
       })
       .populate("pinnedMessage.pinnedBy", "username profilePicture")
+      .populate("disappearingSetBy", "username profilePicture")
       .sort({ updatedAt: -1 })
       .lean();
 
@@ -323,6 +364,8 @@ exports.getMessages = async (req, res) => {
       conversation: conversationId,
       receiver: userId,
       messageStatus: { $in: ["send", "delivered"] },
+      blockedDelivery: { $ne: true },
+      deletedFor: { $ne: userId },
     }).select("_id sender");
 
     if (unreadMessages.length > 0) {
@@ -764,6 +807,17 @@ exports.votePoll = async (req, res) => {
       }
     }
 
+    const isReceiverVoting =
+      message.receiver &&
+      userId &&
+      message.receiver.toString() === userId.toString();
+
+    if (isReceiverVoting && message.messageStatus !== "read") {
+      message.messageStatus = "read";
+      message.readAt = new Date();
+      if (!message.deliveredAt) message.deliveredAt = new Date();
+    }
+
     message.markModified("pollData");
     await message.save();
 
@@ -775,22 +829,53 @@ exports.votePoll = async (req, res) => {
     const payload = {
       messageId: message._id.toString(),
       pollData: populated.pollData,
+      messageStatus: message.messageStatus,
+      readAt: message.readAt,
+      deliveredAt: message.deliveredAt,
     };
 
-    if (req.io && req.socketUserMap) {
-      const senderSocketId = req.socketUserMap.get(message.sender.toString());
-      const receiverSocketId = req.socketUserMap.get(
-        message.receiver.toString(),
-      );
+    if (req.io) {
+      if (req.socketUserMap) {
+        const senderSocketId = req.socketUserMap.get(message.sender.toString());
+        const receiverSocketId = req.socketUserMap.get(
+          message.receiver.toString(),
+        );
 
-      if (senderSocketId) {
-        req.io.to(senderSocketId).emit("poll_update", payload);
-      }
-      if (receiverSocketId) {
-        req.io.to(receiverSocketId).emit("poll_update", payload);
+        if (senderSocketId) {
+          req.io.to(senderSocketId).emit("poll_update", payload);
+        }
+        if (receiverSocketId) {
+          req.io.to(receiverSocketId).emit("poll_update", payload);
+        }
       }
       req.io.to(message.sender.toString()).emit("poll_update", payload);
       req.io.to(message.receiver.toString()).emit("poll_update", payload);
+
+      if (isReceiverVoting) {
+        const statusPayload = {
+          messageId: message._id.toString(),
+          messageStatus: "read",
+          readAt: (message.readAt || new Date()).toISOString(),
+          deliveredAt: (message.deliveredAt || new Date()).toISOString(),
+        };
+        req.io
+          .to(message.sender.toString())
+          .emit("message_status_update", statusPayload);
+        req.io
+          .to(message.sender.toString())
+          .emit("message_read", statusPayload);
+        if (req.socketUserMap) {
+          const senderSocketId = req.socketUserMap.get(
+            message.sender.toString(),
+          );
+          if (senderSocketId && senderSocketId !== message.sender.toString()) {
+            req.io
+              .to(senderSocketId)
+              .emit("message_status_update", statusPayload);
+            req.io.to(senderSocketId).emit("message_read", statusPayload);
+          }
+        }
+      }
     }
 
     return response(res, 200, "Vote updated successfully", populated);
@@ -803,28 +888,38 @@ exports.votePoll = async (req, res) => {
 exports.blockUser = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { targetUserId } = req.body;
+    let { targetUserId } = req.body;
     if (!targetUserId) {
       return response(res, 400, "Target user ID is required");
     }
 
+    let resolvedTargetId = targetUserId.toString();
+    const conv =
+      await Conversation.findById(targetUserId).select("participants");
+    if (conv && Array.isArray(conv.participants)) {
+      const other = conv.participants.find(
+        (p) => p.toString() !== userId.toString(),
+      );
+      if (other) resolvedTargetId = other.toString();
+    }
+
     await User.findByIdAndUpdate(userId, {
-      $addToSet: { blockedUsers: targetUserId },
+      $addToSet: { blockedUsers: resolvedTargetId },
     });
 
     if (req.io) {
       req.io.to(userId.toString()).emit("user_blocked", {
-        blockedUserId: targetUserId.toString(),
+        blockedUserId: resolvedTargetId,
         blockedBy: userId.toString(),
       });
-      req.io.to(targetUserId.toString()).emit("user_blocked", {
-        blockedUserId: targetUserId.toString(),
+      req.io.to(resolvedTargetId).emit("user_blocked", {
+        blockedUserId: resolvedTargetId,
         blockedBy: userId.toString(),
       });
     }
 
     return response(res, 200, "User blocked successfully", {
-      targetUserId,
+      targetUserId: resolvedTargetId,
     });
   } catch (error) {
     console.error("BLOCK USER ERROR:", error);
@@ -835,28 +930,41 @@ exports.blockUser = async (req, res) => {
 exports.unblockUser = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { targetUserId } = req.body;
+    let { targetUserId } = req.body;
     if (!targetUserId) {
       return response(res, 400, "Target user ID is required");
     }
 
+    let resolvedTargetId = targetUserId.toString();
+    const conv =
+      await Conversation.findById(targetUserId).select("participants");
+    if (conv && Array.isArray(conv.participants)) {
+      const other = conv.participants.find(
+        (p) => p.toString() !== userId.toString(),
+      );
+      if (other) resolvedTargetId = other.toString();
+    }
+    const pullList = [targetUserId, resolvedTargetId].filter(Boolean);
+    const userConv = await Conversation.findOne({
+      participants: { $all: [userId, resolvedTargetId] },
+    }).select("_id");
+    if (userConv) {
+      pullList.push(userConv._id.toString());
+    }
+
     await User.findByIdAndUpdate(userId, {
-      $pull: { blockedUsers: targetUserId },
+      $pull: { blockedUsers: { $in: pullList } },
     });
 
     const now = new Date();
-
-    // Find any messages from targetUserId (sender) to userId (receiver) held during block
     const heldMessages = await Message.find({
       receiver: userId,
-      sender: targetUserId,
+      sender: resolvedTargetId,
       blockedDelivery: true,
     }).sort({ createdAt: 1 });
 
     if (heldMessages.length > 0) {
       const heldIds = heldMessages.map((m) => m._id);
-
-      // Deliver all held messages
       await Message.updateMany(
         { _id: { $in: heldIds } },
         {
@@ -868,17 +976,15 @@ exports.unblockUser = async (req, res) => {
           $pull: { deletedFor: userId },
         },
       );
-
-      // Update conversation's lastMessage
       const lastHeldMsg = heldMessages[heldMessages.length - 1];
       if (lastHeldMsg) {
         await Conversation.findByIdAndUpdate(lastHeldMsg.conversation, {
           $set: { lastMessage: lastHeldMsg._id },
         });
       }
-
-      // Populate messages to deliver to receiver
-      const populatedHeldMessages = await Message.find({ _id: { $in: heldIds } })
+      const populatedHeldMessages = await Message.find({
+        _id: { $in: heldIds },
+      })
         .populate("sender", "username profilePicture publicKey")
         .populate("receiver", "username profilePicture publicKey")
         .populate("replyTo")
@@ -891,25 +997,43 @@ exports.unblockUser = async (req, res) => {
         });
 
       if (req.io) {
-        // 1. Notify SENDER (targetUserId) that their messages are now delivered
         const statusPayload = {
           messageIds: heldIds.map(String),
           messageStatus: "delivered",
           deliveredAt: now.toISOString(),
           conversationId: heldMessages[0]?.conversation?.toString(),
         };
-        req.io.to(targetUserId.toString()).emit("message_status_update_bulk", statusPayload);
+        req.io
+          .to(resolvedTargetId)
+          .emit("message_status_update_bulk", statusPayload);
+        for (const heldId of heldIds) {
+          req.io.to(resolvedTargetId).emit("message_status_update", {
+            messageId: heldId.toString(),
+            messageStatus: "delivered",
+            deliveredAt: now.toISOString(),
+          });
+        }
         if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
-          const senderSocketId = req.socketUserMap.get(targetUserId.toString());
-          if (senderSocketId && senderSocketId !== targetUserId.toString()) {
-            req.io.to(senderSocketId).emit("message_status_update_bulk", statusPayload);
+          const senderSocketId = req.socketUserMap.get(resolvedTargetId);
+          if (senderSocketId && senderSocketId !== resolvedTargetId) {
+            req.io
+              .to(senderSocketId)
+              .emit("message_status_update_bulk", statusPayload);
+            for (const heldId of heldIds) {
+              req.io.to(senderSocketId).emit("message_status_update", {
+                messageId: heldId.toString(),
+                messageStatus: "delivered",
+                deliveredAt: now.toISOString(),
+              });
+            }
           }
         }
-
-        // 2. Deliver held messages to RECEIVER (userId)
         for (const msg of populatedHeldMessages) {
           req.io.to(userId.toString()).emit("receive_message", msg);
-          if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          if (
+            req.socketUserMap &&
+            typeof req.socketUserMap.get === "function"
+          ) {
             const receiverSocketId = req.socketUserMap.get(userId.toString());
             if (receiverSocketId && receiverSocketId !== userId.toString()) {
               req.io.to(receiverSocketId).emit("receive_message", msg);
@@ -921,17 +1045,17 @@ exports.unblockUser = async (req, res) => {
 
     if (req.io) {
       req.io.to(userId.toString()).emit("user_unblocked", {
-        unblockedUserId: targetUserId.toString(),
+        unblockedUserId: resolvedTargetId,
         unblockedBy: userId.toString(),
       });
-      req.io.to(targetUserId.toString()).emit("user_unblocked", {
-        unblockedUserId: targetUserId.toString(),
+      req.io.to(resolvedTargetId).emit("user_unblocked", {
+        unblockedUserId: resolvedTargetId,
         unblockedBy: userId.toString(),
       });
     }
 
     return response(res, 200, "User unblocked successfully", {
-      targetUserId,
+      targetUserId: resolvedTargetId,
     });
   } catch (error) {
     console.error("UNBLOCK USER ERROR:", error);
@@ -952,3 +1076,303 @@ exports.getBlockedUsers = async (req, res) => {
   }
 };
 
+exports.clearChat = async (req, res) => {
+  const userId = req.user.userId;
+  const { conversationId, targetUserId } = req.body;
+
+  try {
+    let conv = null;
+    if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
+      conv = await Conversation.findOne({
+        _id: conversationId,
+        participants: userId,
+      });
+    }
+
+    if (
+      !conv &&
+      targetUserId &&
+      mongoose.Types.ObjectId.isValid(targetUserId)
+    ) {
+      conv = await Conversation.findOne({
+        participants: { $all: [userId, targetUserId] },
+      });
+    }
+
+    let messageQuery = null;
+    if (conv) {
+      messageQuery = { conversation: conv._id };
+    } else if (targetUserId && mongoose.Types.ObjectId.isValid(targetUserId)) {
+      messageQuery = {
+        $or: [
+          { sender: userId, receiver: targetUserId },
+          { sender: targetUserId, receiver: userId },
+        ],
+      };
+    } else if (
+      conversationId &&
+      mongoose.Types.ObjectId.isValid(conversationId)
+    ) {
+      messageQuery = { conversation: conversationId };
+    }
+
+    if (!messageQuery) {
+      return response(
+        res,
+        400,
+        "Conversation ID or target user ID is required",
+      );
+    }
+    await Message.updateMany(messageQuery, {
+      $addToSet: { deletedFor: userId },
+    });
+
+    if (conv) {
+      await Conversation.findByIdAndUpdate(conv._id, {
+        $set: { unreadCount: 0 },
+      });
+    }
+
+    if (req.io) {
+      req.io.to(userId.toString()).emit("chat_cleared", {
+        conversationId: conv ? conv._id.toString() : conversationId,
+        targetUserId,
+      });
+    }
+
+    return response(res, 200, "Chat cleared successfully");
+  } catch (error) {
+    console.error("CLEAR CHAT ERROR:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.deleteChat = async (req, res) => {
+  const userId = req.user.userId;
+  const { conversationId, targetUserId } = req.body;
+
+  try {
+    let conv = null;
+    if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
+      conv = await Conversation.findOne({
+        _id: conversationId,
+        participants: userId,
+      });
+    }
+
+    if (
+      !conv &&
+      targetUserId &&
+      mongoose.Types.ObjectId.isValid(targetUserId)
+    ) {
+      conv = await Conversation.findOne({
+        participants: { $all: [userId, targetUserId] },
+      });
+    }
+
+    let messageQuery = null;
+    if (conv) {
+      messageQuery = { conversation: conv._id };
+    } else if (targetUserId && mongoose.Types.ObjectId.isValid(targetUserId)) {
+      messageQuery = {
+        $or: [
+          { sender: userId, receiver: targetUserId },
+          { sender: targetUserId, receiver: userId },
+        ],
+      };
+    } else if (
+      conversationId &&
+      mongoose.Types.ObjectId.isValid(conversationId)
+    ) {
+      messageQuery = { conversation: conversationId };
+    }
+
+    if (!messageQuery) {
+      return response(
+        res,
+        400,
+        "Conversation ID or target user ID is required",
+      );
+    }
+    await Message.updateMany(messageQuery, {
+      $addToSet: { deletedFor: userId },
+    });
+
+    if (conv) {
+      await Conversation.findByIdAndUpdate(conv._id, {
+        $addToSet: { deletedFor: userId },
+        $set: { unreadCount: 0 },
+      });
+    }
+
+    if (req.io) {
+      req.io.to(userId.toString()).emit("chat_deleted", {
+        conversationId: conv ? conv._id.toString() : conversationId,
+        targetUserId,
+      });
+    }
+
+    return response(res, 200, "Chat deleted successfully");
+  } catch (error) {
+    console.error("DELETE CHAT ERROR:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.getChatMedia = async (req, res) => {
+  const userId = req.user.userId;
+  const { conversationId } = req.query;
+
+  try {
+    let convIds = [];
+    if (
+      conversationId &&
+      conversationId !== "all" &&
+      mongoose.Types.ObjectId.isValid(conversationId)
+    ) {
+      let conv = await Conversation.findOne({
+        _id: conversationId,
+        participants: userId,
+      }).select("_id");
+
+      if (!conv) {
+        conv = await Conversation.findOne({
+          participants: { $all: [userId, conversationId] },
+        }).select("_id");
+      }
+
+      if (conv) {
+        convIds = [conv._id];
+      } else {
+        convIds = [];
+      }
+    } else {
+      const convs = await Conversation.find({
+        participants: userId,
+        deletedFor: { $ne: userId },
+      }).select("_id");
+      convIds = convs.map((c) => c._id);
+    }
+
+    if (convIds.length === 0) {
+      return response(res, 200, "Media retrieved successfully", {
+        media: [],
+        docs: [],
+        links: [],
+        counts: { media: 0, docs: 0, links: 0, total: 0 },
+      });
+    }
+
+    const baseFilter = {
+      conversation: { $in: convIds },
+      deletedFor: { $ne: userId },
+      deletedForEveryone: { $ne: true },
+      blockedDelivery: { $ne: true },
+    };
+
+    const messages = await Message.find({
+      ...baseFilter,
+      $or: [
+        { contentType: { $in: ["image", "video", "document"] } },
+        { imageOrVideoUrl: { $exists: true, $ne: null, $ne: "" } },
+        { fileUrl: { $exists: true, $ne: null, $ne: "" } },
+        { fileName: { $exists: true, $ne: null, $ne: "" } },
+        { content: { $regex: /https?:\/\/|www\./i } },
+      ],
+    })
+      .populate("sender", "username profilePicture")
+      .populate("receiver", "username profilePicture")
+      .populate({
+        path: "conversation",
+        select: "participants updatedAt",
+        populate: {
+          path: "participants",
+          select: "username profilePicture",
+        },
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const mediaList = [];
+    const docsList = [];
+    const linksList = [];
+
+    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+
+    messages.forEach((msg) => {
+      const isVideo =
+        msg.contentType === "video" ||
+        Boolean(
+          msg.imageOrVideoUrl &&
+          msg.imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i),
+        );
+      const isImage =
+        msg.contentType === "image" || Boolean(msg.imageOrVideoUrl && !isVideo);
+
+      if (isImage || isVideo) {
+        mediaList.push({
+          ...msg,
+          mediaType: isVideo ? "video" : "image",
+          url: msg.imageOrVideoUrl,
+        });
+      }
+
+      const isDoc =
+        msg.contentType === "document" ||
+        Boolean(msg.fileName) ||
+        Boolean(msg.fileUrl && !isImage && !isVideo);
+
+      if (isDoc) {
+        docsList.push({
+          ...msg,
+          docName: msg.fileName || msg.content || "Document",
+          docUrl: msg.fileUrl || msg.imageOrVideoUrl,
+          fileSize: msg.fileSize || "",
+        });
+      }
+
+      if (msg.content && typeof msg.content === "string") {
+        const matches = msg.content.match(urlRegex);
+        if (matches && matches.length > 0) {
+          matches.forEach((matchedUrl) => {
+            const cleanUrl = matchedUrl.startsWith("http")
+              ? matchedUrl
+              : `https://${matchedUrl}`;
+            let domain = "";
+            try {
+              domain = new URL(cleanUrl).hostname;
+            } catch (e) {
+              domain = cleanUrl;
+            }
+            linksList.push({
+              _id: `${msg._id}_${cleanUrl}`,
+              messageId: msg._id,
+              url: cleanUrl,
+              domain: domain.replace(/^www\./i, ""),
+              title: msg.content,
+              createdAt: msg.createdAt,
+              sender: msg.sender,
+              receiver: msg.receiver,
+              conversation: msg.conversation,
+            });
+          });
+        }
+      }
+    });
+
+    return response(res, 200, "Media retrieved successfully", {
+      media: mediaList,
+      docs: docsList,
+      links: linksList,
+      counts: {
+        media: mediaList.length,
+        docs: docsList.length,
+        links: linksList.length,
+        total: mediaList.length + docsList.length + linksList.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getChatMedia:", error);
+    return response(res, 500, "Internal server error");
+  }
+};

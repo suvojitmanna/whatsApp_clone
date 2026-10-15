@@ -7,6 +7,7 @@ import Home from "./components/homePage.jsx";
 import UserDetails from "./components/userDetails.jsx";
 import Status from "./pages/statusSection/status.jsx";
 import Setting from "./pages/SettingSection/setting.jsx";
+import AllMediaPage from "./pages/mediaSection/AllMediaPage.jsx";
 import HelpPage from "./components/helpPage.jsx";
 import useUserStore from "./store/useUserStore.js";
 import { useEffect } from "react";
@@ -62,6 +63,7 @@ const App = () => {
             <Route path="/" element={<Home />} />
             <Route path="/user-profile" element={<UserDetails />} />
             <Route path="/status" element={<Status />} />
+            <Route path="/media" element={<AllMediaPage />} />
             <Route path="/setting" element={<Setting />} />
 
             <Route path="/help">

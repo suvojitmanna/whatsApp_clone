@@ -411,10 +411,11 @@ function initializeSocket(server) {
               if (conv && conv.participants) {
                 conv.participants.forEach((p) => targets.add(p.toString()));
               }
+              const pinnedByUserId = pinnedBy?._id || pinnedBy;
               await Conversation.findByIdAndUpdate(resolvedConvId, {
                 pinnedMessage: {
                   message: message?._id || message,
-                  pinnedBy: pinnedBy,
+                  pinnedBy: pinnedByUserId,
                   duration: duration || "7 days",
                   pinnedAt: new Date(pinnedAt),
                   expiresAt: new Date(expiresAt),
@@ -513,7 +514,7 @@ function initializeSocket(server) {
 
     socket.on(
       "disappearing_update",
-      ({
+      async ({
         chatId,
         conversationId,
         secondaryId,
@@ -523,16 +524,81 @@ function initializeSocket(server) {
         setBy,
       }) => {
         try {
+          let resolvedConvId = conversationId;
           const targets = new Set();
           if (receiverId)
             targets.add((receiverId._id || receiverId).toString());
           if (secondaryId)
             targets.add((secondaryId._id || secondaryId).toString());
-          if (chatId) targets.add(chatId.toString());
+          if (setBy) targets.add((setBy._id || setBy).toString());
+
+          if (!resolvedConvId && chatId) {
+            try {
+              const convById = await Conversation.findById(chatId);
+              if (convById) {
+                resolvedConvId = convById._id.toString();
+              } else {
+                targets.add(chatId.toString());
+                if (setBy) {
+                  const foundConv = await Conversation.findOne({
+                    participants: {
+                      $all: [setBy.toString(), chatId.toString()],
+                    },
+                  });
+                  if (foundConv) {
+                    resolvedConvId = foundConv._id.toString();
+                  }
+                }
+              }
+            } catch (e) {}
+          }
+
+          if (!resolvedConvId && setBy) {
+            const otherId = (receiverId || secondaryId || chatId)?.toString();
+            if (otherId && otherId !== setBy.toString()) {
+              try {
+                let foundConv = await Conversation.findOne({
+                  participants: { $all: [setBy.toString(), otherId] },
+                });
+                if (!foundConv) {
+                  foundConv = await Conversation.create({
+                    participants: [setBy.toString(), otherId].sort(),
+                    disappearingDuration: duration || "Off",
+                    disappearingSetBy: setBy || null,
+                    disappearingUpdatedAt: new Date(),
+                  });
+                }
+                if (foundConv) {
+                  resolvedConvId = foundConv._id.toString();
+                }
+              } catch (e) {}
+            }
+          }
+
+          if (resolvedConvId) {
+            try {
+              const conv = await Conversation.findById(resolvedConvId);
+              if (conv && conv.participants) {
+                conv.participants.forEach((p) => targets.add(p.toString()));
+              }
+              await Conversation.findByIdAndUpdate(resolvedConvId, {
+                disappearingDuration: duration || "Off",
+                disappearingSetBy: setBy || null,
+                disappearingUpdatedAt: new Date(),
+              });
+            } catch (e) {
+              console.error(
+                "Error saving disappearing update to conversation:",
+                e,
+              );
+            }
+          }
 
           const payload = {
-            chatId: conversationId || chatId || secondaryId,
-            conversationId,
+            chatId: resolvedConvId || conversationId || chatId || secondaryId,
+            conversationId: resolvedConvId || conversationId,
+            secondaryId,
+            receiverId,
             duration,
             event,
             setBy,
@@ -546,8 +612,8 @@ function initializeSocket(server) {
             }
           });
 
-          if (conversationId) {
-            socket.to(conversationId).emit("disappearing_update", payload);
+          if (resolvedConvId) {
+            socket.to(resolvedConvId).emit("disappearing_update", payload);
           }
         } catch (error) {
           console.error("Error in disappearing_update socket event:", error);

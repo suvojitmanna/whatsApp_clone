@@ -15,5 +15,8 @@ router.post("/messages/:messageId/vote", authMiddleware, chatController.votePoll
 router.post("/block-user", authMiddleware, chatController.blockUser);
 router.post("/unblock-user", authMiddleware, chatController.unblockUser);
 router.get("/blocked-users", authMiddleware, chatController.getBlockedUsers);
+router.post("/clear-chat", authMiddleware, chatController.clearChat);
+router.post("/delete-chat", authMiddleware, chatController.deleteChat);
+router.get("/media", authMiddleware, chatController.getChatMedia);
 
 module.exports = router;

@@ -227,12 +227,22 @@ const getAllUsers = async (req, res) => {
 
     const conversations = await Conversation.find({
       participants: { $in: [loggedInUserId] },
+      deletedFor: { $ne: loggedInUserId },
     })
       .populate({
         path: "lastMessage",
         select:
           "content sender receiver createdAt isEncrypted iv contentType imageOrVideoUrl fileName fileSize pollData contactData eventData edited editedAt deletedFor",
       })
+      .populate({
+        path: "pinnedMessage.message",
+        populate: {
+          path: "sender receiver",
+          select: "username profilePicture email phoneNumber publicKey",
+        },
+      })
+      .populate("pinnedMessage.pinnedBy", "username profilePicture")
+      .populate("disappearingSetBy", "username profilePicture")
       .lean();
     const conversationMap = {};
 

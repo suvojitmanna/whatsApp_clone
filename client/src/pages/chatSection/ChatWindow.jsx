@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
-import { useChatStore, decryptSingleMessage } from "../../store/chatStore";
+import { useChatStore, decryptSingleMessage, getTargetUserId } from "../../store/chatStore";
 import { isToday, isYesterday, format } from "date-fns";
 import whatsappImage from "../../assets/whatsapp_image.png";
 import {
@@ -51,6 +51,7 @@ import ChatHeaderMenu from "./ChatHeaderMenu";
 import ChatHeader from "./ChatHeader";
 import BlockModal from "../../components/BlockModal";
 import ReportModal from "../../components/ReportModal";
+import { getPinActorAndLabel } from "./ChatList";
 
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -83,6 +84,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBlockedMenu, setShowBlockedMenu] = useState(false);
   const blockedMenuRef = useRef(null);
   const headerMenuBtnRef = useRef(null);
@@ -130,6 +132,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     blockedContacts,
     blockContact,
     unblockContact,
+    deleteChat,
+    clearChat,
   } = useChatStore();
 
   const messagesContainerRef = useRef(null);
@@ -159,9 +163,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     );
   }, [selectedContact]);
 
+  const targetUserId = useMemo(() => {
+    return getTargetUserId(selectedContact, user?._id);
+  }, [selectedContact, user?._id]);
+
   const isBlocked = useMemo(() => {
     if (!blockedContacts || blockedContacts.length === 0) return false;
     const candidates = [
+      targetUserId,
       chatId,
       selectedContact?._id,
       selectedContact?.id,
@@ -169,19 +178,31 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       selectedContact?.conversation,
       selectedContact?.conversationId,
     ].filter(Boolean).map(String);
-    return candidates.some((id) => blockedContacts.includes(id));
-  }, [chatId, selectedContact, blockedContacts]);
+    return candidates.some((id) => blockedContacts.map(String).includes(id));
+  }, [chatId, selectedContact, blockedContacts, targetUserId]);
 
   const handleUnblockContact = () => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (targetId) {
-      unblockContact(targetId);
+      unblockContact(targetId, chatId);
       toast.success(`${selectedContact?.username || "Contact"} unblocked`);
     }
   };
 
+  const handleExecuteDeleteChat = async () => {
+    const targetId = targetUserId || selectedContact?._id || chatId;
+    await deleteChat(chatId, targetId);
+    setSelectedContact?.(null);
+    setCurrentConversation?.(null);
+    try {
+      useLayoutStore.getState().setSelectedContact(null);
+    } catch { }
+    toast.success("Chat deleted");
+    setShowDeleteConfirm(false);
+  };
+
   const handleConfirmBlock = ({ report } = {}) => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (!targetId) return;
     blockContact(targetId);
     if (report) {
@@ -227,18 +248,32 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const disappearingDuration =
     (activeChatId && disappearingDurations?.[activeChatId]) ||
+    (selectedContact?.conversation?.disappearingDuration &&
+      selectedContact.conversation.disappearingDuration !== "Off"
+      ? selectedContact.conversation.disappearingDuration
+      : null) ||
     defaultMessageTimer ||
     "Off";
 
   const chatDisappearingEvents = useMemo(() => {
     if (!activeChatId) return [];
-    const events = disappearingEvents?.[activeChatId] || [];
-    if (events.length === 0 && disappearingDuration && disappearingDuration !== "Off") {
+    const convId = (selectedContact?.conversation?._id || selectedContact?.conversation)?.toString();
+    const contactId = selectedContact?._id?.toString();
+    const storedEvents =
+      (convId && disappearingEvents?.[convId]?.length > 0 && disappearingEvents[convId]) ||
+      (contactId && disappearingEvents?.[contactId]?.length > 0 && disappearingEvents[contactId]) ||
+      disappearingEvents?.[activeChatId] ||
+      [];
+    if (storedEvents.length === 0 && disappearingDuration && disappearingDuration !== "Off") {
       const rawMsgs = Array.isArray(messages) ? messages : [];
       const earliestMsgTime =
         rawMsgs.length > 0 && rawMsgs[0]?.createdAt
           ? new Date(new Date(rawMsgs[0].createdAt).getTime() - 2000).toISOString()
           : new Date(Date.now() - 3600000).toISOString();
+      const effectiveSetBy =
+        selectedContact?.conversation?.disappearingSetBy?._id ||
+        selectedContact?.conversation?.disappearingSetBy ||
+        null;
       return [
         {
           _id: `disp_init_${activeChatId}`,
@@ -248,12 +283,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           previousDuration: "Off",
           createdAt: earliestMsgTime,
           timestamp: new Date(earliestMsgTime).getTime(),
-          setBy: user?._id || null,
+          setBy: effectiveSetBy,
         },
       ];
     }
-    return events;
-  }, [activeChatId, disappearingEvents, disappearingDuration, messages, user?._id]);
+    return storedEvents;
+  }, [
+    activeChatId,
+    selectedContact,
+    disappearingEvents,
+    disappearingDuration,
+    messages,
+  ]);
 
   const combinedMessages = useMemo(() => {
     const rawMsgs = Array.isArray(messages) ? messages : [];
@@ -304,7 +345,50 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       });
     }
 
+    if (
+      !pin &&
+      selectedContact?.conversation?.pinnedMessage &&
+      selectedContact.conversation.pinnedMessage.message
+    ) {
+      const convPin = selectedContact.conversation.pinnedMessage;
+      const expires = convPin.expiresAt
+        ? new Date(convPin.expiresAt).getTime()
+        : null;
+      if (!expires || expires > Date.now()) {
+        pin = {
+          message: convPin.message,
+          duration: convPin.duration || "7 days",
+          pinnedAt: convPin.pinnedAt
+            ? new Date(convPin.pinnedAt).getTime()
+            : Date.now(),
+          expiresAt: expires,
+          pinnedBy: convPin.pinnedBy,
+        };
+      }
+    }
+
+    const isMsgDeleted = (msg) => {
+      if (!msg) return true;
+      if (msg.deletedForEveryone) return true;
+      if (
+        msg.content === "This message was deleted" ||
+        msg.content === "You deleted this message"
+      ) {
+        return true;
+      }
+      if (
+        user?._id &&
+        msg.deletedFor &&
+        Array.isArray(msg.deletedFor) &&
+        msg.deletedFor.some((id) => String(id) === String(user._id))
+      ) {
+        return true;
+      }
+      return false;
+    };
+
     if (!pin || !pin.message) return null;
+    if (isMsgDeleted(pin.message)) return null;
     if (pin.expiresAt && pin.expiresAt <= Date.now()) return null;
 
     if (pin.message?._id && Array.isArray(messages)) {
@@ -326,6 +410,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     selectedContact?._id,
     selectedContact?.conversation,
     messages,
+    user?._id,
   ]);
 
   const selectedMsgsList = useMemo(() => {
@@ -517,8 +602,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (msg.contentType === "document") {
       return msg.fileName ? `📄 ${msg.fileName}` : "📄 Document";
     }
-    if (msg.contentType === "poll") {
-      return `📊 ${msg.pollData?.question || "Poll"}`;
+    if (msg.contentType === "poll" || msg.pollData || msg.poll) {
+      const q =
+        msg.pollData?.question ||
+        msg.poll?.question ||
+        (typeof msg.content === "string" ? msg.content.replace(/^Poll:\s*/, "") : "Poll");
+      return `📊 ${q}`;
     }
     if (msg.contentType === "event") {
       return `📅 ${msg.eventData?.eventName || "Event"}`;
@@ -1084,7 +1173,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     setIsSending(true);
     try {
-      const status = online ? "delivered" : "send";
+      const receiverId = targetUserId || selectedContact?._id;
       const replyData = replyingTo
         ? {
           _id: replyingTo._id,
@@ -1101,8 +1190,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           const item = selectedFiles[i];
           const formData = new FormData();
           formData.append("senderId", user?._id);
-          formData.append("receiverId", selectedContact?._id);
-          formData.append("messageStatus", status);
+          formData.append("receiverId", receiverId);
+          formData.append("messageStatus", "send");
           formData.append("media", item.file);
           formData.append("fileName", item.name);
           formData.append("fileSize", item.size);
@@ -1124,8 +1213,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       } else if (trimmedMessage) {
         const formData = new FormData();
         formData.append("senderId", user?._id);
-        formData.append("receiverId", selectedContact?._id);
-        formData.append("messageStatus", status);
+        formData.append("receiverId", receiverId);
+        formData.append("messageStatus", "send");
         formData.append("content", trimmedMessage);
         formData.append("contentType", "text");
         if (replyData) {
@@ -1179,8 +1268,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", selectedContact?._id);
-      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("messageStatus", "send");
       formData.append("contentType", "poll");
       formData.append("content", question.trim());
       formData.append(
@@ -1205,8 +1294,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", selectedContact?._id);
-      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("messageStatus", "send");
       formData.append("contentType", "contact");
       formData.append("content", `Contact: ${contactInfo.name}`);
       formData.append("contactData", JSON.stringify(contactInfo));
@@ -1222,8 +1311,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", selectedContact?._id);
-      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("messageStatus", "send");
       formData.append("contentType", "event");
       formData.append("content", `Event: ${eventInfo.title}`);
       formData.append("eventData", JSON.stringify(eventInfo));
@@ -1280,8 +1369,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", selectedContact?._id);
-      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("messageStatus", "send");
       formData.append("contentType", "sticker");
       formData.append("content", "Sticker");
 
@@ -1307,9 +1396,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         : "turned_on";
     const duration = isEvent ? eventData.duration : disappearingDuration;
     const isOff = duration === "Off" || action === "turned_off";
-    const isByMe =
-      !eventData?.setBy ||
-      String(eventData?.setBy?._id || eventData?.setBy) === String(user?._id);
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const setById = (
+      eventData?.setBy?._id ||
+      eventData?.setBy?.id ||
+      eventData?.setBy ||
+      selectedContact?.conversation?.disappearingSetBy?._id ||
+      selectedContact?.conversation?.disappearingSetBy
+    )?.toString();
+    const isByMe = Boolean(setById && currentUserId && setById === currentUserId);
     const actor = isByMe ? "You" : (selectedContact?.username || "Contact");
 
     let text;
@@ -1373,9 +1468,22 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       dateString = format(date, "EEEE, MMMM d");
     }
 
-    const isPinnedByMe =
-      !activePin?.pinnedBy ||
-      String(activePin?.pinnedBy?._id || activePin?.pinnedBy) === String(user?._id);
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const pinnedById = (
+      activePin?.pinnedBy?._id ||
+      activePin?.pinnedBy?.id ||
+      activePin?.pinnedBy
+    )?.toString();
+
+    let isPinnedByMe = false;
+    if (pinnedById && currentUserId) {
+      isPinnedByMe = pinnedById === currentUserId;
+    } else if (activePin?.message) {
+      const msgSender = (
+        activePin.message?.sender?._id || activePin.message?.sender
+      )?.toString();
+      isPinnedByMe = Boolean(msgSender && currentUserId && msgSender === currentUserId);
+    }
 
     return (
       <div className="flex flex-col items-center justify-center my-2 select-none gap-2">
@@ -1388,30 +1496,37 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           {dateString}
         </span>
 
-        {includePinNotification && activePin?.message && (
-          <button
-            type="button"
-            onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
-            className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-all duration-200 cursor-pointer active:scale-95 ${theme === "dark"
-              ? "bg-[#182229] hover:bg-[#202c33] text-[#8696a0] hover:text-[#d1d7db]"
-              : "bg-white hover:bg-gray-50 text-[#54656f] border border-black/5"
-              }`}
-            title="Click to jump to pinned message"
-          >
-            {isPinnedByMe
-              ? "You pinned a message"
-              : `${selectedContact?.username || "Contact"} pinned a message`}
-          </button>
-        )}
+        {includePinNotification && activePin?.message && (() => {
+          const { text: pinNoticeText } = getPinActorAndLabel(
+            activePin,
+            user?._id || user?.id,
+            selectedContact?.username,
+          );
+          return (
+            <button
+              type="button"
+              onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
+              className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-all duration-200 cursor-pointer active:scale-95 ${theme === "dark"
+                ? "bg-[#182229] hover:bg-[#202c33] text-[#8696a0] hover:text-[#d1d7db]"
+                : "bg-white hover:bg-gray-50 text-[#54656f] border border-black/5"
+                }`}
+              title="Click to jump to pinned message"
+            >
+              {pinNoticeText}
+            </button>
+          );
+        })()}
       </div>
     );
   };
 
   const renderPinSystemNotification = () => {
     if (!activePin || !activePin.message) return null;
-    const isPinnedByMe =
-      !activePin.pinnedBy ||
-      String(activePin.pinnedBy?._id || activePin.pinnedBy) === String(user?._id);
+    const { text: pinNoticeText } = getPinActorAndLabel(
+      activePin,
+      user?._id || user?.id,
+      selectedContact?.username,
+    );
 
     return (
       <div className="flex justify-center my-1 select-none">
@@ -1424,9 +1539,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             }`}
           title="Click to jump to pinned message"
         >
-          {isPinnedByMe
-            ? "You pinned a message"
-            : `${selectedContact?.username || "Contact"} pinned a message`}
+          {pinNoticeText}
         </button>
       </div>
     );
@@ -1699,110 +1812,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         />
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-          {isBlocked && (
-            <div
-              className={`h-[42px] px-4 flex items-center justify-between border-b transition-colors duration-150 select-none z-20 shrink-0 relative group ${theme === "dark"
-                ? "bg-[#111b21] hover:bg-[#182229] border-[#222d34] text-[#e9edef]"
-                : "bg-[#f0f2f5] hover:bg-[#eaecef] border-[#e9edef] text-[#111b21]"
-                }`}
-            >
-              <div className="flex items-center gap-2.5 overflow-hidden min-w-0 pr-2">
-                <MdBlock size={15} className="shrink-0 text-red-400" />
-                <span
-                  className={`text-[13.5px] truncate font-medium ${theme === "dark" ? "text-[#d1d7db]" : "text-gray-800"
-                    }`}
-                >
-                  You blocked this contact.
-                </span>
-              </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleUnblockContact}
-                  className="px-2.5 py-1 text-[13px] font-semibold text-[#00a884] hover:text-[#06cf9c] hover:bg-[#00a884]/10 rounded-lg transition-all cursor-pointer"
-                >
-                  Unblock
-                </button>
-                <span className="text-[#8696a0]/40 text-xs">|</span>
-                <button
-                  type="button"
-                  onClick={() => setShowReportModal(true)}
-                  className="px-2.5 py-1 text-[13px] font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
-                >
-                  Report
-                </button>
-
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowBlockedMenu((prev) => !prev);
-                    }}
-                    className={`p-1 rounded-full text-[#8696a0] ${theme === "dark"
-                      ? "hover:text-white hover:bg-white/10"
-                      : "hover:text-black hover:bg-black/10"
-                      } transition-all cursor-pointer ${showBlockedMenu ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                      }`}
-                    title="Options"
-                  >
-                    {showBlockedMenu ? (
-                      <MdKeyboardArrowUp size={22} />
-                    ) : (
-                      <MdKeyboardArrowDown size={22} />
-                    )}
-                  </button>
-
-                  <AnimatePresence>
-                    {showBlockedMenu && (
-                      <motion.div
-                        ref={blockedMenuRef}
-                        initial={{ opacity: 0, scale: 0.95, y: -2 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -2 }}
-                        transition={{ duration: 0.12 }}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`absolute right-0 top-[38px] z-50 min-w-[170px] rounded-xl shadow-2xl py-1.5 border select-none ${theme === "dark"
-                          ? "bg-[#233138] border-white/10 text-[#d1d7db]"
-                          : "bg-white border-black/10 text-[#111b21]"
-                          }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowBlockedMenu(false);
-                            handleUnblockContact();
-                          }}
-                          className={`w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
-                            ? "hover:bg-[#182229] hover:text-white"
-                            : "hover:bg-[#f5f6f6] text-[#111b21]"
-                            }`}
-                        >
-                          <MdBlock size={18} className="text-[#00a884] shrink-0" />
-                          <span>Unblock</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowBlockedMenu(false);
-                            setShowReportModal(true);
-                          }}
-                          className={`w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
-                            ? "hover:bg-[#182229] hover:text-red-400"
-                            : "hover:bg-[#f5f6f6] text-red-500"
-                            }`}
-                        >
-                          <MdThumbDown size={18} className="text-red-400 shrink-0" />
-                          <span>Report contact</span>
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </div>
-          )}
 
           {activePin && (
             <div
@@ -2195,18 +2205,31 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             </div>
           ) : isBlocked ? (
             <div
-              className={`p-3.5 sm:p-4 select-none flex items-center justify-center gap-2 text-center text-sm border-t transition-colors ${theme === "dark"
-                ? "bg-[#202c33] border-[#222d34] text-[#8696a0]"
-                : "bg-[#f0f2f5] border-gray-200 text-[#54656f]"
+              className={`p-3 sm:p-4 select-none flex items-center justify-center gap-3.5 sm:gap-4 border-t transition-colors ${theme === "dark"
+                ? "bg-[#202c33] border-[#222d34]"
+                : "bg-[#f0f2f5] border-gray-200"
                 }`}
             >
-              <span>You blocked this contact.</span>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2 rounded-full border border-gray-300 dark:border-white/15 hover:bg-red-500/10 active:scale-95 transition-all cursor-pointer select-none"
+              >
+                <RiDeleteBin6Line className="text-[17px] text-[#ea868f] shrink-0" />
+                <span className="text-[#ea868f] font-medium text-[14px] sm:text-[14.5px]">
+                  Delete chat
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleUnblockContact}
-                className="text-[#00a884] hover:underline font-semibold cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2 rounded-full border border-gray-300 dark:border-white/15 hover:bg-[#00a884]/10 active:scale-95 transition-all cursor-pointer select-none"
               >
-                Tap to unblock
+                <MdBlock className="text-[17px] text-[#00a884] shrink-0" />
+                <span className="text-[#00a884] font-medium text-[14px] sm:text-[14.5px]">
+                  Unblock
+                </span>
               </button>
             </div>
           ) : (
@@ -2818,6 +2841,53 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         contactName={selectedContact?.username || "contact"}
         theme={theme}
       />
+
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/65 backdrop-blur-[2px]"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 8 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-[360px] sm:max-w-[400px] rounded-2xl p-6 shadow-2xl border select-none ${theme === "dark"
+                ? "bg-[#233138] border-white/10 text-white"
+                : "bg-white border-black/10 text-gray-900"
+              }`}
+          >
+            <h3 className="text-lg font-semibold mb-2">Delete this chat?</h3>
+            <p
+              className={`text-sm mb-6 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                }`}
+            >
+              Messages will be deleted for you. This chat will be removed from your chats list.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${theme === "dark"
+                    ? "hover:bg-white/10 text-gray-300"
+                    : "hover:bg-black/5 text-gray-600"
+                  }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteDeleteChat}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors cursor-pointer shadow-sm active:scale-95"
+              >
+                Delete chat
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </>
   );
 };

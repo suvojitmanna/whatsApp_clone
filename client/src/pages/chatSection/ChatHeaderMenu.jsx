@@ -24,9 +24,8 @@ import {
 import { RxCrossCircled } from "react-icons/rx";
 import { RiDeleteBin6Line } from "react-icons/ri";
 import { toast } from "react-toastify";
-import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
-import { useChatStore } from "../../store/chatStore";
+import { useChatStore, getTargetUserId } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
 import ReportModal from "../../components/ReportModal";
 import BlockModal from "../../components/BlockModal";
@@ -93,20 +92,26 @@ const ChatHeaderMenu = ({
     return typeof val === "number" && val > Date.now();
   }, [chatId, mutedChats]);
 
-  const { blockedContacts, blockContact, unblockContact } = useChatStore();
+  const { blockedContacts, blockContact, unblockContact, clearChat, deleteChat } =
+    useChatStore();
   const [showBlockModal, setShowBlockModal] = useState(false);
+
+  const targetUserId = useMemo(() => {
+    return getTargetUserId(selectedContact, user?._id);
+  }, [selectedContact, user?._id]);
 
   const isBlocked = useMemo(() => {
     if (!blockedContacts || blockedContacts.length === 0) return false;
     const candidates = [
+      targetUserId,
       chatId,
       selectedContact?._id,
       selectedContact?.id,
       selectedContact?.conversation?._id,
       selectedContact?.conversation,
     ].filter(Boolean).map(String);
-    return candidates.some((id) => blockedContacts.includes(id));
-  }, [chatId, selectedContact, blockedContacts]);
+    return candidates.some((id) => blockedContacts.map(String).includes(id));
+  }, [chatId, selectedContact, blockedContacts, targetUserId]);
 
   const [disappearingSettings, setDisappearingSettings] = useState(() => {
     try {
@@ -285,20 +290,19 @@ const ChatHeaderMenu = ({
   };
 
   const handleToggleBlock = () => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (!targetId) return;
     if (isBlocked) {
-      unblockContact(targetId);
+      unblockContact(targetId, chatId);
       toast.success("Contact unblocked");
       onClose();
     } else {
       setShowBlockModal(true);
-      onClose();
     }
   };
 
   const handleConfirmBlock = ({ report } = {}) => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (!targetId) return;
     blockContact(targetId);
     if (report) {
@@ -307,42 +311,21 @@ const ChatHeaderMenu = ({
       toast.success("Contact blocked");
     }
     setShowBlockModal(false);
+    onClose();
   };
 
-  const handleExecuteClearChat = () => {
-    useChatStore.setState((state) => {
-      const nextCache = new Map(state.messagesCache || new Map());
-      if (chatId) nextCache.set(String(chatId), []);
-      return {
-        messages: [],
-        messagesCache: nextCache,
-      };
-    });
+  const handleExecuteClearChat = async () => {
+    const targetId = targetUserId || selectedContact?._id;
+    await clearChat(chatId, targetId);
     toast.success("Chat cleared");
     setConfirmDialog(null);
     onClose();
   };
 
-  const handleExecuteDeleteChat = () => {
-    useChatStore.setState((state) => {
-      const nextCache = new Map(state.messagesCache || new Map());
-      if (chatId) nextCache.delete(String(chatId));
-      return {
-        messages: [],
-        messagesCache: nextCache,
-        conversations: {
-          ...state.conversations,
-          data: (state.conversations?.data || []).filter(
-            (c) => c._id?.toString() !== chatId
-          ),
-        },
-      };
-    });
+  const handleExecuteDeleteChat = async () => {
+    const targetId = targetUserId || selectedContact?._id;
+    await deleteChat(chatId, targetId);
     setSelectedContact?.(null);
-    setCurrentConversation?.(null);
-    try {
-      useLayoutStore.getState().setSelectedContact(null);
-    } catch { }
     toast.success("Chat deleted");
     setConfirmDialog(null);
     onClose();
@@ -912,7 +895,10 @@ const ChatHeaderMenu = ({
 
       <BlockModal
         isOpen={showBlockModal}
-        onClose={() => setShowBlockModal(false)}
+        onClose={() => {
+          setShowBlockModal(false);
+          onClose();
+        }}
         onBlock={handleConfirmBlock}
         contactName={contactName}
         theme={theme}

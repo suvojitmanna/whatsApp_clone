@@ -6,6 +6,7 @@ import useLayoutStore from "../store/layoutStore";
 import { FaWhatsapp, FaUserCircle, FaCog } from "react-icons/fa";
 import { MdRadioButtonChecked } from "react-icons/md";
 import { motion } from "framer-motion";
+import { WhatsAppMediaFolderIcon } from "./Media";
 
 const sideBar = () => {
   const location = useLocation();
@@ -67,6 +68,17 @@ const sideBar = () => {
             title="Status"
           >
             <MdRadioButtonChecked className="h-6 w-6" />
+          </motion.div>
+        </Link>
+
+        <Link to="/media" title="Media, links and docs" aria-label="Media, links and docs">
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            className={getIconClass("media")}
+            title="Media, links and docs"
+          >
+            <WhatsAppMediaFolderIcon size={23} />
           </motion.div>
         </Link>
       </div>

@@ -41,8 +41,8 @@ const ChatHeader = ({
     <div
       onContextMenu={handleChatContextMenu}
       className={`px-3 py-2 sm:px-4 sm:py-2.5 min-h-[58px] border-b shrink-0 z-30 ${theme === "dark"
-          ? "bg-[#202c33] border-gray-700/60 text-white"
-          : "bg-[#f0f2f5] border-gray-200 text-gray-900"
+        ? "bg-[#202c33] border-gray-700/60 text-white"
+        : "bg-[#f0f2f5] border-gray-200 text-gray-900"
         } flex items-center`}
     >
       <button
@@ -75,6 +75,16 @@ const ChatHeader = ({
               } bg-emerald-500 shadow-sm`}
             title="Online"
           ></span>
+        )}
+
+        {disappearingDuration && disappearingDuration !== "Off" && (
+          <span
+            className={`absolute bottom-0 ${online ? "left-0" : "right-0"} w-4 h-4 rounded-full border ${theme === "dark" ? "border-[#202c33] bg-[#111b21]" : "border-white bg-[#f0f2f5]"
+              } flex items-center justify-center text-[#8696a0] shadow-sm`}
+            title={`Disappearing messages: ${disappearingDuration}`}
+          >
+            <WhatsAppDisappearingIcon size={10} />
+          </span>
         )}
       </div>
 
@@ -141,8 +151,8 @@ const ChatHeader = ({
             onClick={() => setIsSearchOpen(true)}
             title="Search in chat"
             className={`${isSearchOpen
-                ? "opacity-0 pointer-events-none scale-90"
-                : "opacity-100 scale-100"
+              ? "opacity-0 pointer-events-none scale-90"
+              : "opacity-100 scale-100"
               } group relative p-2 rounded-xl transition-all duration-300 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-xl before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-white/40 before:to-transparent before:opacity-60 before:pointer-events-none border border-white/30 dark:border-white/10 hover:border-green-400/40 shadow-[0_2px_15px_rgba(0,0,0,0.06)]
           hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)] active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-600/50`}
           >
@@ -151,8 +161,8 @@ const ChatHeader = ({
 
           <div
             className={`absolute right-0 origin-right transition-all duration-300 ${isSearchOpen
-                ? "w-60 sm:w-64 scale-100 opacity-100"
-                : "w-0 scale-95 opacity-0 pointer-events-none"
+              ? "w-60 sm:w-64 scale-100 opacity-100"
+              : "w-0 scale-95 opacity-0 pointer-events-none"
               }`}
           >
             <div className="relative flex flex-col">
@@ -181,8 +191,8 @@ const ChatHeader = ({
 
                 <FiSearch
                   className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 transition-all duration-300 ${theme === "dark"
-                      ? "text-gray-500 group-focus-within:text-emerald-400"
-                      : "text-gray-400 group-focus-within:text-emerald-500"
+                    ? "text-gray-500 group-focus-within:text-emerald-400"
+                    : "text-gray-400 group-focus-within:text-emerald-500"
                     }`}
                 />
 
@@ -194,8 +204,8 @@ const ChatHeader = ({
                   }}
                   title="Close search"
                   className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 ${theme === "dark"
-                      ? "text-gray-400 hover:text-emerald-400 hover:bg-white/10"
-                      : "text-gray-500 hover:text-emerald-500 hover:bg-black/5"
+                    ? "text-gray-400 hover:text-emerald-400 hover:bg-white/10"
+                    : "text-gray-500 hover:text-emerald-500 hover:bg-black/5"
                     }`}
                 >
                   <RxCross2 className="h-3.5 w-3.5 cursor-pointer" />

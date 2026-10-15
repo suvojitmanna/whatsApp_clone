@@ -11,14 +11,146 @@ import {
   FaHeadphones,
   FaFileAlt,
 } from "react-icons/fa";
-import { FaSquarePollHorizontal } from "react-icons/fa6";
-import { MdEventNote } from "react-icons/md";
+import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
+import { MdEventNote, MdAccessTime } from "react-icons/md";
+import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
 import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
-import { WhatsAppPinIcon } from "./MessageBuble";
+import { WhatsAppPinIcon, WhatsAppDisappearingIcon } from "./MessageBuble";
+
+export const getPinnedItemTypeAndLabel = (msg) => {
+  if (!msg) return { type: "message", target: "a message" };
+
+  const contentType = msg.contentType;
+  const content = typeof msg.content === "string" ? msg.content : "";
+
+  if (
+    contentType === "poll" ||
+    msg.pollData ||
+    msg.poll ||
+    content.startsWith("Poll:")
+  ) {
+    return { type: "poll", target: "a poll" };
+  }
+
+  if (
+    contentType === "image" ||
+    contentType === "photo" ||
+    content === "Photo" ||
+    content.startsWith("Photo:") ||
+    (!contentType && msg.imageOrVideoUrl && !msg.imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i))
+  ) {
+    return { type: "photo", target: "a photo" };
+  }
+
+  if (
+    contentType === "video" ||
+    content === "Video" ||
+    content.startsWith("Video:") ||
+    (!contentType && msg.imageOrVideoUrl && msg.imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i))
+  ) {
+    return { type: "video", target: "a video" };
+  }
+
+  if (
+    contentType === "audio" ||
+    msg.audioUrl ||
+    content === "Voice message" ||
+    content.startsWith("Audio:")
+  ) {
+    return { type: "audio", target: "an audio" };
+  }
+
+  if (
+    contentType === "document" ||
+    contentType === "file" ||
+    msg.fileName ||
+    msg.fileUrl ||
+    content.startsWith("Document:")
+  ) {
+    let docName = msg.fileName;
+    if (!docName && content.startsWith("Document:")) {
+      docName = content.replace(/^Document:\s*/, "");
+    }
+    if (docName) {
+      const clean = docName.replace(/^Document:\s*/i, "").trim();
+      const display = clean.length > 25 ? clean.slice(0, 22) + "..." : clean;
+      return { type: "document", target: display || "a document" };
+    }
+    return { type: "document", target: "a document" };
+  }
+  if (contentType === "sticker" || content === "Sticker") {
+    return { type: "sticker", target: "a sticker" };
+  }
+  if (contentType === "contact" || msg.contactData || content.startsWith("Contact:")) {
+    return { type: "contact", target: "a contact" };
+  }
+
+  if (
+    contentType === "event" ||
+    (msg.eventData && Object.keys(msg.eventData).length > 0) ||
+    content.startsWith("Event:")
+  ) {
+    return { type: "event", target: "an event" };
+  }
+  if (contentType === "location" || msg.locationData || content.startsWith("Location:")) {
+    return { type: "location", target: "a location" };
+  }
+
+  return { type: "message", target: "a message" };
+};
+
+export const getPinActorAndLabel = (pin, currentUserId, defaultUsername = "Contact") => {
+  if (!pin) return { isMe: false, actor: "You", target: "a message", text: "You pinned a message" };
+
+  const currentUidStr = (currentUserId?._id || currentUserId?.id || currentUserId)?.toString();
+  const pinnedById = (
+    pin.pinnedBy?._id ||
+    pin.pinnedBy?.id ||
+    pin.pinnedBy
+  )?.toString();
+
+  let isMe = false;
+  if (pinnedById && currentUidStr) {
+    isMe = pinnedById === currentUidStr;
+  } else if (pin.message) {
+    const msgSender = (
+      pin.message?.sender?._id || pin.message?.sender
+    )?.toString();
+    isMe = Boolean(msgSender && currentUidStr && msgSender === currentUidStr);
+  }
+
+  const actor = isMe ? "You" : (pin.pinnedBy?.username || defaultUsername || "Contact");
+
+  let msg = pin.message;
+  if (!msg || typeof msg === "string" || !msg.contentType) {
+    const msgId = typeof msg === "string" ? msg : msg?._id;
+    if (msgId) {
+      const chatMsgs = useChatStore.getState().messages || {};
+      for (const mList of Object.values(chatMsgs)) {
+        if (Array.isArray(mList)) {
+          const match = mList.find((m) => String(m._id || m.id) === String(msgId));
+          if (match) {
+            msg = match;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  const { target } = getPinnedItemTypeAndLabel(msg);
+
+  return {
+    isMe,
+    actor,
+    target,
+    text: `${actor} pinned ${target}`,
+  };
+};
 
 const getContactPin = (contact, pinnedMessages) => {
   if (!contact) return null;
@@ -46,41 +178,67 @@ const getContactPin = (contact, pinnedMessages) => {
     return false;
   };
 
+  let pin = null;
   if (contact.conversation?.pinnedMessage && contact.conversation.pinnedMessage.message) {
-    const pin = contact.conversation.pinnedMessage;
-    const expires = pin.expiresAt
-      ? new Date(pin.expiresAt).getTime()
+    const rawPin = contact.conversation.pinnedMessage;
+    const expires = rawPin.expiresAt
+      ? new Date(rawPin.expiresAt).getTime()
       : null;
     if (!expires || expires > Date.now()) {
-      if (!isMsgDeleted(pin.message)) {
-        return pin;
+      if (!isMsgDeleted(rawPin.message)) {
+        pin = { ...rawPin };
       }
     }
   }
 
-  if (!pinnedMessages) return null;
+  if (!pin && pinnedMessages) {
+    pin =
+      (convId && pinnedMessages[convId]) ||
+      (contactId && pinnedMessages[contactId]);
 
-  let pin =
-    (convId && pinnedMessages[convId]) ||
-    (contactId && pinnedMessages[contactId]);
-
-  if (!pin) {
-    const allPins = Object.values(pinnedMessages || {});
-    pin = allPins.find((p) => {
-      if (!p?.message) return false;
-      const msgConv = (p.message.conversation?._id || p.message.conversation || p.message.conversationId)?.toString();
-      const msgSender = (p.message.sender?._id || p.message.sender)?.toString();
-      const msgReceiver = (p.message.receiver?._id || p.message.receiver)?.toString();
-      return (
-        (convId && msgConv === convId) ||
-        (contactId && (msgSender === contactId || msgReceiver === contactId))
-      );
-    });
+    if (!pin) {
+      const allPins = Object.values(pinnedMessages || {});
+      pin = allPins.find((p) => {
+        if (!p?.message) return false;
+        const msgConv = (p.message.conversation?._id || p.message.conversation || p.message.conversationId)?.toString();
+        const msgSender = (p.message.sender?._id || p.message.sender)?.toString();
+        const msgReceiver = (p.message.receiver?._id || p.message.receiver)?.toString();
+        return (
+          (convId && msgConv === convId) ||
+          (contactId && (msgSender === contactId || msgReceiver === contactId))
+        );
+      });
+    }
+    if (pin) {
+      pin = { ...pin };
+    }
   }
 
   if (!pin || !pin.message) return null;
   if (isMsgDeleted(pin.message)) return null;
   if (pin.expiresAt && new Date(pin.expiresAt).getTime() <= Date.now()) return null;
+  if (typeof pin.message === "string" || !pin.message?.contentType) {
+    const storePin =
+      (convId && pinnedMessages?.[convId]) ||
+      (contactId && pinnedMessages?.[contactId]);
+    if (storePin?.message && typeof storePin.message === "object" && storePin.message.contentType) {
+      pin.message = storePin.message;
+    } else {
+      const msgId = typeof pin.message === "string" ? pin.message : pin.message?._id;
+      if (msgId) {
+        const chatMsgs = useChatStore.getState().messages;
+        const msgs =
+          (convId && chatMsgs?.[convId]) ||
+          (contactId && chatMsgs?.[contactId]) ||
+          [];
+        const found = msgs.find((m) => String(m._id || m.id) === String(msgId));
+        if (found) {
+          pin.message = found;
+        }
+      }
+    }
+  }
+
   return pin;
 };
 
@@ -351,6 +509,7 @@ const ChatList = ({ contacts }) => {
   const setSelectedContact = useLayoutStore(
     (state) => state.setSelectedContact,
   );
+  const disappearingDurations = useLayoutStore((state) => state.disappearingDurations);
   const chatListScrollTop = useLayoutStore((state) => state.chatListScrollTop);
   const setChatListScrollTop = useLayoutStore(
     (state) => state.setChatListScrollTop,
@@ -377,6 +536,7 @@ const ChatList = ({ contacts }) => {
           ? new Date(a.conversation.lastMessage.createdAt).getTime()
           : (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0),
         pinA?.pinnedAt ? new Date(pinA.pinnedAt).getTime() : 0,
+        a?.conversation?.disappearingUpdatedAt ? new Date(a.conversation.disappearingUpdatedAt).getTime() : 0,
       );
 
       const timeB = Math.max(
@@ -384,6 +544,7 @@ const ChatList = ({ contacts }) => {
           ? new Date(b.conversation.lastMessage.createdAt).getTime()
           : (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0),
         pinB?.pinnedAt ? new Date(pinB.pinnedAt).getTime() : 0,
+        b?.conversation?.disappearingUpdatedAt ? new Date(b.conversation.disappearingUpdatedAt).getTime() : 0,
       );
       return timeB - timeA;
     });
@@ -484,6 +645,28 @@ const ChatList = ({ contacts }) => {
             const isTyping = isUserTyping(conversationId, contact?._id);
             const contactPin = getContactPin(contact, pinnedMessages);
 
+            const convId = (contact?.conversation?._id || contact?.conversation)?.toString();
+            const contactId = contact?._id?.toString();
+            const disappearingDuration =
+              (convId && disappearingDurations?.[convId]) ||
+              (contactId && disappearingDurations?.[contactId]) ||
+              contact?.conversation?.disappearingDuration ||
+              "Off";
+            const hasDisappearing = disappearingDuration && disappearingDuration !== "Off";
+
+            const lastMsg = contact?.conversation?.lastMessage;
+            const preview = getLastMessagePreview(lastMsg);
+
+            const lastMsgTime = lastMsg?.createdAt
+              ? new Date(lastMsg.createdAt).getTime()
+              : (contact?.conversation?.updatedAt ? new Date(contact.conversation.updatedAt).getTime() : 0);
+            const pinTime = contactPin?.pinnedAt ? new Date(contactPin.pinnedAt).getTime() : 0;
+            const disappearingTime = contact?.conversation?.disappearingUpdatedAt
+              ? new Date(contact.conversation.disappearingUpdatedAt).getTime()
+              : 0;
+
+            const latestTimestamp = Math.max(lastMsgTime, pinTime, disappearingTime);
+
             return (
               <motion.div
                 key={contact._id}
@@ -505,21 +688,32 @@ const ChatList = ({ contacts }) => {
                     : "hover:bg-gray-100"
                   }`}
               >
-                <img
-                  src={contact?.profilePicture}
-                  alt={contact?.username}
-                  className="w-12 h-12 rounded-full"
-                />
+                <div className="relative shrink-0">
+                  <img
+                    src={contact?.profilePicture || "/default-avatar.png"}
+                    alt={contact?.username}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  {hasDisappearing && (
+                    <span
+                      className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border ${theme === "dark" ? "border-[#111b21] bg-[#202c33]" : "border-white bg-[#f0f2f5]"
+                        } flex items-center justify-center text-[#8696a0] shadow-sm`}
+                      title={`Disappearing messages: ${disappearingDuration}`}
+                    >
+                      <WhatsAppDisappearingIcon size={10} />
+                    </span>
+                  )}
+                </div>
 
                 <div className="ml-3 flex-1 min-w-0">
                   <div className="flex justify-between items-baseline gap-2">
                     <h2 className="font-semibold truncate">{contact?.username}</h2>
-                    {(contact?.conversation || contactPin) && (
+                    {(contact?.conversation || contactPin || hasDisappearing) && (
                       <span
                         className={`text-xs shrink-0 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
                       >
                         {formatTimestamp(
-                          contactPin?.pinnedAt || contact?.conversation?.lastMessage?.createdAt,
+                          latestTimestamp || contactPin?.pinnedAt || contact?.conversation?.lastMessage?.createdAt,
                         )}
                       </span>
                     )}
@@ -530,9 +724,6 @@ const ChatList = ({ contacts }) => {
                         }`}
                     >
                       {(() => {
-                        const lastMsg = contact?.conversation?.lastMessage;
-                        const preview = getLastMessagePreview(lastMsg);
-
                         if (isTyping) {
                           return (
                             <span className="font-medium text-emerald-500 flex-shrink-0">
@@ -541,28 +732,37 @@ const ChatList = ({ contacts }) => {
                           );
                         }
 
-                        if (contactPin) {
+                        if (
+                          disappearingTime > 0 &&
+                          disappearingTime > lastMsgTime &&
+                          disappearingTime >= pinTime
+                        ) {
                           const currentUserId = (user?._id || user?.id)?.toString();
-                          const contactId = contact?._id?.toString();
-                          const pinnedById = (
-                            contactPin.pinnedBy?._id ||
-                            contactPin.pinnedBy?.id ||
-                            contactPin.pinnedBy
+                          const setById = (
+                            contact?.conversation?.disappearingSetBy?._id ||
+                            contact?.conversation?.disappearingSetBy
                           )?.toString();
+                          const isSetByMe = Boolean(currentUserId && setById && setById === currentUserId);
+                          const isOff = disappearingDuration === "Off";
+                          const dispText = isSetByMe
+                            ? (isOff ? "You turned off disappearing messages" : "You turned on disappearing messages")
+                            : (isOff ? `${contact?.username || "Contact"} turned off disappearing messages` : `${contact?.username || "Contact"} turned on disappearing messages`);
 
-                          let isPinnedByMe = false;
-                          if (pinnedById) {
-                            isPinnedByMe = pinnedById === currentUserId;
-                          } else if (contactPin.message) {
-                            const msgSender = (
-                              contactPin.message?.sender?._id || contactPin.message?.sender
-                            )?.toString();
-                            isPinnedByMe = msgSender === currentUserId;
-                          }
+                          return (
+                            <span className="flex items-center gap-1.5 truncate text-[#8696a0]">
+                              <WhatsAppDisappearingIcon size={12} className="inline shrink-0 text-[#8696a0]" />
+                              <span className="truncate">{dispText}</span>
+                            </span>
+                          );
+                        }
 
-                          const pinText = isPinnedByMe
-                            ? "You pinned a message"
-                            : `${contact?.username || "Contact"} pinned a message`;
+                        if (contactPin && (pinTime >= lastMsgTime || !preview)) {
+                          const currentUserId = (user?._id || user?.id)?.toString();
+                          const { text: pinText } = getPinActorAndLabel(
+                            contactPin,
+                            currentUserId,
+                            contact?.username,
+                          );
 
                           return (
                             <span className="flex items-center gap-1.5 truncate text-[#8696a0]">
@@ -573,8 +773,72 @@ const ChatList = ({ contacts }) => {
                         }
 
                         if (preview && (preview.text || preview.icon)) {
+                          const currentUserId = (user?._id || user?.id)?.toString();
+                          const lastMsgSenderId = (
+                            lastMsg?.sender?._id ||
+                            lastMsg?.sender
+                          )?.toString();
+                          const isLastMsgFromMe = Boolean(
+                            currentUserId &&
+                            lastMsgSenderId &&
+                            lastMsgSenderId === currentUserId
+                          );
+
                           return (
                             <>
+                              {hasDisappearing && (
+                                <WhatsAppDisappearingIcon
+                                  size={12}
+                                  className="inline mr-1 text-[#8696a0] shrink-0"
+                                  title={`Disappearing messages: ${disappearingDuration}`}
+                                />
+                              )}
+                              {isLastMsgFromMe && !preview.isDeleted && (() => {
+                                const status = lastMsg?.messageStatus || lastMsg?.status;
+                                if (!status || status === "pending" || status === "sending" || lastMsg?.isPending) {
+                                  return (
+                                    <MdAccessTime
+                                      size={11}
+                                      className="inline mr-1 text-[#8696a0] shrink-0"
+                                      title="Sending"
+                                    />
+                                  );
+                                }
+                                if (status === "send" || status === "sent") {
+                                  return (
+                                    <FiCheck
+                                      size={13}
+                                      className="inline mr-1 text-[#8696a0] shrink-0"
+                                      title="Sent"
+                                    />
+                                  );
+                                }
+                                if (status === "delivered") {
+                                  return (
+                                    <FaCheckDouble
+                                      size={12}
+                                      className="inline mr-1 text-[#8696a0] shrink-0"
+                                      title="Delivered"
+                                    />
+                                  );
+                                }
+                                if (status === "read") {
+                                  return (
+                                    <FaCheckDouble
+                                      size={12}
+                                      className="inline mr-1 text-[#53bdeb] shrink-0"
+                                      title="Read"
+                                    />
+                                  );
+                                }
+                                return (
+                                  <FiCheck
+                                    size={13}
+                                    className="inline mr-1 text-[#8696a0] shrink-0"
+                                    title="Sent"
+                                  />
+                                );
+                              })()}
                               {preview.icon}
                               <span className={`truncate ${preview.isDeleted ? "italic opacity-80" : ""}`}>
                                 {preview.text}
@@ -590,6 +854,41 @@ const ChatList = ({ contacts }) => {
                                 </span>
                               )}
                             </>
+                          );
+                        }
+
+                        if (contactPin) {
+                          const currentUserId = (user?._id || user?.id)?.toString();
+                          const { text: pinText } = getPinActorAndLabel(
+                            contactPin,
+                            currentUserId,
+                            contact?.username,
+                          );
+
+                          return (
+                            <span className="flex items-center gap-1.5 truncate text-[#8696a0]">
+                              <WhatsAppPinIcon size={12} className="inline shrink-0 text-[#8696a0]" />
+                              <span className="truncate">{pinText}</span>
+                            </span>
+                          );
+                        }
+
+                        if (hasDisappearing) {
+                          const currentUserId = (user?._id || user?.id)?.toString();
+                          const setById = (
+                            contact?.conversation?.disappearingSetBy?._id ||
+                            contact?.conversation?.disappearingSetBy
+                          )?.toString();
+                          const isSetByMe = Boolean(currentUserId && setById && setById === currentUserId);
+                          const dispText = isSetByMe
+                            ? "You turned on disappearing messages"
+                            : `${contact?.username || "Contact"} turned on disappearing messages`;
+
+                          return (
+                            <span className="flex items-center gap-1.5 truncate text-[#8696a0]">
+                              <WhatsAppDisappearingIcon size={12} className="inline shrink-0 text-[#8696a0]" />
+                              <span className="truncate">{dispText}</span>
+                            </span>
                           );
                         }
 
