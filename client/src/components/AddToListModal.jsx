@@ -105,7 +105,6 @@ const AddToListModal = ({ isOpen, onClose, contact }) => {
 
     const created = createCustomList(trimmed);
     if (created) {
-      // Automatically add this contact to the newly created list
       toggleContactList(contact, created);
       setNewListName("");
       setIsCreating(false);
@@ -137,7 +136,6 @@ const AddToListModal = ({ isOpen, onClose, contact }) => {
               : "bg-white border-gray-200 text-gray-900"
           }`}
         >
-          {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               {contact?.profilePicture ? (
@@ -175,13 +173,10 @@ const AddToListModal = ({ isOpen, onClose, contact }) => {
               <RxCross2 size={20} />
             </button>
           </div>
-
-          {/* Subtitle / Tip */}
           <div className="py-3 px-1 text-[13px] text-[#8696a0] leading-relaxed">
             Organize your conversations into custom lists. Filter chats by list at the top of your chat list.
           </div>
 
-          {/* Lists Selection */}
           <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 py-1 pr-1">
             {lists.map((listName) => {
               const isChecked = activeLists.includes(listName);
@@ -224,8 +219,6 @@ const AddToListModal = ({ isOpen, onClose, contact }) => {
                         <FaTrash size={12} />
                       </button>
                     )}
-
-                    {/* WhatsApp Checkbox */}
                     <div
                       className={`w-5.5 h-5.5 rounded-md flex items-center justify-center transition-all ${
                         isChecked
@@ -242,8 +235,6 @@ const AddToListModal = ({ isOpen, onClose, contact }) => {
               );
             })}
           </div>
-
-          {/* Create New List Accordion / Form */}
           <div className="pt-3 border-t border-white/10 mt-2 shrink-0">
             {isCreating ? (
               <form onSubmit={handleCreateList} className="flex items-center gap-2">
@@ -297,8 +288,6 @@ const AddToListModal = ({ isOpen, onClose, contact }) => {
               </button>
             )}
           </div>
-
-          {/* Done Button */}
           <div className="pt-3 mt-1 flex justify-end shrink-0">
             <button
               type="button"

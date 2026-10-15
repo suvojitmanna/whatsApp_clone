@@ -379,10 +379,30 @@ const ContactInfo = () => {
       } catch { }
     }
 
+    window.dispatchEvent(new Event("whatsapp_lists_changed"));
+
     toast.success(
       isMember ? `Removed from ${listName}` : `Added to ${listName}`
     );
   };
+
+  useEffect(() => {
+    const handleSyncLists = () => {
+      try {
+        const custom = JSON.parse(
+          localStorage.getItem("whatsapp_all_custom_lists") || "[]"
+        );
+        setCustomLists(custom);
+        const map = JSON.parse(
+          localStorage.getItem("whatsapp_contact_lists") || "{}"
+        );
+        if (chatId) setContactLists(map[chatId] || []);
+      } catch {}
+    };
+    window.addEventListener("whatsapp_lists_changed", handleSyncLists);
+    return () =>
+      window.removeEventListener("whatsapp_lists_changed", handleSyncLists);
+  }, [chatId]);
 
   const handleCreateNewList = (e) => {
     e?.preventDefault();
@@ -403,6 +423,7 @@ const ContactInfo = () => {
         JSON.stringify(updatedCustom)
       );
     } catch { }
+    window.dispatchEvent(new Event("whatsapp_lists_changed"));
     handleToggleContactList(trimmed);
     setNewListName("");
   };
@@ -1262,8 +1283,7 @@ const ContactInfo = () => {
                   </motion.div>
 
                   <div className="my-4 border-t border-white/10" />
-                  
-                  {/* Media, links and docs Entry Tile - WhatsApp Style */}
+                
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}

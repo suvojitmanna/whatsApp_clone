@@ -48,8 +48,6 @@ const NewListModal = ({ isOpen, onClose, contacts = [], onCreated = null }) => {
       toast.error("A list with this name already exists");
       return;
     }
-
-    // Add selected contacts to the list
     if (selectedContactIds.length > 0) {
       selectedContactIds.forEach((cId) => {
         const contact = contacts.find((c) => c._id === cId);
@@ -80,7 +78,6 @@ const NewListModal = ({ isOpen, onClose, contacts = [], onCreated = null }) => {
               : "bg-white border-gray-200 text-gray-900"
           }`}
         >
-          {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
@@ -107,9 +104,7 @@ const NewListModal = ({ isOpen, onClose, contacts = [], onCreated = null }) => {
             </button>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleCreate} className="flex flex-col flex-1 min-h-0 pt-4">
-            {/* List Name Input */}
             <div className="mb-4">
               <label className="block text-[12.5px] font-semibold text-[#8696a0] uppercase tracking-wider mb-1.5 px-1">
                 List Name
@@ -128,15 +123,12 @@ const NewListModal = ({ isOpen, onClose, contacts = [], onCreated = null }) => {
                 }`}
               />
             </div>
-
-            {/* Select Chats Section */}
             <div className="flex items-center justify-between mb-2 px-1">
               <label className="text-[12.5px] font-semibold text-[#8696a0] uppercase tracking-wider">
                 Add chats ({selectedContactIds.length} selected)
               </label>
             </div>
 
-            {/* Search contacts */}
             <div className="relative mb-2.5">
               <FaSearch
                 size={12}
@@ -156,8 +148,6 @@ const NewListModal = ({ isOpen, onClose, contacts = [], onCreated = null }) => {
                 }`}
               />
             </div>
-
-            {/* Contacts list */}
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1.5 pr-1 py-1 max-h-[220px]">
               {filteredContacts.length === 0 ? (
                 <div className="text-center py-6 text-[13px] text-[#8696a0]">
@@ -207,8 +197,6 @@ const NewListModal = ({ isOpen, onClose, contacts = [], onCreated = null }) => {
                 })
               )}
             </div>
-
-            {/* Submit */}
             <div className="pt-4 border-t border-white/10 mt-3 flex items-center gap-3 shrink-0">
               <button
                 type="button"

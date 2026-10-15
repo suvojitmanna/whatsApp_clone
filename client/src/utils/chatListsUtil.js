@@ -42,8 +42,6 @@ export const deleteCustomList = (name) => {
     );
     const updated = custom.filter((l) => l !== trimmed);
     localStorage.setItem("whatsapp_all_custom_lists", JSON.stringify(updated));
-
-    // Also remove from all contact associations
     const map = JSON.parse(
       localStorage.getItem("whatsapp_contact_lists") || "{}"
     );

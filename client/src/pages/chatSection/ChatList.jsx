@@ -10,9 +10,10 @@ import {
   FaVideo,
   FaHeadphones,
   FaFileAlt,
+  FaHeart,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
-import { MdEventNote, MdAccessTime } from "react-icons/md";
+import { MdEventNote, MdAccessTime, MdList, MdOutlinePlaylistAdd } from "react-icons/md";
 import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
@@ -20,6 +21,13 @@ import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
 import { WhatsAppPinIcon, WhatsAppDisappearingIcon } from "./MessageBuble";
+import AddToListModal from "../../components/AddToListModal";
+import NewListModal from "../../components/NewListModal";
+import {
+  getAllLists,
+  isContactInList,
+  getContactListNames,
+} from "../../utils/chatListsUtil";
 
 export const getPinnedItemTypeAndLabel = (msg) => {
   if (!msg) return { type: "message", target: "a message" };
@@ -518,14 +526,46 @@ const ChatList = ({ contacts }) => {
 
   const { theme } = useThemeStore();
   const [searchTerms, setSearchTerms] = useState("");
+  const [activeListFilter, setActiveListFilter] = useState("All");
+  const [availableLists, setAvailableLists] = useState(() => getAllLists());
+  const [listsRevision, setListsRevision] = useState(0);
+  const [listModalContact, setListModalContact] = useState(null);
+  const [isNewListModalOpen, setIsNewListModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleListsChanged = () => {
+      setAvailableLists(getAllLists());
+      setListsRevision((r) => r + 1);
+    };
+    window.addEventListener("whatsapp_lists_changed", handleListsChanged);
+    return () =>
+      window.removeEventListener("whatsapp_lists_changed", handleListsChanged);
+  }, []);
+
+  const totalUnreadCount = useMemo(() => {
+    if (!contacts) return 0;
+    return contacts.filter((c) => {
+      const u = c?.conversation?.unreadCount;
+      return typeof u === "number" && u > 0;
+    }).length;
+  }, [contacts]);
+
   const filteredContact = useMemo(() => {
     if (!contacts) return [];
     const term = searchTerms.trim().toLowerCase();
-    const list = term
-      ? contacts.filter((contact) =>
-        contact?.username?.toLowerCase().includes(term),
-      )
-      : contacts;
+    let list = contacts;
+
+    if (term) {
+      list = list.filter((contact) =>
+        contact?.username?.toLowerCase().includes(term)
+      );
+    }
+
+    if (activeListFilter !== "All") {
+      list = list.filter((contact) =>
+        isContactInList(contact, activeListFilter)
+      );
+    }
 
     return [...list].sort((a, b) => {
       const pinA = getContactPin(a, pinnedMessages);
@@ -548,7 +588,7 @@ const ChatList = ({ contacts }) => {
       );
       return timeB - timeA;
     });
-  }, [contacts, searchTerms, pinnedMessages]);
+  }, [contacts, searchTerms, pinnedMessages, activeListFilter, listsRevision]);
 
   useEffect(() => {
     if (listContainerRef.current) {
@@ -611,34 +651,176 @@ const ChatList = ({ contacts }) => {
           )}
         </div>
       </div>
+      <div className="px-3 pb-2 pt-0.5 flex items-center gap-1.5 overflow-x-auto scrollbar-hide select-none border-b border-white/5">
+        <button
+          type="button"
+          onClick={() => setActiveListFilter("All")}
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer ${
+            activeListFilter === "All"
+              ? theme === "dark"
+                ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
+                : "bg-[#00a884] text-white font-semibold shadow-sm"
+              : theme === "dark"
+                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+          }`}
+        >
+          All
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveListFilter("Unread")}
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+            activeListFilter === "Unread"
+              ? theme === "dark"
+                ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
+                : "bg-[#00a884] text-white font-semibold shadow-sm"
+              : theme === "dark"
+                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+          }`}
+        >
+          <span>Unread</span>
+          {totalUnreadCount > 0 && (
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                activeListFilter === "Unread"
+                  ? "bg-[#111b21] text-[#00a884]"
+                  : "bg-emerald-500 text-white"
+              }`}
+            >
+              {totalUnreadCount}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveListFilter("Favorites")}
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+            activeListFilter === "Favorites"
+              ? theme === "dark"
+                ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
+                : "bg-[#00a884] text-white font-semibold shadow-sm"
+              : theme === "dark"
+                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+          }`}
+        >
+          <FaHeart
+            size={11}
+            className={activeListFilter === "Favorites" ? "text-[#111b21]" : "text-rose-400"}
+          />
+          <span>Favorites</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveListFilter("Groups")}
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer ${
+            activeListFilter === "Groups"
+              ? theme === "dark"
+                ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
+                : "bg-[#00a884] text-white font-semibold shadow-sm"
+              : theme === "dark"
+                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+          }`}
+        >
+          Groups
+        </button>
+        {availableLists
+          .filter((l) => l !== "Favorites")
+          .map((listName) => {
+            const isActive = activeListFilter === listName;
+            return (
+              <button
+                key={listName}
+                type="button"
+                onClick={() => setActiveListFilter(listName)}
+                className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  isActive
+                    ? theme === "dark"
+                      ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
+                      : "bg-[#00a884] text-white font-semibold shadow-sm"
+                    : theme === "dark"
+                      ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                      : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+                }`}
+              >
+                <span>{listName}</span>
+              </button>
+            );
+          })}
+        <button
+          type="button"
+          onClick={() => setIsNewListModalOpen(true)}
+          className={`p-1.5 rounded-full transition-all shrink-0 cursor-pointer flex items-center justify-center ${
+            theme === "dark"
+              ? "bg-[#202c33] hover:bg-[#2a3942] text-[#8696a0] hover:text-white"
+              : "bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900"
+          }`}
+          title="Create new list"
+        >
+          <FaPlus size={10} />
+        </button>
+      </div>
+
       <div
         ref={listContainerRef}
         onScroll={(e) => setChatListScrollTop(e.target.scrollTop)}
-        className="overflow-y-auto h-[calc(100vh-120px)] custom-scrollbar"
+        className="overflow-y-auto h-[calc(100vh-170px)] custom-scrollbar"
       >
         {filteredContact.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col items-center justify-center h-full text-center px-6"
-          >
-            <div className="relative mb-5">
-              <div className="absolute inset-0 rounded-full blur-xl bg-green-500/20"></div>
-
-              <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-500 shadow-lg animate-pulse">
-                <FaSearch className="text-white text-xl" />
+          activeListFilter !== "All" ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col items-center justify-center h-full text-center px-6 py-12 select-none"
+            >
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-3 border border-emerald-500/20 shadow-md">
+                <MdList size={30} />
               </div>
-            </div>
 
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-1">
-              No chats found
-            </h2>
+              <h2 className={`text-lg font-semibold mb-1 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                No chats in {activeListFilter}
+              </h2>
 
-            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[220px] leading-relaxed">
-              Try searching with a different name or start a new conversation.
-            </p>
-          </motion.div>
+              <p className="text-xs text-[#8696a0] max-w-[220px] mb-4 leading-relaxed">
+                Add chats to this list to easily find and message them here.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setIsNewListModalOpen(true)}
+                className="px-4 py-2 rounded-full bg-[#00a884] hover:bg-[#06cf9c] text-[#111b21] font-bold text-xs shadow-md transition-all cursor-pointer"
+              >
+                Add chats
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col items-center justify-center h-full text-center px-6"
+            >
+              <div className="relative mb-5">
+                <div className="absolute inset-0 rounded-full blur-xl bg-green-500/20"></div>
+
+                <div className="relative w-16 h-16 flex items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-500 shadow-lg animate-pulse">
+                  <FaSearch className="text-white text-xl" />
+                </div>
+              </div>
+
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-1">
+                No chats found
+              </h2>
+
+              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-[220px] leading-relaxed">
+                Try searching with a different name or start a new conversation.
+              </p>
+            </motion.div>
+          )
         ) : (
           filteredContact.map((contact) => {
             const conversationId = contact?.conversation?._id;
@@ -672,6 +854,10 @@ const ChatList = ({ contacts }) => {
                 key={contact._id}
                 data-contact-id={contact._id}
                 title={`Chat with ${contact?.username || "user"}`}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setListModalContact(contact);
+                }}
                 onClick={() => {
                   setSelectedContact(contact);
                   useChatStore.getState().clearUnreadCount(contact._id);
@@ -679,7 +865,7 @@ const ChatList = ({ contacts }) => {
                     useChatStore.getState().clearUnreadCount(contact.conversation._id);
                   }
                 }}
-                className={`p-3 flex items-center cursor-pointer transition-colors ${theme === "dark"
+                className={`p-3 flex items-center cursor-pointer transition-colors relative group ${theme === "dark"
                   ? selectedContact?._id === contact._id
                     ? "bg-gray-700"
                     : "hover:bg-gray-800"
@@ -901,6 +1087,30 @@ const ChatList = ({ contacts }) => {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setListModalContact(contact);
+                        }}
+                        className={`p-1.5 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100 hover:scale-110 ${
+                          theme === "dark"
+                            ? "hover:bg-white/10 text-[#8696a0] hover:text-[#00a884]"
+                            : "hover:bg-gray-200 text-gray-500 hover:text-[#00a884]"
+                        }`}
+                        title="Add to list"
+                      >
+                        <MdOutlinePlaylistAdd size={18} />
+                      </button>
+
+                      {getContactListNames(contact).includes("Favorites") && (
+                        <FaHeart
+                          size={11}
+                          className="text-rose-400 shrink-0"
+                          title="Favorite"
+                        />
+                      )}
+
                       {contactPin && (
                         <WhatsAppPinIcon
                           size={13}
@@ -951,6 +1161,22 @@ const ChatList = ({ contacts }) => {
           })
         )}
       </div>
+
+      {listModalContact && (
+        <AddToListModal
+          isOpen={Boolean(listModalContact)}
+          onClose={() => setListModalContact(null)}
+          contact={listModalContact}
+        />
+      )}
+      {isNewListModalOpen && (
+        <NewListModal
+          isOpen={isNewListModalOpen}
+          onClose={() => setIsNewListModalOpen(false)}
+          contacts={contacts || []}
+          onCreated={(name) => setActiveListFilter(name)}
+        />
+      )}
     </div>
   );
 };

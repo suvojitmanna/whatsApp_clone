@@ -28,16 +28,12 @@ const AllMediaPage = () => {
 
   const isDark = theme === "dark";
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  // Selected chat filter: "all" or specific conversationId/contactId
   const initialChatParam = searchParams.get("chat") || "all";
   const [selectedChat, setSelectedChat] = useState(initialChatParam);
   const [chatSearch, setChatSearch] = useState("");
   const [isViewingMediaOnMobile, setIsViewingMediaOnMobile] = useState(
     initialChatParam !== "all"
   );
-
-  // Summary counts across all chats
   const [allCounts, setAllCounts] = useState({
     media: 0,
     docs: 0,
@@ -46,7 +42,6 @@ const AllMediaPage = () => {
   });
   const [loadingStats, setLoadingStats] = useState(true);
 
-  // Conversations from store
   const conversations = useChatStore((state) => state.conversations?.data || []);
   const getConversations = useChatStore((state) => state.getConversations);
 
@@ -61,8 +56,6 @@ const AllMediaPage = () => {
       getConversations();
     }
   }, [getConversations]);
-
-  // Fetch overall statistics
   useEffect(() => {
     let isMounted = true;
     const fetchStats = async () => {
@@ -102,8 +95,6 @@ const AllMediaPage = () => {
       setIsViewingMediaOnMobile(true);
     }
   };
-
-  // Filter conversations by search input
   const filteredConversations = useMemo(() => {
     if (!chatSearch.trim()) return conversations;
     const q = chatSearch.toLowerCase();
@@ -114,9 +105,7 @@ const AllMediaPage = () => {
       const name = peer?.username || conv.name || "";
       return name.toLowerCase().includes(q);
     });
-  }, [conversations, chatSearch, user?._id]);
-
-  // Find active peer details if single chat selected
+  }, [conversations, chatSearch, user?._id])
   const activePeer = useMemo(() => {
     if (!selectedChat || selectedChat === "all") return null;
     const foundConv = conversations.find(
@@ -129,26 +118,20 @@ const AllMediaPage = () => {
       (p) => String(p._id || p) !== String(user?._id)
     );
   }, [conversations, selectedChat, user?._id]);
-
-  // Left sidebar panel inside Layout
   const leftPanel = (
     <div
-      className={`h-full w-full flex flex-col border-r select-none ${
-        isDark ? "bg-[#111b21] border-[#222d34] text-white" : "bg-white border-gray-200 text-gray-900"
-      }`}
-    >
-      {/* Header */}
-      <div
-        className={`px-4 py-3.5 flex items-center justify-between border-b shrink-0 ${
-          isDark ? "bg-[#202c33] border-[#222d34]" : "bg-gray-100 border-gray-200"
+      className={`h-full w-full flex flex-col border-r select-none ${isDark ? "bg-[#111b21] border-[#222d34] text-white" : "bg-white border-gray-200 text-gray-900"
         }`}
+    >
+      <div
+        className={`px-4 py-3.5 flex items-center justify-between border-b shrink-0 ${isDark ? "bg-[#202c33] border-[#222d34]" : "bg-gray-100 border-gray-200"
+          }`}
       >
         <div className="flex items-center gap-3">
           <Link
             to="/"
-            className={`p-2 rounded-full transition-colors cursor-pointer ${
-              isDark ? "hover:bg-white/10 text-[#aebac1] hover:text-white" : "hover:bg-gray-200 text-gray-600"
-            }`}
+            className={`p-2 rounded-full transition-colors cursor-pointer ${isDark ? "hover:bg-white/10 text-[#aebac1] hover:text-white" : "hover:bg-gray-200 text-gray-600"
+              }`}
             title="Back to chats"
           >
             <FaArrowLeft size={16} />
@@ -156,14 +139,11 @@ const AllMediaPage = () => {
           <h2 className="text-[18px] font-bold tracking-tight">Media, links & docs</h2>
         </div>
       </div>
-
-      {/* Aggregate Stats Cards */}
       <div className="p-3 border-b border-white/5 space-y-2">
         <div className="grid grid-cols-3 gap-2">
           <div
-            className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all ${
-              isDark ? "bg-[#202c33]/70 border-white/5" : "bg-gray-50 border-gray-200"
-            }`}
+            className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all ${isDark ? "bg-[#202c33]/70 border-white/5" : "bg-gray-50 border-gray-200"
+              }`}
           >
             <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-1">
               <HiOutlinePhotograph size={16} />
@@ -175,9 +155,8 @@ const AllMediaPage = () => {
           </div>
 
           <div
-            className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all ${
-              isDark ? "bg-[#202c33]/70 border-white/5" : "bg-gray-50 border-gray-200"
-            }`}
+            className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all ${isDark ? "bg-[#202c33]/70 border-white/5" : "bg-gray-50 border-gray-200"
+              }`}
           >
             <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center mb-1">
               <FaFileAlt size={13} />
@@ -189,9 +168,8 @@ const AllMediaPage = () => {
           </div>
 
           <div
-            className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all ${
-              isDark ? "bg-[#202c33]/70 border-white/5" : "bg-gray-50 border-gray-200"
-            }`}
+            className={`p-2.5 rounded-xl border flex flex-col items-center justify-center text-center transition-all ${isDark ? "bg-[#202c33]/70 border-white/5" : "bg-gray-50 border-gray-200"
+              }`}
           >
             <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center mb-1">
               <FaLink size={13} />
@@ -203,26 +181,22 @@ const AllMediaPage = () => {
           </div>
         </div>
       </div>
-
-      {/* Chat Search Box */}
       <div className="p-3 pb-2">
         <div className="relative">
           <FaSearch
             size={13}
-            className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${
-              isDark ? "text-[#8696a0]" : "text-gray-400"
-            }`}
+            className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-[#8696a0]" : "text-gray-400"
+              }`}
           />
           <input
             type="text"
             placeholder="Search conversations..."
             value={chatSearch}
             onChange={(e) => setChatSearch(e.target.value)}
-            className={`w-full pl-9 pr-8 py-2 text-[13.5px] rounded-xl outline-none transition-all border ${
-              isDark
+            className={`w-full pl-9 pr-8 py-2 text-[13.5px] rounded-xl outline-none transition-all border ${isDark
                 ? "bg-[#202c33] text-white border-transparent focus:border-emerald-500/60 placeholder-[#8696a0]"
                 : "bg-gray-100 text-gray-900 border-gray-200 focus:border-emerald-500 placeholder-gray-400"
-            }`}
+              }`}
           />
           {chatSearch && (
             <button
@@ -235,21 +209,17 @@ const AllMediaPage = () => {
           )}
         </div>
       </div>
-
-      {/* Conversation Filter List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar px-2 pb-4 space-y-1">
-        {/* All Chats Option */}
         <div
           onClick={() => handleSelectChat("all")}
-          className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all ${
-            selectedChat === "all"
+          className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all ${selectedChat === "all"
               ? isDark
                 ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-sm"
                 : "bg-emerald-50 border border-emerald-500/20 text-emerald-700"
               : isDark
                 ? "hover:bg-white/5 border border-transparent text-white"
                 : "hover:bg-gray-100 border border-transparent text-gray-800"
-          }`}
+            }`}
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
@@ -290,15 +260,14 @@ const AllMediaPage = () => {
             <div
               key={conv._id}
               onClick={() => handleSelectChat(convId)}
-              className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all ${
-                isSelected
+              className={`flex items-center justify-between p-2.5 rounded-2xl cursor-pointer transition-all ${isSelected
                   ? isDark
                     ? "bg-emerald-500/15 border border-emerald-500/30 text-white shadow-sm"
                     : "bg-emerald-50 border border-emerald-500/20 text-emerald-800"
                   : isDark
                     ? "hover:bg-white/5 border border-transparent text-white"
                     : "hover:bg-gray-100 border border-transparent text-gray-800"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <img
@@ -322,16 +291,12 @@ const AllMediaPage = () => {
       </div>
     </div>
   );
-
-  // Main Right Panel: Media Gallery View
   const mainMediaContent = (
     <div className="h-full w-full flex flex-col relative overflow-hidden">
-      {/* Mobile Back Bar to return to conversation picker */}
       {isMobile && isViewingMediaOnMobile && (
         <div
-          className={`flex items-center gap-3 px-4 py-3 shrink-0 border-b ${
-            isDark ? "bg-[#202c33] border-[#222d34] text-white" : "bg-white border-gray-200"
-          }`}
+          className={`flex items-center gap-3 px-4 py-3 shrink-0 border-b ${isDark ? "bg-[#202c33] border-[#222d34] text-white" : "bg-white border-gray-200"
+            }`}
         >
           <button
             type="button"
@@ -370,7 +335,6 @@ const AllMediaPage = () => {
 
   return (
     <Layout rightContent={mainMediaContent}>
-      {/* On mobile: show chat list if not viewing media, else hide */}
       {isMobile ? (
         isViewingMediaOnMobile ? null : leftPanel
       ) : (

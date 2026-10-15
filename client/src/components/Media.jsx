@@ -154,8 +154,6 @@ const Media = ({
   const [copiedId, setCopiedId] = useState(null);
 
   const isDark = theme === "dark";
-
-  // Conversations from store for contact filtering
   const conversations = useChatStore((state) => state.conversations?.data || []);
   const storeMessages = useChatStore((state) => state.messages || []);
 
@@ -165,8 +163,6 @@ const Media = ({
     if (contact?.conversation) return contact.conversation;
     return null;
   }, [chatId, contact]);
-
-  // Fetch media from server API
   const fetchMediaData = async () => {
     setLoading(true);
     try {
@@ -199,8 +195,6 @@ const Media = ({
   useEffect(() => {
     fetchMediaData();
   }, [scope, resolvedConversationId, selectedContactFilter]);
-
-  // Combine fetched items with any live in-memory messages for current chat
   const effectiveData = useMemo(() => {
     const rawMedia = [...(mediaData?.media || [])];
     const rawDocs = [...(mediaData?.docs || [])];
@@ -297,7 +291,6 @@ const Media = ({
     };
   }, [mediaData, storeMessages, user?._id]);
 
-  // Filter items by search query
   const filteredItems = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const list = effectiveData[activeTab] || [];
@@ -330,7 +323,6 @@ const Media = ({
     return list;
   }, [effectiveData, activeTab, searchQuery]);
 
-  // Group items by date for chronological layout
   const groupedItems = useMemo(() => {
     const groups = {};
     filteredItems.forEach((item) => {
@@ -642,13 +634,12 @@ const Media = ({
           <button
             type="button"
             onClick={() => setIsSearching((prev) => !prev)}
-            className={`px-3 py-3 transition-colors cursor-pointer flex items-center justify-center ${
-              isSearching
+            className={`px-3 py-3 transition-colors cursor-pointer flex items-center justify-center ${isSearching
                 ? "text-[#00a884]"
                 : isDark
                   ? "text-[#8696a0] hover:text-white"
                   : "text-gray-500 hover:text-gray-900"
-            }`}
+              }`}
             title="Search"
           >
             <FaSearch size={14} />
