@@ -1117,10 +1117,16 @@ export const useChatStore = create((set, get) => ({
 
     socket.on(
       "message_deleted",
-      async ({ deletedMessageId, conversationId, lastMessage }) => {
+      async ({
+        deletedMessageId,
+        conversationId,
+        lastMessage,
+        deletedForEveryone,
+        updatedMessage,
+      }) => {
         const currentUserId = (
           get().currentUser || useUserStore.getState().user
-        )?._id;
+        )?._id?.toString();
         const selectedContact = useLayoutStore.getState()?.selectedContact;
         let decryptedLast = lastMessage;
 
@@ -1138,9 +1144,37 @@ export const useChatStore = create((set, get) => ({
         }
 
         set((state) => {
-          const updatedMessages = state.messages.filter(
-            (msg) => msg._id !== deletedMessageId,
-          );
+          let updatedMessages;
+          if (deletedForEveryone) {
+            updatedMessages = (state.messages || []).map((msg) => {
+              if (String(msg._id) === String(deletedMessageId)) {
+                const sId = String(msg.sender?._id || msg.sender || "");
+                const isMe = currentUserId && sId === currentUserId;
+                return {
+                  ...msg,
+                  ...(updatedMessage || {}),
+                  deletedForEveryone: true,
+                  content: isMe
+                    ? "You deleted this message"
+                    : "This message was deleted",
+                  isEncrypted: false,
+                  imageOrVideoUrl: null,
+                  fileName: null,
+                  fileSize: null,
+                  pollData: null,
+                  contactData: null,
+                  eventData: null,
+                  reactions: [],
+                  edited: false,
+                };
+              }
+              return msg;
+            });
+          } else {
+            updatedMessages = (state.messages || []).filter(
+              (msg) => String(msg._id) !== String(deletedMessageId),
+            );
+          }
 
           let finalLastMessage = decryptedLast;
           if (
@@ -1155,10 +1189,35 @@ export const useChatStore = create((set, get) => ({
           if (conversationId) {
             const cached = cache.get(String(conversationId));
             if (cached) {
-              cache.set(
-                String(conversationId),
-                cached.filter((m) => m._id !== deletedMessageId),
-              );
+              const updatedCached = deletedForEveryone
+                ? cached.map((m) => {
+                    if (String(m._id) === String(deletedMessageId)) {
+                      const sId = String(m.sender?._id || m.sender || "");
+                      const isMe = currentUserId && sId === currentUserId;
+                      return {
+                        ...m,
+                        ...(updatedMessage || {}),
+                        deletedForEveryone: true,
+                        content: isMe
+                          ? "You deleted this message"
+                          : "This message was deleted",
+                        isEncrypted: false,
+                        imageOrVideoUrl: null,
+                        fileName: null,
+                        fileSize: null,
+                        pollData: null,
+                        contactData: null,
+                        eventData: null,
+                        reactions: [],
+                        edited: false,
+                      };
+                    }
+                    return m;
+                  })
+                : cached.filter(
+                    (m) => String(m._id) !== String(deletedMessageId),
+                  );
+              cache.set(String(conversationId), updatedCached);
             }
           }
 
@@ -2086,17 +2145,43 @@ export const useChatStore = create((set, get) => ({
 
       const state = get();
       const currentConversationId = state.currentConversation?._id;
-      const remainingMessages = (state.messages || []).filter(
-        (msg) => msg?._id !== messageId,
-      );
+      const currentUserId = (
+        state.currentUser || useUserStore.getState().user
+      )?._id?.toString();
+
+      let nextMessages;
+      if (deleteFor === "everyone") {
+        nextMessages = (state.messages || []).map((msg) => {
+          if (String(msg?._id) === String(messageId)) {
+            return {
+              ...msg,
+              deletedForEveryone: true,
+              content: "You deleted this message",
+              isEncrypted: false,
+              imageOrVideoUrl: null,
+              fileName: null,
+              fileSize: null,
+              pollData: null,
+              contactData: null,
+              eventData: null,
+              reactions: [],
+              edited: false,
+            };
+          }
+          return msg;
+        });
+      } else {
+        nextMessages = (state.messages || []).filter(
+          (msg) => String(msg?._id) !== String(messageId),
+        );
+      }
+
       const previousMsg =
-        remainingMessages.length > 0
-          ? remainingMessages[remainingMessages.length - 1]
+        nextMessages.length > 0
+          ? nextMessages[nextMessages.length - 1]
           : null;
 
       const serverLastMsg = data?.data?.lastMessage || data?.lastMessage;
-      const currentUserId = (state.currentUser || useUserStore.getState().user)
-        ?._id;
       const selectedContact = useLayoutStore.getState()?.selectedContact;
 
       let decryptedServerLast = serverLastMsg;
@@ -2139,12 +2224,12 @@ export const useChatStore = create((set, get) => ({
           ? syncMessagesCache(
               currentState.messagesCache,
               currentConversationId,
-              remainingMessages,
+              nextMessages,
             )
           : currentState.messagesCache;
 
         return {
-          messages: remainingMessages,
+          messages: nextMessages,
           messagesCache: nextCache,
           conversations: currentState.conversations
             ? {

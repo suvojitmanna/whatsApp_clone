@@ -53,6 +53,31 @@ import BlockModal from "../../components/BlockModal";
 import ReportModal from "../../components/ReportModal";
 import { getPinActorAndLabel } from "./ChatList";
 
+function getDisappearingDurationMs(duration) {
+  if (!duration || duration === "Off") return null;
+  const dur = String(duration).toLowerCase().trim();
+  if (dur.includes("24 hour") || dur === "24h") return 24 * 60 * 60 * 1000;
+  if (dur.includes("7 day") || dur === "7d") return 7 * 24 * 60 * 60 * 1000;
+  if (dur.includes("90 day") || dur === "90d") return 90 * 24 * 60 * 60 * 1000;
+  if (dur.includes("minute")) {
+    const m = parseInt(dur, 10);
+    return (m || 1) * 60 * 1000;
+  }
+  if (dur.includes("hour")) {
+    const h = parseInt(dur, 10);
+    return (h || 1) * 60 * 60 * 1000;
+  }
+  if (dur.includes("day")) {
+    const d = parseInt(dur, 10);
+    return (d || 1) * 24 * 60 * 60 * 1000;
+  }
+  if (dur.includes("second")) {
+    const s = parseInt(dur, 10);
+    return (s || 1) * 1000;
+  }
+  return null;
+}
+
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
 };
@@ -255,6 +280,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     defaultMessageTimer ||
     "Off";
 
+  const [disappearingTick, setDisappearingTick] = useState(0);
+  useEffect(() => {
+    if (!disappearingDuration || disappearingDuration === "Off") return;
+    const interval = setInterval(() => {
+      setDisappearingTick((t) => t + 1);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [disappearingDuration]);
+
   const chatDisappearingEvents = useMemo(() => {
     if (!activeChatId) return [];
     const convId = (selectedContact?.conversation?._id || selectedContact?.conversation)?.toString();
@@ -266,10 +300,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       [];
     if (storedEvents.length === 0 && disappearingDuration && disappearingDuration !== "Off") {
       const rawMsgs = Array.isArray(messages) ? messages : [];
-      const earliestMsgTime =
-        rawMsgs.length > 0 && rawMsgs[0]?.createdAt
-          ? new Date(new Date(rawMsgs[0].createdAt).getTime() - 2000).toISOString()
-          : new Date(Date.now() - 3600000).toISOString();
+      const eventTime = selectedContact?.conversation?.disappearingUpdatedAt
+        ? new Date(selectedContact.conversation.disappearingUpdatedAt).toISOString()
+        : (rawMsgs.length > 0 && rawMsgs[0]?.createdAt
+            ? new Date(new Date(rawMsgs[0].createdAt).getTime() - 2000).toISOString()
+            : new Date(Date.now() - 3600000).toISOString());
       const effectiveSetBy =
         selectedContact?.conversation?.disappearingSetBy?._id ||
         selectedContact?.conversation?.disappearingSetBy ||
@@ -281,8 +316,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           action: "turned_on",
           duration: disappearingDuration,
           previousDuration: "Off",
-          createdAt: earliestMsgTime,
-          timestamp: new Date(earliestMsgTime).getTime(),
+          createdAt: eventTime,
+          timestamp: new Date(eventTime).getTime(),
           setBy: effectiveSetBy,
         },
       ];
@@ -298,17 +333,47 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const combinedMessages = useMemo(() => {
     const rawMsgs = Array.isArray(messages) ? messages : [];
+    const now = Date.now();
+    const turnedOnTime = selectedContact?.conversation?.disappearingUpdatedAt
+      ? new Date(selectedContact.conversation.disappearingUpdatedAt).getTime()
+      : null;
+
+    // Filter out only expired disappearing messages:
+    // IMPORTANT: Messages sent BEFORE disappearing was turned on are NEVER filtered out or deleted!
+    const validMsgs = rawMsgs.filter((msg) => {
+      if (msg.isKept) return true;
+
+      const isMsgDisappearing = Boolean(
+        (msg.isDisappearing && msg.disappearingDuration && msg.disappearingDuration !== "Off") ||
+        (disappearingDuration && disappearingDuration !== "Off" && turnedOnTime && new Date(msg.createdAt).getTime() >= turnedOnTime)
+      );
+      if (!isMsgDisappearing) return true; // Keep older messages permanent!
+
+      const dur = msg.disappearingDuration || disappearingDuration;
+      const durMs = getDisappearingDurationMs(dur);
+      if (!durMs) return true;
+
+      const msgTime = new Date(msg.createdAt).getTime();
+      return (now - msgTime) < durMs;
+    });
+
     if (!chatDisappearingEvents || chatDisappearingEvents.length === 0) {
-      return rawMsgs;
+      return validMsgs;
     }
-    const combined = [...rawMsgs, ...chatDisappearingEvents];
+    const combined = [...validMsgs, ...chatDisappearingEvents];
     combined.sort((a, b) => {
       const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
       const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
       return timeA - timeB;
     });
     return combined;
-  }, [messages, chatDisappearingEvents]);
+  }, [
+    messages,
+    chatDisappearingEvents,
+    disappearingDuration,
+    selectedContact,
+    disappearingTick,
+  ]);
 
   const activeChatThemeId = (activeChatId && chatThemes?.[activeChatId]) || "default";
   const activeChatTheme = useMemo(() => getChatTheme(activeChatThemeId), [activeChatThemeId]);
@@ -2041,7 +2106,19 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                               isSelected={selectedMessageIds.includes(String(msg._id || msg.temp))}
                               onToggleSelect={handleToggleSelectMessage}
                               onEnterSelectMode={handleEnterSelectMode}
-                              disappearingDuration={disappearingDuration}
+                              disappearingDuration={(() => {
+                                if (msg.isDisappearing !== undefined) {
+                                  return (msg.isDisappearing && msg.disappearingDuration && msg.disappearingDuration !== "Off")
+                                    ? msg.disappearingDuration
+                                    : null;
+                                }
+                                if (!disappearingDuration || disappearingDuration === "Off") return null;
+                                const turnedOnTime = selectedContact?.conversation?.disappearingUpdatedAt
+                                  ? new Date(selectedContact.conversation.disappearingUpdatedAt).getTime()
+                                  : null;
+                                if (!turnedOnTime) return null;
+                                return new Date(msg.createdAt).getTime() >= turnedOnTime ? disappearingDuration : null;
+                              })()}
                               onOpenDisappearing={() => openContactInfoWithTab("disappearing")}
                               setRef={(el) => {
                                 if (isMatch && el) {

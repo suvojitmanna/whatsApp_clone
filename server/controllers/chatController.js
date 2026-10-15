@@ -182,6 +182,21 @@ exports.sendMessage = async (req, res) => {
         : "send";
     const initialDeliveredAt =
       isReceiverOnline && !isSenderBlockedByReceiver ? now : null;
+    let isDisappearing = false;
+    let disappearingDuration = null;
+    let disappearingExpiresAt = null;
+
+    if (
+      conversation.disappearingDuration &&
+      conversation.disappearingDuration !== "Off"
+    ) {
+      const durMs = getDisappearingDurationMs(conversation.disappearingDuration);
+      if (durMs) {
+        isDisappearing = true;
+        disappearingDuration = conversation.disappearingDuration;
+        disappearingExpiresAt = new Date(Date.now() + durMs);
+      }
+    }
 
     const message = new Message({
       conversation: conversation._id,
@@ -208,6 +223,9 @@ exports.sendMessage = async (req, res) => {
       statusId: statusId || null,
       replyTo: req.body.replyTo || null,
       replyMessage: parsedReply,
+      isDisappearing,
+      disappearingDuration,
+      disappearingExpiresAt,
     });
     await message.save();
 
@@ -372,7 +390,9 @@ exports.getMessages = async (req, res) => {
   const { conversationId } = req.params;
   try {
     const conversation = await Conversation.findById(conversationId)
-      .select("participants")
+      .select(
+        "participants disappearingDuration disappearingUpdatedAt lastMessage",
+      )
       .lean();
     if (!conversation) {
       return response(res, 404, "Conversation not found");
@@ -385,6 +405,58 @@ exports.getMessages = async (req, res) => {
     }
 
     const now = new Date();
+
+    // Clean up expired disappearing messages for this conversation
+    // ONLY delete messages that were sent AFTER disappearing was enabled and whose timer has expired!
+    const expiredConditions = [
+      {
+        conversation: conversationId,
+        isKept: { $ne: true },
+        isDisappearing: true,
+        disappearingExpiresAt: { $ne: null, $lte: now },
+      },
+    ];
+
+    if (
+      conversation.disappearingDuration &&
+      conversation.disappearingDuration !== "Off" &&
+      conversation.disappearingUpdatedAt
+    ) {
+      const durMs = getDisappearingDurationMs(
+        conversation.disappearingDuration,
+      );
+      if (durMs) {
+        const cutoff = new Date(Date.now() - durMs);
+        expiredConditions.push({
+          conversation: conversationId,
+          isKept: { $ne: true },
+          createdAt: {
+            $gte: conversation.disappearingUpdatedAt,
+            $lte: cutoff,
+          },
+        });
+      }
+    }
+
+    if (expiredConditions.length > 0) {
+      await Message.deleteMany({ $or: expiredConditions });
+    }
+
+    const latestRemaining = await Message.findOne({
+      conversation: conversationId,
+    })
+      .sort({ createdAt: -1 })
+      .select("_id");
+
+    if (
+      conversation.lastMessage &&
+      (!latestRemaining ||
+        conversation.lastMessage.toString() !== latestRemaining._id.toString())
+    ) {
+      await Conversation.findByIdAndUpdate(conversationId, {
+        lastMessage: latestRemaining?._id || null,
+      });
+    }
     const unreadMessages = await Message.find({
       conversation: conversationId,
       receiver: userId,
@@ -619,7 +691,22 @@ exports.deleteMessage = async (req, res) => {
       if (message.sender.toString() !== userId) {
         return response(res, 403, "Only sender can delete for everyone");
       }
-      await Message.deleteOne({ _id: messageId });
+
+      message.deletedForEveryone = true;
+      message.content = "This message was deleted";
+      message.contentType = "text";
+      message.isEncrypted = false;
+      message.iv = null;
+      message.imageOrVideoUrl = null;
+      message.fileName = null;
+      message.fileSize = null;
+      message.pollData = null;
+      message.contactData = null;
+      message.eventData = null;
+      message.reactions = [];
+      message.edited = false;
+      message.editedAt = null;
+      await message.save();
 
       const conv = await Conversation.findById(message.conversation);
       const isPinned =
@@ -649,7 +736,12 @@ exports.deleteMessage = async (req, res) => {
         }
       }
 
-      const previousMessage = await Message.findOne({
+      const populatedUpdatedMessage = await Message.findById(messageId)
+        .populate("sender", "username profilePicture publicKey")
+        .populate("receiver", "username profilePicture publicKey")
+        .populate("replyTo");
+
+      const latestMessage = await Message.findOne({
         conversation: message.conversation,
       })
         .sort({ createdAt: -1 })
@@ -659,30 +751,43 @@ exports.deleteMessage = async (req, res) => {
       await Conversation.findByIdAndUpdate(
         message.conversation,
         {
-          lastMessage: previousMessage?._id || null,
+          lastMessage: latestMessage?._id || message._id,
         },
         { new: true },
       );
+
       const payload = {
         deletedMessageId: messageId,
         conversationId: message.conversation.toString(),
-        lastMessage: previousMessage,
+        lastMessage: latestMessage || populatedUpdatedMessage,
+        deletedForEveryone: true,
+        updatedMessage: populatedUpdatedMessage,
       };
-      if (req.io && req.socketUserMap instanceof Map) {
-        const receiverSocketId = req.socketUserMap.get(
-          message.receiver.toString(),
-        );
-        if (receiverSocketId) {
-          req.io.to(receiverSocketId).emit("message_deleted", payload);
-        }
-        const senderSocketId = req.socketUserMap.get(userId);
-        if (senderSocketId) {
-          req.io.to(senderSocketId).emit("message_deleted", payload);
+
+      if (req.io) {
+        req.io
+          .to(message.conversation.toString())
+          .emit("message_deleted", payload);
+        req.io.to(message.receiver.toString()).emit("message_deleted", payload);
+        req.io.to(userId.toString()).emit("message_deleted", payload);
+
+        if (req.socketUserMap instanceof Map) {
+          const receiverSocketId = req.socketUserMap.get(
+            message.receiver.toString(),
+          );
+          if (receiverSocketId) {
+            req.io.to(receiverSocketId).emit("message_deleted", payload);
+          }
+          const senderSocketId = req.socketUserMap.get(userId);
+          if (senderSocketId) {
+            req.io.to(senderSocketId).emit("message_deleted", payload);
+          }
         }
       }
 
       return response(res, 200, "Message deleted for everyone", {
-        lastMessage: previousMessage,
+        lastMessage: latestMessage || populatedUpdatedMessage,
+        updatedMessage: populatedUpdatedMessage,
       });
     }
     return response(res, 400, "Invalid delete option");

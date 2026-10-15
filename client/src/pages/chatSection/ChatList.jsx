@@ -655,39 +655,36 @@ const ChatList = ({ contacts }) => {
         <button
           type="button"
           onClick={() => setActiveListFilter("All")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer ${
-            activeListFilter === "All"
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer ${activeListFilter === "All"
               ? theme === "dark"
                 ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
                 : "bg-[#00a884] text-white font-semibold shadow-sm"
               : theme === "dark"
                 ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
                 : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-          }`}
+            }`}
         >
           All
         </button>
         <button
           type="button"
           onClick={() => setActiveListFilter("Unread")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-            activeListFilter === "Unread"
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeListFilter === "Unread"
               ? theme === "dark"
                 ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
                 : "bg-[#00a884] text-white font-semibold shadow-sm"
               : theme === "dark"
                 ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
                 : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-          }`}
+            }`}
         >
           <span>Unread</span>
           {totalUnreadCount > 0 && (
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                activeListFilter === "Unread"
+              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeListFilter === "Unread"
                   ? "bg-[#111b21] text-[#00a884]"
                   : "bg-emerald-500 text-white"
-              }`}
+                }`}
             >
               {totalUnreadCount}
             </span>
@@ -696,15 +693,14 @@ const ChatList = ({ contacts }) => {
         <button
           type="button"
           onClick={() => setActiveListFilter("Favorites")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-            activeListFilter === "Favorites"
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeListFilter === "Favorites"
               ? theme === "dark"
                 ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
                 : "bg-[#00a884] text-white font-semibold shadow-sm"
               : theme === "dark"
                 ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
                 : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-          }`}
+            }`}
         >
           <FaHeart
             size={11}
@@ -715,15 +711,14 @@ const ChatList = ({ contacts }) => {
         <button
           type="button"
           onClick={() => setActiveListFilter("Groups")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer ${
-            activeListFilter === "Groups"
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer ${activeListFilter === "Groups"
               ? theme === "dark"
                 ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
                 : "bg-[#00a884] text-white font-semibold shadow-sm"
               : theme === "dark"
                 ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
                 : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-          }`}
+            }`}
         >
           Groups
         </button>
@@ -736,15 +731,14 @@ const ChatList = ({ contacts }) => {
                 key={listName}
                 type="button"
                 onClick={() => setActiveListFilter(listName)}
-                className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                  isActive
+                className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${isActive
                     ? theme === "dark"
                       ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
                       : "bg-[#00a884] text-white font-semibold shadow-sm"
                     : theme === "dark"
                       ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
                       : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-                }`}
+                  }`}
               >
                 <span>{listName}</span>
               </button>
@@ -753,11 +747,10 @@ const ChatList = ({ contacts }) => {
         <button
           type="button"
           onClick={() => setIsNewListModalOpen(true)}
-          className={`p-1.5 rounded-full transition-all shrink-0 cursor-pointer flex items-center justify-center ${
-            theme === "dark"
+          className={`p-1.5 rounded-full transition-all shrink-0 cursor-pointer flex items-center justify-center ${theme === "dark"
               ? "bg-[#202c33] hover:bg-[#2a3942] text-[#8696a0] hover:text-white"
               : "bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900"
-          }`}
+            }`}
           title="Create new list"
         >
           <FaPlus size={10} />
@@ -1093,11 +1086,10 @@ const ChatList = ({ contacts }) => {
                           e.stopPropagation();
                           setListModalContact(contact);
                         }}
-                        className={`p-1.5 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100 hover:scale-110 ${
-                          theme === "dark"
+                        className={`p-1.5 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100 hover:scale-110 ${theme === "dark"
                             ? "hover:bg-white/10 text-[#8696a0] hover:text-[#00a884]"
                             : "hover:bg-gray-200 text-gray-500 hover:text-[#00a884]"
-                        }`}
+                          }`}
                         title="Add to list"
                       >
                         <MdOutlinePlaylistAdd size={18} />
