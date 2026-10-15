@@ -41,12 +41,7 @@ const Layout = ({
   const location = useLocation();
   const isChatPage = location.pathname === "/";
   const isStatusPage = location.pathname.startsWith("/status");
-  const isSettingOrProfile =
-    location.pathname.startsWith("/setting") ||
-    location.pathname.startsWith("/user-profile");
-
   const effectiveSelectedContact = isChatPage ? selectedContact : null;
-
   const effectiveRightContent =
     rightContent || (isStatusPage ? <StatusPlaceholder /> : null);
 

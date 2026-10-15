@@ -29,6 +29,7 @@ import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
 import ReportModal from "../../components/ReportModal";
+import BlockModal from "../../components/BlockModal";
 
 const ChatHeaderMenu = ({
   isOpen,
@@ -92,19 +93,20 @@ const ChatHeaderMenu = ({
     return typeof val === "number" && val > Date.now();
   }, [chatId, mutedChats]);
 
-  const [blockedContacts, setBlockedContacts] = useState(() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem("whatsapp_blocked_contacts") || "[]"
-      );
-    } catch {
-      return [];
-    }
-  });
+  const { blockedContacts, blockContact, unblockContact } = useChatStore();
+  const [showBlockModal, setShowBlockModal] = useState(false);
 
   const isBlocked = useMemo(() => {
-    return Boolean(chatId && blockedContacts.includes(chatId));
-  }, [chatId, blockedContacts]);
+    if (!blockedContacts || blockedContacts.length === 0) return false;
+    const candidates = [
+      chatId,
+      selectedContact?._id,
+      selectedContact?.id,
+      selectedContact?.conversation?._id,
+      selectedContact?.conversation,
+    ].filter(Boolean).map(String);
+    return candidates.some((id) => blockedContacts.includes(id));
+  }, [chatId, selectedContact, blockedContacts]);
 
   const [disappearingSettings, setDisappearingSettings] = useState(() => {
     try {
@@ -283,16 +285,28 @@ const ChatHeaderMenu = ({
   };
 
   const handleToggleBlock = () => {
-    if (!chatId) return;
+    const targetId = chatId || selectedContact?._id;
+    if (!targetId) return;
     if (isBlocked) {
-      const next = blockedContacts.filter((id) => id !== chatId);
-      setBlockedContacts(next);
-      localStorage.setItem("whatsapp_blocked_contacts", JSON.stringify(next));
+      unblockContact(targetId);
       toast.success("Contact unblocked");
       onClose();
     } else {
-      setConfirmDialog({ type: "block" });
+      setShowBlockModal(true);
+      onClose();
     }
+  };
+
+  const handleConfirmBlock = ({ report } = {}) => {
+    const targetId = chatId || selectedContact?._id;
+    if (!targetId) return;
+    blockContact(targetId);
+    if (report) {
+      toast.success("Reported and blocked successfully");
+    } else {
+      toast.success("Contact blocked");
+    }
+    setShowBlockModal(false);
   };
 
   const handleExecuteClearChat = () => {
@@ -330,16 +344,6 @@ const ChatHeaderMenu = ({
       useLayoutStore.getState().setSelectedContact(null);
     } catch { }
     toast.success("Chat deleted");
-    setConfirmDialog(null);
-    onClose();
-  };
-
-  const handleExecuteBlock = () => {
-    if (!chatId) return;
-    const next = [...blockedContacts, chatId];
-    setBlockedContacts(next);
-    localStorage.setItem("whatsapp_blocked_contacts", JSON.stringify(next));
-    toast.success("Contact blocked");
     setConfirmDialog(null);
     onClose();
   };
@@ -892,17 +896,13 @@ const ChatHeaderMenu = ({
                       handleExecuteClearChat();
                     } else if (confirmDialog.type === "delete") {
                       handleExecuteDeleteChat();
-                    } else if (confirmDialog.type === "block") {
-                      handleExecuteBlock();
                     }
                   }}
                   className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors cursor-pointer shadow-sm active:scale-95"
                 >
                   {confirmDialog.type === "clear"
                     ? "Clear chat"
-                    : confirmDialog.type === "delete"
-                      ? "Delete chat"
-                      : "Block"}
+                    : "Delete chat"}
                 </button>
               </div>
             </motion.div>
@@ -910,17 +910,21 @@ const ChatHeaderMenu = ({
           document.body
         )}
 
+      <BlockModal
+        isOpen={showBlockModal}
+        onClose={() => setShowBlockModal(false)}
+        onBlock={handleConfirmBlock}
+        contactName={contactName}
+        theme={theme}
+      />
+
       <ReportModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         onReport={({ block }) => {
-          if (block && chatId) {
-            const next = [...blockedContacts, chatId];
-            setBlockedContacts(next);
-            localStorage.setItem(
-              "whatsapp_blocked_contacts",
-              JSON.stringify(next)
-            );
+          if (block) {
+            const targetId = chatId || selectedContact?._id;
+            if (targetId) blockContact(targetId);
             toast.success("Reported and blocked successfully");
           } else {
             toast.success("Report submitted to WhatsApp");

@@ -13,17 +13,15 @@ import {
   FaLock,
   FaPhone,
   FaVideo,
-  FaEye,
-  FaPlus,
   FaMicrophone,
   FaRegStar,
   FaStar,
 } from "react-icons/fa";
-import { IoSend, IoTimerOutline } from "react-icons/io5";
+import { IoSend } from "react-icons/io5";
 import { getChatTheme } from "../../utils/chatThemes";
 import { TiArrowRight } from "react-icons/ti";
 import { FaSquarePollHorizontal } from "react-icons/fa6";
-import { MdEventNote, MdKeyboardArrowUp, MdKeyboardArrowDown } from "react-icons/md";
+import { MdEventNote, MdKeyboardArrowUp, MdKeyboardArrowDown, MdBlock, MdThumbDown } from "react-icons/md";
 import { TfiClip } from "react-icons/tfi";
 import { MdAddReaction } from "react-icons/md";
 import MessageBuble, {
@@ -44,7 +42,6 @@ import { FiSearch, FiDownload } from "react-icons/fi";
 import { LuForward } from "react-icons/lu";
 import { motion, AnimatePresence } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
-import { TbPin } from "react-icons/tb";
 import { toast } from "react-toastify";
 import { RiContactsFill, RiEmojiStickerLine, RiDeleteBin6Line } from "react-icons/ri";
 import CameraModal from "../../components/CameraModal";
@@ -56,6 +53,8 @@ import FileViewerModal from "../../components/FileViewerModal";
 import ForwardModal from "../../components/ForwardModal";
 import AttachInput from "../../components/AttachInput";
 import ChatHeaderMenu from "./ChatHeaderMenu";
+import BlockModal from "../../components/BlockModal";
+import ReportModal from "../../components/ReportModal";
 
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -86,6 +85,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [selectedMessageIds, setSelectedMessageIds] = useState([]);
   const [showForwardSelectedModal, setShowForwardSelectedModal] = useState(false);
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showBlockedMenu, setShowBlockedMenu] = useState(false);
+  const blockedMenuRef = useRef(null);
   const headerMenuBtnRef = useRef(null);
   const messageInputRef = useRef(null);
 
@@ -123,12 +126,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     addReaction,
     editMessage,
     markMessageAsRead,
-    saveScrollPosition,
     pinnedMessages,
     unpinMessage,
     toggleStarMessage,
     isMessageStarred,
     starredMessages,
+    blockedContacts,
+    blockContact,
+    unblockContact,
   } = useChatStore();
 
   const messagesContainerRef = useRef(null);
@@ -146,9 +151,63 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const lastSeen = getUserLastSeen(selectedContact?._id);
   const conversationId = selectedContact?.conversation?._id;
   const isTyping = isUserTyping(conversationId, selectedContact?._id);
+
+  const chatId = useMemo(() => {
+    return (
+      selectedContact?._id ||
+      selectedContact?.id ||
+      selectedContact?.conversation?._id ||
+      selectedContact?.conversation ||
+      selectedContact?.conversationId ||
+      null
+    );
+  }, [selectedContact]);
+
+  const isBlocked = useMemo(() => {
+    if (!blockedContacts || blockedContacts.length === 0) return false;
+    const candidates = [
+      chatId,
+      selectedContact?._id,
+      selectedContact?.id,
+      selectedContact?.conversation?._id,
+      selectedContact?.conversation,
+      selectedContact?.conversationId,
+    ].filter(Boolean).map(String);
+    return candidates.some((id) => blockedContacts.includes(id));
+  }, [chatId, selectedContact, blockedContacts]);
+
+  const handleUnblockContact = () => {
+    const targetId = chatId || selectedContact?._id;
+    if (targetId) {
+      unblockContact(targetId);
+      toast.success(`${selectedContact?.username || "Contact"} unblocked`);
+    }
+  };
+
+  const handleConfirmBlock = ({ report } = {}) => {
+    const targetId = chatId || selectedContact?._id;
+    if (!targetId) return;
+    blockContact(targetId);
+    if (report) {
+      toast.success(`${selectedContact?.username || "Contact"} reported and blocked`);
+    } else {
+      toast.success(`${selectedContact?.username || "Contact"} blocked`);
+    }
+    setShowBlockModal(false);
+  };
+
+  const handleConfirmReport = ({ block } = {}) => {
+    const targetId = chatId || selectedContact?._id;
+    if (block && targetId) {
+      blockContact(targetId);
+      toast.success(`${selectedContact?.username || "Contact"} reported and blocked`);
+    } else {
+      toast.success("Report submitted to WhatsApp");
+    }
+    setShowReportModal(false);
+  };
   const { setShowContactInfo, openContactInfoWithTab } = useLayoutStore();
   const disappearingDurations = useLayoutStore((state) => state.disappearingDurations);
-  const lastDisappearingActions = useLayoutStore((state) => state.lastDisappearingActions);
   const disappearingEvents = useLayoutStore((state) => state.disappearingEvents);
   const defaultMessageTimer = useLayoutStore((state) => state.defaultMessageTimer);
   const chatThemes = useLayoutStore((state) => state.chatThemes);
@@ -613,6 +672,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   };
 
   useOutsideClick(pinnedMenuRef, () => setShowPinnedMenu(false));
+  useOutsideClick(blockedMenuRef, () => setShowBlockedMenu(false));
 
   useEffect(() => {
     useChatStore.getState().initSocketListener();
@@ -1275,11 +1335,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       <div className="flex justify-center my-2 select-none px-4">
         <div
           onClick={() => openContactInfoWithTab("disappearing")}
-          className={`max-w-[620px] px-3.5 py-1.5 rounded-lg text-[12.5px] leading-[19px] shadow-sm text-center cursor-pointer transition-all duration-150 active:scale-[0.99] border ${
-            theme === "dark"
-              ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0] hover:bg-[#202c33]"
-              : "bg-white border-black/5 text-[#54656f] hover:bg-gray-50"
-          }`}
+          className={`max-w-[620px] px-3.5 py-1.5 rounded-lg text-[12.5px] leading-[19px] shadow-sm text-center cursor-pointer transition-all duration-150 active:scale-[0.99] border ${theme === "dark"
+            ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0] hover:bg-[#202c33]"
+            : "bg-white border-black/5 text-[#54656f] hover:bg-gray-50"
+            }`}
           title="Click to change disappearing messages timer"
         >
           <span className="inline-flex items-center align-baseline mr-1.5 -mb-0.5 text-[#8696a0]">
@@ -1291,9 +1350,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               e.stopPropagation();
               openContactInfoWithTab("disappearing");
             }}
-            className={`font-semibold hover:underline cursor-pointer ${
-              theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"
-            }`}
+            className={`font-semibold hover:underline cursor-pointer ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"
+              }`}
           >
             Change timer.
           </span>
@@ -1897,6 +1955,111 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         </div>
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+          {isBlocked && (
+            <div
+              className={`h-[42px] px-4 flex items-center justify-between border-b transition-colors duration-150 select-none z-20 shrink-0 relative group ${theme === "dark"
+                ? "bg-[#111b21] hover:bg-[#182229] border-[#222d34] text-[#e9edef]"
+                : "bg-[#f0f2f5] hover:bg-[#eaecef] border-[#e9edef] text-[#111b21]"
+                }`}
+            >
+              <div className="flex items-center gap-2.5 overflow-hidden min-w-0 pr-2">
+                <MdBlock size={15} className="shrink-0 text-red-400" />
+                <span
+                  className={`text-[13.5px] truncate font-medium ${theme === "dark" ? "text-[#d1d7db]" : "text-gray-800"
+                    }`}
+                >
+                  You blocked this contact.
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleUnblockContact}
+                  className="px-2.5 py-1 text-[13px] font-semibold text-[#00a884] hover:text-[#06cf9c] hover:bg-[#00a884]/10 rounded-lg transition-all cursor-pointer"
+                >
+                  Unblock
+                </button>
+                <span className="text-[#8696a0]/40 text-xs">|</span>
+                <button
+                  type="button"
+                  onClick={() => setShowReportModal(true)}
+                  className="px-2.5 py-1 text-[13px] font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+                >
+                  Report
+                </button>
+
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBlockedMenu((prev) => !prev);
+                    }}
+                    className={`p-1 rounded-full text-[#8696a0] ${theme === "dark"
+                      ? "hover:text-white hover:bg-white/10"
+                      : "hover:text-black hover:bg-black/10"
+                      } transition-all cursor-pointer ${showBlockedMenu ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                      }`}
+                    title="Options"
+                  >
+                    {showBlockedMenu ? (
+                      <MdKeyboardArrowUp size={22} />
+                    ) : (
+                      <MdKeyboardArrowDown size={22} />
+                    )}
+                  </button>
+
+                  <AnimatePresence>
+                    {showBlockedMenu && (
+                      <motion.div
+                        ref={blockedMenuRef}
+                        initial={{ opacity: 0, scale: 0.95, y: -2 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -2 }}
+                        transition={{ duration: 0.12 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`absolute right-0 top-[38px] z-50 min-w-[170px] rounded-xl shadow-2xl py-1.5 border select-none ${theme === "dark"
+                          ? "bg-[#233138] border-white/10 text-[#d1d7db]"
+                          : "bg-white border-black/10 text-[#111b21]"
+                          }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowBlockedMenu(false);
+                            handleUnblockContact();
+                          }}
+                          className={`w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
+                            ? "hover:bg-[#182229] hover:text-white"
+                            : "hover:bg-[#f5f6f6] text-[#111b21]"
+                            }`}
+                        >
+                          <MdBlock size={18} className="text-[#00a884] shrink-0" />
+                          <span>Unblock</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowBlockedMenu(false);
+                            setShowReportModal(true);
+                          }}
+                          className={`w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
+                            ? "hover:bg-[#182229] hover:text-red-400"
+                            : "hover:bg-[#f5f6f6] text-red-500"
+                            }`}
+                        >
+                          <MdThumbDown size={18} className="text-red-400 shrink-0" />
+                          <span>Report contact</span>
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activePin && (
             <div
               onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
@@ -2139,6 +2302,35 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   });
                 })()
               )}
+
+              {isBlocked && (
+                <div className="flex flex-col items-center justify-center my-3 select-none">
+                  <div
+                    className={`px-3.5 py-1.5 text-xs font-normal rounded-lg shadow-sm transition-colors flex items-center gap-2 ${theme === "dark"
+                      ? "bg-[#182229] text-[#8696a0]"
+                      : "bg-white text-[#54656f] border border-black/5"
+                      }`}
+                  >
+                    <MdBlock size={13} className="text-red-400 shrink-0" />
+                    <span>You blocked this contact.</span>
+                    <button
+                      type="button"
+                      onClick={handleUnblockContact}
+                      className="text-[#00a884] hover:underline font-semibold cursor-pointer"
+                    >
+                      Unblock
+                    </button>
+                    <span className="text-[#8696a0]/40">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowReportModal(true)}
+                      className="text-red-400 hover:underline font-semibold cursor-pointer"
+                    >
+                      Report
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div ref={messageEndRef} className="h-4" />
@@ -2256,6 +2448,22 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   </button>
                 )}
               </div>
+            </div>
+          ) : isBlocked ? (
+            <div
+              className={`p-3.5 sm:p-4 select-none flex items-center justify-center gap-2 text-center text-sm border-t transition-colors ${theme === "dark"
+                ? "bg-[#202c33] border-[#222d34] text-[#8696a0]"
+                : "bg-[#f0f2f5] border-gray-200 text-[#54656f]"
+                }`}
+            >
+              <span>You blocked this contact.</span>
+              <button
+                type="button"
+                onClick={handleUnblockContact}
+                className="text-[#00a884] hover:underline font-semibold cursor-pointer"
+              >
+                Tap to unblock
+              </button>
             </div>
           ) : (
             <div
@@ -2849,6 +3057,22 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         onOpenContactInfo={() => setShowContactInfo(true)}
         onOpenDisappearingMessages={() => openContactInfoWithTab("disappearing")}
         onOpenChatTheme={() => openContactInfoWithTab("chatTheme")}
+      />
+
+      <BlockModal
+        isOpen={showBlockModal}
+        onClose={() => setShowBlockModal(false)}
+        onBlock={handleConfirmBlock}
+        contactName={selectedContact?.username || "contact"}
+        theme={theme}
+      />
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onReport={handleConfirmReport}
+        contactName={selectedContact?.username || "contact"}
+        theme={theme}
       />
     </>
   );

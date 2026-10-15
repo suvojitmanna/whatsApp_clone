@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useOutsideClick from "../hook/useOutsideClick";
 import useLayoutStore from "../store/layoutStore";
@@ -21,8 +21,12 @@ import {
   FaCamera,
   FaCircle,
   FaExclamationTriangle,
+  FaStar,
+  FaHeart,
+  FaBookmark,
 } from "react-icons/fa";
 import { FaArrowLeft } from "react-icons/fa6";
+import { IoMdRemoveCircleOutline } from "react-icons/io";
 import { IoTimerOutline, IoColorPaletteOutline } from "react-icons/io5";
 import {
   MdChevronRight,
@@ -30,8 +34,15 @@ import {
   MdOutlineChatBubbleOutline,
   MdOutlineWallpaper,
   MdCheck,
+  MdBlock,
+  MdThumbDown,
+  MdShield,
+  MdList,
 } from "react-icons/md";
-import { LuSparkles } from "react-icons/lu";
+import { LuSparkles, LuDownload } from "react-icons/lu";
+import { format } from "date-fns";
+import ReportModal from "./ReportModal";
+import BlockModal from "./BlockModal";
 import {
   CHAT_THEMES,
   CURATED_THEME_IDS,
@@ -92,14 +103,385 @@ const ContactInfo = () => {
   } = useLayoutStore();
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const { isUserOnline } = useChatStore();
+  const { isUserOnline, messages, starredMessages, toggleStarMessage, blockedContacts, blockContact, unblockContact } = useChatStore();
+  const setIsChatSearchOpen = useLayoutStore((state) => state.setIsChatSearchOpen);
 
+  const handleExecuteClearChat = () => {
+    useChatStore.setState((state) => {
+      const nextCache = new Map(state.messagesCache || new Map());
+      if (chatId) nextCache.set(String(chatId), []);
+      return {
+        messages: [],
+        messagesCache: nextCache,
+      };
+    });
+    toast.success("Chat cleared");
+    setConfirmDialog(null);
+    onClose();
+  };
   const chatId = (
     selectedContact?.conversation?._id ||
     selectedContact?.conversation ||
     selectedContact?._id ||
     ""
   )?.toString();
+
+  const chatStarredMessages = useMemo(() => {
+    if (!starredMessages) return [];
+    const allStarred = Object.values(starredMessages);
+    const activeMsgs = Array.isArray(messages) ? messages : [];
+    const activeMsgIds = new Set(
+      activeMsgs.map((m) => (m._id || m.temp)?.toString()).filter(Boolean)
+    );
+
+    return allStarred
+      .filter((item) => {
+        if (!item) return false;
+        const msgIdStr = (item.messageId || item.message?._id)?.toString();
+        if (msgIdStr && activeMsgIds.has(msgIdStr)) return true;
+        const msg = item.message;
+        if (!msg) return false;
+        const convId = (
+          msg.conversation?._id ||
+          msg.conversation ||
+          msg.conversationId
+        )?.toString();
+        const sId = (msg.sender?._id || msg.sender)?.toString();
+        const rId = (msg.receiver?._id || msg.receiver)?.toString();
+        return (
+          convId === chatId ||
+          sId === chatId ||
+          rId === chatId ||
+          (selectedContact?._id &&
+            (sId === selectedContact._id.toString() ||
+              rId === selectedContact._id.toString()))
+        );
+      })
+      .sort((a, b) => (b.starredAt || 0) - (a.starredAt || 0));
+  }, [starredMessages, messages, chatId, selectedContact?._id]);
+  const [keptMessagesMap, setKeptMessagesMap] = useState(() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("whatsapp_kept_messages") || "{}"
+      );
+    } catch {
+      return {};
+    }
+  });
+
+  const chatKeptMessages = useMemo(() => {
+    if (!chatId || !keptMessagesMap?.[chatId]) return [];
+    return Object.values(keptMessagesMap[chatId]).sort(
+      (a, b) => (b.keptAt || 0) - (a.keptAt || 0)
+    );
+  }, [chatId, keptMessagesMap]);
+
+  const handleUnkeepMessage = (messageId) => {
+    if (!chatId || !messageId) return;
+    const currentChatKept = { ...(keptMessagesMap[chatId] || {}) };
+    delete currentChatKept[messageId];
+    const updated = {
+      ...keptMessagesMap,
+      [chatId]: currentChatKept,
+    };
+    setKeptMessagesMap(updated);
+    try {
+      localStorage.setItem("whatsapp_kept_messages", JSON.stringify(updated));
+    } catch { }
+    toast.info("Message unkept");
+  };
+
+  const [advancedPrivacy, setAdvancedPrivacy] = useState(() => {
+    try {
+      const all = JSON.parse(
+        localStorage.getItem("whatsapp_advanced_privacy") || "{}"
+      );
+      return (
+        (chatId && all[chatId]) || {
+          protectIp: false,
+          disableLinkPreviews: false,
+        }
+      );
+    } catch {
+      return { protectIp: false, disableLinkPreviews: false };
+    }
+  });
+
+  useEffect(() => {
+    if (!chatId) return;
+    try {
+      const all = JSON.parse(
+        localStorage.getItem("whatsapp_advanced_privacy") || "{}"
+      );
+      if (all[chatId]) {
+        setAdvancedPrivacy(all[chatId]);
+      } else {
+        setAdvancedPrivacy({
+          protectIp: false,
+          disableLinkPreviews: false,
+        });
+      }
+    } catch { }
+  }, [chatId]);
+
+  const handleToggleAdvancedPrivacy = (key) => {
+    if (!chatId) return;
+    const updated = {
+      ...advancedPrivacy,
+      [key]: !advancedPrivacy[key],
+    };
+    setAdvancedPrivacy(updated);
+    try {
+      const all = JSON.parse(
+        localStorage.getItem("whatsapp_advanced_privacy") || "{}"
+      );
+      all[chatId] = updated;
+      localStorage.setItem("whatsapp_advanced_privacy", JSON.stringify(all));
+    } catch { }
+    toast.success(
+      key === "protectIp"
+        ? updated.protectIp
+          ? "Protect IP address in calls enabled"
+          : "Protect IP address in calls disabled"
+        : updated.disableLinkPreviews
+          ? "Link previews disabled"
+          : "Link previews enabled"
+    );
+  };
+
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("whatsapp_favourite_chats") || "[]"
+      );
+    } catch {
+      return [];
+    }
+  });
+
+  const isFavorite = useMemo(() => {
+    return Boolean(chatId && favorites.includes(chatId));
+  }, [chatId, favorites]);
+
+  const handleToggleFavorite = () => {
+    if (!chatId) return;
+    let next;
+    if (isFavorite) {
+      next = favorites.filter((id) => id !== chatId);
+      toast.info("Removed from favourites");
+    } else {
+      next = [...favorites, chatId];
+      toast.success("Added to favourites");
+    }
+    setFavorites(next);
+    try {
+      localStorage.setItem("whatsapp_favourite_chats", JSON.stringify(next));
+    } catch { }
+  };
+
+  const DEFAULT_LISTS = ["Favorites", "Friends", "Family", "Work"];
+  const [customLists, setCustomLists] = useState(() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("whatsapp_all_custom_lists") || "[]"
+      );
+    } catch {
+      return [];
+    }
+  });
+
+  const [contactLists, setContactLists] = useState(() => {
+    try {
+      const map = JSON.parse(
+        localStorage.getItem("whatsapp_contact_lists") || "{}"
+      );
+      return (chatId && map[chatId]) || [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (!chatId) return;
+    try {
+      const map = JSON.parse(
+        localStorage.getItem("whatsapp_contact_lists") || "{}"
+      );
+      setContactLists(map[chatId] || []);
+    } catch { }
+  }, [chatId]);
+
+  const [newListName, setNewListName] = useState("");
+
+  const handleToggleContactList = (listName) => {
+    if (!chatId || !listName) return;
+    const isMember = contactLists.includes(listName);
+    const updated = isMember
+      ? contactLists.filter((l) => l !== listName)
+      : [...contactLists, listName];
+    setContactLists(updated);
+    try {
+      const map = JSON.parse(
+        localStorage.getItem("whatsapp_contact_lists") || "{}"
+      );
+      map[chatId] = updated;
+      localStorage.setItem("whatsapp_contact_lists", JSON.stringify(map));
+    } catch { }
+
+    if (listName === "Favorites") {
+      let nextFavs;
+      if (isMember) {
+        nextFavs = favorites.filter((id) => id !== chatId);
+      } else {
+        nextFavs = [...favorites, chatId];
+      }
+      setFavorites(nextFavs);
+      try {
+        localStorage.setItem(
+          "whatsapp_favourite_chats",
+          JSON.stringify(nextFavs)
+        );
+      } catch { }
+    }
+
+    toast.success(
+      isMember ? `Removed from ${listName}` : `Added to ${listName}`
+    );
+  };
+
+  const handleCreateNewList = (e) => {
+    e?.preventDefault();
+    const trimmed = newListName.trim();
+    if (!trimmed) return;
+    if (DEFAULT_LISTS.includes(trimmed) || customLists.includes(trimmed)) {
+      if (!contactLists.includes(trimmed)) {
+        handleToggleContactList(trimmed);
+      }
+      setNewListName("");
+      return;
+    }
+    const updatedCustom = [...customLists, trimmed];
+    setCustomLists(updatedCustom);
+    try {
+      localStorage.setItem(
+        "whatsapp_all_custom_lists",
+        JSON.stringify(updatedCustom)
+      );
+    } catch { }
+    handleToggleContactList(trimmed);
+    setNewListName("");
+  };
+
+  const handleExportChat = () => {
+    if (!messages || messages.length === 0) {
+      toast.info("No messages to export");
+      return;
+    }
+
+    const contactName = selectedContact?.username || "Contact";
+    const myName = user?.username || "You";
+
+    const lines = [
+      `WhatsApp Chat with ${contactName}`,
+      `Exported: ${new Date().toLocaleString()}`,
+      `Total messages: ${messages.length}`,
+      "----------------------------------------",
+      "",
+    ];
+
+    messages.forEach((msg) => {
+      const isMe =
+        String(msg.sender?._id || msg.sender) === String(user?._id);
+      const senderName = isMe ? myName : contactName;
+      const timeStr = msg.createdAt
+        ? new Date(msg.createdAt).toLocaleString([], {
+          dateStyle: "short",
+          timeStyle: "short",
+        })
+        : "Unknown date";
+
+      let body = msg.content || "";
+      if (msg.messageType === "image") body = "[Photo]";
+      else if (msg.messageType === "video") body = "[Video]";
+      else if (msg.messageType === "audio") body = "[Voice message]";
+      else if (msg.messageType === "document")
+        body = `[Document: ${msg.fileName || "file"}]`;
+      else if (msg.poll) body = `[Poll: ${msg.poll.question}]`;
+      else if (msg.event) body = `[Event: ${msg.event.title}]`;
+      else if (msg.sticker) body = "[Sticker]";
+      else if (msg.contact)
+        body = `[Contact card: ${msg.contact.name || "Contact"}]`;
+
+      lines.push(`[${timeStr}] ${senderName}: ${body}`);
+    });
+
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `WhatsApp Chat with ${contactName.replace(/[^a-zA-Z0-9_-]/g, "_")}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success("Chat exported successfully");
+  };
+
+  const isBlocked = useMemo(() => {
+    if (!blockedContacts || blockedContacts.length === 0) return false;
+    const candidates = [
+      chatId,
+      selectedContact?._id,
+      selectedContact?.id,
+      selectedContact?.conversation?._id,
+      selectedContact?.conversation,
+    ].filter(Boolean).map(String);
+    return candidates.some((id) => blockedContacts.includes(id));
+  }, [chatId, selectedContact, blockedContacts]);
+
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  const handleToggleBlock = () => {
+    const targetId = chatId || selectedContact?._id;
+    if (!targetId) return;
+    if (isBlocked) {
+      unblockContact(targetId);
+      toast.success(`${selectedContact?.username || "Contact"} unblocked`);
+    } else {
+      setShowBlockModal(true);
+    }
+  };
+
+  const handleConfirmBlock = ({ report } = {}) => {
+    const targetId = chatId || selectedContact?._id;
+    if (!targetId) return;
+    blockContact(targetId);
+    if (report) {
+      toast.success(
+        `${selectedContact?.username || "Contact"} reported and blocked`
+      );
+    } else {
+      toast.success(`${selectedContact?.username || "Contact"} blocked`);
+    }
+    setShowBlockModal(false);
+  };
+
+  const handleConfirmReport = ({ block }) => {
+    const targetId = chatId || selectedContact?._id;
+    if (block && targetId) {
+      blockContact(targetId);
+      toast.success(
+        `${selectedContact?.username || "Contact"} reported and blocked`
+      );
+    } else {
+      toast.success("Report submitted to WhatsApp");
+    }
+    setShowReportModal(false);
+  };
 
   const disappearingDuration =
     (chatId && disappearingDurations?.[chatId]) ||
@@ -653,7 +1035,15 @@ const ContactInfo = () => {
                                 ? "Wallpaper"
                                 : contactInfoTab === "solidColour"
                                   ? "Solid colour"
-                                  : "Contact Info"}
+                                  : contactInfoTab === "starred"
+                                    ? "Starred messages"
+                                    : contactInfoTab === "kept"
+                                      ? "Kept messages"
+                                      : contactInfoTab === "advancedPrivacy"
+                                        ? "Advanced"
+                                        : contactInfoTab === "lists"
+                                          ? "Add to list"
+                                          : "Contact Info"}
                 </h2>
               )}
             </div>
@@ -827,6 +1217,88 @@ const ContactInfo = () => {
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.45, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("starred")}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
+                        <FaStar size={17} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          Starred messages
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          {chatStarredMessages.length > 0
+                            ? `${chatStarredMessages.length} starred message${chatStarredMessages.length > 1 ? "s" : ""
+                            }`
+                            : "None"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {chatStarredMessages.length > 0 && (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400">
+                            {chatStarredMessages.length}
+                          </span>
+                        )}
+                        <MdChevronRight size={18} className="text-[#8696a0]" />
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.48, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("kept")}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                        <FaBookmark size={15} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          Kept messages
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          {chatKeptMessages.length > 0
+                            ? `${chatKeptMessages.length} kept message${chatKeptMessages.length > 1 ? "s" : ""
+                            }`
+                            : "None"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {chatKeptMessages.length > 0 && (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
+                            {chatKeptMessages.length}
+                          </span>
+                        )}
+                        <MdChevronRight size={18} className="text-[#8696a0]" />
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.5, type: "spring", stiffness: 100 }}
                     onClick={() => setContactInfoTab("disappearing")}
                     className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
@@ -848,6 +1320,37 @@ const ContactInfo = () => {
                             }`}
                         >
                           {disappearingDuration}
+                        </p>
+                      </div>
+
+                      <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.52, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("advancedPrivacy")}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
+                        <MdShield size={19} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          Advanced chat privacy
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          Protect IP address, disable link previews
                         </p>
                       </div>
 
@@ -885,10 +1388,11 @@ const ContactInfo = () => {
                       <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
                     </div>
                   </motion.div>
+
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.45, type: "spring", stiffness: 100 }}
+                    transition={{ delay: 0.58, type: "spring", stiffness: 100 }}
                     onClick={() => setContactInfoTab("security")}
                     className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
                       ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
@@ -912,6 +1416,210 @@ const ContactInfo = () => {
                             }`}
                         >
                           Messages and calls are end-to-end encrypted. Tap to verify.
+                        </p>
+                      </div>
+
+                      <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.61, type: "spring", stiffness: 100 }}
+                    onClick={handleToggleFavorite}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-colors ${isFavorite
+                          ? "bg-rose-500/15 text-rose-500 border-rose-500/30"
+                          : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                          }`}
+                      >
+                        <FaHeart size={16} className={isFavorite ? "fill-rose-500" : ""} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          {isFavorite ? "Remove from favourites" : "Add to favourites"}
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          {isFavorite
+                            ? "Saved to your favourites list"
+                            : "Add to favourite chats for quick access"}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 transition-colors ${isFavorite
+                          ? "bg-rose-500/20 text-rose-400 font-semibold"
+                          : "text-[#8696a0]"
+                          }`}
+                      >
+                        {isFavorite ? "Favourite" : "Add"}
+                      </span>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.64, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("lists")}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center shrink-0 border border-sky-500/20">
+                        <MdList size={20} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          Add to list
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          {contactLists.length > 0
+                            ? contactLists.join(", ")
+                            : "Organize into custom lists"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {contactLists.length > 0 && (
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400">
+                            {contactLists.length}
+                          </span>
+                        )}
+                        <MdChevronRight size={18} className="text-[#8696a0]" />
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.67, type: "spring", stiffness: 100 }}
+                    onClick={handleExportChat}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-400 flex items-center justify-center shrink-0 border border-teal-500/20">
+                        <LuDownload size={18} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          Export chat
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          Download conversation history (.txt)
+                        </p>
+                      </div>
+
+                      <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                    </div>
+                  </motion.div>
+
+                  <div className="my-1 border-t border-white/5" />
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.7, type: "spring", stiffness: 100 }}
+                    onClick={handleExecuteClearChat}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-red-500/10 hover:border-red-500/20"
+                      : " hover:bg-red-50 hover:border-red-100"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
+                        <IoMdRemoveCircleOutline size={19} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold text-red-500 truncate">
+                          Clear Chat
+                        </h4>
+
+                      </div>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.7, type: "spring", stiffness: 100 }}
+                    onClick={handleToggleBlock}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-red-500/10 hover:border-red-500/20"
+                      : " hover:bg-red-50 hover:border-red-100"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
+                        <MdBlock size={19} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold text-red-500 truncate">
+                          {isBlocked
+                            ? `Unblock ${selectedContact?.username || "contact"}`
+                            : `Block ${selectedContact?.username || "contact"}`}
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          {isBlocked
+                            ? "Allow calls and messages from this contact"
+                            : "Calls and messages will be blocked"}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.73, type: "spring", stiffness: 100 }}
+                    onClick={() => setShowReportModal(true)}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-red-500/10 hover:border-red-500/20"
+                      : " hover:bg-red-50 hover:border-red-100"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
+                        <MdThumbDown size={19} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold text-red-500 truncate">
+                          Report {selectedContact?.username || "contact"}
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          Send report and last 5 messages to WhatsApp
                         </p>
                       </div>
                     </div>
@@ -1926,6 +2634,325 @@ const ContactInfo = () => {
                 </div>
               </motion.div>
             )}
+
+            {contactInfoTab === "starred" && (
+              <motion.div
+                key="tab-starred"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col flex-1 overflow-y-auto scrollbar-hide p-4 select-none"
+              >
+                {chatStarredMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center flex-1 py-16 text-center px-6">
+                    <div className="w-16 h-16 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 flex items-center justify-center mb-4 shadow-lg">
+                      <FaStar size={26} />
+                    </div>
+                    <h3 className={`text-[17px] font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+                      No starred messages
+                    </h3>
+                    <p className="text-[13px] text-[#8696a0] max-w-xs leading-relaxed">
+                      Tap and hold or hover over any message in this chat and select Star to save it here for quick access.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3 pb-8">
+                    <div className="flex items-center justify-between px-1 mb-1">
+                      <span className="text-[12px] uppercase font-bold tracking-wider text-[#8696a0]">
+                        {chatStarredMessages.length} Starred {chatStarredMessages.length === 1 ? "Message" : "Messages"}
+                      </span>
+                    </div>
+                    {chatStarredMessages.map((item) => {
+                      const msg = item.message || item;
+                      const msgId = item.messageId || msg._id || msg.temp;
+                      const isMe = String(msg.sender?._id || msg.sender) === String(user?._id);
+                      const senderName = isMe ? "You" : (selectedContact?.username || "Contact");
+                      const timeFormatted = msg.createdAt
+                        ? format(new Date(msg.createdAt), "MMM d, yyyy 'at' p")
+                        : "";
+
+                      return (
+                        <div
+                          key={msgId || Math.random()}
+                          className={`p-3.5 rounded-2xl border transition-all ${isDark
+                            ? "bg-[#202c33] border-white/5 hover:border-white/10"
+                            : "bg-white border-black/5 hover:border-black/10 shadow-sm"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className={`text-[12.5px] font-semibold truncate ${isMe ? "text-emerald-400" : isDark ? "text-white" : "text-gray-900"
+                                  }`}
+                              >
+                                {senderName}
+                              </span>
+                              <span className="text-[11px] text-[#8696a0] shrink-0">
+                                {timeFormatted}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleStarMessage(msgId, msg)}
+                              title="Unstar message"
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-amber-400 hover:bg-amber-400/15 transition-colors cursor-pointer shrink-0"
+                            >
+                              <FaStar size={13} />
+                            </button>
+                          </div>
+
+                          <div
+                            className={`text-[13.5px] leading-relaxed break-words ${isDark ? "text-gray-200" : "text-gray-800"
+                              }`}
+                          >
+                            {msg.content ? (
+                              <p>{msg.content}</p>
+                            ) : msg.messageType === "image" ? (
+                              <span className="text-xs text-emerald-400 font-medium">📷 [Photo]</span>
+                            ) : msg.messageType === "video" ? (
+                              <span className="text-xs text-emerald-400 font-medium">🎥 [Video]</span>
+                            ) : msg.messageType === "audio" ? (
+                              <span className="text-xs text-emerald-400 font-medium">🎤 [Voice message]</span>
+                            ) : msg.messageType === "document" ? (
+                              <span className="text-xs text-emerald-400 font-medium">📄 {msg.fileName || "Document"}</span>
+                            ) : msg.poll ? (
+                              <span className="text-xs text-emerald-400 font-medium">📊 [Poll: {msg.poll.question}]</span>
+                            ) : msg.event ? (
+                              <span className="text-xs text-emerald-400 font-medium">📅 [Event: {msg.event.title}]</span>
+                            ) : msg.contact ? (
+                              <span className="text-xs text-emerald-400 font-medium">👤 [Contact: {msg.contact.name || "Card"}]</span>
+                            ) : (
+                              <span className="text-xs italic text-[#8696a0]">[Message]</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {contactInfoTab === "kept" && (
+              <motion.div
+                key="tab-kept"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col flex-1 overflow-y-auto scrollbar-hide p-4 select-none"
+              >
+                {chatKeptMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center flex-1 py-16 text-center px-6">
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center mb-4 shadow-lg">
+                      <FaBookmark size={24} />
+                    </div>
+                    <h3 className={`text-[17px] font-semibold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
+                      No kept messages
+                    </h3>
+                    <p className="text-[13px] text-[#8696a0] max-w-xs leading-relaxed">
+                      Anyone in this chat can keep or unkeep disappearing messages so they don&apos;t disappear for anyone.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3 pb-8">
+                    <div className="flex items-center justify-between px-1 mb-1">
+                      <span className="text-[12px] uppercase font-bold tracking-wider text-[#8696a0]">
+                        {chatKeptMessages.length} Kept {chatKeptMessages.length === 1 ? "Message" : "Messages"}
+                      </span>
+                    </div>
+                    {chatKeptMessages.map((item) => {
+                      const msg = item.message || item;
+                      const msgId = item.messageId || msg._id || msg.temp;
+                      const isMe = String(msg.sender?._id || msg.sender) === String(user?._id);
+                      const senderName = isMe ? "You" : (selectedContact?.username || "Contact");
+                      const timeFormatted = msg.createdAt
+                        ? format(new Date(msg.createdAt), "MMM d, yyyy 'at' p")
+                        : "";
+
+                      return (
+                        <div
+                          key={msgId || Math.random()}
+                          className={`p-3.5 rounded-2xl border transition-all ${isDark
+                            ? "bg-[#202c33] border-white/5 hover:border-white/10"
+                            : "bg-white border-black/5 hover:border-black/10 shadow-sm"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className={`text-[12.5px] font-semibold truncate ${isMe ? "text-emerald-400" : isDark ? "text-white" : "text-gray-900"
+                                  }`}
+                              >
+                                {senderName}
+                              </span>
+                              <span className="text-[11px] text-[#8696a0] shrink-0">
+                                {timeFormatted}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleUnkeepMessage(msgId)}
+                              title="Unkeep message"
+                              className="w-7 h-7 rounded-full flex items-center justify-center text-emerald-400 hover:bg-emerald-500/15 transition-colors cursor-pointer shrink-0"
+                            >
+                              <FaBookmark size={13} />
+                            </button>
+                          </div>
+
+                          <div
+                            className={`text-[13.5px] leading-relaxed break-words ${isDark ? "text-gray-200" : "text-gray-800"
+                              }`}
+                          >
+                            {msg.content || <span className="text-xs italic text-[#8696a0]">[Media / Attachment]</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {contactInfoTab === "advancedPrivacy" && (
+              <motion.div
+                key="tab-advancedPrivacy"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col flex-1 overflow-y-auto scrollbar-hide p-5 select-none"
+              >
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <h4 className={`text-[15px] font-semibold mb-1.5 ${isDark ? "text-white" : "text-gray-900"}`}>
+                        Protect IP address in calls
+                      </h4>
+                      <p className="text-[13px] text-[#8696a0] leading-relaxed">
+                        To make it harder for people to infer your location, calls from this device will be securely relayed through WhatsApp servers. This will slightly reduce call quality.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={advancedPrivacy.protectIp}
+                      onClick={() => handleToggleAdvancedPrivacy("protectIp")}
+                      className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 mt-1 ${advancedPrivacy.protectIp ? "bg-[#00a884]" : "bg-[#374248]"
+                        }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${advancedPrivacy.protectIp
+                          ? "translate-x-5 bg-[#111b21]"
+                          : "translate-x-0 bg-[#8696a0]"
+                          }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="h-px bg-white/5 w-full" />
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <h4 className={`text-[15px] font-semibold mb-1.5 ${isDark ? "text-white" : "text-gray-900"}`}>
+                        Disable link previews
+                      </h4>
+                      <p className="text-[13px] text-[#8696a0] leading-relaxed">
+                        To protect your IP address from being inferred by third-party websites, previews for links you send in this chat won&apos;t be generated.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={advancedPrivacy.disableLinkPreviews}
+                      onClick={() => handleToggleAdvancedPrivacy("disableLinkPreviews")}
+                      className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 mt-1 ${advancedPrivacy.disableLinkPreviews ? "bg-[#00a884]" : "bg-[#374248]"
+                        }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${advancedPrivacy.disableLinkPreviews
+                          ? "translate-x-5 bg-[#111b21]"
+                          : "translate-x-0 bg-[#8696a0]"
+                          }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "lists" && (
+              <motion.div
+                key="tab-lists"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col flex-1 overflow-y-auto scrollbar-hide p-5 select-none"
+              >
+                <p className="text-[13.5px] text-[#8696a0] leading-relaxed mb-4">
+                  Select lists to add <span className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{selectedContact?.username || "this contact"}</span> to. You can easily filter conversations by list in your chat list.
+                </p>
+
+                <div className="flex flex-col gap-2 mb-6">
+                  {Array.from(new Set([...DEFAULT_LISTS, ...customLists])).map((listName) => {
+                    const isInList = contactLists.includes(listName);
+                    return (
+                      <div
+                        key={listName}
+                        onClick={() => handleToggleContactList(listName)}
+                        className={`flex items-center justify-between p-3.5 rounded-2xl cursor-pointer transition-all border ${isDark
+                          ? "bg-[#202c33] border-white/5 hover:border-white/10"
+                          : "bg-white border-black/5 hover:border-black/10 shadow-sm"
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center ${listName === "Favorites"
+                              ? "bg-rose-500/10 text-rose-400"
+                              : "bg-emerald-500/10 text-emerald-400"
+                              }`}
+                          >
+                            {listName === "Favorites" ? <FaHeart size={15} /> : <MdList size={18} />}
+                          </div>
+                          <span className={`text-[14.5px] font-medium ${isDark ? "text-white" : "text-gray-900"}`}>
+                            {listName}
+                          </span>
+                        </div>
+
+                        <div
+                          className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${isInList ? "bg-[#00a884] text-[#111b21]" : "border border-[#8696a0]/40"
+                            }`}
+                        >
+                          {isInList && <FaCheck size={11} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <form onSubmit={handleCreateNewList} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newListName}
+                    onChange={(e) => setNewListName(e.target.value)}
+                    placeholder="New list name..."
+                    maxLength={30}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-[14px] outline-none transition-all ${isDark
+                      ? "bg-[#202c33] text-white placeholder-[#8696a0] border border-white/10 focus:border-[#00a884]"
+                      : "bg-gray-100 text-gray-900 placeholder-gray-400 border border-gray-200 focus:border-[#00a884]"
+                      }`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newListName.trim()}
+                    className="px-4 py-2.5 rounded-xl bg-[#00a884] hover:bg-[#06cf9c] disabled:opacity-40 disabled:cursor-not-allowed text-[#111b21] font-semibold text-[13.5px] transition-all cursor-pointer shadow-sm"
+                  >
+                    Add
+                  </button>
+                </form>
+              </motion.div>
+            )}
           </AnimatePresence>
           <AnimatePresence>
             {scanError && (
@@ -1979,6 +3006,21 @@ const ContactInfo = () => {
               </div>
             )}
           </AnimatePresence>
+
+          <BlockModal
+            isOpen={showBlockModal}
+            onClose={() => setShowBlockModal(false)}
+            onBlock={handleConfirmBlock}
+            contactName={selectedContact?.username || "contact"}
+            theme={theme}
+          />
+
+          <ReportModal
+            isOpen={showReportModal}
+            onClose={() => setShowReportModal(false)}
+            onReport={handleConfirmReport}
+            theme={theme}
+          />
           <div
             ref={cursorTooltipRef}
             className="fixed pointer-events-none z-[999999] px-2.5 py-1 rounded-md bg-[#1f2c34] text-white text-[12px] font-medium shadow-2xl border border-white/15 whitespace-nowrap backdrop-blur-md -translate-x-1/2 select-none"

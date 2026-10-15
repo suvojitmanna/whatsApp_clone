@@ -129,6 +129,16 @@ const getStoredStarred = () => {
   }
 };
 
+const getStoredBlocked = () => {
+  try {
+    const raw = localStorage.getItem("whatsapp_blocked_contacts");
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+};
+
 export const useChatStore = create((set, get) => ({
   users: [],
   setUsers: (users) => set({ users }),
@@ -208,6 +218,34 @@ export const useChatStore = create((set, get) => ({
     if (!messageId) return false;
     return Boolean(get().starredMessages[messageId]);
   },
+  blockedContacts: getStoredBlocked(),
+  blockContact: (targetId) => {
+    if (!targetId) return;
+    const strId = (targetId?._id || targetId)?.toString();
+    const current = get().blockedContacts || [];
+    if (!current.includes(strId)) {
+      const next = [...current, strId];
+      try {
+        localStorage.setItem("whatsapp_blocked_contacts", JSON.stringify(next));
+      } catch (e) {}
+      set({ blockedContacts: next });
+    }
+  },
+  unblockContact: (targetId) => {
+    if (!targetId) return;
+    const strId = (targetId?._id || targetId)?.toString();
+    const current = get().blockedContacts || [];
+    const next = current.filter((id) => id !== strId);
+    try {
+      localStorage.setItem("whatsapp_blocked_contacts", JSON.stringify(next));
+    } catch (e) {}
+    set({ blockedContacts: next });
+  },
+  isContactBlocked: (targetId) => {
+    if (!targetId) return false;
+    const strId = (targetId?._id || targetId)?.toString();
+    return Boolean(get().blockedContacts?.includes(strId));
+  },
   pinMessage: async (
     conversationId,
     message,
@@ -222,8 +260,8 @@ export const useChatStore = create((set, get) => ({
 
     let finalMessage = message;
     if (finalMessage.isEncrypted && !finalMessage._isDecrypted) {
-      const currentUserId =
-        (get().currentUser || useUserStore.getState().user)?._id;
+      const currentUserId = (get().currentUser || useUserStore.getState().user)
+        ?._id;
       finalMessage = await decryptSingleMessage(
         finalMessage,
         currentUserId,
@@ -466,8 +504,9 @@ export const useChatStore = create((set, get) => ({
       } = data;
       let decMsg = message;
       if (decMsg?.isEncrypted && !decMsg?._isDecrypted) {
-        const currentUserId =
-          (get().currentUser || useUserStore.getState().user)?._id;
+        const currentUserId = (
+          get().currentUser || useUserStore.getState().user
+        )?._id;
         decMsg = await decryptSingleMessage(decMsg, currentUserId, null, get);
       }
       get().pinMessage(
@@ -887,7 +926,10 @@ export const useChatStore = create((set, get) => ({
             );
 
             let decryptedLast = conv.lastMessage;
-            if (conv.lastMessage?.isEncrypted && !conv.lastMessage?._isDecrypted) {
+            if (
+              conv.lastMessage?.isEncrypted &&
+              !conv.lastMessage?._isDecrypted
+            ) {
               decryptedLast = await decryptSingleMessage(
                 conv.lastMessage,
                 currentUserId,

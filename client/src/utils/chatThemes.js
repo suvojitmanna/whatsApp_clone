@@ -191,8 +191,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_yosemite",
     name: "Yosemite Valley",
     category: "Mountains & Lakes",
-    imageUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0f171c",
     bubbleColor: "#005c4b",
     hasDoodles: false,
@@ -203,8 +205,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_aurora",
     name: "Northern Lights",
     category: "Sky & Space",
-    imageUrl: "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0a131a",
     bubbleColor: "#0d9488",
     hasDoodles: false,
@@ -215,8 +219,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_misty_forest",
     name: "Misty Pine Forest",
     category: "Forests",
-    imageUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0d1a14",
     bubbleColor: "#059669",
     hasDoodles: false,
@@ -227,8 +233,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_waterfall",
     name: "Cascading Waterfall",
     category: "Water & Rivers",
-    imageUrl: "https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1433086966358-54859d0ed716?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0b1717",
     bubbleColor: "#0284c7",
     hasDoodles: false,
@@ -239,8 +247,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_starry_galaxy",
     name: "Starry Night Sky",
     category: "Sky & Space",
-    imageUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0d1117",
     bubbleColor: "#4336a5",
     hasDoodles: false,
@@ -251,8 +261,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_alpine_lake",
     name: "Alpine Emerald Lake",
     category: "Mountains & Lakes",
-    imageUrl: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0f1c24",
     bubbleColor: "#0d7667",
     hasDoodles: false,
@@ -263,8 +275,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_sunset_beach",
     name: "Ocean Sunset",
     category: "Oceans & Coast",
-    imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=75",
     bgColor: "#1f1715",
     bubbleColor: "#c2410c",
     hasDoodles: false,
@@ -275,8 +289,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_autumn_woodland",
     name: "Autumn Foliage",
     category: "Forests",
-    imageUrl: "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=400&q=75",
     bgColor: "#1f1510",
     bubbleColor: "#ea580c",
     hasDoodles: false,
@@ -287,8 +303,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_desert_dunes",
     name: "Golden Desert Dunes",
     category: "Deserts",
-    imageUrl: "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=400&q=75",
     bgColor: "#21160e",
     bubbleColor: "#d97706",
     hasDoodles: false,
@@ -299,8 +317,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_mountain_peaks",
     name: "Mountain Summit",
     category: "Mountains & Lakes",
-    imageUrl: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=75",
     bgColor: "#141c22",
     bubbleColor: "#0284c7",
     hasDoodles: false,
@@ -311,8 +331,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_misty_valley",
     name: "Misty Mountain Valley",
     category: "Mountains & Lakes",
-    imageUrl: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=400&q=75",
     bgColor: "#121b20",
     bubbleColor: "#0f766e",
     hasDoodles: false,
@@ -323,8 +345,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_turquoise_canyon",
     name: "Turquoise River Canyon",
     category: "Water & Rivers",
-    imageUrl: "https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1497436072909-60f360e1d4b1?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0d1b1e",
     bubbleColor: "#0284c7",
     hasDoodles: false,
@@ -335,8 +359,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_rainforest_canopy",
     name: "Tropical Rainforest",
     category: "Forests",
-    imageUrl: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0b1812",
     bubbleColor: "#10b981",
     hasDoodles: false,
@@ -347,8 +373,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_serene_dock",
     name: "Peaceful Lake Pier",
     category: "Mountains & Lakes",
-    imageUrl: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=400&q=75",
     bgColor: "#131d24",
     bubbleColor: "#0284c7",
     hasDoodles: false,
@@ -359,8 +387,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_lavender_field",
     name: "Lavender Sunset Field",
     category: "Fields & Flora",
-    imageUrl: "https://images.unsplash.com/photo-1499002238440-d264edd596ec?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1499002238440-d264edd596ec?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1499002238440-d264edd596ec?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1499002238440-d264edd596ec?auto=format&fit=crop&w=400&q=75",
     bgColor: "#1c1424",
     bubbleColor: "#7e22ce",
     hasDoodles: false,
@@ -371,8 +401,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_lush_river",
     name: "Lush River Valley",
     category: "Water & Rivers",
-    imageUrl: "https://images.unsplash.com/photo-1426604966848-d7adac402bff?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1426604966848-d7adac402bff?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1426604966848-d7adac402bff?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1426604966848-d7adac402bff?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0d1a15",
     bubbleColor: "#059669",
     hasDoodles: false,
@@ -383,8 +415,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_pine_path",
     name: "Evergreen Forest Trail",
     category: "Forests",
-    imageUrl: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=400&q=75",
     bgColor: "#111b15",
     bubbleColor: "#047857",
     hasDoodles: false,
@@ -395,8 +429,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_green_rolling_hills",
     name: "Rolling Green Hills",
     category: "Fields & Flora",
-    imageUrl: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=400&q=75",
     bgColor: "#141f17",
     bubbleColor: "#16a34a",
     hasDoodles: false,
@@ -407,8 +443,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_cosmic_nebula",
     name: "Deep Space Nebula",
     category: "Sky & Space",
-    imageUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=75",
     bgColor: "#0e111a",
     bubbleColor: "#6366f1",
     hasDoodles: false,
@@ -419,8 +457,10 @@ export const NATURE_WALLPAPERS = [
     id: "nature_sunrise_peaks",
     name: "Alpine Sunrise",
     category: "Mountains & Lakes",
-    imageUrl: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1600&q=85",
-    thumbnailUrl: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=400&q=75",
+    imageUrl:
+      "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1600&q=85",
+    thumbnailUrl:
+      "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=400&q=75",
     bgColor: "#19171d",
     bubbleColor: "#9333ea",
     hasDoodles: false,
@@ -710,4 +750,3 @@ export const CHAT_BUBBLE_COLORS = [
   { id: "bubble_warm_bronze", name: "Warm Bronze", color: "#6f482d" },
   { id: "bubble_dark_espresso", name: "Dark Espresso", color: "#3c2c20" },
 ];
-
