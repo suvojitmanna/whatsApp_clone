@@ -23,6 +23,25 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { FaArrowLeft } from "react-icons/fa6";
+import { IoTimerOutline, IoColorPaletteOutline } from "react-icons/io5";
+import {
+  MdChevronRight,
+  MdRefresh,
+  MdOutlineChatBubbleOutline,
+  MdOutlineWallpaper,
+  MdCheck,
+} from "react-icons/md";
+import { LuSparkles } from "react-icons/lu";
+import {
+  CHAT_THEMES,
+  CURATED_THEME_IDS,
+  WALLPAPER_THEMES,
+  NATURE_WALLPAPERS,
+  SOLID_COLOUR_THEMES,
+  CHAT_BUBBLE_COLORS,
+  getChatTheme,
+} from "../utils/chatThemes";
+import { toast } from "react-toastify";
 
 const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   <button
@@ -56,12 +75,100 @@ const ContactInfo = () => {
     showContactInfo,
     setShowContactInfo,
     contactInfoTab = "info",
+    previousContactInfoTab,
     setContactInfoTab,
+    disappearingDurations = {},
+    setDisappearingDuration,
+    defaultMessageTimer = "Off",
+    setDefaultMessageTimer,
+    chatThemes = {},
+    setChatTheme,
+    chatDoodles = {},
+    setChatDoodles,
+    chatBubbleColors = {},
+    setChatBubbleColor,
+    resetChatBubbleColor,
+    resetChatTheme,
   } = useLayoutStore();
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const { isUserOnline } = useChatStore();
 
+  const chatId = (
+    selectedContact?.conversation?._id ||
+    selectedContact?.conversation ||
+    selectedContact?._id ||
+    ""
+  )?.toString();
+
+  const disappearingDuration =
+    (chatId && disappearingDurations?.[chatId]) ||
+    defaultMessageTimer ||
+    "Off";
+
+  const activeChatThemeId = (chatId && chatThemes?.[chatId]) || "default";
+  const activeChatTheme = getChatTheme(activeChatThemeId);
+  const customBubbleColor = chatId && chatBubbleColors?.[chatId];
+  const activeBubbleColor = customBubbleColor || activeChatTheme.bubbleColor;
+  const doodlesEnabled = chatId ? chatDoodles?.[chatId] !== false : true;
+
+  const handleSelectDisappearing = (duration) => {
+    if (chatId) {
+      setDisappearingDuration(chatId, duration, user?._id);
+      toast.success(
+        duration === "Off"
+          ? "Disappearing messages turned off"
+          : `Disappearing messages set to ${duration}`
+      );
+    }
+  };
+
+  const handleSelectDefaultTimer = (duration) => {
+    setDefaultMessageTimer(duration);
+    toast.success(
+      duration === "Off"
+        ? "Default message timer turned off"
+        : `Default message timer set to ${duration}`
+    );
+  };
+
+  const handleSelectTheme = (themeId) => {
+    if (chatId) {
+      setChatTheme(chatId, themeId);
+      const chosen = getChatTheme(themeId);
+      toast.success(`Theme set to ${chosen.name}`);
+    }
+  };
+
+  const handleToggleDoodles = (enabled) => {
+    if (chatId) {
+      setChatDoodles(chatId, enabled);
+      toast.info(enabled ? "WhatsApp doodles enabled" : "WhatsApp doodles disabled");
+    }
+  };
+
+  const handleResetTheme = () => {
+    if (chatId) {
+      resetChatTheme(chatId);
+      toast.success("Chat theme reset to default");
+    }
+  };
+
+  const handleSelectBubbleColor = (color) => {
+    if (chatId) {
+      setChatBubbleColor(chatId, color);
+      toast.success("Chat bubble color updated");
+    }
+  };
+
+  const handleResetBubbleColor = () => {
+    if (chatId) {
+      resetChatBubbleColor(chatId);
+      toast.info("Chat bubble reset to theme default");
+    }
+  };
+
+  const [wallpaperFilter, setWallpaperFilter] = useState("all");
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [scanStatus, setScanStatus] = useState(null);
   const [scanError, setScanError] = useState(null);
@@ -72,6 +179,35 @@ const ContactInfo = () => {
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const cursorTooltipRef = useRef(null);
+
+  const updateCursorTooltip = useCallback((e, text) => {
+    if (!cursorTooltipRef.current) return;
+    const el = cursorTooltipRef.current;
+    if (text !== undefined && text !== null) {
+      el.textContent = text;
+    }
+    el.style.display = "block";
+
+    const cursorOffset = 18;
+    const x = e.clientX;
+    let y = e.clientY + cursorOffset;
+    if (y + 36 > window.innerHeight) {
+      y = e.clientY - 30;
+    }
+
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+  }, []);
+
+  const hideCursorTooltip = useCallback(() => {
+    if (!cursorTooltipRef.current) return;
+    cursorTooltipRef.current.style.display = "none";
+  }, []);
+
+  useEffect(() => {
+    hideCursorTooltip();
+  }, [contactInfoTab, showContactInfo, hideCursorTooltip]);
 
   const [safetyNumber, setSafetyNumber] = useState({
     blocks: Array(12).fill("00000"),
@@ -425,7 +561,7 @@ const ContactInfo = () => {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
           transition={{ type: "tween", duration: 0.2 }}
-          className={`h-full flex flex-col select-none ${isMobile
+          className={`min-h-screen h-full flex flex-col select-none ${isMobile
             ? "fixed inset-0 z-[100]"
             : "relative w-full md:w-[350px] lg:w-[400px] xl:w-[420px] shrink-0 border-l"
             } ${theme === "dark"
@@ -455,28 +591,71 @@ const ContactInfo = () => {
                   onClick={() => {
                     stopCamera();
                     setScanError(null);
-                    setContactInfoTab(contactInfoTab === "privacy" ? "security" : "info");
+                    if (contactInfoTab === "allThemes") {
+                      setContactInfoTab("chatTheme");
+                    } else if (contactInfoTab === "chatBubble") {
+                      setContactInfoTab("chatTheme");
+                    } else if (contactInfoTab === "wallpaper") {
+                      setContactInfoTab("chatTheme");
+                    } else if (contactInfoTab === "solidColour") {
+                      setContactInfoTab("wallpaper");
+                    } else if (contactInfoTab === "chatTheme") {
+                      if (previousContactInfoTab === "info") {
+                        setContactInfoTab("info");
+                      } else {
+                        setShowContactInfo(false);
+                      }
+                    } else if (contactInfoTab === "defaultTimer") {
+                      setContactInfoTab("disappearing");
+                    } else if (contactInfoTab === "disappearing") {
+                      if (previousContactInfoTab === "info") {
+                        setContactInfoTab("info");
+                      } else {
+                        setShowContactInfo(false);
+                      }
+                    } else if (contactInfoTab === "privacy") {
+                      setContactInfoTab("security");
+                    } else {
+                      setContactInfoTab("info");
+                    }
                   }}
                   className="p-1 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
                   title="Back"
                 >
-                  <FaArrowLeft size={24} />
+                  <FaArrowLeft size={20} />
                 </motion.button>
               )}
 
-              <h2 className="font-semibold text-[17px] tracking-tight truncate">
-                {contactInfoTab === "security"
-                  ? <div className="pt-8 pb-5">
-                    <p className="text-center items-center justify-center text-md">Verify security code</p>
-                    <div className="w-full mb-3">
-                      <p className="text-[13.5px] text-[#8696a0] font-medium">
-                        You, {selectedContact?.username || "Contact"}
-                      </p>
-                    </div></div>
-                  : contactInfoTab === "privacy"
+              {contactInfoTab === "security" ? (
+                <div className="flex flex-col min-w-0">
+                  <span className="font-semibold text-[16px] leading-tight truncate">
+                    Verify security code
+                  </span>
+                  <span className="text-[12px] text-[#8696a0] font-normal truncate">
+                    You, {selectedContact?.username || "Contact"}
+                  </span>
+                </div>
+              ) : (
+                <h2 className="font-semibold text-[17px] tracking-tight truncate">
+                  {contactInfoTab === "privacy"
                     ? "Your chats and calls are private"
-                    : "Contact Info"}
-              </h2>
+                    : contactInfoTab === "disappearing"
+                      ? "Disappearing messages"
+                      : contactInfoTab === "defaultTimer"
+                        ? "Default message timer"
+                        : contactInfoTab === "chatTheme"
+                          ? "Chat theme"
+                          : contactInfoTab === "chatBubble"
+                            ? "Chat bubble"
+                            : contactInfoTab === "allThemes"
+                              ? "Themes"
+                              : contactInfoTab === "wallpaper"
+                                ? "Wallpaper"
+                                : contactInfoTab === "solidColour"
+                                  ? "Solid colour"
+                                  : "Contact Info"}
+                </h2>
+              )}
             </div>
 
             {contactInfoTab === "info" ? (
@@ -487,7 +666,27 @@ const ContactInfo = () => {
               >
                 <FaPen className="h-4 w-4 cursor-pointer" />
               </motion.button>
-            ) : (
+            ) : contactInfoTab === "chatTheme" || contactInfoTab === "wallpaper" ? (
+              <motion.button
+                whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleResetTheme}
+                className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
+                title={contactInfoTab === "wallpaper" ? "Reset wallpaper" : "Reset theme"}
+              >
+                <MdRefresh size={22} />
+              </motion.button>
+            ) : contactInfoTab === "chatBubble" ? (
+              <motion.button
+                whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleResetBubbleColor}
+                className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
+                title="Reset chat bubble"
+              >
+                <MdRefresh size={22} />
+              </motion.button>
+            ) : contactInfoTab === "allThemes" || contactInfoTab === "solidColour" ? null : (
               <motion.button
                 whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
                 whileTap={{ scale: 0.95 }}
@@ -511,14 +710,14 @@ const ContactInfo = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.15 }}
-                className="flex flex-col items-center py-4 px-6 overflow-y-auto flex-1 scrollbar-hide"
+                className="flex flex-col items-center py-3 px-6 overflow-y-auto flex-1 scrollbar-hide"
               >
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   whileHover={{ scale: 1.05 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="relative mb-6"
+                  className="relative"
                 >
                   <img
                     src={selectedContact?.profilePicture || "/default-avatar.png"}
@@ -624,22 +823,82 @@ const ContactInfo = () => {
                         : ""}
                     </p>
                   </motion.div>
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.5, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("disappearing")}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                        <IoTimerOutline size={19} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          Disappearing messages
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          {disappearingDuration}
+                        </p>
+                      </div>
+
+                      <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.55, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("chatTheme")}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                        <IoColorPaletteOutline size={19} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          Chat theme
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          {activeChatTheme.name}
+                        </p>
+                      </div>
+
+                      <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                    </div>
+                  </motion.div>
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.45, type: "spring", stiffness: 100 }}
                     onClick={() => setContactInfoTab("security")}
-                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl border active:scale-98 ${theme === "dark"
-                      ? "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
-                      : "bg-black/[0.02] border-black/5 hover:bg-black/[0.04] shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
                       }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
                         <FaLock size={16} />
                       </div>
-
-
 
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
@@ -1068,6 +1327,605 @@ const ContactInfo = () => {
                 </div>
               </motion.div>
             )}
+
+            {contactInfoTab === "disappearing" && (
+              <motion.div
+                key="tab-disappearing"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col py-2 overflow-y-auto flex-1 scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
+              >
+                <div className="flex justify-center items-center py-6">
+                  <svg
+                    width="200"
+                    height="125"
+                    viewBox="0 0 220 140"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="drop-shadow-md select-none"
+                  >
+                    <path
+                      d="M175 35 C175 22 163 12 148 12 C133 12 121 22 121 35 C121 44 126 51 134 55 L130 68 L143 58 C145 58 146 58 148 58 C163 58 175 48 175 35 Z"
+                      fill="#fff9e6"
+                    />
+                    <circle cx="112" cy="70" r="44" fill="#00a884" />
+                    <circle cx="112" cy="70" r="37" fill="#25d366" />
+                    <circle cx="112" cy="70" r="30" fill="#00a884" />
+                    <circle cx="112" cy="37" r="2.2" fill="#ffffff" />
+                    <circle cx="128" cy="41" r="2.2" fill="#ffffff" />
+                    <circle cx="142" cy="54" r="2.2" fill="#ffffff" />
+                    <circle cx="147" cy="70" r="2.2" fill="#ffffff" />
+                    <circle cx="142" cy="86" r="2.2" fill="#ffffff" />
+                    <circle cx="128" cy="99" r="2.2" fill="#ffffff" />
+                    <circle cx="112" cy="103" r="2.2" fill="#ffffff" />
+                    <circle cx="96" cy="99" r="2.2" fill="#ffffff" />
+                    <circle cx="82" cy="86" r="2.2" fill="#ffffff" />
+                    <circle cx="77" cy="69" r="2.2" fill="#ffffff" />
+                    <circle cx="81" cy="52" r="2.2" fill="#ffffff" />
+                    <circle cx="95" cy="39" r="2.2" fill="#ffffff" />
+                    <path
+                      d="M110 70 L133 47 C134.5 45.5 136.5 47.5 135 49 L114 72 Z"
+                      fill="#111b21"
+                    />
+                    <circle cx="112" cy="70" r="4.5" fill="#111b21" />
+                    <circle cx="72" cy="84" r="19" fill="#b9f5d0" />
+                    <circle cx="93" cy="94" r="14" fill="#b9f5d0" />
+                    <circle cx="81" cy="98" r="11" fill="#b9f5d0" />
+                    <circle cx="66" cy="64" r="6" fill="#b9f5d0" />
+                    <circle cx="162" cy="90" r="4.5" fill="#00a884" />
+                    <circle cx="170" cy="84" r="3" fill="#00a884" />
+                  </svg>
+                </div>
+
+                <div className="px-6 mb-6">
+                  <h3
+                    className={`text-[15px] font-semibold mb-2.5 ${isDark ? "text-[#53bdeb]" : "text-[#027eb5]"
+                      }`}
+                  >
+                    Make messages in this chat disappear
+                  </h3>
+                  <p className="text-[13.5px] leading-relaxed text-[#8696a0]">
+                    For more privacy and storage, all new messages will disappear
+                    from this chat for everyone after the selected duration, except
+                    when kept. Anyone in the chat can change this setting.{" "}
+                    <span
+                      onClick={() =>
+                        toast.info(
+                          "Disappearing messages can be kept or starred depending on chat permissions.",
+                          { autoClose: 3000 }
+                        )
+                      }
+                      className="text-[#00a884] hover:underline cursor-pointer font-medium"
+                    >
+                      Learn more
+                    </span>
+                  </p>
+                </div>
+
+                <div className="px-6 space-y-4 mb-8">
+                  {["Off", "24 hours", "7 days", "90 days"].map((option) => {
+                    const isSelected = disappearingDuration === option;
+                    return (
+                      <label
+                        key={option}
+                        onClick={() => handleSelectDisappearing(option)}
+                        className="flex items-center gap-4 cursor-pointer select-none group py-1"
+                      >
+                        <div className="relative flex items-center justify-center">
+                          <div
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
+                              ? "border-[#00a884]"
+                              : isDark
+                                ? "border-[#8696a0]/70 group-hover:border-white"
+                                : "border-gray-400 group-hover:border-gray-600"
+                              }`}
+                          >
+                            {isSelected && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-[#00a884]" />
+                            )}
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[15px] transition-colors ${isSelected
+                            ? isDark
+                              ? "text-white font-medium"
+                              : "text-gray-900 font-medium"
+                            : isDark
+                              ? "text-[#d1d7db] group-hover:text-white"
+                              : "text-gray-700 group-hover:text-gray-900"
+                            }`}
+                        >
+                          {option}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="px-6 pt-3 pb-6 text-[13.5px] text-[#8696a0]">
+                  Update your{" "}
+                  <button
+                    type="button"
+                    onClick={() => setContactInfoTab("defaultTimer")}
+                    className="text-[#00a884] hover:underline font-medium cursor-pointer"
+                  >
+                    default message timer
+                  </button>{" "}
+                  in Settings
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "defaultTimer" && (
+              <motion.div
+                key="tab-defaultTimer"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col py-4 px-6 overflow-y-auto flex-1 scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
+              >
+                <h3 className="text-[14.5px] font-semibold text-[#00a884] mb-6">
+                  Start new chats with disappearing messages
+                </h3>
+
+                <div className="space-y-4 mb-8">
+                  {["Off", "24 hours", "7 days", "90 days"].map((option) => {
+                    const isSelected = defaultMessageTimer === option;
+                    return (
+                      <label
+                        key={option}
+                        onClick={() => handleSelectDefaultTimer(option)}
+                        className="flex items-center gap-4 cursor-pointer select-none group py-1"
+                      >
+                        <div className="relative flex items-center justify-center">
+                          <div
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
+                              ? "border-[#00a884]"
+                              : isDark
+                                ? "border-[#8696a0]/70 group-hover:border-white"
+                                : "border-gray-400 group-hover:border-gray-600"
+                              }`}
+                          >
+                            {isSelected && (
+                              <div className="w-2.5 h-2.5 rounded-full bg-[#00a884]" />
+                            )}
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[15px] transition-colors ${isSelected
+                            ? isDark
+                              ? "text-white font-medium"
+                              : "text-gray-900 font-medium"
+                            : isDark
+                              ? "text-[#d1d7db] group-hover:text-white"
+                              : "text-gray-700 group-hover:text-gray-900"
+                            }`}
+                        >
+                          {option}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <p className="text-[13px] leading-relaxed text-[#8696a0] mb-3">
+                  When turned on, all new individual chats will start with
+                  disappearing messages set to the duration you select. This
+                  setting will not affect your existing chats.
+                </p>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toast.info(
+                        "New individual chats will automatically use this timer.",
+                        { autoClose: 3000 }
+                      )
+                    }
+                    className="text-[13px] text-[#00a884] hover:underline font-medium cursor-pointer"
+                  >
+                    Learn more
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "chatTheme" && (
+              <motion.div
+                key="tab-chatTheme"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                onScroll={hideCursorTooltip}
+                className="flex flex-col py-3 overflow-y-auto flex-1 scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
+              >
+                <div className="px-5 mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-[16px] font-semibold text-white">Themes</h3>
+                    <button
+                      type="button"
+                      onClick={() => setContactInfoTab("allThemes")}
+                      className="px-3.5 py-1 rounded-full text-xs font-semibold text-[#00a884] bg-[#202c33] hover:bg-[#2a3942] border border-white/5 transition-colors cursor-pointer"
+                    >
+                      See all
+                    </button>
+                  </div>
+                  <p className="text-[13px] text-[#8696a0] mb-3.5 leading-snug">
+                    The chat color and wallpaper will both change.
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {CURATED_THEME_IDS.map((id) => {
+                      const themeItem = getChatTheme(id);
+                      const isSelected = activeChatThemeId === themeItem.id;
+                      return (
+                        <div
+                          key={themeItem.id}
+                          onClick={() => handleSelectTheme(themeItem.id)}
+                          onMouseEnter={(e) => updateCursorTooltip(e, themeItem.name)}
+                          onMouseMove={(e) => updateCursorTooltip(e, themeItem.name)}
+                          onMouseLeave={hideCursorTooltip}
+                          className={`relative h-[80px] rounded-[18px] overflow-hidden cursor-pointer transition-all duration-200 select-none ${isSelected
+                            ? "border-2 border-white scale-[1.01] shadow-xl"
+                            : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
+                            }`}
+                          style={{
+                            background: themeItem.gradient || themeItem.bgColor,
+                            backgroundColor: themeItem.bgColor || "#0b141a",
+                            backgroundImage:
+                              themeItem.hasDoodles && doodlesEnabled
+                                ? "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"
+                                : undefined,
+                            backgroundSize: "120px",
+                            backgroundBlendMode: "overlay",
+                          }}
+                        >
+                          <div className="absolute top-2.5 left-2.5 w-10 h-3.5 rounded-[4.5px] bg-[#2a3942]/90 shadow-sm pointer-events-none" />
+
+                          <div
+                            className="absolute top-5.5 right-2.5 w-11 h-3.5 rounded-[4.5px] shadow-sm pointer-events-none"
+                            style={{ backgroundColor: isSelected ? activeBubbleColor : themeItem.bubbleColor }}
+                          />
+
+                          {isSelected && (
+                            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-5.5 h-5.5 rounded-full bg-white text-[#111b21] flex items-center justify-center shadow-lg pointer-events-none">
+                              <FaCheck size={9.5} className="stroke-[1.5]" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between py-3.5 px-5 border-y border-[#202c33]">
+                  <div className="flex items-center gap-3">
+                    <LuSparkles size={20} className="text-[#8696a0]" />
+                    <span className="text-[15px] font-normal text-white">WhatsApp doodles</span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={doodlesEnabled}
+                    onClick={() => handleToggleDoodles(!doodlesEnabled)}
+                    className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${doodlesEnabled ? "bg-[#00a884]" : "bg-[#374248]"
+                      }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${doodlesEnabled
+                        ? "translate-x-5 bg-[#111b21]"
+                        : "translate-x-0 bg-[#8696a0]"
+                        }`}
+                    />
+                  </button>
+                </div>
+                <div className="px-5 pt-3.5">
+                  <h4 className="text-[14.5px] font-semibold text-white mb-2">Customize</h4>
+                  <div
+                    className="flex items-center justify-between py-2.5 px-1 hover:bg-white/5 rounded-xl cursor-pointer transition-colors group select-none"
+                    onClick={() => setContactInfoTab("chatBubble")}
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <MdOutlineChatBubbleOutline size={20} className="text-[#8696a0] group-hover:text-white transition-colors" />
+                      <span className="text-[15px] font-normal text-white">Chat bubble</span>
+                    </div>
+                    <div
+                      className="w-6 h-6 rounded-full border border-white/20 shadow-sm"
+                      style={{ backgroundColor: activeBubbleColor }}
+                    />
+                  </div>
+                  <div
+                    className="flex items-center justify-between py-2.5 px-1 hover:bg-white/5 rounded-xl cursor-pointer transition-colors group select-none mt-1"
+                    onClick={() => setContactInfoTab("wallpaper")}
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <MdOutlineWallpaper size={20} className="text-[#8696a0] group-hover:text-white transition-colors" />
+                      <span className="text-[15px] font-normal text-white">Wallpaper</span>
+                    </div>
+                    <div
+                      className="w-8 h-6 rounded-md border border-white/20 overflow-hidden relative shadow-sm"
+                      style={{
+                        background: activeChatTheme.imageUrl
+                          ? `url('${activeChatTheme.thumbnailUrl || activeChatTheme.imageUrl}') center/cover no-repeat`
+                          : activeChatTheme.gradient || activeChatTheme.bgColor,
+                        backgroundImage:
+                          activeChatTheme.imageUrl
+                            ? `url('${activeChatTheme.thumbnailUrl || activeChatTheme.imageUrl}')`
+                            : activeChatTheme.hasDoodles && doodlesEnabled
+                              ? "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"
+                              : undefined,
+                        backgroundSize: activeChatTheme.imageUrl ? "cover" : "36px",
+                        backgroundPosition: "center",
+                      }}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "chatBubble" && (
+              <motion.div
+                key="tab-chatBubble"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                onScroll={hideCursorTooltip}
+                className="flex flex-col p-6 overflow-y-auto flex-1 scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
+              >
+                <div className="grid grid-cols-4 gap-y-6 gap-x-4 justify-items-center max-w-[340px] mx-auto pb-10 pt-2">
+                  {CHAT_BUBBLE_COLORS.map((bubbleItem) => {
+                    const isSelected =
+                      activeBubbleColor?.toLowerCase() ===
+                      bubbleItem.color.toLowerCase();
+                    return (
+                      <button
+                        key={bubbleItem.id}
+                        type="button"
+                        onClick={() => handleSelectBubbleColor(bubbleItem.color)}
+                        onMouseEnter={(e) => updateCursorTooltip(e, bubbleItem.name)}
+                        onMouseMove={(e) => updateCursorTooltip(e, bubbleItem.name)}
+                        onMouseLeave={hideCursorTooltip}
+                        className={`relative w-[54px] h-[54px] sm:w-[58px] sm:h-[58px] rounded-full transition-all duration-150 cursor-pointer flex items-center justify-center ${isSelected
+                          ? "ring-2 ring-white ring-offset-2 ring-offset-[#111b21] scale-100"
+                          : "hover:scale-105 active:scale-95"
+                          }`}
+                        style={{ backgroundColor: bubbleItem.color }}
+                      >
+                        {isSelected && (
+                          <div className="w-5.5 h-5.5 rounded-full bg-white flex items-center justify-center shadow-md pointer-events-none">
+                            <MdCheck size={14} className="text-[#111b21] stroke-[1]" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "allThemes" && (
+              <motion.div
+                key="tab-allThemes"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                onScroll={hideCursorTooltip}
+                className="flex flex-col p-4 overflow-y-auto flex-1 scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
+              >
+                <div className="grid grid-cols-2 gap-3.5 pb-8">
+                  {CHAT_THEMES.map((themeItem) => {
+                    const isSelected = activeChatThemeId === themeItem.id;
+                    return (
+                      <div
+                        key={themeItem.id}
+                        onClick={() => handleSelectTheme(themeItem.id)}
+                        onMouseEnter={(e) => updateCursorTooltip(e, themeItem.name)}
+                        onMouseMove={(e) => updateCursorTooltip(e, themeItem.name)}
+                        onMouseLeave={hideCursorTooltip}
+                        className={`relative h-[105px] rounded-[20px] overflow-hidden cursor-pointer transition-all duration-200 select-none shadow-md ${isSelected
+                          ? "border-2 border-white scale-[1.01] shadow-2xl ring-2 ring-white/10"
+                          : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
+                          }`}
+                        style={{
+                          background: themeItem.gradient || themeItem.bgColor,
+                          backgroundColor: themeItem.bgColor || "#0b141a",
+                          backgroundImage:
+                            themeItem.hasDoodles && doodlesEnabled
+                              ? "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"
+                              : undefined,
+                          backgroundSize: "130px",
+                          backgroundBlendMode: "overlay",
+                        }}
+                      >
+                        <div className="absolute top-3 left-3 w-11 h-4 rounded-[5px] bg-[#2a3942]/90 shadow-sm pointer-events-none" />
+                        <div
+                          className="absolute top-7.5 right-3 w-12 h-4 rounded-[5px] shadow-sm pointer-events-none"
+                          style={{ backgroundColor: isSelected ? activeBubbleColor : themeItem.bubbleColor }}
+                        />
+                        {isSelected && (
+                          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-white text-[#111b21] flex items-center justify-center shadow-lg pointer-events-none">
+                            <FaCheck size={11} className="stroke-[1.5]" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "wallpaper" && (
+              <motion.div
+                key="tab-wallpaper"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                onScroll={hideCursorTooltip}
+                className="flex flex-col pt-3 p-4 overflow-y-auto flex-1 scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
+              >
+                <div
+                  onClick={() => setContactInfoTab("solidColour")}
+                  className="flex items-center justify-between p-3 mb-2.5 rounded-2xl bg-[#202c33] hover:bg-[#2a3942] cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                      <FaPen size={13} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[14.5px] font-medium text-white leading-tight">Solid colour</span>
+                      <span className="text-[12px] text-[#8696a0]">27 solid color wallpapers</span>
+                    </div>
+                  </div>
+                  <MdChevronRight size={19} className="text-[#8696a0] group-hover:text-white transition-colors" />
+                </div>
+
+                <div className="flex pt-4 items-center gap-2 mb-3.5 overflow-x-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-4">
+                  {[
+                    { id: "all", label: `All (${WALLPAPER_THEMES.length})` },
+                    { id: "nature", label: `Nature (${NATURE_WALLPAPERS.length})` },
+                    { id: "dark", label: "Dark & Abstract" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setWallpaperFilter(tab.id)}
+                      className={`px-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap transition-colors cursor-pointer ${wallpaperFilter === tab.id
+                        ? "bg-[#00a884] text-[#111b21] font-semibold"
+                        : "bg-white/5 hover:bg-white/10 text-[#8696a0] hover:text-white"
+                        }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pb-8">
+                  {WALLPAPER_THEMES.filter((themeItem) => {
+                    if (wallpaperFilter === "nature") return Boolean(themeItem.isNature || themeItem.imageUrl);
+                    if (wallpaperFilter === "dark") return !themeItem.isNature && !themeItem.imageUrl;
+                    return true;
+                  }).map((themeItem) => {
+                    const isSelected = activeChatThemeId === themeItem.id;
+                    return (
+                      <div
+                        key={themeItem.id}
+                        onClick={() => handleSelectTheme(themeItem.id)}
+                        onMouseEnter={(e) => updateCursorTooltip(e, themeItem.name)}
+                        onMouseMove={(e) => updateCursorTooltip(e, themeItem.name)}
+                        onMouseLeave={hideCursorTooltip}
+                        className={`relative h-[126px] rounded-[18px] overflow-hidden cursor-pointer transition-all duration-200 select-none shadow-md ${isSelected
+                          ? "border-2 border-white scale-[1.01] shadow-2xl ring-2 ring-white/20"
+                          : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
+                          }`}
+                        style={{
+                          backgroundColor: themeItem.bgColor || "#111b21",
+                          backgroundImage: themeItem.imageUrl
+                            ? `url('${themeItem.thumbnailUrl || themeItem.imageUrl}')`
+                            : themeItem.gradient || undefined,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          backgroundRepeat: "no-repeat",
+                        }}
+                      >
+                        {!themeItem.imageUrl && themeItem.hasDoodles && (
+                          <div
+                            className="absolute inset-0 opacity-40 pointer-events-none"
+                            style={{
+                              backgroundImage: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')",
+                              backgroundSize: "130px",
+                              backgroundBlendMode: "overlay",
+                            }}
+                          />
+                        )}
+
+                        {isSelected && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                            <div className="w-7 h-7 rounded-full bg-white text-[#111b21] flex items-center justify-center shadow-2xl">
+                              <FaCheck size={12} className="stroke-[1.5]" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "solidColour" && (
+              <motion.div
+                key="tab-solidColour"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                onScroll={hideCursorTooltip}
+                className="flex flex-col overflow-y-auto flex-1 scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
+              >
+                <div className="flex items-center justify-between py-3.5 px-5 border-b border-[#202c33]">
+                  <div className="flex items-center gap-3">
+                    <LuSparkles size={20} className="text-[#8696a0]" />
+                    <span className="text-[15px] font-normal text-white">WhatsApp doodles</span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={doodlesEnabled}
+                    onClick={() => handleToggleDoodles(!doodlesEnabled)}
+                    className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${doodlesEnabled ? "bg-[#00a884]" : "bg-[#374248]"
+                      }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${doodlesEnabled
+                        ? "translate-x-5 bg-[#111b21]"
+                        : "translate-x-0 bg-[#8696a0]"
+                        }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3.5 p-4 pb-8">
+                  {SOLID_COLOUR_THEMES.map((themeItem) => {
+                    const isSelected = activeChatThemeId === themeItem.id;
+                    return (
+                      <div
+                        key={themeItem.id}
+                        onClick={() => handleSelectTheme(themeItem.id)}
+                        onMouseEnter={(e) => updateCursorTooltip(e, themeItem.name)}
+                        onMouseMove={(e) => updateCursorTooltip(e, themeItem.name)}
+                        onMouseLeave={hideCursorTooltip}
+                        className={`relative h-[105px] rounded-[20px] overflow-hidden cursor-pointer transition-all duration-200 select-none ${isSelected
+                          ? "border-2 border-white scale-[1.01] shadow-xl"
+                          : "border border-white/10 hover:border-white/30 hover:scale-[1.01]"
+                          }`}
+                        style={{
+                          backgroundColor: themeItem.bgColor,
+                          backgroundImage:
+                            doodlesEnabled
+                              ? "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"
+                              : undefined,
+                          backgroundSize: "130px",
+                          backgroundBlendMode: "overlay",
+                        }}
+                      >
+                        {isSelected && (
+                          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 w-6 h-6 rounded-full bg-white text-[#111b21] flex items-center justify-center shadow-lg pointer-events-none">
+                            <FaCheck size={11} className="stroke-[1.5]" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
           <AnimatePresence>
             {scanError && (
@@ -1121,6 +1979,15 @@ const ContactInfo = () => {
               </div>
             )}
           </AnimatePresence>
+          <div
+            ref={cursorTooltipRef}
+            className="fixed pointer-events-none z-[999999] px-2.5 py-1 rounded-md bg-[#1f2c34] text-white text-[12px] font-medium shadow-2xl border border-white/15 whitespace-nowrap backdrop-blur-md -translate-x-1/2 select-none"
+            style={{
+              display: "none",
+              top: 0,
+              left: 0,
+            }}
+          />
         </motion.div>
       )}
     </AnimatePresence>

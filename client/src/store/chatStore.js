@@ -18,7 +18,7 @@ function syncMessagesCache(cache, convId, newMessages) {
 
 const readStatusCache = new Set();
 
-async function decryptSingleMessage(
+export async function decryptSingleMessage(
   msg,
   currentUserId,
   fallbackPeer = null,
@@ -46,11 +46,28 @@ async function decryptSingleMessage(
     peerPubKey = msg.sender?.publicKey || fallbackPeer?.publicKey;
   }
 
+  if (!peerId && fallbackPeer) {
+    peerId = (fallbackPeer._id || fallbackPeer.id || fallbackPeer)?.toString();
+  }
+
   if (!peerPubKey && peerId && getStore) {
     const userList = getStore()?.users || [];
     const foundUser = userList.find((u) => u._id?.toString() === peerId);
     if (foundUser?.publicKey) {
       peerPubKey = foundUser.publicKey;
+    }
+  }
+
+  if (!peerPubKey && peerId && getStore) {
+    const convs = getStore()?.conversations?.data || [];
+    for (const c of convs) {
+      const part = c.participants?.find(
+        (p) => (p._id || p)?.toString() === peerId,
+      );
+      if (part?.publicKey) {
+        peerPubKey = part.publicKey;
+        break;
+      }
     }
   }
 
@@ -191,7 +208,7 @@ export const useChatStore = create((set, get) => ({
     if (!messageId) return false;
     return Boolean(get().starredMessages[messageId]);
   },
-  pinMessage: (
+  pinMessage: async (
     conversationId,
     message,
     duration = "7 days",
@@ -202,6 +219,19 @@ export const useChatStore = create((set, get) => ({
   ) => {
     if (!conversationId && !secondaryId && !receiverId) return;
     if (!message) return;
+
+    let finalMessage = message;
+    if (finalMessage.isEncrypted && !finalMessage._isDecrypted) {
+      const currentUserId =
+        (get().currentUser || useUserStore.getState().user)?._id;
+      finalMessage = await decryptSingleMessage(
+        finalMessage,
+        currentUserId,
+        null,
+        get,
+      );
+    }
+
     const pinnedAt = Date.now();
     let durationMs = 7 * 24 * 60 * 60 * 1000;
     if (duration === "24 hours") durationMs = 24 * 60 * 60 * 1000;
@@ -209,7 +239,7 @@ export const useChatStore = create((set, get) => ({
     const expiresAt = pinnedAt + durationMs;
 
     const pinData = {
-      message,
+      message: finalMessage,
       duration,
       pinnedAt,
       expiresAt,
@@ -424,7 +454,7 @@ export const useChatStore = create((set, get) => ({
     socket.off("message_pinned");
     socket.off("message_unpinned");
 
-    socket.on("message_pinned", (data) => {
+    socket.on("message_pinned", async (data) => {
       if (!data) return;
       const {
         conversationId,
@@ -434,9 +464,15 @@ export const useChatStore = create((set, get) => ({
         receiverId,
         pinnedBy,
       } = data;
+      let decMsg = message;
+      if (decMsg?.isEncrypted && !decMsg?._isDecrypted) {
+        const currentUserId =
+          (get().currentUser || useUserStore.getState().user)?._id;
+        decMsg = await decryptSingleMessage(decMsg, currentUserId, null, get);
+      }
       get().pinMessage(
         conversationId,
-        message,
+        decMsg,
         duration || "7 days",
         secondaryId,
         receiverId,
@@ -455,6 +491,15 @@ export const useChatStore = create((set, get) => ({
         false,
         unpinnedBy,
       );
+    });
+
+    socket.on("disappearing_update", (data) => {
+      if (!data) return;
+      const { chatId, conversationId, duration, event } = data;
+      const id = chatId || conversationId;
+      if (id && event) {
+        useLayoutStore.getState().receiveDisappearingEvent(id, duration, event);
+      }
     });
 
     socket.on("receive_message", (message) => {
@@ -837,26 +882,49 @@ export const useChatStore = create((set, get) => ({
       if (Array.isArray(data?.data)) {
         const decryptedList = await Promise.all(
           data.data.map(async (conv) => {
-            if (conv.lastMessage?.isEncrypted) {
-              const peer = conv.participants?.find(
-                (p) => p._id?.toString() !== currentUserId?.toString(),
-              );
-              const decryptedLast = await decryptSingleMessage(
+            const peer = conv.participants?.find(
+              (p) => (p._id || p)?.toString() !== currentUserId?.toString(),
+            );
+
+            let decryptedLast = conv.lastMessage;
+            if (conv.lastMessage?.isEncrypted && !conv.lastMessage?._isDecrypted) {
+              decryptedLast = await decryptSingleMessage(
                 conv.lastMessage,
                 currentUserId,
                 peer,
                 get,
               );
-              return { ...conv, lastMessage: decryptedLast };
             }
-            return conv;
+
+            let decryptedPinnedMessage = conv.pinnedMessage;
+            if (
+              conv.pinnedMessage?.message?.isEncrypted &&
+              !conv.pinnedMessage?.message?._isDecrypted
+            ) {
+              const decPinnedMsg = await decryptSingleMessage(
+                conv.pinnedMessage.message,
+                currentUserId,
+                peer,
+                get,
+              );
+              decryptedPinnedMessage = {
+                ...conv.pinnedMessage,
+                message: decPinnedMsg,
+              };
+            }
+
+            return {
+              ...conv,
+              lastMessage: decryptedLast,
+              pinnedMessage: decryptedPinnedMessage,
+            };
           }),
         );
         convData = { ...data, data: decryptedList };
 
         const syncedPins = { ...get().pinnedMessages };
         let hasNewPins = false;
-        data.data.forEach((conv) => {
+        decryptedList.forEach((conv) => {
           if (conv.pinnedMessage && conv.pinnedMessage.message) {
             const expires = conv.pinnedMessage.expiresAt
               ? new Date(conv.pinnedMessage.expiresAt).getTime()

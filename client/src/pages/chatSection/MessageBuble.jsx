@@ -102,6 +102,34 @@ export const WhatsAppUnpinIcon = ({
   );
 };
 
+export const WhatsAppDisappearingIcon = ({
+  size = 15,
+  width,
+  height,
+  className = "shrink-0",
+  ...props
+}) => {
+  const w = width || size;
+  const h = height || size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <circle cx="12" cy="12" r="9.5" strokeDasharray="3.2 2.2" />
+      <polyline points="12 6.8 12 12 15.6 14.2" strokeDasharray="none" />
+    </svg>
+  );
+};
+
 const formatEventSchedule = (eventData) => {
   if (!eventData?.eventDate) return "Date TBD";
   try {
@@ -142,6 +170,7 @@ const formatEventSchedule = (eventData) => {
 const MessageBuble = ({
   message,
   theme,
+  chatBubbleColor,
   onReact,
   currentUser,
   deleteMessage,
@@ -159,6 +188,8 @@ const MessageBuble = ({
   isSelected = false,
   onToggleSelect,
   onEnterSelectMode,
+  disappearingDuration,
+  onOpenDisappearing,
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
@@ -375,7 +406,7 @@ const MessageBuble = ({
     : isUserMessage
       ? `relative group max-w-[85%] sm:max-w-[75%] md:max-w-[65%] min-w-[75px] rounded-[7.5px] pt-[6px] pb-[7px] px-[9px] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] ${isFirstInSequence ? "rounded-tr-none" : ""
       } ${theme === "dark"
-        ? "bg-[#005c4b] text-[#e9edef]"
+        ? (chatBubbleColor ? "" : "bg-[#005c4b]") + " text-[#e9edef]"
         : "bg-[#d9fdd3] text-[#111b21]"
       }`
       : `relative group max-w-[85%] sm:max-w-[75%] md:max-w-[65%] min-w-[75px] rounded-[7.5px] pt-[6px] pb-[7px] px-[9px] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] ${isFirstInSequence ? "rounded-tl-none" : ""
@@ -701,6 +732,17 @@ const MessageBuble = ({
           {isPinned && (
             <WhatsAppPinIcon className="w-[11px] h-[13px] text-white/80 shrink-0" />
           )}
+          {disappearingDuration && disappearingDuration !== "Off" && (
+            <WhatsAppDisappearingIcon
+              size={11}
+              className="text-white/80 shrink-0 cursor-pointer hover:opacity-100"
+              title={`Disappearing message: ${disappearingDuration}. Click to change.`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDisappearing?.();
+              }}
+            />
+          )}
           {isStarred && (
             <FaStar size={10} className="text-white/80 shrink-0" title="Starred message" />
           )}
@@ -728,6 +770,17 @@ const MessageBuble = ({
       <span className="inline-flex items-center gap-1 select-none shrink-0 pointer-events-auto">
         {isPinned && (
           <WhatsAppPinIcon className="w-[11px] h-[13px] opacity-65 shrink-0 text-inherit" />
+        )}
+        {disappearingDuration && disappearingDuration !== "Off" && (
+          <WhatsAppDisappearingIcon
+            size={11}
+            className="opacity-65 hover:opacity-100 transition-opacity shrink-0 text-inherit cursor-pointer"
+            title={`Disappearing message: ${disappearingDuration}. Click to change.`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDisappearing?.();
+            }}
+          />
         )}
         {isStarred && (
           <FaStar size={10} className="opacity-65 shrink-0 text-inherit" title="Starred message" />
@@ -818,6 +871,11 @@ const MessageBuble = ({
             if (isDeletedForEveryone) return;
             onReply?.(message);
           }}
+          style={
+            isUserMessage && !isSticker && chatBubbleColor
+              ? { backgroundColor: chatBubbleColor }
+              : undefined
+          }
           className={`${bubbleContentClass} relative group ${isActive
             ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
             : ""
@@ -827,7 +885,8 @@ const MessageBuble = ({
             isUserMessage ? (
               <span
                 data-icon="tail-out"
-                className={`absolute top-0 -right-[8px] pointer-events-none select-none ${isDark ? "text-[#005c4b]" : "text-[#d9fdd3]"
+                style={chatBubbleColor ? { color: chatBubbleColor } : undefined}
+                className={`absolute top-0 -right-[8px] pointer-events-none select-none ${chatBubbleColor ? "" : (isDark ? "text-[#005c4b]" : "text-[#d9fdd3]")
                   }`}
               >
                 <svg viewBox="0 0 8 13" height="13" width="8" className="fill-current">
@@ -1902,9 +1961,9 @@ const MessageBuble = ({
                         left: `${menuCoords.left}px`,
                         transformOrigin: menuCoords.transformOrigin || "top right",
                       }}
-                      className={`z-[9999] min-w-[215px] py-1.5 overflow-hidden rounded-xl shadow-[0_6px_28px_rgba(0,0,0,0.5)] border select-none ${isDark
-                        ? "bg-[#233138] border-[#2a3942]/90 text-[#d1d7db]"
-                        : "bg-white border-black/10 text-gray-800 shadow-[0_6px_24px_rgba(11,20,26,0.18)]"
+                      className={`z-[9999] min-w-[220px] max-w-[260px] max-h-[min(520px,calc(100vh-24px))] overflow-y-auto scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl shadow-2xl border select-none ${isDark
+                        ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_12px_40px_rgba(0,0,0,0.65)]"
+                        : "bg-white border-black/10 text-[#111b21] shadow-[0_10px_35px_rgba(11,20,26,0.18)]"
                         }`}
                       onClick={(e) => e.stopPropagation()}
                     >

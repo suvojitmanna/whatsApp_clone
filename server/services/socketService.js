@@ -506,6 +506,40 @@ function initializeSocket(server) {
       },
     );
 
+    socket.on(
+      "disappearing_update",
+      ({ chatId, conversationId, secondaryId, receiverId, duration, event, setBy }) => {
+        try {
+          const targets = new Set();
+          if (receiverId) targets.add((receiverId._id || receiverId).toString());
+          if (secondaryId) targets.add((secondaryId._id || secondaryId).toString());
+          if (chatId) targets.add(chatId.toString());
+
+          const payload = {
+            chatId: conversationId || chatId || secondaryId,
+            conversationId,
+            duration,
+            event,
+            setBy,
+          };
+
+          targets.forEach((targetId) => {
+            io.to(targetId).emit("disappearing_update", payload);
+            const socketId = onlineUsers.get(targetId);
+            if (socketId) {
+              io.to(socketId).emit("disappearing_update", payload);
+            }
+          });
+
+          if (conversationId) {
+            socket.to(conversationId).emit("disappearing_update", payload);
+          }
+        } catch (error) {
+          console.error("Error in disappearing_update socket event:", error);
+        }
+      },
+    );
+
     handleVideoCallEvent(socket, io, onlineUsers);
 
     const handleDisconnected = async () => {

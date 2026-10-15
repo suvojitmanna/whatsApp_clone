@@ -47,14 +47,14 @@ const MessageMenu = ({
     const setSelectedMessageInfo =
         propSetSelectedMessageInfo || layoutSetSelectedMessageInfo;
 
-    const itemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-4 py-2 gap-3.5 cursor-pointer rounded-2xl border border-transparent transition-all duration-200 ${isDark
-            ? "text-[#d1d7db] hover:text-white hover:bg-white/10 hover:border-white/15"
-            : "text-[#111b21] hover:text-black hover:bg-black/5 hover:border-black/10"
+    const itemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7px] gap-3.5 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] group select-none ${isDark
+        ? "text-[#d1d7db] hover:text-white hover:bg-white/10 hover:border-white/15"
+        : "text-[#111b21] hover:text-black hover:bg-black/5 hover:border-black/10"
         }`;
 
-    const dangerItemClass = `mx-1.5 my-0.5 group relative flex w-[calc(100%-12px)] items-center gap-3.5 overflow-hidden rounded-2xl border border-transparent px-4 py-2 cursor-pointer backdrop-blur-xl transition-all duration-300 ${isDark
-            ? "text-[#d1d7db] hover:bg-red-500/[0.08] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.08)]"
-            : "text-[#111b21] hover:bg-red-500/[0.05] hover:border-red-400/25 hover:shadow-[0_0_16px_rgba(239,68,68,0.06)]"
+    const dangerItemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7px] gap-3.5 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] group select-none ${isDark
+        ? "hover:bg-red-500/10 hover:border-red-400/25 text-[#d1d7db] hover:text-red-400"
+        : "hover:bg-red-50 hover:border-red-300 text-gray-800 hover:text-red-600"
         }`;
 
     if (isDeletedForEveryone) {
@@ -66,10 +66,13 @@ const MessageMenu = ({
                         setDeleteModal?.(message);
                         setShowOptions?.(false);
                     }}
-                    className={itemClass}
+                    className={dangerItemClass}
                 >
-                    <RiDeleteBin6Line size={17} className="shrink-0 text-[#8696a0]" />
-                    <span className="font-normal text-[14.5px]">Delete for me</span>
+                    <RiDeleteBin6Line
+                        size={17}
+                        className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors"
+                    />
+                    <span>Delete for me</span>
                 </button>
                 {onEnterSelectMode && (
                     <button
@@ -80,33 +83,30 @@ const MessageMenu = ({
                         }}
                         className={itemClass}
                     >
-                        <FiCheckSquare size={17} className="shrink-0 text-[#8696a0]" />
-                        <span className="font-normal text-[14.5px]">Select message</span>
+                        <FiCheckSquare
+                            size={17}
+                            className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                        />
+                        <span>Select message</span>
                     </button>
                 )}
             </>
         );
     }
 
+    const hasCopyableText = Boolean(
+        message?.contentType === "text" ||
+        message?.content ||
+        message?.imageOrVideoUrl
+    );
+
+    const isMediaDownloadable = Boolean(
+        ["document", "image", "video", "audio"].includes(message?.contentType) &&
+        message?.imageOrVideoUrl
+    );
+
     return (
         <>
-            {isUserMessage && (
-                <button
-                    type="button"
-                    onClick={() => {
-                        setShowOptions?.(false);
-                        setSelectedMessageInfo?.(message);
-                    }}
-                    className={itemClass}
-                >
-                    <IoIosInformationCircleOutline
-                        size={20}
-                        className="shrink-0 text-[#8696a0]"
-                    />
-                    <span className="font-normal text-[14.5px]">Message info</span>
-                </button>
-            )}
-
             <button
                 type="button"
                 onClick={() => {
@@ -117,28 +117,36 @@ const MessageMenu = ({
                 }}
                 className={itemClass}
             >
-                <LuReply size={18} className="shrink-0 text-[#8696a0]" />
-                <span className="font-normal text-[14.5px]">Reply</span>
+                <LuReply
+                    size={18}
+                    className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                />
+                <span>Reply</span>
             </button>
 
-            <button
-                type="button"
-                onClick={() => {
-                    setShowOptions?.(false);
-                    const textToCopy =
-                        message?.contentType === "text"
-                            ? message?.content || ""
-                            : message?.imageOrVideoUrl || message?.content || "";
-                    if (textToCopy) {
-                        navigator.clipboard.writeText(textToCopy);
-                        toast.success("Copied to clipboard");
-                    }
-                }}
-                className={itemClass}
-            >
-                <FaRegCopy size={16} className="shrink-0 text-[#8696a0]" />
-                <span className="font-normal text-[14.5px]">Copy</span>
-            </button>
+            {hasCopyableText && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        const textToCopy =
+                            message?.contentType === "text"
+                                ? message?.content || ""
+                                : message?.imageOrVideoUrl || message?.content || "";
+                        if (textToCopy) {
+                            navigator.clipboard?.writeText(textToCopy);
+                            toast.success("Copied to clipboard");
+                        }
+                    }}
+                    className={itemClass}
+                >
+                    <FaRegCopy
+                        size={16}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Copy</span>
+                </button>
+            )}
 
             <button
                 type="button"
@@ -148,8 +156,11 @@ const MessageMenu = ({
                 }}
                 className={itemClass}
             >
-                <BsEmojiSmile size={18} className="shrink-0 text-[#8696a0]" />
-                <span className="font-normal text-[14.5px]">React</span>
+                <BsEmojiSmile
+                    size={18}
+                    className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                />
+                <span>React</span>
             </button>
 
             <button
@@ -160,8 +171,35 @@ const MessageMenu = ({
                 }}
                 className={itemClass}
             >
-                <LuForward size={18} className="shrink-0 text-[#8696a0]" />
-                <span className="font-normal text-[14.5px]">Forward</span>
+                <LuForward
+                    size={18}
+                    className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                />
+                <span>Forward</span>
+            </button>
+
+            <button
+                type="button"
+                onClick={() => {
+                    setShowOptions?.(false);
+                    const nowStarred = toggleStarMessage?.(message?._id, message);
+                    if (nowStarred) {
+                        toast.success("Message starred");
+                    } else {
+                        toast.info("Message unstarred");
+                    }
+                }}
+                className={itemClass}
+            >
+                {isStarred ? (
+                    <FaStar size={16} className="shrink-0 text-amber-400 fill-amber-400" />
+                ) : (
+                    <FaRegStar
+                        size={16}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                )}
+                <span>{isStarred ? "Unstar" : "Star"}</span>
             </button>
 
             <button
@@ -180,50 +218,33 @@ const MessageMenu = ({
                 {isPinned ? (
                     <WhatsAppUnpinIcon
                         size={18}
-                        className="shrink-0 text-[#8696a0]"
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
                     />
                 ) : (
-                    <TbPin size={18} className="shrink-0 text-[#8696a0]" />
+                    <TbPin
+                        size={18}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
                 )}
-                <span className="font-normal text-[14.5px]">
-                    {isPinned ? "Unpin" : "Pin"}
-                </span>
+                <span>{isPinned ? "Unpin" : "Pin"}</span>
             </button>
 
-            <button
-                type="button"
-                onClick={() => {
-                    setShowOptions?.(false);
-                    setShowForwardModal?.(true);
-                }}
-                className={itemClass}
-            >
-                <SiMetaai size={18} className="shrink-0 text-[#8696a0]" />
-                <span className="font-normal text-[14.5px]">Ask Meta AI</span>
-            </button>
-
-            <button
-                type="button"
-                onClick={() => {
-                    setShowOptions?.(false);
-                    const nowStarred = toggleStarMessage?.(message?._id, message);
-                    if (nowStarred) {
-                        toast.success("Message starred");
-                    } else {
-                        toast.info("Message unstarred");
-                    }
-                }}
-                className={itemClass}
-            >
-                {isStarred ? (
-                    <FaStar size={16} className="shrink-0 text-amber-400" />
-                ) : (
-                    <FaRegStar size={16} className="shrink-0 text-[#8696a0]" />
-                )}
-                <span className="font-normal text-[14.5px]">
-                    {isStarred ? "Unstar" : "Star"}
-                </span>
-            </button>
+            {message?.content && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        setShowForwardModal?.(true);
+                    }}
+                    className={itemClass}
+                >
+                    <SiMetaai
+                        size={17}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Ask Meta AI</span>
+                </button>
+            )}
 
             {isUserMessage && message?.contentType === "text" && (
                 <button
@@ -235,32 +256,54 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <RiEditLine size={17} className="shrink-0 text-[#8696a0]" />
-                    <span className="font-normal text-[14.5px]">Edit</span>
+                    <RiEditLine
+                        size={17}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Edit</span>
                 </button>
             )}
 
-            {["document", "image", "video", "audio"].includes(message?.contentType) &&
-                message?.imageOrVideoUrl && (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            setShowOptions?.(false);
-                            handleDownloadFile?.(
-                                e,
-                                message.imageOrVideoUrl,
-                                message.fileName ||
-                                (message.contentType === "document"
-                                    ? "document.pdf"
-                                    : `${message.contentType}-${message._id}`)
-                            );
-                        }}
-                        className={itemClass}
-                    >
-                        <FaDownload size={15} className="shrink-0 text-[#8696a0]" />
-                        <span className="font-normal text-[14.5px]">Download</span>
-                    </button>
-                )}
+            {isMediaDownloadable && (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        setShowOptions?.(false);
+                        handleDownloadFile?.(
+                            e,
+                            message.imageOrVideoUrl,
+                            message.fileName ||
+                            (message.contentType === "document"
+                                ? "document.pdf"
+                                : `${message.contentType}-${message._id}`)
+                        );
+                    }}
+                    className={itemClass}
+                >
+                    <FaDownload
+                        size={15}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Download</span>
+                </button>
+            )}
+
+            {isUserMessage && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        setSelectedMessageInfo?.(message);
+                    }}
+                    className={itemClass}
+                >
+                    <IoIosInformationCircleOutline
+                        size={19}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Message info</span>
+                </button>
+            )}
 
             <button
                 type="button"
@@ -270,31 +313,34 @@ const MessageMenu = ({
                 }}
                 className={itemClass}
             >
-                <FiCheckSquare size={17} className="shrink-0 text-[#8696a0]" />
-                <span className="font-normal text-[14.5px]">Select message</span>
+                <FiCheckSquare
+                    size={17}
+                    className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                />
+                <span>Select message</span>
             </button>
 
             <div
-                className={`my-1 border-t ${isDark ? "border-[#313d45]" : "border-black/10"
+                className={`my-1 border-t ${isDark ? "border-[#2a3942]/80" : "border-black/10"
                     }`}
             />
 
-            <button
-                type="button"
-                onClick={() => {
-                    setShowOptions?.(false);
-                    setShowReportModal?.(true);
-                }}
-                className={dangerItemClass}
-            >
-                <FiThumbsDown
-                    size={17}
-                    className="shrink-0 text-[#8696a0] transition-colors duration-300 group-hover:text-red-500"
-                />
-                <span className="text-[14.5px] font-normal transition-colors duration-300 group-hover:text-red-500">
-                    Report
-                </span>
-            </button>
+            {!isUserMessage && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        setShowReportModal?.(true);
+                    }}
+                    className={dangerItemClass}
+                >
+                    <FiThumbsDown
+                        size={17}
+                        className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors"
+                    />
+                    <span>Report</span>
+                </button>
+            )}
 
             <button
                 type="button"
@@ -306,11 +352,9 @@ const MessageMenu = ({
             >
                 <RiDeleteBin6Line
                     size={17}
-                    className="shrink-0 text-[#8696a0] transition-colors duration-300 group-hover:text-red-500"
+                    className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors"
                 />
-                <span className="text-[14.5px] font-normal transition-colors duration-300 group-hover:text-red-500">
-                    Delete
-                </span>
+                <span>Delete</span>
             </button>
         </>
     );

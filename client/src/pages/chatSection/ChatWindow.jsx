@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
-import { useChatStore } from "../../store/chatStore";
+import { useChatStore, decryptSingleMessage } from "../../store/chatStore";
 import { isToday, isYesterday, format } from "date-fns";
 import whatsappImage from "../../assets/whatsapp_image.png";
 import {
@@ -19,13 +19,18 @@ import {
   FaRegStar,
   FaStar,
 } from "react-icons/fa";
-import { IoSend } from "react-icons/io5";
+import { IoSend, IoTimerOutline } from "react-icons/io5";
+import { getChatTheme } from "../../utils/chatThemes";
 import { TiArrowRight } from "react-icons/ti";
 import { FaSquarePollHorizontal } from "react-icons/fa6";
 import { MdEventNote, MdKeyboardArrowUp, MdKeyboardArrowDown } from "react-icons/md";
 import { TfiClip } from "react-icons/tfi";
 import { MdAddReaction } from "react-icons/md";
-import MessageBuble, { WhatsAppPinIcon, WhatsAppUnpinIcon } from "./MessageBuble";
+import MessageBuble, {
+  WhatsAppPinIcon,
+  WhatsAppUnpinIcon,
+  WhatsAppDisappearingIcon,
+} from "./MessageBuble";
 import MessageSkeletonLoader from "./MessageSkeletonLoader";
 import EmojiPicker from "emoji-picker-react";
 import useOutsideClick from "../../hook/useOutsideClick";
@@ -142,6 +147,79 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const conversationId = selectedContact?.conversation?._id;
   const isTyping = isUserTyping(conversationId, selectedContact?._id);
   const { setShowContactInfo, openContactInfoWithTab } = useLayoutStore();
+  const disappearingDurations = useLayoutStore((state) => state.disappearingDurations);
+  const lastDisappearingActions = useLayoutStore((state) => state.lastDisappearingActions);
+  const disappearingEvents = useLayoutStore((state) => state.disappearingEvents);
+  const defaultMessageTimer = useLayoutStore((state) => state.defaultMessageTimer);
+  const chatThemes = useLayoutStore((state) => state.chatThemes);
+  const chatDoodles = useLayoutStore((state) => state.chatDoodles);
+  const chatBubbleColors = useLayoutStore((state) => state.chatBubbleColors);
+  const isChatSearchOpen = useLayoutStore((state) => state.isChatSearchOpen);
+  const setIsChatSearchOpen = useLayoutStore((state) => state.setIsChatSearchOpen);
+
+  useEffect(() => {
+    if (isChatSearchOpen) {
+      setIsSearchOpen(true);
+    }
+  }, [isChatSearchOpen]);
+
+  const activeChatId = (
+    selectedContact?.conversation?._id ||
+    selectedContact?.conversation ||
+    selectedContact?._id ||
+    ""
+  )?.toString();
+
+  const disappearingDuration =
+    (activeChatId && disappearingDurations?.[activeChatId]) ||
+    defaultMessageTimer ||
+    "Off";
+
+  const chatDisappearingEvents = useMemo(() => {
+    if (!activeChatId) return [];
+    const events = disappearingEvents?.[activeChatId] || [];
+    if (events.length === 0 && disappearingDuration && disappearingDuration !== "Off") {
+      const rawMsgs = Array.isArray(messages) ? messages : [];
+      const earliestMsgTime =
+        rawMsgs.length > 0 && rawMsgs[0]?.createdAt
+          ? new Date(new Date(rawMsgs[0].createdAt).getTime() - 2000).toISOString()
+          : new Date(Date.now() - 3600000).toISOString();
+      return [
+        {
+          _id: `disp_init_${activeChatId}`,
+          isDisappearingSystemEvent: true,
+          action: "turned_on",
+          duration: disappearingDuration,
+          previousDuration: "Off",
+          createdAt: earliestMsgTime,
+          timestamp: new Date(earliestMsgTime).getTime(),
+          setBy: user?._id || null,
+        },
+      ];
+    }
+    return events;
+  }, [activeChatId, disappearingEvents, disappearingDuration, messages, user?._id]);
+
+  const combinedMessages = useMemo(() => {
+    const rawMsgs = Array.isArray(messages) ? messages : [];
+    if (!chatDisappearingEvents || chatDisappearingEvents.length === 0) {
+      return rawMsgs;
+    }
+    const combined = [...rawMsgs, ...chatDisappearingEvents];
+    combined.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
+      const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+      return timeA - timeB;
+    });
+    return combined;
+  }, [messages, chatDisappearingEvents]);
+
+  const activeChatThemeId = (activeChatId && chatThemes?.[activeChatId]) || "default";
+  const activeChatTheme = useMemo(() => getChatTheme(activeChatThemeId), [activeChatThemeId]);
+  const customBubbleColor = activeChatId && chatBubbleColors?.[activeChatId];
+  const activeBubbleColor = customBubbleColor || activeChatTheme.bubbleColor;
+  const doodlesEnabled = activeChatId ? chatDoodles?.[activeChatId] !== false : true;
+
   const setCurrentConversation = useChatStore(
     (state) => state.setCurrentConversation,
   );
@@ -173,12 +251,26 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     if (!pin || !pin.message) return null;
     if (pin.expiresAt && pin.expiresAt <= Date.now()) return null;
+
+    if (pin.message?._id && Array.isArray(messages)) {
+      const foundInMessages = messages.find(
+        (m) => String(m._id) === String(pin.message._id)
+      );
+      if (foundInMessages && foundInMessages._isDecrypted) {
+        return {
+          ...pin,
+          message: foundInMessages,
+        };
+      }
+    }
+
     return pin;
   }, [
     pinnedMessages,
     currentConversation?._id,
     selectedContact?._id,
     selectedContact?.conversation,
+    messages,
   ]);
 
   const selectedMsgsList = useMemo(() => {
@@ -352,6 +444,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const getPinnedPreviewText = (msg) => {
     if (!msg) return "";
+    if (msg.isEncrypted && !msg._isDecrypted) {
+      return "Pinned message";
+    }
     if (msg.contentType === "text" || (!msg.contentType && msg.content)) {
       return msg.content || "";
     }
@@ -381,6 +476,68 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
     return msg.content || "Pinned message";
   };
+
+  const [decryptedPinnedText, setDecryptedPinnedText] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+    const resolvePinnedPreview = async () => {
+      const msg = activePin?.message;
+      if (!msg) {
+        setDecryptedPinnedText("");
+        return;
+      }
+
+      if (msg._isDecrypted || !msg.isEncrypted || !msg.iv) {
+        setDecryptedPinnedText(getPinnedPreviewText(msg));
+        return;
+      }
+
+      if (Array.isArray(messages)) {
+        const found = messages.find((m) => String(m._id) === String(msg._id));
+        if (found && found._isDecrypted) {
+          setDecryptedPinnedText(getPinnedPreviewText(found));
+          return;
+        }
+      }
+
+      try {
+        const dec = await decryptSingleMessage(
+          msg,
+          user?._id,
+          selectedContact,
+          useChatStore.getState,
+        );
+        if (isMounted) {
+          if (dec?._isDecrypted) {
+            setDecryptedPinnedText(getPinnedPreviewText(dec));
+            const currConvId =
+              currentConversation?._id || selectedContact?.conversation?._id;
+            if (currConvId) {
+              useChatStore.getState().pinMessage(
+                currConvId,
+                dec,
+                activePin.duration,
+                selectedContact?._id,
+                null,
+                false,
+                activePin.pinnedBy,
+              );
+            }
+          } else {
+            setDecryptedPinnedText(getPinnedPreviewText(msg));
+          }
+        }
+      } catch (err) {
+        if (isMounted) setDecryptedPinnedText(getPinnedPreviewText(msg));
+      }
+    };
+
+    resolvePinnedPreview();
+    return () => {
+      isMounted = false;
+    };
+  }, [activePin, messages, user?._id, selectedContact, currentConversation?._id]);
 
   const handleScrollToPinnedMessage = (msgId) => {
     if (!msgId) return;
@@ -590,8 +747,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       setTimeout(() => {
         isProgrammaticScrollRef.current = false;
       }, 60);
-    } else {
-      messageEndRef.current?.scrollIntoView({ behavior });
     }
   };
 
@@ -1087,7 +1242,70 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
   };
 
-  const renderDateSeparator = (date, includePinNotification = false) => {
+  const renderDisappearingSystemNotification = (eventData) => {
+    const isEvent = Boolean(eventData && eventData.isDisappearingSystemEvent);
+    const action = isEvent
+      ? eventData.action
+      : disappearingDuration === "Off"
+        ? "turned_off"
+        : "turned_on";
+    const duration = isEvent ? eventData.duration : disappearingDuration;
+    const isOff = duration === "Off" || action === "turned_off";
+    const isByMe =
+      !eventData?.setBy ||
+      String(eventData?.setBy?._id || eventData?.setBy) === String(user?._id);
+    const actor = isByMe ? "You" : (selectedContact?.username || "Contact");
+
+    let text;
+    if (isOff) {
+      text = isByMe
+        ? "You turned off disappearing messages."
+        : `${actor} turned off disappearing messages.`;
+    } else if (action === "updated") {
+      text = isByMe
+        ? `You updated the message timer. New messages will disappear from this chat ${duration} after they're sent, except when kept.`
+        : `${actor} updated the message timer. New messages will disappear from this chat ${duration} after they're sent, except when kept.`;
+    } else {
+      text = isByMe
+        ? `You turned on disappearing messages. New messages will disappear from this chat ${duration} after they're sent, except when kept.`
+        : `${actor} turned on disappearing messages. New messages will disappear from this chat ${duration} after they're sent, except when kept.`;
+    }
+
+    return (
+      <div className="flex justify-center my-2 select-none px-4">
+        <div
+          onClick={() => openContactInfoWithTab("disappearing")}
+          className={`max-w-[620px] px-3.5 py-1.5 rounded-lg text-[12.5px] leading-[19px] shadow-sm text-center cursor-pointer transition-all duration-150 active:scale-[0.99] border ${
+            theme === "dark"
+              ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0] hover:bg-[#202c33]"
+              : "bg-white border-black/5 text-[#54656f] hover:bg-gray-50"
+          }`}
+          title="Click to change disappearing messages timer"
+        >
+          <span className="inline-flex items-center align-baseline mr-1.5 -mb-0.5 text-[#8696a0]">
+            <WhatsAppDisappearingIcon size={14} className="shrink-0" />
+          </span>
+          <span>{text} </span>
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              openContactInfoWithTab("disappearing");
+            }}
+            className={`font-semibold hover:underline cursor-pointer ${
+              theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"
+            }`}
+          >
+            Change timer.
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDateSeparator = (
+    date,
+    includePinNotification = false
+  ) => {
     if (!isValidate(date)) {
       return null;
     }
@@ -1106,7 +1324,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       String(activePin?.pinnedBy?._id || activePin?.pinnedBy) === String(user?._id);
 
     return (
-      <div className="flex flex-col items-center justify-center my-2 select-none gap-1.5">
+      <div className="flex flex-col items-center justify-center my-2 select-none gap-2">
         <span
           className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-colors ${theme === "dark"
             ? "bg-[#182229] text-[#8696a0]"
@@ -1176,10 +1394,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   }, [pinDate]);
 
   const groupedMessages = useMemo(() => {
-    if (!Array.isArray(messages) || messages.length === 0) return {};
+    if (!Array.isArray(combinedMessages) || combinedMessages.length === 0) return {};
     const acc = {};
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
+    for (let i = 0; i < combinedMessages.length; i++) {
+      const msg = combinedMessages[i];
       if (!msg.createdAt) continue;
       const date = new Date(msg.createdAt);
       if (isValidate(date)) {
@@ -1191,7 +1409,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       }
     }
     return acc;
-  }, [messages]);
+  }, [combinedMessages]);
 
   const { finalMessagesToRender, resultCount } = useMemo(() => {
     if (!searchTerm) {
@@ -1203,9 +1421,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const entries = Object.entries(groupedMessages);
     for (let i = 0; i < entries.length; i++) {
       const [date, msgs] = entries[i];
-      const matched = msgs.filter((msg) =>
-        (msg.content || "").toLowerCase().includes(lowerSearch)
-      );
+      const matched = msgs.filter((msg) => {
+        if (msg.isDisappearingSystemEvent) return false;
+        return (msg.content || "").toLowerCase().includes(lowerSearch);
+      });
       if (matched.length > 0) {
         filtered[date] = matched;
         count += matched.length;
@@ -1393,7 +1612,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     <>
       <div
         onContextMenu={handleChatContextMenu}
-        className={`h-screen flex h-full w-full flex-col overflow-hidden ${theme === "dark" ? "bg-[#0b141a] text-white" : "bg-[#efe7de] text-gray-900"}`}
+        className={`h-full w-full flex flex-col overflow-hidden ${theme === "dark" ? "bg-[#0b141a] text-white" : "bg-[#efe7de] text-gray-900"}`}
       >
         <div
           onContextMenu={handleChatContextMenu}
@@ -1456,6 +1675,21 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                 <FaLock className="w-2.5 h-2.5" />
                 <span className="font-medium hidden sm:inline">Encrypted</span>
               </button>
+
+              {disappearingDuration !== "Off" && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openContactInfoWithTab("disappearing");
+                  }}
+                  title={`Disappearing messages: ${disappearingDuration}. Click to change.`}
+                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 active:scale-95 transition-all cursor-pointer"
+                >
+                  <WhatsAppDisappearingIcon size={12} className="shrink-0" />
+                  <span className="font-medium">{disappearingDuration}</span>
+                </button>
+              )}
             </div>
 
             {isTyping ? (
@@ -1529,6 +1763,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                     <button
                       onClick={() => {
                         setIsSearchOpen(false);
+                        setIsChatSearchOpen(false);
                         setSearchTerm("");
                       }}
                       title="Close search"
@@ -1681,7 +1916,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   className={`text-[13.5px] truncate font-normal ${theme === "dark" ? "text-[#d1d7db]" : "text-gray-800"
                     }`}
                 >
-                  {getPinnedPreviewText(activePin.message)}
+                  {decryptedPinnedText || getPinnedPreviewText(activePin.message)}
                 </span>
               </div>
 
@@ -1763,12 +1998,24 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
               }`}
             style={{
-              backgroundImage:
+              backgroundColor:
                 theme === "dark"
-                  ? `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`
+                  ? (activeChatTheme.bgColor || "#0b141a")
+                  : "#efe7de",
+              backgroundImage: activeChatTheme.imageUrl
+                ? `linear-gradient(rgba(11, 20, 26, 0.42), rgba(11, 20, 26, 0.42)), url('${activeChatTheme.imageUrl}')`
+                : theme === "dark"
+                  ? doodlesEnabled && (activeChatTheme.hasDoodles || !activeChatTheme.gradient)
+                    ? `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`
+                    : activeChatTheme.gradient || "none"
                   : `url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')`,
-              backgroundBlendMode: theme === "dark" ? "overlay" : "soft-light",
-              backgroundSize: "400px",
+              backgroundSize: activeChatTheme.imageUrl ? "cover" : "400px",
+              backgroundPosition: activeChatTheme.imageUrl ? "center" : undefined,
+              backgroundRepeat: activeChatTheme.imageUrl ? "no-repeat" : "repeat",
+              backgroundAttachment: activeChatTheme.imageUrl ? "fixed" : undefined,
+              backgroundBlendMode: activeChatTheme.imageUrl
+                ? "normal"
+                : theme === "dark" ? "overlay" : "soft-light",
             }}
           >
             <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
@@ -1792,8 +2039,16 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               {isMessagesLoading ? (
                 <MessageSkeletonLoader theme={theme} />
               ) : allDateEntries.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 opacity-70 text-center select-none">
-                  <p className="text-xs sm:text-sm font-medium">
+                <div className="flex flex-col items-center justify-center py-6 select-none gap-2 text-center">
+                  <span
+                    className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm ${theme === "dark"
+                      ? "bg-[#182229] text-[#8696a0]"
+                      : "bg-white text-[#54656f] border border-black/5"
+                      }`}
+                  >
+                    Today
+                  </span>
+                  <p className="text-xs sm:text-sm font-medium opacity-70 mt-4">
                     {searchTerm
                       ? `No messages found matching "${searchTerm}"`
                       : "No messages yet. Send a message to start chatting!"}
@@ -1816,10 +2071,24 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
                     return (
                       <React.Fragment key={date}>
-                        {renderDateSeparator(new Date(date), shouldRenderPin)}
+                        {renderDateSeparator(
+                          new Date(date),
+                          shouldRenderPin
+                        )}
 
                         {msgs.map((msg, index) => {
-                          const prevMsg = index > 0 ? msgs[index - 1] : null;
+                          if (msg.isDisappearingSystemEvent) {
+                            return (
+                              <div key={msg._id || `disp-${index}`}>
+                                {renderDisappearingSystemNotification(msg)}
+                              </div>
+                            );
+                          }
+
+                          const prevMsg =
+                            index > 0 && !msgs[index - 1]?.isDisappearingSystemEvent
+                              ? msgs[index - 1]
+                              : null;
                           const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
                           const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
                           const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
@@ -1837,6 +2106,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                               key={msg._id || msg.temp}
                               message={msg}
                               theme={theme}
+                              chatBubbleColor={theme === "dark" ? activeBubbleColor : undefined}
                               currentUser={user}
                               selectedContact={selectedContact}
                               onReact={handleReaction}
@@ -1854,6 +2124,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                               isSelected={selectedMessageIds.includes(String(msg._id || msg.temp))}
                               onToggleSelect={handleToggleSelectMessage}
                               onEnterSelectMode={handleEnterSelectMode}
+                              disappearingDuration={disappearingDuration}
+                              onOpenDisappearing={() => openContactInfoWithTab("disappearing")}
                               setRef={(el) => {
                                 if (isMatch && el) {
                                   messageRefs.current.push(el);
@@ -2575,10 +2847,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           else handleAudioCall();
         }}
         onOpenContactInfo={() => setShowContactInfo(true)}
+        onOpenDisappearingMessages={() => openContactInfoWithTab("disappearing")}
+        onOpenChatTheme={() => openContactInfoWithTab("chatTheme")}
       />
     </>
   );
 };
 
 
+export { ChatWindow };
 export default ChatWindow;

@@ -60,16 +60,16 @@ const Layout = ({
 
   return (
     <div
-      className={`min-h-screen flex ${theme === "dark" ? "bg-[#111b21] text-white" : "bg-gray-100 text-gray-900"
+      className={`h-screen h-[100dvh] w-full flex overflow-hidden ${theme === "dark" ? "bg-[#111b21] text-white" : "bg-gray-100 text-gray-900"
         }`}
     >
       {!isMobile && (
-        <div className="w-20 flex-shrink-0">
+        <div className="w-20 flex-shrink-0 h-full">
           <SideBar />
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex h-full overflow-hidden relative">
         <AnimatePresence initial={false}>
           {(!effectiveSelectedContact || !isMobile) && (
             <motion.div

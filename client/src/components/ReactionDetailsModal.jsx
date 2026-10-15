@@ -188,25 +188,24 @@ const ReactionDetailsModal = ({
           style={
             coords
               ? {
-                  position: "fixed",
-                  top: `${coords.top}px`,
-                  left: `${coords.left}px`,
-                  width: `${coords.width}px`,
-                }
+                position: "fixed",
+                top: `${coords.top}px`,
+                left: `${coords.left}px`,
+                width: `${coords.width}px`,
+              }
               : {
-                  position: "fixed",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  width: "360px",
-                }
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: "360px",
+              }
           }
           onClick={(e) => e.stopPropagation()}
-          className={`rounded-[18px] p-3.5 shadow-2xl flex flex-col relative select-none ${
-            isDark
+          className={`rounded-[18px] p-3.5 shadow-2xl flex flex-col relative select-none ${isDark
               ? "bg-[#1f2c34] text-[#e9edef] border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
               : "bg-white text-[#111b21] border border-black/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
-          }`}
+            }`}
         >
           {showEmojiPicker ? (
             <div className="flex flex-col">
@@ -214,31 +213,28 @@ const ReactionDetailsModal = ({
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker(false)}
-                  className={`flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer py-1 px-2 rounded-lg ${
-                    isDark
+                  className={`flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer py-1 px-2 rounded-lg ${isDark
                       ? "text-[#8696a0] hover:text-[#e9edef] hover:bg-white/[0.06]"
                       : "text-[#54656f] hover:text-[#111b21] hover:bg-black/[0.05]"
-                  }`}
+                    }`}
                   title="Back to reactions"
                 >
                   <FaArrowLeft size={11} />
                   <span>Reactions</span>
                 </button>
 
-                <span className={`text-xs font-semibold select-none ${
-                  isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                }`}>
+                <span className={`text-xs font-semibold select-none ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                  }`}>
                   Choose a reaction
                 </span>
 
                 <button
                   type="button"
                   onClick={onClose}
-                  className={`p-1 rounded-lg cursor-pointer transition-colors ${
-                    isDark
+                  className={`p-1 rounded-lg cursor-pointer transition-colors ${isDark
                       ? "text-[#8696a0] hover:text-[#e9edef] hover:bg-white/[0.06]"
                       : "text-[#54656f] hover:text-[#111b21] hover:bg-black/[0.05]"
-                  }`}
+                    }`}
                   title="Close"
                 >
                   <RxCross2 size={15} />
@@ -261,21 +257,19 @@ const ReactionDetailsModal = ({
             </div>
           ) : (
             <>
-              <div className={`text-[15px] font-semibold tracking-tight mb-2.5 select-none ${
-                isDark ? "text-[#e9edef]" : "text-[#111b21]"
-              }`}>
+              <div className={`text-[15px] font-semibold tracking-tight mb-2.5 select-none ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+                }`}>
                 {reactionCountLabel}
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar scrollbar-none pb-0.5 mb-2.5">
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-0.5 mb-2.5">
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker(true)}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border transition-all duration-150 cursor-pointer ${
-                    isDark
+                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border transition-all duration-150 cursor-pointer ${isDark
                       ? "bg-transparent hover:bg-white/[0.06] border-white/10 text-gray-300 hover:text-white"
                       : "bg-transparent hover:bg-black/[0.04] border-black/10 text-gray-600 hover:text-black"
-                  }`}
+                    }`}
                   title="Choose reaction emoji"
                 >
                   <div className="relative flex items-center justify-center">
@@ -291,22 +285,20 @@ const ReactionDetailsModal = ({
                       key={emoji}
                       type="button"
                       onClick={() => setActiveTab(isSelected ? "all" : emoji)}
-                      className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-sm font-medium border shrink-0 transition-all duration-150 cursor-pointer select-none ${
-                        isSelected
+                      className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-sm font-medium border shrink-0 transition-all duration-150 cursor-pointer select-none ${isSelected
                           ? isDark
                             ? "bg-[#2a3942] text-white border-white/20 ring-1 ring-white/10 shadow-sm"
                             : "bg-gray-200 text-[#111b21] border-gray-300 ring-1 ring-black/5 shadow-sm"
                           : isDark
-                          ? "bg-[#2a3942]/60 text-gray-200 border-white/10 hover:bg-[#2a3942]"
-                          : "bg-gray-100 text-[#111b21] border-gray-200 hover:bg-gray-200"
-                      }`}
+                            ? "bg-[#2a3942]/60 text-gray-200 border-white/10 hover:bg-[#2a3942]"
+                            : "bg-gray-100 text-[#111b21] border-gray-200 hover:bg-gray-200"
+                        }`}
                     >
                       <span className="text-[16px] leading-none">{emoji}</span>
-                      <span className={`text-xs font-semibold tabular-nums ${
-                        isSelected
+                      <span className={`text-xs font-semibold tabular-nums ${isSelected
                           ? isDark ? "text-white" : "text-[#111b21]"
                           : isDark ? "text-gray-200" : "text-gray-700"
-                      }`}>
+                        }`}>
                         {count}
                       </span>
                     </button>
@@ -314,10 +306,9 @@ const ReactionDetailsModal = ({
                 })}
               </div>
 
-              <div className={`border-t my-2 ${
-                isDark ? "border-white/[0.08]" : "border-black/[0.08]"
-              }`} />
-              <div className="overflow-y-auto custom-scrollbar max-h-[260px] space-y-1.5 pt-0.5">
+              <div className={`border-t my-2 ${isDark ? "border-white/[0.08]" : "border-black/[0.08]"
+                }`} />
+              <div className="overflow-y-auto scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-h-[260px] space-y-1.5 pt-0.5">
                 {displayedReactions.map((reaction, index) => {
                   const userObj = reaction.userId;
                   const rUserId = String(userObj?._id || userObj);
@@ -350,11 +341,10 @@ const ReactionDetailsModal = ({
                     <div
                       key={index}
                       onClick={() => handleRowClick(reaction)}
-                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-[14px] transition-all duration-150 ${
-                        isDark
-                          ? "bg-[#111b21]/40 hover:bg-[#111b21]/65 text-[#e9edef]"
-                          : "bg-gray-50 hover:bg-gray-100 border border-black/[0.04] text-[#111b21]"
-                      } ${isMe ? "cursor-pointer group" : "cursor-default"}`}
+                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl border transition-all duration-150 ${isDark
+                          ? "bg-[#111b21]/40 hover:bg-[#111b21]/75 border-transparent hover:border-white/15 text-[#e9edef]"
+                          : "bg-gray-50 hover:bg-gray-100 border-transparent hover:border-black/10 text-[#111b21]"
+                        } ${isMe ? "cursor-pointer group" : "cursor-default"}`}
                       title={isMe ? "Click to remove your reaction" : undefined}
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -362,24 +352,21 @@ const ReactionDetailsModal = ({
                           <img
                             src={avatar}
                             alt={username}
-                            className={`w-10 h-10 rounded-full object-cover shrink-0 select-none border ${
-                              isDark ? "border-white/10" : "border-black/10"
-                            }`}
+                            className={`w-10 h-10 rounded-full object-cover shrink-0 select-none border ${isDark ? "border-white/10" : "border-black/10"
+                              }`}
                           />
                         ) : (
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 select-none border ${
-                            isDark
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 select-none border ${isDark
                               ? "bg-black/40 text-gray-200 border-white/10"
                               : "bg-gray-200 text-gray-700 border-black/10"
-                          }`}>
+                            }`}>
                             {getInitials(username)}
                           </div>
                         )}
 
                         <div className="min-w-0 flex flex-col justify-center">
-                          <span className={`text-[15px] font-medium truncate ${
-                            isDark ? "text-white/95" : "text-[#111b21]"
-                          }`}>
+                          <span className={`text-[15px] font-medium truncate ${isDark ? "text-white/95" : "text-[#111b21]"
+                            }`}>
                             {username}
                           </span>
                           {isMe && (

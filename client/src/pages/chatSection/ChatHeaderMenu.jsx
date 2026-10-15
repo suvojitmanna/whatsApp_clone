@@ -22,10 +22,12 @@ import {
   MdCheck,
 } from "react-icons/md";
 import { RxCrossCircled } from "react-icons/rx";
+import { RiDeleteBin6Line } from "react-icons/ri";
 import { toast } from "react-toastify";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
+import useLayoutStore from "../../store/layoutStore";
 import ReportModal from "../../components/ReportModal";
 
 const ChatHeaderMenu = ({
@@ -41,13 +43,11 @@ const ChatHeaderMenu = ({
   onSelectMessages,
   onStartCall,
   onOpenContactInfo,
+  onOpenDisappearingMessages,
+  onOpenChatTheme,
 }) => {
   const isDark = theme === "dark";
-  const { setTheme } = useThemeStore();
   const { user } = useUserStore();
-  const { clearMessages, deleteConversation, setCurrentConversation } =
-    useChatStore();
-
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -116,7 +116,17 @@ const ChatHeaderMenu = ({
     }
   });
 
-  const disappearingDuration = disappearingSettings[chatId] || "Off";
+  const disappearingDurationsFromStore = useLayoutStore(
+    (state) => state.disappearingDurations
+  );
+  const defaultTimerFromStore = useLayoutStore(
+    (state) => state.defaultMessageTimer
+  );
+  const disappearingDuration =
+    (chatId && disappearingDurationsFromStore?.[chatId]) ||
+    disappearingSettings[chatId] ||
+    defaultTimerFromStore ||
+    "Off";
 
   useEffect(() => {
     if (!isOpen) {
@@ -179,12 +189,17 @@ const ChatHeaderMenu = ({
 
   const handleSetDisappearing = (duration) => {
     if (!chatId) return;
+    try {
+      useLayoutStore.getState().setDisappearingDuration(chatId, duration, user?._id);
+    } catch { }
     const next = { ...disappearingSettings, [chatId]: duration };
     setDisappearingSettings(next);
-    localStorage.setItem(
-      "whatsapp_disappearing_messages",
-      JSON.stringify(next)
-    );
+    try {
+      localStorage.setItem(
+        "whatsapp_disappearing_messages",
+        JSON.stringify(next)
+      );
+    } catch { }
     toast.success(
       duration === "Off"
         ? "Disappearing messages turned off"
@@ -261,6 +276,9 @@ const ChatHeaderMenu = ({
   const handleCloseChat = () => {
     setSelectedContact?.(null);
     setCurrentConversation?.(null);
+    try {
+      useLayoutStore.getState().setSelectedContact(null);
+    } catch { }
     onClose();
   };
 
@@ -308,6 +326,9 @@ const ChatHeaderMenu = ({
     });
     setSelectedContact?.(null);
     setCurrentConversation?.(null);
+    try {
+      useLayoutStore.getState().setSelectedContact(null);
+    } catch { }
     toast.success("Chat deleted");
     setConfirmDialog(null);
     onClose();
@@ -325,7 +346,6 @@ const ChatHeaderMenu = ({
 
   const coords = useMemo(() => {
     const menuWidth = 242;
-    const estimatedHeight = 500;
     const isRightClick = Boolean(anchorCoords?.isContextMenu);
     const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1200;
     const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
@@ -338,6 +358,7 @@ const ChatHeaderMenu = ({
     let top = clickY;
     let originX = "left";
     let originY = "top";
+    let maxHeight = Math.max(200, viewportHeight - 20);
 
     if (isRightClick) {
       if (clickX + menuWidth > viewportWidth - padding) {
@@ -347,33 +368,31 @@ const ChatHeaderMenu = ({
         left = Math.max(padding, clickX);
         originX = "left";
       }
-      if (clickY + estimatedHeight > viewportHeight - padding) {
-        if (clickY - estimatedHeight >= padding) {
-          top = clickY - estimatedHeight;
-          originY = "bottom";
-        } else {
-          top = Math.max(padding, viewportHeight - estimatedHeight - padding);
-          originY = clickY > viewportHeight / 2 ? "bottom" : "top";
-        }
-      } else {
-        top = Math.max(padding, clickY);
-        originY = "top";
-      }
-    } else {
-      left = Math.max(padding, clickX - menuWidth);
-      originX = "right";
-      if (clickY + estimatedHeight > viewportHeight - padding) {
-        top = Math.max(padding, viewportHeight - estimatedHeight - padding);
+
+      if (clickY > viewportHeight - 340 && clickY > 320) {
+        maxHeight = Math.max(180, clickY - padding);
+        top = Math.max(padding, clickY - Math.min(540, clickY - padding));
         originY = "bottom";
       } else {
         top = Math.max(padding, clickY);
+        maxHeight = Math.max(180, viewportHeight - top - padding);
         originY = "top";
       }
+    } else {
+      left = Math.max(
+        padding,
+        Math.min(clickX - menuWidth, viewportWidth - menuWidth - padding)
+      );
+      originX = "right";
+      top = Math.max(padding, clickY);
+      originY = "top";
+      maxHeight = Math.max(180, viewportHeight - top - padding);
     }
 
     return {
       top: Math.round(top),
       left: Math.round(left),
+      maxHeight: Math.round(maxHeight),
       originX,
       originY,
       openSubmenuToLeft: left >= 170,
@@ -403,7 +422,7 @@ const ChatHeaderMenu = ({
     : "hover:bg-red-50 hover:border-red-300 text-gray-800 hover:text-red-600"
     }`;
 
-  const submenuItemClass = `mx-1.5 my-0.5 w-[calc(100%-12px)] flex items-center justify-between px-3.5 py-2 text-[13.5px] cursor-pointer rounded-lg border border-transparent transition-all duration-150 ${isDark
+  const submenuItemClass = `mx-1.5 my-0.5 w-[calc(100%-12px)] flex items-center justify-between px-3.5 py-2 text-[13.5px] cursor-pointer rounded-xl border border-transparent transition-all duration-150 ${isDark
     ? "hover:bg-white/10 hover:border-white/15 hover:text-white"
     : "hover:bg-black/5 hover:border-black/10 hover:text-black"
     }`;
@@ -441,9 +460,10 @@ const ChatHeaderMenu = ({
                 position: "fixed",
                 top: `${coords.top}px`,
                 left: `${coords.left}px`,
+                maxHeight: `${coords.maxHeight}px`,
                 transformOrigin: `${coords.originY} ${coords.originX}`,
               }}
-              className={`z-[9999] w-[242px] max-h-[calc(100vh-20px)] overflow-y-auto custom-scrollbar py-1.5 rounded-xl shadow-2xl border select-none ${isDark
+              className={`z-[9999] w-[242px] overflow-y-auto scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl shadow-2xl border select-none ${isDark
                 ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_12px_40px_rgba(0,0,0,0.65)]"
                 : "bg-white border-black/10 text-[#111b21] shadow-[0_10px_35px_rgba(11,20,26,0.18)]"
                 }`}
@@ -453,7 +473,11 @@ const ChatHeaderMenu = ({
                 type="button"
                 onClick={() => {
                   onClose();
-                  onOpenContactInfo?.();
+                  if (onOpenContactInfo) {
+                    onOpenContactInfo();
+                  } else {
+                    useLayoutStore.getState().openContactInfoWithTab("info");
+                  }
                 }}
                 className={itemClass}
               >
@@ -531,7 +555,7 @@ const ChatHeaderMenu = ({
                       transition={{ duration: 0.1 }}
                       className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
                         } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
-                        } min-w-[155px] py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
+                        } min-w-[155px] max-h-[300px] overflow-y-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
                           ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
                           : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
                         }`}
@@ -558,11 +582,14 @@ const ChatHeaderMenu = ({
               >
                 <button
                   type="button"
-                  onClick={() =>
-                    setActiveSubmenu(
-                      activeSubmenu === "disappearing" ? null : "disappearing"
-                    )
-                  }
+                  onClick={() => {
+                    onClose();
+                    if (onOpenDisappearingMessages) {
+                      onOpenDisappearingMessages();
+                    } else {
+                      useLayoutStore.getState().openContactInfoWithTab("disappearing");
+                    }
+                  }}
                   className={itemClass}
                 >
                   <IoTimerOutline
@@ -587,7 +614,7 @@ const ChatHeaderMenu = ({
                       transition={{ duration: 0.1 }}
                       className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
                         } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
-                        } min-w-[155px] py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
+                        } min-w-[155px] max-h-[300px] overflow-y-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
                           ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
                           : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
                         }`}
@@ -613,83 +640,28 @@ const ChatHeaderMenu = ({
                 </AnimatePresence>
               </div>
 
-              <div
-                className="relative"
-                onMouseEnter={() => setActiveSubmenu("theme")}
-                onMouseLeave={() => setActiveSubmenu(null)}
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActiveSubmenu(
-                      activeSubmenu === "theme" ? null : "theme"
-                    )
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  if (onOpenChatTheme) {
+                    onOpenChatTheme();
+                  } else {
+                    useLayoutStore.getState().openContactInfoWithTab("chatTheme");
                   }
-                  className={itemClass}
-                >
-                  <IoColorPaletteOutline
-                    size={18}
-                    className="text-[#8696a0] shrink-0"
-                  />
-                  <span>Chat theme</span>
-                  <MdChevronRight
-                    size={16}
-                    className="text-[#8696a0] ml-auto shrink-0"
-                  />
-                </button>
-
-                <AnimatePresence>
-                  {activeSubmenu === "theme" && (
-                    <motion.div
-                      initial={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
-                      transition={{ duration: 0.1 }}
-                      className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
-                        } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
-                        } min-w-[155px] py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
-                          ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
-                          : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
-                        }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTheme("dark");
-                          toast.success("Switched to Dark theme");
-                          onClose();
-                        }}
-                        className={submenuItemClass}
-                      >
-                        <span>Dark mode</span>
-                        {isDark && (
-                          <MdCheck
-                            size={16}
-                            className="text-emerald-500 shrink-0"
-                          />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTheme("light");
-                          toast.success("Switched to Light theme");
-                          onClose();
-                        }}
-                        className={submenuItemClass}
-                      >
-                        <span>Light mode</span>
-                        {!isDark && (
-                          <MdCheck
-                            size={16}
-                            className="text-emerald-500 shrink-0"
-                          />
-                        )}
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                }}
+                className={itemClass}
+              >
+                <IoColorPaletteOutline
+                  size={18}
+                  className="text-[#8696a0] shrink-0"
+                />
+                <span className="truncate">Chat theme</span>
+                <MdChevronRight
+                  size={16}
+                  className="text-[#8696a0] ml-auto shrink-0"
+                />
+              </button>
 
               <button
                 type="button"
@@ -742,7 +714,7 @@ const ChatHeaderMenu = ({
                       transition={{ duration: 0.1 }}
                       className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
                         } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
-                        } min-w-[155px] py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
+                        } min-w-[155px] max-h-[300px] overflow-y-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
                           ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
                           : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
                         }`}
@@ -850,6 +822,17 @@ const ChatHeaderMenu = ({
                   className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
                 />
                 <span>Clear chat</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDialog({ type: "delete" })}
+                className={dangerItemClass}
+              >
+                <RiDeleteBin6Line
+                  size={18}
+                  className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
+                />
+                <span>Delete chat</span>
               </button>
             </motion.div>
           </>,
