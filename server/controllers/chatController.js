@@ -812,6 +812,17 @@ exports.blockUser = async (req, res) => {
       $addToSet: { blockedUsers: targetUserId },
     });
 
+    if (req.io) {
+      req.io.to(userId.toString()).emit("user_blocked", {
+        blockedUserId: targetUserId.toString(),
+        blockedBy: userId.toString(),
+      });
+      req.io.to(targetUserId.toString()).emit("user_blocked", {
+        blockedUserId: targetUserId.toString(),
+        blockedBy: userId.toString(),
+      });
+    }
+
     return response(res, 200, "User blocked successfully", {
       targetUserId,
     });
@@ -832,6 +843,92 @@ exports.unblockUser = async (req, res) => {
     await User.findByIdAndUpdate(userId, {
       $pull: { blockedUsers: targetUserId },
     });
+
+    const now = new Date();
+
+    // Find any messages from targetUserId (sender) to userId (receiver) held during block
+    const heldMessages = await Message.find({
+      receiver: userId,
+      sender: targetUserId,
+      blockedDelivery: true,
+    }).sort({ createdAt: 1 });
+
+    if (heldMessages.length > 0) {
+      const heldIds = heldMessages.map((m) => m._id);
+
+      // Deliver all held messages
+      await Message.updateMany(
+        { _id: { $in: heldIds } },
+        {
+          $set: {
+            blockedDelivery: false,
+            messageStatus: "delivered",
+            deliveredAt: now,
+          },
+          $pull: { deletedFor: userId },
+        },
+      );
+
+      // Update conversation's lastMessage
+      const lastHeldMsg = heldMessages[heldMessages.length - 1];
+      if (lastHeldMsg) {
+        await Conversation.findByIdAndUpdate(lastHeldMsg.conversation, {
+          $set: { lastMessage: lastHeldMsg._id },
+        });
+      }
+
+      // Populate messages to deliver to receiver
+      const populatedHeldMessages = await Message.find({ _id: { $in: heldIds } })
+        .populate("sender", "username profilePicture publicKey")
+        .populate("receiver", "username profilePicture publicKey")
+        .populate("replyTo")
+        .populate({
+          path: "statusId",
+          populate: {
+            path: "user",
+            select: "username profilePicture",
+          },
+        });
+
+      if (req.io) {
+        // 1. Notify SENDER (targetUserId) that their messages are now delivered
+        const statusPayload = {
+          messageIds: heldIds.map(String),
+          messageStatus: "delivered",
+          deliveredAt: now.toISOString(),
+          conversationId: heldMessages[0]?.conversation?.toString(),
+        };
+        req.io.to(targetUserId.toString()).emit("message_status_update_bulk", statusPayload);
+        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          const senderSocketId = req.socketUserMap.get(targetUserId.toString());
+          if (senderSocketId && senderSocketId !== targetUserId.toString()) {
+            req.io.to(senderSocketId).emit("message_status_update_bulk", statusPayload);
+          }
+        }
+
+        // 2. Deliver held messages to RECEIVER (userId)
+        for (const msg of populatedHeldMessages) {
+          req.io.to(userId.toString()).emit("receive_message", msg);
+          if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+            const receiverSocketId = req.socketUserMap.get(userId.toString());
+            if (receiverSocketId && receiverSocketId !== userId.toString()) {
+              req.io.to(receiverSocketId).emit("receive_message", msg);
+            }
+          }
+        }
+      }
+    }
+
+    if (req.io) {
+      req.io.to(userId.toString()).emit("user_unblocked", {
+        unblockedUserId: targetUserId.toString(),
+        unblockedBy: userId.toString(),
+      });
+      req.io.to(targetUserId.toString()).emit("user_unblocked", {
+        unblockedUserId: targetUserId.toString(),
+        unblockedBy: userId.toString(),
+      });
+    }
 
     return response(res, 200, "User unblocked successfully", {
       targetUserId,

@@ -54,6 +54,7 @@ import {
   getChatTheme,
 } from "../utils/chatThemes";
 import { toast } from "react-toastify";
+import Media from "./media";
 
 const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   <button
@@ -615,6 +616,7 @@ const ContactInfo = () => {
   }, []);
 
   useOutsideClick(contactInfoRef, () => {
+    if (showBlockModal || showReportModal) return;
     setShowContactInfo(false);
   });
 
@@ -1223,6 +1225,10 @@ const ContactInfo = () => {
                     </p>
                   </motion.div>
 
+                  <div className="my-4 border-t border-white/10" />
+                  <Media />
+                  <div className="my-4 border-t border-white/10" />
+                  
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
@@ -1401,40 +1407,6 @@ const ContactInfo = () => {
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.58, type: "spring", stiffness: 100 }}
-                    onClick={() => setContactInfoTab("security")}
-                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
-                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
-                      : " hover:bg-black/8 hover:border-black/10"
-                      }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                        <FaLock size={16} />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
-                          Encryption
-                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500">
-                            Active
-                          </span>
-                        </h4>
-                        <p
-                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                            }`}
-                        >
-                          Messages and calls are end-to-end encrypted. Tap to verify.
-                        </p>
-                      </div>
-
-                      <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
-                    </div>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.61, type: "spring", stiffness: 100 }}
                     onClick={handleToggleFavorite}
                     className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
@@ -1548,7 +1520,41 @@ const ContactInfo = () => {
                     </div>
                   </motion.div>
 
-                  <div className="my-1 border-t border-white/5" />
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.58, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("security")}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                        <FaLock size={16} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          Encryption
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500">
+                            Active
+                          </span>
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          Messages and calls are end-to-end encrypted. Tap to verify.
+                        </p>
+                      </div>
+
+                      <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                    </div>
+                  </motion.div>
+
+                  <div className="my-4 border-t border-white/10" />
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}

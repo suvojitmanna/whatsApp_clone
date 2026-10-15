@@ -25,7 +25,17 @@ const ReportModal = ({
     <AnimatePresence>
       <div
         className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/65 backdrop-blur-[2px]"
-        onClick={onClose}
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) {
+            e.stopPropagation();
+          }
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            e.stopPropagation();
+            onClose?.();
+          }
+        }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.94, y: 8 }}
@@ -33,6 +43,8 @@ const ReportModal = ({
           exit={{ opacity: 0, scale: 0.94, y: 8 }}
           transition={{ duration: 0.16, ease: "easeOut" }}
           onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
           className={`w-full max-w-[350px] sm:max-w-[370px] rounded-[24px] p-6 sm:p-7 shadow-2xl border select-none ${
             isDark
               ? "bg-[#202c33] border-white/5 text-[#e9edef]"
