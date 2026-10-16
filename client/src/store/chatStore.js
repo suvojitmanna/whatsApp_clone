@@ -110,6 +110,29 @@ export async function decryptSingleMessage(
     }
   }
 
+  if (
+    (!peerPubKey || !peerId) &&
+    msg.conversation?.participants &&
+    Array.isArray(msg.conversation.participants)
+  ) {
+    if (!peerId) {
+      const otherPart = msg.conversation.participants.find(
+        (p) => (p._id || p)?.toString() !== myId,
+      );
+      if (otherPart) {
+        peerId = (otherPart._id || otherPart)?.toString();
+        if (otherPart.publicKey) peerPubKey = otherPart.publicKey;
+      }
+    } else {
+      const part = msg.conversation.participants.find(
+        (p) => (p._id || p)?.toString() === peerId,
+      );
+      if (part?.publicKey) {
+        peerPubKey = part.publicKey;
+      }
+    }
+  }
+
   if (!peerPubKey || !peerId || !myId) {
     return msg;
   }
@@ -176,7 +199,7 @@ export const useChatStore = create((set, get) => ({
   setUsers: (users) => set({ users }),
   conversations: { data: [] },
   currentConversation: null,
-  currentUser: null,
+  currentUser: useUserStore.getState()?.user || null,
   setCurrentConversation: (conversation) =>
     set({ currentConversation: conversation }),
   messages: [],
@@ -2635,5 +2658,14 @@ export const useChatStore = create((set, get) => ({
     });
   },
 }));
+
+if (typeof useUserStore?.subscribe === "function") {
+  useUserStore.subscribe((state) => {
+    const currentChatUser = useChatStore.getState().currentUser;
+    if (currentChatUser !== state.user) {
+      useChatStore.setState({ currentUser: state.user });
+    }
+  });
+}
 
 export default useChatStore;

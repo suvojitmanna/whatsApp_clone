@@ -11,6 +11,7 @@ import { FiThumbsDown, FiCheckSquare } from "react-icons/fi";
 import { useChatStore } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
 import { WhatsAppUnpinIcon } from "./MessageBuble";
+import { copyImageToClipboard } from "../../utils/clipboardUtils";
 
 const MessageMenu = ({
     message,
@@ -129,8 +130,28 @@ const MessageMenu = ({
             {hasCopyableText && (
                 <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                         setShowOptions?.(false);
+                        const isImg =
+                            message?.contentType === "image" ||
+                            Boolean(
+                                message?.imageOrVideoUrl &&
+                                !message?.imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i) &&
+                                message?.contentType !== "video"
+                            );
+
+                        if (isImg && message?.imageOrVideoUrl) {
+                            try {
+                                await copyImageToClipboard(message.imageOrVideoUrl);
+                                toast.success("Image copied to clipboard");
+                                return;
+                            } catch (e) {
+                                console.error("Failed to copy image:", e);
+                                toast.error("Failed to copy image to clipboard");
+                                return;
+                            }
+                        }
+
                         const textToCopy =
                             message?.contentType === "text"
                                 ? message?.content || ""

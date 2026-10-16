@@ -30,17 +30,7 @@ import {
   isContactInList,
   getContactListNames,
 } from "../../utils/chatListsUtil";
-
-const AVATAR_BG_COLORS = [
-  "#533f28", // Warm amber/brown (matches Baba in WhatsApp Web)
-  "#1f4c45", // Deep teal
-  "#3b3653", // Slate purple
-  "#4e3b31", // Warm terracotta
-  "#284255", // Deep steel blue
-  "#3d4726", // Olive brown
-  "#4f2c3e", // Plum wine
-  "#2c4c3b", // Forest pine
-];
+import { AVATAR_BG_COLORS } from "../../assets/rawData";
 
 export const getAvatarBg = (name) => {
   if (!name) return AVATAR_BG_COLORS[0];
@@ -759,7 +749,6 @@ const ChatList = ({ contacts }) => {
         : "bg-white border-gray-200 text-gray-900"
         }`}
     >
-      {/* Top Header */}
       <div className="px-4 py-3 flex items-center justify-between">
         <h1 className={`text-xl font-bold tracking-tight ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"}`}>
           Chats
@@ -790,7 +779,6 @@ const ChatList = ({ contacts }) => {
         </div>
       </div>
 
-      {/* WhatsApp Search Bar */}
       <div className="px-3 pt-1 pb-2">
         <div
           className={`flex items-center gap-3 px-3 py-1.5 rounded-lg transition-colors ${theme === "dark"
@@ -827,9 +815,7 @@ const ChatList = ({ contacts }) => {
         </div>
       </div>
 
-      {/* WhatsApp Filter Pills Bar */}
       <div className="px-3 pb-2 pt-0.5 flex items-center gap-1.5 overflow-x-auto scrollbar-hide select-none border-b border-white/5 relative">
-        {/* All */}
         <button
           type="button"
           onClick={() => setActiveListFilter("All")}
@@ -844,8 +830,6 @@ const ChatList = ({ contacts }) => {
         >
           All
         </button>
-
-        {/* Favourites */}
         <button
           type="button"
           onClick={() => setActiveListFilter("Favourites")}
@@ -861,7 +845,6 @@ const ChatList = ({ contacts }) => {
           Favourites{listCounts.Favourites > 0 ? ` ${listCounts.Favourites}` : ""}
         </button>
 
-        {/* Groups */}
         <button
           type="button"
           onClick={() => setActiveListFilter("Groups")}
@@ -877,7 +860,6 @@ const ChatList = ({ contacts }) => {
           Groups{listCounts.Groups > 0 ? ` ${listCounts.Groups}` : ""}
         </button>
 
-        {/* Unread */}
         <button
           type="button"
           onClick={() => setActiveListFilter("Unread")}
@@ -893,7 +875,6 @@ const ChatList = ({ contacts }) => {
           Unread{listCounts.Unread > 0 ? ` ${listCounts.Unread}` : ""}
         </button>
 
-        {/* Active dropdown list if selected */}
         {dropdownLists.includes(activeListFilter) && (
           <button
             type="button"
@@ -907,7 +888,6 @@ const ChatList = ({ contacts }) => {
           </button>
         )}
 
-        {/* Dropdown trigger caret button */}
         <div className="relative shrink-0" ref={listsDropdownRef}>
           <button
             type="button"

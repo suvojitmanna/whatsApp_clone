@@ -1424,14 +1424,14 @@ exports.getChatMedia = async (req, res) => {
         { content: { $regex: /https?:\/\/|www\./i } },
       ],
     })
-      .populate("sender", "username phoneNumber profilePicture")
-      .populate("receiver", "username phoneNumber profilePicture")
+      .populate("sender", "username phoneNumber profilePicture publicKey")
+      .populate("receiver", "username phoneNumber profilePicture publicKey")
       .populate({
         path: "conversation",
         select: "participants updatedAt",
         populate: {
           path: "participants",
-          select: "username phoneNumber profilePicture",
+          select: "username phoneNumber profilePicture publicKey",
         },
       })
       .sort({ createdAt: -1 })

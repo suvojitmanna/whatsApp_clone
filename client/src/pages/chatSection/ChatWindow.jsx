@@ -868,6 +868,27 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }, 50);
   };
 
+  useEffect(() => {
+    const handleReplyEvent = (e) => {
+      if (e.detail?.message) {
+        handleStartReply(e.detail.message);
+      }
+    };
+    const handleScrollEvent = (e) => {
+      if (e.detail?.messageId) {
+        setTimeout(() => {
+          handleScrollToPinnedMessage(e.detail.messageId);
+        }, 300);
+      }
+    };
+    window.addEventListener("start-reply-message", handleReplyEvent);
+    window.addEventListener("scroll-to-message", handleScrollEvent);
+    return () => {
+      window.removeEventListener("start-reply-message", handleReplyEvent);
+      window.removeEventListener("scroll-to-message", handleScrollEvent);
+    };
+  }, []);
+
   const getReplyPreviewText = (msg) => {
     if (!msg) return "";
     if (msg.contentType === "text" || (!msg.contentType && msg.content)) {
@@ -1666,31 +1687,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     );
   };
 
-  const renderPinSystemNotification = () => {
-    if (!activePin || !activePin.message) return null;
-    const { text: pinNoticeText } = getPinActorAndLabel(
-      activePin,
-      user?._id || user?.id,
-      selectedContact?.username,
-    );
-
-    return (
-      <div className="flex justify-center my-1 select-none">
-        <button
-          type="button"
-          onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
-          className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-all duration-200 cursor-pointer active:scale-95 ${theme === "dark"
-            ? "bg-[#182229] hover:bg-[#202c33] text-[#8696a0] hover:text-[#d1d7db]"
-            : "bg-white hover:bg-gray-50 text-[#54656f] border border-black/5"
-            }`}
-          title="Click to jump to pinned message"
-        >
-          {pinNoticeText}
-        </button>
-      </div>
-    );
-  };
-
   const pinDate = useMemo(() => {
     if (!activePin) return null;
     const rawTime = activePin.pinnedAt || activePin.message?.createdAt;
@@ -2082,17 +2078,20 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             }}
           >
             <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
-              <div className="flex justify-center my-2 select-none">
+              <div className="flex justify-center my-3 select-none px-4">
                 <button
                   type="button"
-                  onClick={() => openContactInfoWithTab("privacy")}
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs max-w-md text-center transition-all duration-200 cursor-pointer shadow-sm active:scale-98 ${theme === "dark"
-                    ? "bg-[#182229]/95 text-[#ffd279] border border-white/5 hover:bg-[#202c33]"
-                    : "bg-[#ffeecd]/95 text-[#54656f] border border-black/5 hover:bg-[#fedea8]"
+                  onClick={() => openContactInfoWithTab("security")}
+                  className={`inline-block py-1.5 px-3 sm:px-4 rounded-lg text-[12.5px] leading-[18px] max-w-[430px] text-center transition-all duration-150 cursor-pointer shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] active:scale-[0.99] border ${theme === "dark"
+                    ? "bg-[#182229] text-[#ffd279] border-white/5 hover:bg-[#202c33]"
+                    : "bg-[#ffeecd] text-[#54656f] border-black/5 hover:bg-[#fde6b8]"
                     }`}
-                  title="Click to verify end-to-end encryption"
+                  title="Messages and calls are end-to-end encrypted. Click to verify."
                 >
-                  <FaLock className="h-3 w-3 shrink-0 text-emerald-500" />
+                  <FaLock
+                    className={`inline-block w-2.5 h-2.5 mr-1.5 -translate-y-[1px] ${theme === "dark" ? "text-[#ffd279]" : "text-[#54656f]"
+                      }`}
+                  />
                   <span>
                     Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. Click to learn more.
                   </span>

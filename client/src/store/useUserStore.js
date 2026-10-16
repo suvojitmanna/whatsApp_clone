@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { getSocket } from "../services/chatService";
-import { useChatStore } from "./chatStore";
 
 const useUserStore = create(
   persist(
@@ -17,7 +16,14 @@ const useUserStore = create(
           user: normalizedUser,
           isAuthenticated: true,
         });
-        useChatStore.getState().setCurrentUser(normalizedUser);
+
+        // Notify chatStore dynamically to prevent circular dependency
+        import("./chatStore")
+          .then((mod) => {
+            const store = mod.useChatStore || mod.default;
+            store?.getState()?.setCurrentUser?.(normalizedUser);
+          })
+          .catch(() => {});
       },
 
       clearUser: () =>

@@ -155,13 +155,20 @@ const FileViewerModal = ({ isOpen, onClose, file, theme = "dark" }) => {
             onClick={(e) => e.stopPropagation()}
           >
             {isImage ? (
-              <motion.img
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                src={fileUrl}
-                alt={fileName}
-                className="max-h-[82vh] max-w-full object-contain rounded-xl shadow-2xl ring-1 ring-white/10"
-              />
+              <div className="relative flex flex-col items-center justify-center max-h-[82vh] w-full">
+                <motion.img
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  src={fileUrl}
+                  alt={fileName}
+                  className="max-h-[76vh] max-w-full object-contain rounded-xl shadow-2xl ring-1 ring-white/10"
+                />
+                {file.caption && (
+                  <div className="mt-3 px-4 py-2 rounded-xl bg-black/60 backdrop-blur-md text-white text-center text-sm font-medium border border-white/10 max-w-xl">
+                    {file.caption}
+                  </div>
+                )}
+              </div>
             ) : isPdf ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.98 }}
@@ -175,14 +182,21 @@ const FileViewerModal = ({ isOpen, onClose, file, theme = "dark" }) => {
                 />
               </motion.div>
             ) : isVideo ? (
-              <motion.video
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                src={fileUrl}
-                controls
-                autoPlay
-                className="max-h-[82vh] max-w-full rounded-xl shadow-2xl ring-1 ring-white/10"
-              />
+              <div className="relative flex flex-col items-center justify-center max-h-[82vh] w-full">
+                <motion.video
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  src={fileUrl}
+                  controls
+                  autoPlay
+                  className="max-h-[76vh] max-w-full rounded-xl shadow-2xl ring-1 ring-white/10"
+                />
+                {file.caption && (
+                  <div className="mt-3 px-4 py-2 rounded-xl bg-black/60 backdrop-blur-md text-white text-center text-sm font-medium border border-white/10 max-w-xl">
+                    {file.caption}
+                  </div>
+                )}
+              </div>
             ) : isAudio ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}

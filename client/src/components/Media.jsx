@@ -6,39 +6,43 @@ import {
   FaSearch,
   FaPlay,
   FaVideo,
+  FaCamera,
   FaFileAlt,
   FaFilePdf,
   FaFileWord,
   FaFileExcel,
   FaFileArchive,
-  FaDownload,
-  FaRegCopy,
   FaCheck,
   FaStar,
   FaRegStar,
+  FaChevronRight,
 } from "react-icons/fa";
-import { FiDownload, FiExternalLink, FiTrash2, FiLink } from "react-icons/fi";
+import { VscSearchLarge } from "react-icons/vsc";
+import { FiDownload, FiExternalLink, FiLink } from "react-icons/fi";
 import { HiOutlinePhotograph } from "react-icons/hi";
-import { LuSlidersHorizontal } from "react-icons/lu";
 import {
-  MdOutlinePermMedia,
-  MdFilterList,
   MdOutlineCheckBox,
   MdCheck,
   MdOutlineContentCopy,
+  MdOutlineKeyboardArrowDown,
 } from "react-icons/md";
+import { BsFilterLeft } from "react-icons/bs";
 import { RxCross2 } from "react-icons/rx";
-import { IoArrowForward } from "react-icons/io5";
+import { IoArrowForward, IoCheckmarkDoneSharp } from "react-icons/io5";
+import { LuForward } from "react-icons/lu";
 import { RiDeleteBin6Line } from "react-icons/ri";
 import { format, isToday, isYesterday } from "date-fns";
 import { toast } from "react-toastify";
-
 import useThemeStore from "../store/themeStore";
 import useUserStore from "../store/useUserStore";
-import { useChatStore } from "../store/chatStore";
+import useLayoutStore from "../store/layoutStore";
+import { useChatStore, decryptSingleMessage } from "../store/chatStore";
 import axiosInstance from "../services/url.services";
 import FileViewerModal from "./FileViewerModal";
 import ForwardModal from "./ForwardModal";
+import MediaMenu from "./MediaMenu";
+import { copyImageToClipboard } from "../utils/clipboardUtils";
+import { FALLBACK_DOCS, FALLBACK_LINKS, FALLBACK_MEDIA } from "../assets/rawData";
 
 export const WhatsAppMediaFolderIcon = ({ size = 20, className = "" }) => (
   <svg
@@ -119,30 +123,42 @@ const getFileIcon = (fileName = "") => {
 };
 
 const formatDateGroup = (date) => {
-  if (!date) return { primary: "Recent", sub: null, sortKey: 0 };
+  if (!date) return { primary: "THIS MONTH", sub: null, sortKey: 0 };
   const d = new Date(date);
-  if (isNaN(d.getTime())) return { primary: "Recent", sub: null, sortKey: 0 };
+  if (isNaN(d.getTime())) return { primary: "THIS MONTH", sub: null, sortKey: 0 };
 
-  if (isToday(d)) {
+  const now = new Date();
+  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
     return {
-      primary: "Today",
-      sub: format(d, "d MMMM yyyy"),
-      sortKey: d.getTime(),
-    };
-  }
-  if (isYesterday(d)) {
-    return {
-      primary: "Yesterday",
-      sub: format(d, "d MMMM yyyy"),
+      primary: "THIS MONTH",
+      sub: null,
       sortKey: d.getTime(),
     };
   }
   return {
-    primary: format(d, "MMMM yyyy"),
-    sub: format(d, "d MMMM yyyy"),
+    primary: format(d, "MMMM yyyy").toUpperCase(),
+    sub: null,
     sortKey: d.getTime(),
   };
 };
+
+const formatBubbleDate = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const formatBubbleTime = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+};
+
 
 const calculateTotalSize = (items) => {
   let totalBytes = 0;
@@ -164,9 +180,9 @@ const calculateTotalSize = (items) => {
 
     if (!bytes) {
       if (item.mediaType === "video" || item.contentType === "video") {
-        bytes = 9 * 1024 * 1024; // 9 MB
+        bytes = 9 * 1024 * 1024;
       } else if (item.mediaType === "image" || item.contentType === "image") {
-        bytes = 1.8 * 1024 * 1024; // ~1.8 MB
+        bytes = 1.8 * 1024 * 1024;
       } else {
         bytes = 2.4 * 1024 * 1024;
       }
@@ -332,148 +348,26 @@ const getSenderDisplay = (item) => {
   );
 };
 
-const FALLBACK_MEDIA = [
-  {
-    _id: "fb_m1",
-    mediaType: "image",
-    url: "https://images.unsplash.com/photo-1601055283742-8b27e81b5553?w=800&auto=format&fit=crop&q=80",
-    content: "Maha Shashthi 2026 Wishes & Blessings",
-    createdAt: new Date().toISOString(),
-    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
-  },
-  {
-    _id: "fb_m2",
-    mediaType: "image",
-    url: "https://images.unsplash.com/photo-1596178065887-1198b6148b2b?w=800&auto=format&fit=crop&q=80",
-    content: "Subho Maha Shashthi to everyone!",
-    createdAt: new Date().toISOString(),
-    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
-  },
-  {
-    _id: "fb_m3",
-    mediaType: "image",
-    url: "https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?w=800&auto=format&fit=crop&q=80",
-    content: "Shashthi Special Pandal Inauguration",
-    createdAt: new Date().toISOString(),
-    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
-  },
-  {
-    _id: "fb_m4",
-    mediaType: "image",
-    url: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=800&auto=format&fit=crop&q=80",
-    content: "Durga Pratima 2026",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 98301 23456", username: "Rohan" },
-  },
-  {
-    _id: "fb_m5",
-    mediaType: "image",
-    url: "https://images.unsplash.com/photo-1571266028243-3716f02d2d2e?w=800&auto=format&fit=crop&q=80",
-    content: "I am Eternal... Team Hall celebration",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
-  },
-  {
-    _id: "fb_m6",
-    mediaType: "image",
-    url: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop&q=80",
-    content: "Team Hall celebration & preparation",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
-  },
-  {
-    _id: "fb_m7",
-    mediaType: "image",
-    url: "https://images.unsplash.com/photo-1533227268428-f9ed0900fb3b?w=800&auto=format&fit=crop&q=80",
-    content: "Classroom memories & chalkboard art",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
-  },
-  {
-    _id: "fb_m8",
-    mediaType: "image",
-    url: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&auto=format&fit=crop&q=80",
-    content: "Pandal hopping with friends",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 94321 09876", username: "Aniket" },
-  },
-  {
-    _id: "fb_m9",
-    mediaType: "video",
-    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    duration: 18,
-    durationStr: "0:18",
-    content: "Dhak beats and aarti live video",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
-  },
-];
-
-const FALLBACK_DOCS = [
-  {
-    _id: "fb_d1",
-    docName: "Durga Puja Event Schedule 2026.pdf",
-    fileName: "Durga Puja Event Schedule 2026.pdf",
-    fileSize: 1450000,
-    fileUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    createdAt: new Date().toISOString(),
-    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
-  },
-  {
-    _id: "fb_d2",
-    docName: "Budget & Contribution List.xlsx",
-    fileName: "Budget & Contribution List.xlsx",
-    fileSize: 320000,
-    fileUrl: "",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
-  },
-  {
-    _id: "fb_d3",
-    docName: "Pandal Safety Guidelines.pdf",
-    fileName: "Pandal Safety Guidelines.pdf",
-    fileSize: 850000,
-    fileUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 98301 23456", username: "Rohan" },
-  },
-  {
-    _id: "fb_d4",
-    docName: "Team Roles & Responsibilities.docx",
-    fileName: "Team Roles & Responsibilities.docx",
-    fileSize: 480000,
-    fileUrl: "",
-    createdAt: new Date(Date.now() - 172800000).toISOString(),
-    sender: { phoneNumber: "+91 94321 09876", username: "Aniket" },
-  },
-];
-
-const FALLBACK_LINKS = [
-  {
-    _id: "fb_l1",
-    url: "https://durga-puja-live-darshan.org/2026",
-    domain: "durga-puja-live-darshan.org",
-    title: "Durga Puja 2026 - Live Darshan & Pandal Hopping Guide",
-    createdAt: new Date().toISOString(),
-    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
-  },
-  {
-    _id: "fb_l2",
-    url: "https://timesofindia.indiatimes.com/city/kolkata/durga-puja",
-    domain: "timesofindia.indiatimes.com",
-    title: "Kolkata Durga Puja 2026 Mega Guide, Route Maps & Awards",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
-  },
-  {
-    _id: "fb_l3",
-    url: "https://github.com/suvojitmanna/WhatsApp",
-    domain: "github.com",
-    title: "WhatsApp MERN Stack Full Clone - GitHub Repository",
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    sender: { phoneNumber: "+91 98301 23456", username: "Rohan" },
-  },
-];
+const getAttachedMessage = (item) => {
+  if (!item) return "";
+  const content = item.content || item.caption || item.text || "";
+  if (typeof content !== "string") return "";
+  const trimmed = content.trim();
+  if (
+    !trimmed ||
+    trimmed.toLowerCase() === "image" ||
+    trimmed.toLowerCase() === "video" ||
+    trimmed.toLowerCase() === "photo" ||
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://")
+  ) {
+    return "";
+  }
+  if (item.isEncrypted && !item._isDecrypted) {
+    return "";
+  }
+  return trimmed;
+};
 
 const Media = ({
   contact = null,
@@ -528,6 +422,7 @@ const Media = ({
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [activeFilter, setActiveFilter] = useState("all");
   const filterRef = useRef(null);
+  const searchContainerRef = useRef(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -542,9 +437,9 @@ const Media = ({
   const [viewerFile, setViewerFile] = useState(null);
   const [showViewer, setShowViewer] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [activeMenu, setActiveMenu] = useState(null);
 
   const isDark = theme === "dark";
-  const conversations = useChatStore((state) => state.conversations?.data || []);
   const storeMessages = useChatStore((state) => state.messages || []);
   const isMessageStarred = useChatStore((state) => state.isMessageStarred);
   const starredMessages = useChatStore((state) => state.starredMessages);
@@ -560,6 +455,34 @@ const Media = ({
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showFilterMenu]);
+
+  useEffect(() => {
+    if (!isSearching) return;
+    const handleClickOutsideSearch = (e) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(e.target)
+      ) {
+        setIsSearching(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutsideSearch);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutsideSearch);
+  }, [isSearching]);
+
+  useEffect(() => {
+    if (!isSearching) return;
+    const handleSearchEsc = (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setIsSearching(false);
+        setSearchQuery("");
+      }
+    };
+    window.addEventListener("keydown", handleSearchEsc, { capture: true });
+    return () => window.removeEventListener("keydown", handleSearchEsc, { capture: true });
+  }, [isSearching]);
 
   useEffect(() => {
     if (chatId || contact) {
@@ -600,7 +523,38 @@ const Media = ({
         counts: { media: 0, docs: 0, links: 0, total: 0 },
       };
 
-      setMediaData(resData);
+      const currentUserId = user?._id?.toString();
+      if (currentUserId) {
+        const decryptItemSafe = async (item) => {
+          if (!item) return item;
+          if (!item.isEncrypted || item._isDecrypted) return item;
+          try {
+            return await decryptSingleMessage(
+              item,
+              currentUserId,
+              contact,
+              useChatStore.getState
+            );
+          } catch {
+            return item;
+          }
+        };
+
+        const [decMedia, decDocs, decLinks] = await Promise.all([
+          Promise.all((resData.media || []).map(decryptItemSafe)),
+          Promise.all((resData.docs || []).map(decryptItemSafe)),
+          Promise.all((resData.links || []).map(decryptItemSafe)),
+        ]);
+
+        setMediaData({
+          ...resData,
+          media: decMedia,
+          docs: decDocs,
+          links: decLinks,
+        });
+      } else {
+        setMediaData(resData);
+      }
     } catch (error) {
       console.error("Error fetching media, docs and links:", error);
     } finally {
@@ -612,10 +566,103 @@ const Media = ({
     fetchMediaData();
   }, [scope, resolvedConversationId, selectedContactFilter]);
 
+  useEffect(() => {
+    const currentUserId = user?._id?.toString();
+    if (!currentUserId) return;
+
+    const needsMediaDec = (mediaData?.media || []).some(
+      (i) => i?.isEncrypted && !i?._isDecrypted
+    );
+    const needsDocsDec = (mediaData?.docs || []).some(
+      (i) => i?.isEncrypted && !i?._isDecrypted
+    );
+    const needsLinksDec = (mediaData?.links || []).some(
+      (i) => i?.isEncrypted && !i?._isDecrypted
+    );
+
+    if (!needsMediaDec && !needsDocsDec && !needsLinksDec) return;
+
+    let isMounted = true;
+    const runDecryption = async () => {
+      const decryptItemSafe = async (item) => {
+        if (!item) return item;
+        if (!item.isEncrypted || item._isDecrypted) return item;
+        try {
+          return await decryptSingleMessage(
+            item,
+            currentUserId,
+            contact,
+            useChatStore.getState
+          );
+        } catch {
+          return item;
+        }
+      };
+
+      const [newMedia, newDocs, newLinks] = await Promise.all([
+        Promise.all((mediaData.media || []).map(decryptItemSafe)),
+        Promise.all((mediaData.docs || []).map(decryptItemSafe)),
+        Promise.all((mediaData.links || []).map(decryptItemSafe)),
+      ]);
+
+      if (isMounted) {
+        setMediaData((prev) => ({
+          ...prev,
+          media: newMedia,
+          docs: newDocs,
+          links: newLinks,
+        }));
+      }
+    };
+
+    runDecryption();
+    return () => {
+      isMounted = false;
+    };
+  }, [mediaData, user?._id, contact]);
+
   const effectiveData = useMemo(() => {
     const rawMedia = [...(mediaData?.media || [])];
     const rawDocs = [...(mediaData?.docs || [])];
     const rawLinks = [...(mediaData?.links || [])];
+
+    const storeMap = new Map();
+    if (Array.isArray(storeMessages)) {
+      storeMessages.forEach((m) => {
+        if (m?._id && m._isDecrypted) {
+          storeMap.set(String(m._id), m);
+        }
+      });
+    }
+
+    const messagesCache = useChatStore.getState()?.messagesCache;
+    if (messagesCache && typeof messagesCache.forEach === "function") {
+      messagesCache.forEach((cacheList) => {
+        if (Array.isArray(cacheList)) {
+          cacheList.forEach((m) => {
+            if (m?._id && m._isDecrypted) {
+              storeMap.set(String(m._id), m);
+            }
+          });
+        }
+      });
+    }
+
+    const syncWithStore = (item) => {
+      if (!item) return item;
+      const itemId = String(item._id || item.messageId);
+      const storeItem = storeMap.get(itemId);
+      if (storeItem && storeItem._isDecrypted) {
+        return {
+          ...item,
+          content: storeItem.content,
+          caption: storeItem.content,
+          _isDecrypted: true,
+          isEncrypted: false,
+        };
+      }
+      return item;
+    };
 
     const existingIds = new Set([
       ...rawMedia.map((m) => String(m._id)),
@@ -701,21 +748,25 @@ const Media = ({
       });
     }
 
+    const syncedMedia = rawMedia.map(syncWithStore);
+    const syncedDocs = rawDocs.map(syncWithStore);
+    const syncedLinks = rawLinks.map(syncWithStore);
+
     const finalMedia =
-      rawMedia.length > 0
-        ? rawMedia
+      syncedMedia.length > 0
+        ? syncedMedia
         : scope === "all"
           ? FALLBACK_MEDIA
           : [];
     const finalDocs =
-      rawDocs.length > 0
-        ? rawDocs
+      syncedDocs.length > 0
+        ? syncedDocs
         : scope === "all"
           ? FALLBACK_DOCS
           : [];
     const finalLinks =
-      rawLinks.length > 0
-        ? rawLinks
+      syncedLinks.length > 0
+        ? syncedLinks
         : scope === "all"
           ? FALLBACK_LINKS
           : [];
@@ -824,10 +875,13 @@ const Media = ({
       return;
     }
 
+    const attachedMsg = getAttachedMessage(item);
+
     if (activeTab === "media") {
       const isVideo = item.mediaType === "video";
       setViewerFile({
-        name: isVideo ? "Video" : "Photo",
+        name: attachedMsg || (isVideo ? "Video" : "Photo"),
+        caption: attachedMsg,
         url: item.url || item.imageOrVideoUrl,
         type: isVideo ? "video/mp4" : "image/jpeg",
         createdAt: item.createdAt,
@@ -835,8 +889,10 @@ const Media = ({
       });
       setShowViewer(true);
     } else if (activeTab === "docs") {
+      const docName = item.docName || item.fileName || (item._isDecrypted ? item.content : "Document");
       setViewerFile({
-        name: item.docName || item.fileName || "Document",
+        name: docName,
+        caption: attachedMsg,
         url: item.docUrl || item.fileUrl || item.imageOrVideoUrl,
         type: "pdf",
         createdAt: item.createdAt,
@@ -872,6 +928,140 @@ const Media = ({
     } catch {
       window.open(url, "_blank");
     }
+  };
+
+  const handleCopyMedia = async (item) => {
+    const url = item?.url || item?.imageOrVideoUrl || item?.docUrl || item?.fileUrl;
+    const isVideo =
+      item?.mediaType === "video" ||
+      item?.contentType === "video" ||
+      Boolean(url && url.match(/\.(mp4|webm|mov|mkv)($|\?)/i));
+
+    const isImage =
+      !isVideo &&
+      (item?.mediaType === "image" ||
+        item?.contentType === "image" ||
+        Boolean(item?.imageOrVideoUrl) ||
+        Boolean(url && url.match(/\.(jpe?g|png|gif|webp|bmp|svg)($|\?)/i)) ||
+        activeTab === "media");
+
+    if (isImage && url) {
+      try {
+        await copyImageToClipboard(url);
+        toast.success("Image copied to clipboard");
+      } catch (err) {
+        console.error("Failed to copy image to clipboard:", err);
+        toast.error("Failed to copy image to clipboard");
+      }
+      return;
+    }
+
+    // For documents, links or video files, copy attached caption or content
+    const attached = getAttachedMessage(item);
+    const textToCopy = attached || url || item?.docName || "";
+    if (textToCopy && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(textToCopy);
+      toast.success(
+        attached
+          ? "Caption copied to clipboard"
+          : isVideo
+          ? "Video link copied to clipboard"
+          : "Copied to clipboard"
+      );
+    } else {
+      toast.info("Copied");
+    }
+  };
+
+  const handleMenuCopy = (item) => {
+    handleCopyMedia(item);
+  };
+
+  const handleMenuSelect = (item) => {
+    setIsSelectMode(true);
+    toggleSelectItem(item);
+  };
+
+  const handleToggleScope = () => {
+    if (scope === "all") {
+      setScope("chat");
+      setSelectedContactFilter(contact?._id || "");
+    } else {
+      setScope("all");
+      setSelectedContactFilter("");
+    }
+  };
+
+  const handleMenuGoToMessage = (item) => {
+    const msgId = item.messageId || item._id;
+    if (contact) {
+      useLayoutStore.getState().setSelectedContact(contact);
+    }
+    if (onClose) onClose();
+    navigate("/");
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("scroll-to-message", { detail: { messageId: msgId } })
+      );
+    }, 300);
+  };
+
+  const handleMenuReply = (item) => {
+    if (contact) {
+      useLayoutStore.getState().setSelectedContact(contact);
+    }
+    if (onClose) onClose();
+    navigate("/");
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("start-reply-message", { detail: { message: item } })
+      );
+    }, 300);
+  };
+
+  const handleMenuReplyPrivately = (item) => {
+    const senderId = (item.sender?._id || item.sender)?.toString();
+    const currentUserId = user?._id?.toString();
+    const userList = useChatStore.getState()?.users || [];
+    const targetPeerId = senderId === currentUserId ? (item.receiver?._id || item.receiver)?.toString() : senderId;
+    const peerContact = userList.find((u) => u._id?.toString() === targetPeerId) || contact;
+
+    if (peerContact) {
+      useLayoutStore.getState().setSelectedContact(peerContact);
+    }
+    if (onClose) onClose();
+    navigate("/");
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("start-reply-message", { detail: { message: item } })
+      );
+    }, 300);
+  };
+
+  const handleMenuDownload = (item) => {
+    const url = item.url || item.imageOrVideoUrl || item.docUrl || item.fileUrl;
+    const name =
+      item.fileName ||
+      item.docName ||
+      (item.mediaType === "video" ? "video.mp4" : "image.jpg");
+    handleDownloadFile(null, url, name);
+  };
+
+  const handleMenuForward = (item) => {
+    setSelectedItems([item]);
+    setShowForwardModal(true);
+  };
+
+  const handleMenuToggleStar = (item) => {
+    const id = item.messageId || item._id;
+    const { toggleStarMessage } = useChatStore.getState();
+    toggleStarMessage(id, item);
+    toast.success(isMessageStarred(id) ? "Message unstarred" : "Message starred");
+  };
+
+  const handleMenuDelete = (item) => {
+    setSelectedItems([item]);
+    setShowDeleteModal(true);
   };
 
   const handleCancelSelect = () => {
@@ -997,7 +1187,7 @@ const Media = ({
 
   return (
     <div
-      className={`flex flex-col h-full w-full select-none relative overflow-hidden ${isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-white text-gray-900"
+      className={`flex flex-col h-full w-full select-none relative overflow-hidden ${isDark ? "bg-[#21292e] text-[#e9edef]" : "bg-white text-gray-900"
         }`}
     >
       {!hideHeader && (
@@ -1042,53 +1232,124 @@ const Media = ({
             </div>
           </div>
 
-          {/* Center: Tabs with WhatsApp Emerald Underline */}
-          <div className="flex items-center gap-6 sm:gap-10 h-full">
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`h-full flex items-center justify-center relative px-1 sm:px-2 text-[14.5px] font-medium transition-colors cursor-pointer ${isActive
-                    ? "text-[#00a884] font-semibold"
-                    : isDark
-                      ? "text-[#8696a0] hover:text-[#d1d7db]"
-                      : "text-gray-500 hover:text-gray-800"
+          <AnimatePresence mode="wait">
+            {isSearching ? (
+              <motion.div
+                key="media-search-pill"
+                ref={searchContainerRef}
+                initial={{ opacity: 0, scale: 0.96, x: 8 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.96, x: 8 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="flex-1 max-w-[460px] ml-auto mr-2 sm:mr-3"
+              >
+                <div
+                  className={`flex items-center h-[38px] px-3.5 rounded-full border transition-all ${isDark
+                    ? "bg-[#111b21] border-[#00a884] text-[#e9edef]"
+                    : "bg-white border-[#00a884] text-gray-900 shadow-sm"
                     }`}
                 >
-                  <span>{tab.label}</span>
-                  {isActive && (
-                    <motion.div
-                      layoutId="media-active-tab-indicator"
-                      className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#00a884] rounded-t-full"
-                      transition={{ type: "spring", stiffness: 450, damping: 35 }}
-                    />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSearching(false);
+                      setSearchQuery("");
+                    }}
+                    className={`shrink-0 mr-2.5 transition-colors cursor-pointer ${isDark ? "text-[#8696a0] hover:text-[#00a884]" : "text-gray-400 hover:text-[#00a884]"
+                      }`}
+                    title="Close search (Esc)"
+                  >
+                    <FaSearch size={13} />
+                  </button>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder={
+                      activeTab === "media"
+                        ? "Search by sender or caption"
+                        : activeTab === "docs"
+                          ? "Search by filename or sender"
+                          : "Search by link or sender"
+                    }
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.stopPropagation();
+                        setIsSearching(false);
+                        setSearchQuery("");
+                      }
+                    }}
+                    className={`bg-transparent text-[13.5px] outline-none border-none w-full ${isDark
+                      ? "text-[#e9edef] placeholder-[#8696a0]"
+                      : "text-gray-900 placeholder-gray-400"
+                      }`}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="p-0.5 text-[#8696a0] hover:text-[#e9edef] transition-colors cursor-pointer shrink-0 ml-1"
+                      title="Clear text"
+                    >
+                      <RxCross2 size={14} />
+                    </button>
                   )}
-                </button>
-              );
-            })}
-          </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="media-tabs-list"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="flex items-center gap-6 sm:gap-10 h-full"
+              >
+                {tabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`h-full flex items-center justify-center relative px-1 sm:px-2 text-[14.5px] font-medium transition-colors cursor-pointer ${isActive
+                        ? "text-[#00a884] font-semibold"
+                        : isDark
+                          ? "text-[#8696a0] hover:text-[#d1d7db]"
+                          : "text-gray-500 hover:text-gray-800"
+                        }`}
+                    >
+                      <span>{tab.label}</span>
+                      {isActive && (
+                        <motion.div
+                          layoutId="media-active-tab-indicator"
+                          className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#00a884] rounded-t-full"
+                          transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* Right: Actions */}
-          <div className="flex items-center gap-1 sm:gap-2">
-            {/* Search Button */}
-            <button
-              type="button"
-              onClick={() => setIsSearching((prev) => !prev)}
-              className={`p-2 rounded-full transition-colors cursor-pointer ${isSearching
-                ? "text-[#00a884] bg-emerald-500/10"
-                : isDark
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {!isSearching && (
+              <button
+                type="button"
+                onClick={() => setIsSearching(true)}
+                className={`p-2 rounded-full transition-colors cursor-pointer ${isDark
                   ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
                   : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
-                }`}
-              title="Search"
-            >
-              <FaSearch size={15} />
-            </button>
+                  }`}
+                title="Search"
+              >
+                <VscSearchLarge size={15} />
+              </button>
+            )}
 
-            {/* Filter Menu Button */}
             <div className="relative" ref={filterRef}>
               <button
                 type="button"
@@ -1101,10 +1362,9 @@ const Media = ({
                   }`}
                 title="Filter"
               >
-                <LuSlidersHorizontal size={18} />
+                <BsFilterLeft size={22} />
               </button>
 
-              {/* Filter Dropdown Popover */}
               <AnimatePresence>
                 {showFilterMenu && (
                   <motion.div
@@ -1218,7 +1478,6 @@ const Media = ({
               </AnimatePresence>
             </div>
 
-            {/* Select Mode Toggle / Cancel button */}
             {isSelectMode ? (
               <button
                 type="button"
@@ -1261,48 +1520,8 @@ const Media = ({
         </div>
       )}
 
-      {/* Smooth Slide-down Search Bar */}
-      <AnimatePresence>
-        {isSearching && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className={`px-4 sm:px-6 py-2 border-b overflow-hidden shrink-0 ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-gray-50 border-gray-200"
-              }`}
-          >
-            <div className="relative max-w-xl mx-auto">
-              <FaSearch
-                size={13}
-                className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-[#8696a0]" : "text-gray-400"
-                  }`}
-              />
-              <input
-                type="text"
-                autoFocus
-                placeholder={`Search ${activeTab}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-9 pr-8 py-1.5 text-[13.5px] rounded-lg outline-none transition-colors border ${isDark
-                  ? "bg-[#202c33] text-white border-transparent focus:border-emerald-500 placeholder-[#8696a0]"
-                  : "bg-white text-gray-900 border-gray-200 focus:border-emerald-500 placeholder-gray-400"
-                  }`}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-white"
-                >
-                  <RxCross2 size={14} />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Main Content Area */}
+
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 pb-20">
         {loading ? (
           <MediaSkeletonLoader activeTab={activeTab} isDark={isDark} />
@@ -1357,7 +1576,6 @@ const Media = ({
               const { primary, sub, items } = group;
               return (
                 <div key={`${primary}_${sub || ""}`} className="space-y-2">
-                  {/* WhatsApp-Style Date Header */}
                   <div className="space-y-0.5 mb-2.5 px-0.5">
                     <h4
                       className={`text-[15px] font-semibold leading-tight ${isDark ? "text-[#e9edef]" : "text-gray-900"
@@ -1375,12 +1593,11 @@ const Media = ({
                     )}
                   </div>
 
-                  {/* MEDIA TAB GRID */}
                   {activeTab === "media" && (
                     <div
                       className={`grid ${mode === "modal"
-                          ? "grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3"
-                          : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5"
+                        ? "grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3"
+                        : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5"
                         } gap-2 sm:gap-2.5`}
                     >
                       {items.map((item) => {
@@ -1390,54 +1607,107 @@ const Media = ({
                           (i) => (i.messageId || i._id) === itemId
                         );
                         const senderDisplay = getSenderDisplay(item);
+                        const attachedMessage = getAttachedMessage(item);
+                        const hoverText = attachedMessage || (isVideo ? "Video" : "Photo");
 
                         return (
                           <div
                             key={itemId}
-                            onClick={() => handleOpenViewer(item)}
+                            onClick={() => {
+                              if (isSelectMode) {
+                                toggleSelectItem(item);
+                              } else {
+                                handleOpenViewer(item);
+                              }
+                            }}
+                            onContextMenu={(e) => {
+                              if (isSelectMode) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setActiveMenu({
+                                item,
+                                position: {
+                                  top: e.clientY + 4,
+                                  left: e.clientX,
+                                  buttonTop: e.clientY,
+                                },
+                              });
+                            }}
+                            title={hoverText}
                             className={`relative aspect-square rounded-lg overflow-hidden group cursor-pointer transition-all duration-200 select-none shadow-xs ${isDark ? "bg-[#202c33]" : "bg-gray-200"
                               } ${isSelected
                                 ? "ring-2 ring-emerald-500 brightness-95"
                                 : "hover:brightness-105"
                               }`}
                           >
-                            {/* Checkbox at Top-Left */}
-                            <div
-                              className={`absolute top-2 left-2 z-20 transition-all ${isSelectMode
-                                ? "opacity-100 scale-100"
-                                : "opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100"
-                                }`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!isSelectMode) setIsSelectMode(true);
-                                toggleSelectItem(item);
-                              }}
-                            >
-                              {isSelected ? (
-                                <div className="w-[18px] h-[18px] rounded-[4px] bg-white text-black flex items-center justify-center font-bold shadow-md transition-transform active:scale-90">
-                                  <FaCheck size={11} className="stroke-[1.5]" />
-                                </div>
-                              ) : (
-                                <div className="w-[18px] h-[18px] rounded-[4px] border-[1.8px] border-white/85 bg-black/35 backdrop-blur-xs flex items-center justify-center hover:border-white transition-all active:scale-90" />
-                              )}
-                            </div>
+                            {isSelectMode && (
+                              <div
+                                className="absolute top-2 left-2 z-20 transition-all opacity-100 scale-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelectItem(item);
+                                }}
+                              >
+                                {isSelected ? (
+                                  <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md transition-transform active:scale-90">
+                                    <FaCheck size={11} className="stroke-[2]" />
+                                  </div>
+                                ) : (
+                                  <div className="w-[19px] h-[19px] rounded-[4px] border-[1.8px] border-white/85 bg-black/35 backdrop-blur-xs flex items-center justify-center hover:border-white transition-all active:scale-90" />
+                                )}
+                              </div>
+                            )}
 
-                            {/* Media (Image or Video) */}
+                            {!isSelectMode && (
+                              <div
+                                className={`absolute top-3 right-3 z-20 flex items-center justify-center rounded-full border p-1.5 cursor-pointer transition-all ${
+                                  (activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
+                                    ? "opacity-100 bg-black/50 backdrop-blur-xs border-white/25 text-white shadow-md scale-105"
+                                    : "opacity-0 group-hover:opacity-100 border-transparent hover:bg-black/30 hover:backdrop-blur-xs hover:border-white/20 text-white"
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setActiveMenu((prev) =>
+                                    (prev?.item?.messageId || prev?.item?._id) === itemId
+                                      ? null
+                                      : {
+                                          item,
+                                          position: {
+                                            top: rect.bottom + 4,
+                                            left: rect.right - 210,
+                                            buttonTop: rect.top,
+                                          },
+                                        }
+                                  );
+                                }}
+                                title="Menu"
+                              >
+                                <MdOutlineKeyboardArrowDown size={20} />
+                              </div>
+                            )}
+
                             {isVideo ? (
                               <VideoThumbnail
                                 src={item.url || item.imageOrVideoUrl}
                                 item={item}
                               />
                             ) : (
-                              <img
-                                src={item.url || item.imageOrVideoUrl}
-                                alt=""
-                                loading="lazy"
-                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              />
+                              <div className="relative w-full h-full overflow-hidden rounded-xl group">
+                                <img
+                                  src={item.url || item.imageOrVideoUrl}
+                                  alt=""
+                                  loading="lazy"
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                                  <div
+                                    className="absolute inset-y-0 -left-[150%] w-1/2 skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/40 to-transparent backdrop-blur-[2px] opacity-0 transition-all duration-700 ease-in-out group-hover:left-[150%] group-hover:opacity-100"
+                                  />
+                                </div>
+                              </div>
                             )}
 
-                            {/* Center Play Button for Video */}
                             {isVideo && (
                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                 <div className="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center shadow-lg backdrop-blur-xs group-hover:scale-110 transition-transform">
@@ -1446,21 +1716,37 @@ const Media = ({
                               </div>
                             )}
 
-                            {/* Bottom-left Sender Name & Video Badge Gradient */}
                             <div className="absolute inset-x-0 bottom-0 p-2 sm:p-2.5 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end text-white pointer-events-none">
+
                               {senderDisplay && (
                                 <span className="text-[11.5px] sm:text-[12px] font-medium truncate text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] leading-tight">
                                   {senderDisplay}
                                 </span>
                               )}
+
+                              <div className="grid grid-rows-[0fr] opacity-0 group-hover:grid-rows-[1fr] group-hover:opacity-100 transition-all duration-200">
+                                <div className="overflow-hidden">
+                                  {attachedMessage ? (
+                                    <p className="text-[11.5px] sm:text-[12px] font-medium text-white line-clamp-2 leading-tight drop-shadow-md mt-1">
+                                      {attachedMessage}
+                                    </p>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/90 drop-shadow-md mt-1">
+                                      {isVideo ? <FaVideo size={9} /> : <FaCamera size={9} />}
+                                      <span>{isVideo ? "Video" : "Photo"}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
                             </div>
+
                           </div>
                         );
                       })}
                     </div>
                   )}
 
-                  {/* DOCS TAB LIST */}
                   {activeTab === "docs" && (
                     <div className="space-y-1.5">
                       {items.map((item) => {
@@ -1477,7 +1763,13 @@ const Media = ({
                         return (
                           <div
                             key={itemId}
-                            onClick={() => handleOpenViewer(item)}
+                            onClick={() => {
+                              if (isSelectMode) {
+                                toggleSelectItem(item);
+                              } else {
+                                handleOpenViewer(item);
+                              }
+                            }}
                             className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group select-none ${isSelected
                               ? isDark
                                 ? "bg-emerald-500/15 border-emerald-500/40"
@@ -1488,7 +1780,6 @@ const Media = ({
                               }`}
                           >
                             <div className="flex items-center gap-3 min-w-0 pr-3">
-                              {/* Selection Checkbox */}
                               {isSelectMode && (
                                 <div
                                   className="shrink-0"
@@ -1498,11 +1789,11 @@ const Media = ({
                                   }}
                                 >
                                   {isSelected ? (
-                                    <div className="w-[18px] h-[18px] rounded-[4px] bg-white text-black flex items-center justify-center font-bold shadow-md">
-                                      <FaCheck size={11} />
+                                    <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md">
+                                      <FaCheck size={11} className="stroke-[2]" />
                                     </div>
                                   ) : (
-                                    <div className="w-[18px] h-[18px] rounded-[4px] border-[1.8px] border-white/60 bg-black/20" />
+                                    <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"}`} />
                                   )}
                                 </div>
                               )}
@@ -1557,7 +1848,6 @@ const Media = ({
                     </div>
                   )}
 
-                  {/* LINKS TAB LIST */}
                   {activeTab === "links" && (
                     <div className="space-y-2">
                       {items.map((item) => {
@@ -1583,7 +1873,6 @@ const Media = ({
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-3 min-w-0">
-                                {/* Selection Checkbox */}
                                 {isSelectMode && (
                                   <div
                                     className="shrink-0 mt-2"
@@ -1593,11 +1882,11 @@ const Media = ({
                                     }}
                                   >
                                     {isSelected ? (
-                                      <div className="w-[18px] h-[18px] rounded-[4px] bg-white text-black flex items-center justify-center font-bold shadow-md">
-                                        <FaCheck size={11} />
+                                      <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md">
+                                        <FaCheck size={11} className="stroke-[2]" />
                                       </div>
                                     ) : (
-                                      <div className="w-[18px] h-[18px] rounded-[4px] border-[1.8px] border-white/60 bg-black/20" />
+                                      <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"}`} />
                                     )}
                                   </div>
                                 )}
@@ -1713,7 +2002,6 @@ const Media = ({
         )}
       </div>
 
-      {/* Floating Bottom Action Toolbar when Items are Selected */}
       <AnimatePresence>
         {isSelectMode && selectedItems.length > 0 && (
           <motion.div
@@ -1721,36 +2009,39 @@ const Media = ({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 70, opacity: 0 }}
             transition={{ type: "spring", stiffness: 360, damping: 28 }}
-            className={`fixed bottom-0 inset-x-0 sm:absolute sm:inset-x-0 h-[58px] px-6 border-t flex items-center justify-between z-40 select-none shadow-2xl backdrop-blur-md ${isDark
-              ? "bg-[#202c33]/95 border-[#2a3942] text-white"
-              : "bg-white/95 border-gray-200 text-gray-900"
+            className={`fixed bottom-0 inset-x-0 sm:absolute sm:inset-x-0 h-[60px] px-6 border-t flex items-center justify-between z-40 select-none shadow-2xl backdrop-blur-md ${isDark
+              ? "bg-[#202c33] border-[#2a3942] text-white"
+              : "bg-white border-gray-200 text-gray-900"
               }`}
           >
-            {/* Left: Red Trash with Total Size */}
-            <button
-              type="button"
-              onClick={() => setShowDeleteModal(true)}
-              className="flex items-center gap-2 text-rose-400 hover:text-rose-300 font-medium text-[14px] transition-colors cursor-pointer group px-2 py-1.5 rounded-lg hover:bg-rose-500/10 active:scale-95"
-              title="Delete selected"
-            >
-              <FiTrash2
-                size={18}
-                className="text-rose-400 group-hover:scale-110 transition-transform"
-              />
-              <span className="font-semibold">{selectedTotalSize}</span>
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={handleCancelSelect}
+                className={`p-2 rounded-full transition-colors cursor-pointer active:scale-95 ${isDark
+                  ? "text-[#aebac1] hover:text-white hover:bg-white/10"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  }`}
+                title="Cancel selection"
+              >
+                <RxCross2 size={20} />
+              </button>
 
-            {/* Center: Selected count */}
-            <div className="text-[14px] font-medium text-[#e9edef] tracking-wide">
-              {selectedItems.length} selected
+              <div className="flex items-center gap-2">
+                <span className="text-[14.5px] font-medium tracking-wide">
+                  {selectedItems.length} selected
+                </span>
+                <span className={`text-[12px] px-2 py-0.5 rounded-full ${isDark ? "bg-white/10 text-[#8696a0]" : "bg-gray-100 text-gray-600"}`}>
+                  {selectedTotalSize}
+                </span>
+              </div>
             </div>
 
-            {/* Right: Star, Download, Green Circle Forward button */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={handleStarSelected}
-                className={`p-2 rounded-full transition-colors cursor-pointer active:scale-90 ${areAllStarred
+                className={`p-2.5 rounded-full transition-colors cursor-pointer active:scale-90 ${areAllStarred
                   ? "text-amber-400 hover:bg-amber-400/10"
                   : isDark
                     ? "text-[#aebac1] hover:text-white hover:bg-white/10"
@@ -1763,8 +2054,32 @@ const Media = ({
 
               <button
                 type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className={`p-2.5 rounded-full transition-colors cursor-pointer active:scale-90 ${isDark
+                  ? "text-[#aebac1] hover:text-rose-400 hover:bg-rose-500/10"
+                  : "text-gray-500 hover:text-rose-600 hover:bg-rose-50"
+                  }`}
+                title="Delete selected"
+              >
+                <RiDeleteBin6Line size={20} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleForwardSelected}
+                className={`p-2.5 rounded-full transition-colors cursor-pointer active:scale-90 ${isDark
+                  ? "text-[#aebac1] hover:text-white hover:bg-white/10"
+                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                  }`}
+                title="Forward selected"
+              >
+                <IoArrowForward size={20} />
+              </button>
+
+              <button
+                type="button"
                 onClick={handleDownloadSelected}
-                className={`p-2 rounded-full transition-colors cursor-pointer active:scale-90 ${isDark
+                className={`p-2.5 rounded-full transition-colors cursor-pointer active:scale-90 ${isDark
                   ? "text-[#aebac1] hover:text-white hover:bg-white/10"
                   : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                   }`}
@@ -1772,129 +2087,86 @@ const Media = ({
               >
                 <FiDownload size={19} />
               </button>
-
-              <button
-                type="button"
-                onClick={handleForwardSelected}
-                className="w-10 h-10 rounded-full bg-[#00a884] hover:bg-[#02906f] text-[#111b21] flex items-center justify-center shadow-lg cursor-pointer transition-transform hover:scale-105 active:scale-95"
-                title="Forward selected"
-              >
-                <IoArrowForward size={19} className="stroke-[1.5]" />
-              </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div
-          className={`fixed inset-0 z-[10000] flex items-center justify-center px-4 backdrop-blur-xl ${isDark ? "bg-black/70" : "bg-black/30"
+          className={`fixed inset-0 z-[10000] flex items-center justify-center px-4 backdrop-blur-xs ${isDark ? "bg-black/60" : "bg-black/40"
             }`}
           onClick={() => setShowDeleteModal(false)}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 20 }}
-            transition={{ type: "spring", stiffness: 280, damping: 22 }}
-            className={`relative w-full max-w-sm overflow-hidden rounded-[28px] border p-6 shadow-2xl backdrop-blur-2xl ${isDark
-              ? "border-white/[0.08] bg-gradient-to-br from-[#202c33]/95 via-[#111b21]/95 to-[#0b141a]/95 shadow-black/50"
-              : "border-white/70 bg-gradient-to-br from-white/95 via-white/90 to-zinc-100/95 shadow-black/10"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className={`relative w-full max-w-[420px] rounded-2xl shadow-2xl p-6 select-none ${isDark
+              ? "bg-[#233138] text-[#d1d7db] border border-[#3b4a54]/40"
+              : "bg-white text-gray-800 border border-gray-200"
               }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              aria-label="Close"
-              title="Close"
-              onClick={() => setShowDeleteModal(false)}
-              className={`absolute right-4 top-4 z-30 flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 cursor-pointer ${isDark
-                ? "bg-white/[0.06] text-gray-400 hover:bg-white/15 hover:text-white"
-                : "bg-black/[0.05] text-gray-500 hover:bg-black/10 hover:text-gray-900"
+            <h2
+              className={`text-[17px] font-medium leading-snug ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
                 }`}
             >
-              <RxCross2 size={16} />
-            </button>
+              Delete {selectedItems.length === 1 ? "message" : `${selectedItems.length} messages`}?
+            </h2>
 
-            <div className="relative flex flex-col items-center text-center">
-              <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                className={`relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border shadow-lg ${isDark
-                  ? "border-red-400/10 bg-gradient-to-br from-red-500/20 to-red-600/5 text-red-400 shadow-red-500/10"
-                  : "border-red-500/10 bg-gradient-to-br from-red-500/10 to-red-500/5 text-red-500 shadow-red-500/10"
-                  }`}
-              >
-                <RiDeleteBin6Line size={27} />
-              </motion.div>
-              <h2
-                className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-zinc-900"
-                  }`}
-              >
-                Delete {selectedItems.length} message
-                {selectedItems.length > 1 ? "s" : ""}?
-              </h2>
-              <p
-                className={`mt-2 max-w-[290px] text-sm leading-6 ${isDark ? "text-zinc-400" : "text-zinc-500"
-                  }`}
-              >
-                Choose how you want to delete selected messages. This action
-                cannot be undone.
-              </p>
-            </div>
+            <p
+              className={`mt-3 text-[14px] leading-relaxed ${isDark ? "text-[#8696a0]" : "text-gray-500"
+                }`}
+            >
+              {canDeleteForEveryone
+                ? "You can delete messages for everyone or just for yourself."
+                : selectedItems.length === 1
+                  ? "Are you sure you want to delete this message?"
+                  : "Are you sure you want to delete these messages?"}
+            </p>
 
-            <div className="relative mt-7 flex flex-col gap-3">
-              {canDeleteForEveryone && (
-                <motion.button
-                  type="button"
-                  disabled={isDeleting}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => executeDeleteSelected("everyone")}
-                  className="group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 cursor-pointer border-red-500/10 bg-gradient-to-r from-red-500/90 to-rose-600/90 text-white shadow-lg shadow-red-500/10 hover:border-red-300/20 hover:from-red-500 hover:to-rose-500"
-                >
-                  <span className="relative z-10 flex items-center justify-center gap-2.5">
-                    <RiDeleteBin6Line size={17} />
-                    <span>
-                      {isDeleting ? "Deleting..." : "Delete for everyone"}
-                    </span>
-                  </span>
-                </motion.button>
-              )}
-
-              <motion.button
-                type="button"
-                disabled={isDeleting}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => executeDeleteSelected("me")}
-                className={`group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 cursor-pointer ${isDark
-                  ? "border-white/[0.08] bg-gradient-to-r from-zinc-800/90 to-zinc-900/90 text-zinc-100 shadow-lg shadow-black/10 hover:border-emerald-400/20 hover:from-zinc-700/90 hover:to-zinc-800/90 hover:text-emerald-300"
-                  : "border-black/[0.06] bg-gradient-to-r from-zinc-100 to-white text-zinc-800 shadow-md hover:border-emerald-500/20 hover:from-emerald-50 hover:to-white hover:text-emerald-700"
-                  }`}
-              >
-                <span className="relative z-10 flex items-center justify-center gap-2.5">
-                  <RiDeleteBin6Line size={17} />
-                  <span>{isDeleting ? "Deleting..." : "Delete for me"}</span>
-                </span>
-              </motion.button>
-
+            <div className="mt-7 flex flex-wrap items-center justify-end gap-2.5">
               <button
                 type="button"
                 disabled={isDeleting}
                 onClick={() => setShowDeleteModal(false)}
-                className={`w-full py-2.5 text-sm font-medium rounded-xl transition-colors cursor-pointer ${isDark
-                  ? "text-gray-400 hover:text-white hover:bg-white/5"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-black/5"
+                className={`px-5 py-2 rounded-full border text-[13.5px] font-medium transition-colors cursor-pointer ${isDark
+                  ? "border-[#3b4a54] text-[#00a884] hover:bg-white/5 active:bg-white/10"
+                  : "border-gray-300 text-[#00a884] hover:bg-gray-50 active:bg-gray-100"
                   }`}
               >
                 Cancel
               </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => executeDeleteSelected("me")}
+                className={`px-5 py-2 rounded-full border text-[13.5px] font-medium transition-colors cursor-pointer ${isDark
+                  ? "border-[#3b4a54] text-[#00a884] hover:bg-white/5 active:bg-white/10"
+                  : "border-gray-300 text-[#00a884] hover:bg-gray-50 active:bg-gray-100"
+                  }`}
+              >
+                {isDeleting ? "Deleting..." : "Delete for me"}
+              </button>
+
+              {canDeleteForEveryone && (
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => executeDeleteSelected("everyone")}
+                  className="px-5 py-2 rounded-full bg-[#00a884] hover:bg-[#02906f] active:bg-[#028062] text-[#111b21] text-[13.5px] font-medium transition-colors shadow-sm cursor-pointer"
+                >
+                  {isDeleting ? "Deleting..." : "Delete for everyone"}
+                </button>
+              )}
             </div>
           </motion.div>
         </div>
       )}
 
-      {/* Forward Modal */}
       {showForwardModal && (
         <ForwardModal
           isOpen={showForwardModal}
@@ -1908,7 +2180,6 @@ const Media = ({
         />
       )}
 
-      {/* File Viewer Modal */}
       {showViewer && viewerFile && (
         <FileViewerModal
           isOpen={showViewer}
@@ -1917,6 +2188,27 @@ const Media = ({
             setViewerFile(null);
           }}
           file={viewerFile}
+          theme={theme}
+        />
+      )}
+
+      {activeMenu && (
+        <MediaMenu
+          isOpen={Boolean(activeMenu)}
+          onClose={() => setActiveMenu(null)}
+          item={activeMenu.item}
+          position={activeMenu.position}
+          isStarred={isMessageStarred(activeMenu.item?.messageId || activeMenu.item?._id)}
+          canReplyPrivately={Boolean(activeMenu.item?.sender)}
+          onSelect={handleMenuSelect}
+          onGoToMessage={handleMenuGoToMessage}
+          onReply={handleMenuReply}
+          onReplyPrivately={handleMenuReplyPrivately}
+          onDownload={handleMenuDownload}
+          onCopy={handleMenuCopy}
+          onForward={handleMenuForward}
+          onToggleStar={handleMenuToggleStar}
+          onDelete={handleMenuDelete}
           theme={theme}
         />
       )}
