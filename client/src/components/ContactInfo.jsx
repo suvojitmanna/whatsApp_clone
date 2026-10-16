@@ -397,7 +397,7 @@ const ContactInfo = () => {
           localStorage.getItem("whatsapp_contact_lists") || "{}"
         );
         if (chatId) setContactLists(map[chatId] || []);
-      } catch {}
+      } catch { }
     };
     window.addEventListener("whatsapp_lists_changed", handleSyncLists);
     return () =>
@@ -1017,11 +1017,10 @@ const ContactInfo = () => {
               : "bg-white border-gray-200 text-gray-800"
             } shadow-2xl`}
         >
-          {contactInfoTab !== "media" && (
-            <div
-              className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
-                }`}
-            >
+          <div
+            className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
+              }`}
+          >
             <div className="flex items-center gap-3 min-w-0">
               {contactInfoTab === "info" ? (
                 <motion.button
@@ -1092,27 +1091,27 @@ const ContactInfo = () => {
                       ? "Media, links and docs"
                       : contactInfoTab === "disappearing"
                         ? "Disappearing messages"
-                      : contactInfoTab === "defaultTimer"
-                        ? "Default message timer"
-                        : contactInfoTab === "chatTheme"
-                          ? "Chat theme"
-                          : contactInfoTab === "chatBubble"
-                            ? "Chat bubble"
-                            : contactInfoTab === "allThemes"
-                              ? "Themes"
-                              : contactInfoTab === "wallpaper"
-                                ? "Wallpaper"
-                                : contactInfoTab === "solidColour"
-                                  ? "Solid colour"
-                                  : contactInfoTab === "starred"
-                                    ? "Starred messages"
-                                    : contactInfoTab === "kept"
-                                      ? "Kept messages"
-                                      : contactInfoTab === "advancedPrivacy"
-                                        ? "Advanced"
-                                        : contactInfoTab === "lists"
-                                          ? "Add to list"
-                                          : "Contact Info"}
+                        : contactInfoTab === "defaultTimer"
+                          ? "Default message timer"
+                          : contactInfoTab === "chatTheme"
+                            ? "Chat theme"
+                            : contactInfoTab === "chatBubble"
+                              ? "Chat bubble"
+                              : contactInfoTab === "allThemes"
+                                ? "Themes"
+                                : contactInfoTab === "wallpaper"
+                                  ? "Wallpaper"
+                                  : contactInfoTab === "solidColour"
+                                    ? "Solid colour"
+                                    : contactInfoTab === "starred"
+                                      ? "Starred messages"
+                                      : contactInfoTab === "kept"
+                                        ? "Kept messages"
+                                        : contactInfoTab === "advancedPrivacy"
+                                          ? "Advanced"
+                                          : contactInfoTab === "lists"
+                                            ? "Add to list"
+                                            : "Contact Info"}
                 </h2>
               )}
             </div>
@@ -1161,7 +1160,6 @@ const ContactInfo = () => {
               </motion.button>
             )}
           </div>
-        )}
           <AnimatePresence mode="wait">
             {contactInfoTab === "info" && (
               <motion.div
@@ -1285,17 +1283,16 @@ const ContactInfo = () => {
                   </motion.div>
 
                   <div className="my-4 border-t border-white/10" />
-                
+
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.42, type: "spring", stiffness: 100 }}
                     onClick={() => setContactInfoTab("media")}
-                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${
-                      theme === "dark"
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
                         ? "bg-[#202c33]/70 hover:bg-[#202c33] border border-white/5 hover:border-white/10 text-white"
                         : "bg-black/5 hover:bg-black/8 border border-black/5 text-gray-900"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3.5">
@@ -3118,7 +3115,7 @@ const ContactInfo = () => {
                   contact={selectedContact}
                   chatId={chatId}
                   mode="drawer"
-                  hideHeader={false}
+                  hideHeader={true}
                   onClose={() => setContactInfoTab("info")}
                 />
               </motion.div>

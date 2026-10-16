@@ -15,7 +15,6 @@ import {
   FaCheck,
   FaStar,
   FaRegStar,
-  FaChevronRight,
 } from "react-icons/fa";
 import { VscSearchLarge } from "react-icons/vsc";
 import { FiDownload, FiExternalLink, FiLink } from "react-icons/fi";
@@ -28,8 +27,7 @@ import {
 } from "react-icons/md";
 import { BsFilterLeft } from "react-icons/bs";
 import { RxCross2 } from "react-icons/rx";
-import { IoArrowForward, IoCheckmarkDoneSharp } from "react-icons/io5";
-import { LuForward } from "react-icons/lu";
+import { IoArrowForward } from "react-icons/io5";
 import { RiDeleteBin6Line } from "react-icons/ri";
 import { format, isToday, isYesterday } from "date-fns";
 import { toast } from "react-toastify";
@@ -123,42 +121,30 @@ const getFileIcon = (fileName = "") => {
 };
 
 const formatDateGroup = (date) => {
-  if (!date) return { primary: "THIS MONTH", sub: null, sortKey: 0 };
+  if (!date) return { primary: "Recent", sub: null, sortKey: 0 };
   const d = new Date(date);
-  if (isNaN(d.getTime())) return { primary: "THIS MONTH", sub: null, sortKey: 0 };
+  if (isNaN(d.getTime())) return { primary: "Recent", sub: null, sortKey: 0 };
 
-  const now = new Date();
-  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) {
+  if (isToday(d)) {
     return {
-      primary: "THIS MONTH",
-      sub: null,
+      primary: "Today",
+      sub: format(d, "d MMMM yyyy"),
+      sortKey: d.getTime(),
+    };
+  }
+  if (isYesterday(d)) {
+    return {
+      primary: "Yesterday",
+      sub: format(d, "d MMMM yyyy"),
       sortKey: d.getTime(),
     };
   }
   return {
-    primary: format(d, "MMMM yyyy").toUpperCase(),
-    sub: null,
+    primary: format(d, "MMMM yyyy"),
+    sub: format(d, "d MMMM yyyy"),
     sortKey: d.getTime(),
   };
 };
-
-const formatBubbleDate = (dateVal) => {
-  if (!dateVal) return "";
-  const d = new Date(dateVal);
-  if (isNaN(d.getTime())) return "";
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
-};
-
-const formatBubbleTime = (dateVal) => {
-  if (!dateVal) return "";
-  const d = new Date(dateVal);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-};
-
 
 const calculateTotalSize = (items) => {
   let totalBytes = 0;
@@ -965,8 +951,8 @@ const Media = ({
         attached
           ? "Caption copied to clipboard"
           : isVideo
-          ? "Video link copied to clipboard"
-          : "Copied to clipboard"
+            ? "Video link copied to clipboard"
+            : "Copied to clipboard"
       );
     } else {
       toast.info("Copied");
@@ -980,16 +966,6 @@ const Media = ({
   const handleMenuSelect = (item) => {
     setIsSelectMode(true);
     toggleSelectItem(item);
-  };
-
-  const handleToggleScope = () => {
-    if (scope === "all") {
-      setScope("chat");
-      setSelectedContactFilter(contact?._id || "");
-    } else {
-      setScope("all");
-      setSelectedContactFilter("");
-    }
   };
 
   const handleMenuGoToMessage = (item) => {
@@ -1596,8 +1572,8 @@ const Media = ({
                   {activeTab === "media" && (
                     <div
                       className={`grid ${mode === "modal"
-                        ? "grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3"
-                        : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5"
+                        ? "grid-cols-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4"
+                        : "grid-cols-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5"
                         } gap-2 sm:gap-2.5`}
                     >
                       {items.map((item) => {
@@ -1660,11 +1636,10 @@ const Media = ({
 
                             {!isSelectMode && (
                               <div
-                                className={`absolute top-3 right-3 z-20 flex items-center justify-center rounded-full border p-1.5 cursor-pointer transition-all ${
-                                  (activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
-                                    ? "opacity-100 bg-black/50 backdrop-blur-xs border-white/25 text-white shadow-md scale-105"
-                                    : "opacity-0 group-hover:opacity-100 border-transparent hover:bg-black/30 hover:backdrop-blur-xs hover:border-white/20 text-white"
-                                }`}
+                                className={`absolute top-1 right-1 z-20 flex items-center justify-center rounded-full border p-1 cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
+                                  ? "opacity-100 bg-black/50 backdrop-blur-xs border-white/25 text-white shadow-md scale-105"
+                                  : "opacity-0 group-hover:opacity-100 border-transparent hover:bg-black/30 hover:backdrop-blur-xs hover:border-white/10 text-white"
+                                  }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const rect = e.currentTarget.getBoundingClientRect();
@@ -1672,13 +1647,13 @@ const Media = ({
                                     (prev?.item?.messageId || prev?.item?._id) === itemId
                                       ? null
                                       : {
-                                          item,
-                                          position: {
-                                            top: rect.bottom + 4,
-                                            left: rect.right - 210,
-                                            buttonTop: rect.top,
-                                          },
-                                        }
+                                        item,
+                                        position: {
+                                          top: rect.bottom + 4,
+                                          left: rect.right - 210,
+                                          buttonTop: rect.top,
+                                        },
+                                      }
                                   );
                                 }}
                                 title="Menu"
@@ -1698,7 +1673,7 @@ const Media = ({
                                   src={item.url || item.imageOrVideoUrl}
                                   alt=""
                                   loading="lazy"
-                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  className="w-full h-full object-fill transition-transform duration-500 group-hover:scale-105"
                                 />
                                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                                   <div
@@ -1842,6 +1817,7 @@ const Media = ({
                                 <FiDownload size={16} />
                               </button>
                             </div>
+
                           </div>
                         );
                       })}

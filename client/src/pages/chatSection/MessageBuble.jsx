@@ -1296,7 +1296,7 @@ const MessageBuble = ({
                       <img
                         src={message.imageOrVideoUrl}
                         alt="img"
-                        className="rounded-xl w-full max-w-[280px] sm:max-w-xs md:max-w-sm object-cover ring-1 ring-black/[0.06] transition-transform hover:scale-[1.01]"
+                        className="rounded-xl w-50 max-w-[200px] sm:max-w-xs md:max-w-sm object-cover ring-1 ring-black/[0.06] transition-transform hover:scale-[1.01]"
                       />
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 rounded-xl flex items-center justify-center transition-opacity">
                         <span className="px-2.5 py-1 rounded-full bg-black/60 text-white text-xs font-medium flex items-center gap-1.5 shadow">
@@ -1473,7 +1473,7 @@ const MessageBuble = ({
                             <img
                               src={avatar}
                               alt="Contact"
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-fill"
                             />
                           ) : (
                             <RiContactsFill size={24} />

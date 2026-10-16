@@ -1,4 +1,3 @@
-import React from "react";
 import { toast } from "react-toastify";
 import { IoIosInformationCircleOutline } from "react-icons/io";
 import { LuReply, LuForward } from "react-icons/lu";
