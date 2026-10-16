@@ -225,7 +225,9 @@ const useLayoutStore = create(
           } catch {}
 
           try {
-            const socket = getSocket() || (typeof window !== "undefined" ? window.__whatsapp_socket : null);
+            const socket =
+              getSocket() ||
+              (typeof window !== "undefined" ? window.__whatsapp_socket : null);
             if (socket?.connected) {
               socket.emit("disappearing_update", {
                 chatId,
@@ -239,34 +241,49 @@ const useLayoutStore = create(
             }
           } catch {}
 
-          const targetConvId = convId || (chatId && /^[0-9a-fA-F]{24}$/.test(chatId) ? chatId : null);
-          const targetReceiverId = receiverId || (chatId !== targetConvId ? chatId : null);
+          const targetConvId =
+            convId ||
+            (chatId && /^[0-9a-fA-F]{24}$/.test(chatId) ? chatId : null);
+          const targetReceiverId =
+            receiverId || (chatId !== targetConvId ? chatId : null);
           if (targetConvId) {
-            axiosInstance.put(`/chat/conversation/${targetConvId}/disappearing`, {
-              duration,
-              receiverId: targetReceiverId,
-            }).catch(() => {});
+            axiosInstance
+              .put(`/chat/conversation/${targetConvId}/disappearing`, {
+                duration,
+                receiverId: targetReceiverId,
+              })
+              .catch(() => {});
           } else if (targetReceiverId) {
-            axiosInstance.post("/chat/disappearing-duration", {
-              duration,
-              receiverId: targetReceiverId,
-            }).catch(() => {});
+            axiosInstance
+              .post("/chat/disappearing-duration", {
+                duration,
+                receiverId: targetReceiverId,
+              })
+              .catch(() => {});
           }
 
           try {
-            import("./chatStore").then(({ useChatStore }) => {
-              useChatStore.getState()?.updateConversationDisappearing?.(
-                Array.from(allKeys),
-                duration,
-                setBy,
-                newEvent.createdAt
-              );
-            }).catch(() => {});
+            import("./chatStore")
+              .then(({ useChatStore }) => {
+                useChatStore
+                  .getState()
+                  ?.updateConversationDisappearing?.(
+                    Array.from(allKeys),
+                    duration,
+                    setBy,
+                    newEvent.createdAt,
+                  );
+              })
+              .catch(() => {});
           } catch (e) {}
 
           let updatedSelectedContact = state.selectedContact;
           if (updatedSelectedContact) {
-            const curConvId = String(updatedSelectedContact.conversation?._id || updatedSelectedContact.conversation || "");
+            const curConvId = String(
+              updatedSelectedContact.conversation?._id ||
+                updatedSelectedContact.conversation ||
+                "",
+            );
             const curUserId = String(updatedSelectedContact._id || "");
             if (allKeys.has(curConvId) || allKeys.has(curUserId)) {
               updatedSelectedContact = {
@@ -374,7 +391,7 @@ const useLayoutStore = create(
         try {
           return JSON.parse(
             localStorage.getItem("whatsapp_chat_bubble_colors") || "{}",
-          ); 
+          );
         } catch {
           return {};
         }

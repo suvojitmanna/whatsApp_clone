@@ -14,12 +14,13 @@ import {
   FaCaretDown,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
-import { MdEventNote, MdAccessTime, MdList, MdOutlinePlaylistAdd } from "react-icons/md";
+import { MdEventNote, MdAccessTime, MdList, MdOutlinePlaylistAdd, MdOutlineChat } from "react-icons/md";
 import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
-import { motion } from "framer-motion";
-import formatTimestamp from "../../utils/formatTime";
+import { HiDotsVertical } from "react-icons/hi";
+import { motion, AnimatePresence } from "framer-motion";
+import formatTimestamp, { getDisappearingDurationMs } from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
 import { WhatsAppPinIcon, WhatsAppDisappearingIcon } from "./MessageBuble";
 import AddToListModal from "../../components/AddToListModal";
@@ -29,6 +30,69 @@ import {
   isContactInList,
   getContactListNames,
 } from "../../utils/chatListsUtil";
+
+const AVATAR_BG_COLORS = [
+  "#533f28", // Warm amber/brown (matches Baba in WhatsApp Web)
+  "#1f4c45", // Deep teal
+  "#3b3653", // Slate purple
+  "#4e3b31", // Warm terracotta
+  "#284255", // Deep steel blue
+  "#3d4726", // Olive brown
+  "#4f2c3e", // Plum wine
+  "#2c4c3b", // Forest pine
+];
+
+export const getAvatarBg = (name) => {
+  if (!name) return AVATAR_BG_COLORS[0];
+  const firstLetter = name.trim().charAt(0).toUpperCase();
+  if (firstLetter === "B") return AVATAR_BG_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_BG_COLORS.length;
+  return AVATAR_BG_COLORS[index];
+};
+
+export const getAvatarInitial = (name) => {
+  if (!name) return "?";
+  const clean = name.replace(
+    /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g,
+    ""
+  ).trim();
+  return (clean[0] || name.trim()[0] || "?").toUpperCase();
+};
+
+const ContactAvatar = ({ contact }) => {
+  const [hasError, setHasError] = useState(false);
+  const pic = contact?.profilePicture;
+  const username = contact?.username || "User";
+
+  const showLetter = !pic || pic === "/default-avatar.png" || hasError;
+
+  if (showLetter) {
+    const bg = getAvatarBg(username);
+    const initial = getAvatarInitial(username);
+    return (
+      <div
+        style={{ backgroundColor: bg }}
+        className="w-12 h-12 rounded-full shrink-0 flex items-center justify-center text-white font-medium text-lg select-none shadow-xs"
+      >
+        <span>{initial}</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={pic}
+      alt={username}
+      onError={() => setHasError(true)}
+      className="w-12 h-12 rounded-full object-cover shrink-0 select-none shadow-xs"
+    />
+  );
+};
+
 
 export const getPinnedItemTypeAndLabel = (msg) => {
   if (!msg) return { type: "message", target: "a message" };
@@ -253,6 +317,18 @@ const getContactPin = (contact, pinnedMessages) => {
 
 const getLastMessagePreview = (lastMessage) => {
   if (!lastMessage) return null;
+
+  // STRICT WhatsApp condition: If message is disappearing and expired without being manually deleted for everyone,
+  // it MUST NOT show "This message was deleted" or "You deleted this message". It vanishes completely!
+  if (lastMessage.isDisappearing && !lastMessage.isKept && !lastMessage.deletedForEveryone) {
+    const durMs = getDisappearingDurationMs(lastMessage.disappearingDuration);
+    const expTime = lastMessage.disappearingExpiresAt
+      ? new Date(lastMessage.disappearingExpiresAt).getTime()
+      : (lastMessage.createdAt && durMs ? new Date(lastMessage.createdAt).getTime() + durMs : null);
+    if (expTime && Date.now() >= expTime) {
+      return null;
+    }
+  }
 
   const currentUserId = useUserStore.getState()?.user?._id;
 
@@ -524,6 +600,7 @@ const ChatList = ({ contacts }) => {
     (state) => state.setChatListScrollTop,
   );
   const listContainerRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   const { theme } = useThemeStore();
   const [searchTerms, setSearchTerms] = useState("");
@@ -534,6 +611,22 @@ const ChatList = ({ contacts }) => {
   const [isNewListModalOpen, setIsNewListModalOpen] = useState(false);
   const [showListsDropdown, setShowListsDropdown] = useState(false);
   const listsDropdownRef = useRef(null);
+
+  const [dispTick, setDispTick] = useState(0);
+  useEffect(() => {
+    const hasAnyDisappearing = contacts?.some((c) => {
+      const lastMsg = c?.conversation?.lastMessage;
+      return (
+        (lastMsg?.isDisappearing && !lastMsg?.isKept) ||
+        (c?.conversation?.disappearingDuration && c.conversation.disappearingDuration !== "Off")
+      );
+    });
+    if (!hasAnyDisappearing) return;
+    const interval = setInterval(() => {
+      setDispTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [contacts]);
 
   useEffect(() => {
     const handleListsChanged = () => {
@@ -652,54 +745,80 @@ const ChatList = ({ contacts }) => {
       );
       return timeB - timeA;
     });
-  }, [contacts, searchTerms, pinnedMessages, activeListFilter, listsRevision]);
+  }, [contacts, searchTerms, pinnedMessages, activeListFilter, listsRevision, dispTick]);
 
   useEffect(() => {
     if (listContainerRef.current) {
       if (chatListScrollTop > 0) {
         listContainerRef.current.scrollTop = chatListScrollTop;
-      } else if (selectedContact?._id) {
-        const el = listContainerRef.current.querySelector(
-          `[data-contact-id="${selectedContact._id}"]`,
-        );
-        if (el) {
-          el.scrollIntoView({ block: "nearest" });
-        }
       }
     }
   }, [filteredContact.length, selectedContact?._id]);
 
   return (
     <div
-      className={`h-full w-full border-r relative z-10 transition-all duration-300 ${theme === "dark"
-        ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
-        : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
+      className={`h-full w-full border-r relative z-10 transition-all duration-300 flex flex-col ${theme === "dark"
+        ? "bg-[#111b21] border-[#222e35] text-white"
+        : "bg-white border-gray-200 text-gray-900"
         }`}
     >
-      <div className="p-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Chats</h2>
-        <button
-          title="New chat"
-          className="p-2 bg-green-500 text-white rounded-full shadow-md cursor-pointer transition-all duration-300 ease-in-out hover:bg-green-600 hover:scale-110 hover:rotate-90 active:scale-90 animate-bounce-slow"
-        >
-          <FaPlus />
-        </button>
+      {/* Top Header */}
+      <div className="px-4 py-3 flex items-center justify-between">
+        <h1 className={`text-xl font-bold tracking-tight ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"}`}>
+          Chats
+        </h1>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => searchInputRef.current?.focus()}
+            title="New chat"
+            className={`p-2 rounded-full transition-colors cursor-pointer ${
+              theme === "dark"
+                ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
+                : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
+            }`}
+          >
+            <MdOutlineChat size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsNewListModalOpen(true)}
+            title="New list"
+            className={`p-2 rounded-full transition-colors cursor-pointer ${
+              theme === "dark"
+                ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
+                : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
+            }`}
+          >
+            <HiDotsVertical size={19} />
+          </button>
+        </div>
       </div>
-      <div className="p-2">
-        <div className="relative group">
+
+      {/* WhatsApp Search Bar */}
+      <div className="px-3 pt-1 pb-2">
+        <div
+          className={`flex items-center gap-3 px-3 py-1.5 rounded-lg transition-colors ${
+            theme === "dark"
+              ? "bg-[#202c33] text-[#e9edef]"
+              : "bg-[#f0f2f5] text-[#111b21]"
+          }`}
+        >
           <FaSearch
-            className={`absolute left-3 top-1/2 transform -translate-y-1/2 z-10 transition-colors ${theme === "dark"
-              ? "text-gray-400 group-focus-within:text-green-500"
-              : "text-gray-500 group-focus-within:text-green-600"
-              }`}
+            className={`shrink-0 transition-colors ${
+              theme === "dark" ? "text-[#8696a0]" : "text-[#54656f]"
+            }`}
+            size={13}
           />
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="Search or start new chat"
-            className={`w-full pl-10 pr-9 py-2 border rounded-lg outline-none transition-all duration-200 ${theme === "dark"
-              ? "bg-gray-800 text-white border-gray-700 placeholder-gray-500 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
-              : "bg-gray-100 text-black border-gray-200 placeholder-gray-400 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/30"
-              }`}
+            placeholder="Search or start a new chat"
+            className={`w-full bg-transparent text-[14px] outline-none border-none ${
+              theme === "dark"
+                ? "text-[#e9edef] placeholder-[#8696a0]"
+                : "text-[#111b21] placeholder-[#54656f]"
+            }`}
             value={searchTerms}
             onChange={(e) => setSearchTerms(e.target.value)}
           />
@@ -707,7 +826,7 @@ const ChatList = ({ contacts }) => {
             <button
               type="button"
               onClick={() => setSearchTerms("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all cursor-pointer"
+              className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-[#8696a0] hover:text-[#e9edef] transition-all cursor-pointer"
               title="Clear search"
             >
               <RxCross2 className="w-3.5 h-3.5" />
@@ -715,19 +834,22 @@ const ChatList = ({ contacts }) => {
           )}
         </div>
       </div>
+
+      {/* WhatsApp Filter Pills Bar */}
       <div className="px-3 pb-2 pt-0.5 flex items-center gap-1.5 overflow-x-auto scrollbar-hide select-none border-b border-white/5 relative">
         {/* All */}
         <button
           type="button"
           onClick={() => setActiveListFilter("All")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer ${activeListFilter === "All"
-            ? theme === "dark"
-              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
-              : "bg-[#00a884] text-white font-semibold shadow-xs"
-            : theme === "dark"
-              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-              : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-            }`}
+          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
+            activeListFilter === "All"
+              ? theme === "dark"
+                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+                : "bg-[#008069] text-white font-medium shadow-xs"
+              : theme === "dark"
+                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+          }`}
         >
           All
         </button>
@@ -736,63 +858,51 @@ const ChatList = ({ contacts }) => {
         <button
           type="button"
           onClick={() => setActiveListFilter("Favourites")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeListFilter === "Favourites" || activeListFilter === "Favorites"
-            ? theme === "dark"
-              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
-              : "bg-[#00a884] text-white font-semibold shadow-xs"
-            : theme === "dark"
-              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-              : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-            }`}
+          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
+            activeListFilter === "Favourites" || activeListFilter === "Favorites"
+              ? theme === "dark"
+                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+                : "bg-[#008069] text-white font-medium shadow-xs"
+              : theme === "dark"
+                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+          }`}
         >
-          <span>Favourites</span>
-          {listCounts.Favourites > 0 && (
-            <span className="text-[11px] opacity-80 font-semibold ml-0.5">
-              {listCounts.Favourites}
-            </span>
-          )}
+          Favourites{listCounts.Favourites > 0 ? ` ${listCounts.Favourites}` : ""}
         </button>
 
         {/* Groups */}
         <button
           type="button"
           onClick={() => setActiveListFilter("Groups")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeListFilter === "Groups"
-            ? theme === "dark"
-              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
-              : "bg-[#00a884] text-white font-semibold shadow-xs"
-            : theme === "dark"
-              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-              : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-            }`}
+          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
+            activeListFilter === "Groups"
+              ? theme === "dark"
+                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+                : "bg-[#008069] text-white font-medium shadow-xs"
+              : theme === "dark"
+                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+          }`}
         >
-          <span>Groups</span>
-          {listCounts.Groups > 0 && (
-            <span className="text-[11px] opacity-80 font-semibold ml-0.5">
-              {listCounts.Groups}
-            </span>
-          )}
+          Groups{listCounts.Groups > 0 ? ` ${listCounts.Groups}` : ""}
         </button>
 
         {/* Unread */}
         <button
           type="button"
           onClick={() => setActiveListFilter("Unread")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeListFilter === "Unread"
-            ? theme === "dark"
-              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
-              : "bg-[#00a884] text-white font-semibold shadow-xs"
-            : theme === "dark"
-              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-              : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-            }`}
+          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
+            activeListFilter === "Unread"
+              ? theme === "dark"
+                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+                : "bg-[#008069] text-white font-medium shadow-xs"
+              : theme === "dark"
+                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+          }`}
         >
-          <span>Unread</span>
-          {listCounts.Unread > 0 && (
-            <span className="text-[11px] opacity-80 font-semibold ml-0.5">
-              {listCounts.Unread}
-            </span>
-          )}
+          Unread{listCounts.Unread > 0 ? ` ${listCounts.Unread}` : ""}
         </button>
 
         {/* Active dropdown list if selected */}
@@ -800,17 +910,13 @@ const ChatList = ({ contacts }) => {
           <button
             type="button"
             onClick={() => setActiveListFilter(activeListFilter)}
-            className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${theme === "dark"
-              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
-              : "bg-[#00a884] text-white font-semibold shadow-xs"
-              }`}
+            className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
+              theme === "dark"
+                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+                : "bg-[#008069] text-white font-medium shadow-xs"
+            }`}
           >
-            <span>{activeListFilter}</span>
-            {listCounts[activeListFilter] > 0 && (
-              <span className="text-[11px] opacity-80 font-semibold ml-0.5">
-                {listCounts[activeListFilter]}
-              </span>
-            )}
+            {activeListFilter}{listCounts[activeListFilter] > 0 ? ` ${listCounts[activeListFilter]}` : ""}
           </button>
         )}
 
@@ -819,20 +925,22 @@ const ChatList = ({ contacts }) => {
           <button
             type="button"
             onClick={() => setShowListsDropdown((prev) => !prev)}
-            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer ${showListsDropdown || dropdownLists.includes(activeListFilter)
-              ? theme === "dark"
-                ? "bg-[#103629] text-[#25d366] border border-[#00a884]/30"
-                : "bg-[#00a884] text-white"
-              : theme === "dark"
-                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-              }`}
+            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+              showListsDropdown || dropdownLists.includes(activeListFilter)
+                ? theme === "dark"
+                  ? "bg-[#202c33] text-[#e9edef]"
+                  : "bg-gray-200 text-gray-900"
+                : theme === "dark"
+                  ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                  : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+            }`}
             title="More lists"
           >
             <FaCaretDown
-              size={12}
-              className={`transition-transform duration-200 ${showListsDropdown ? "rotate-180" : ""
-                }`}
+              size={11}
+              className={`transition-transform duration-200 ${
+                showListsDropdown ? "rotate-180" : ""
+              }`}
             />
           </button>
 
@@ -844,10 +952,11 @@ const ChatList = ({ contacts }) => {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -4 }}
                 transition={{ duration: 0.12 }}
-                className={`absolute right-0 top-full mt-1.5 z-50 w-52 rounded-2xl shadow-2xl border p-1.5 select-none ${theme === "dark"
-                  ? "bg-[#233138] border-white/10 text-white shadow-black/70"
-                  : "bg-white border-gray-200 text-gray-900 shadow-xl"
-                  }`}
+                className={`absolute right-0 top-full mt-2 z-50 w-52 rounded-2xl shadow-2xl border p-1.5 select-none ${
+                  theme === "dark"
+                    ? "bg-[#233138] border-white/10 text-white shadow-black/70"
+                    : "bg-white border-gray-200 text-gray-900 shadow-xl"
+                }`}
               >
                 {dropdownLists.map((listName) => (
                   <button
@@ -857,21 +966,23 @@ const ChatList = ({ contacts }) => {
                       setActiveListFilter(listName);
                       setShowListsDropdown(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2 text-[13.5px] rounded-xl cursor-pointer transition-colors ${activeListFilter === listName
-                      ? "text-[#25d366] bg-emerald-500/10 font-medium"
-                      : theme === "dark"
-                        ? "text-gray-200 hover:bg-white/5 hover:text-white"
-                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                      }`}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 text-[14px] rounded-xl cursor-pointer transition-colors ${
+                      activeListFilter === listName
+                        ? "text-[#00a884] bg-[#0a332c]/50 font-medium"
+                        : theme === "dark"
+                          ? "text-[#e9edef] hover:bg-[#182229]"
+                          : "text-gray-700 hover:bg-gray-100"
+                    }`}
                   >
                     <span>{listName}</span>
                     <span
-                      className={`text-[12px] font-medium ${activeListFilter === listName
-                        ? "text-[#25d366]"
-                        : theme === "dark"
-                          ? "text-[#8696a0]"
-                          : "text-gray-400"
-                        }`}
+                      className={`text-[13px] ${
+                        activeListFilter === listName
+                          ? "text-[#00a884]"
+                          : theme === "dark"
+                            ? "text-[#8696a0]"
+                            : "text-gray-400"
+                      }`}
                     >
                       {listCounts[listName] !== undefined
                         ? listCounts[listName]
@@ -881,8 +992,9 @@ const ChatList = ({ contacts }) => {
                 ))}
 
                 <div
-                  className={`border-t my-1 mx-2 ${theme === "dark" ? "border-white/10" : "border-gray-100"
-                    }`}
+                  className={`border-t my-1 mx-2 ${
+                    theme === "dark" ? "border-white/10" : "border-gray-100"
+                  }`}
                 />
 
                 <button
@@ -891,10 +1003,11 @@ const ChatList = ({ contacts }) => {
                     setShowListsDropdown(false);
                     setIsNewListModalOpen(true);
                   }}
-                  className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[13.5px] font-medium rounded-xl cursor-pointer transition-colors ${theme === "dark"
-                    ? "text-white hover:bg-white/5"
-                    : "text-gray-800 hover:bg-gray-100"
-                    }`}
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[14px] font-medium rounded-xl cursor-pointer transition-colors ${
+                    theme === "dark"
+                      ? "text-[#e9edef] hover:bg-[#182229]"
+                      : "text-gray-800 hover:bg-gray-100"
+                  }`}
                 >
                   <FaPlus size={11} className="text-[#00a884]" />
                   <span>New list</span>
@@ -908,7 +1021,7 @@ const ChatList = ({ contacts }) => {
       <div
         ref={listContainerRef}
         onScroll={(e) => setChatListScrollTop(e.target.scrollTop)}
-        className="overflow-y-auto h-[calc(100vh-170px)] custom-scrollbar"
+        className="overflow-y-auto flex-1 custom-scrollbar"
       >
         {filteredContact.length === 0 ? (
           activeListFilter !== "All" ? (
@@ -1006,22 +1119,18 @@ const ChatList = ({ contacts }) => {
                     useChatStore.getState().clearUnreadCount(contact.conversation._id);
                   }
                 }}
-                className={`p-3 flex items-center cursor-pointer transition-colors relative group ${theme === "dark"
+                className={`mx-2 my-0.5 p-2.5 rounded-xl flex items-center cursor-pointer transition-colors relative group ${theme === "dark"
                   ? selectedContact?._id === contact._id
-                    ? "bg-gray-700"
-                    : "hover:bg-gray-800"
+                    ? "bg-[#2a3942]"
+                    : "hover:bg-[#202c33]"
                   : selectedContact?._id === contact._id
-                    ? "bg-gray-200"
-                    : "hover:bg-gray-100"
+                    ? "bg-[#e9edef]"
+                    : "hover:bg-[#f5f6f6]"
                   }`}
               >
                 <div className="relative shrink-0">
-                  <img
-                    src={contact?.profilePicture || "/default-avatar.png"}
-                    alt={contact?.username}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                  {hasDisappearing && (
+                  <ContactAvatar contact={contact} />
+                  {hasDisappearing && disappearingDuration !== "Off" && (
                     <span
                       className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border ${theme === "dark" ? "border-[#111b21] bg-[#202c33]" : "border-white bg-[#f0f2f5]"
                         } flex items-center justify-center text-[#8696a0] shadow-sm`}
@@ -1034,10 +1143,12 @@ const ChatList = ({ contacts }) => {
 
                 <div className="ml-3 flex-1 min-w-0">
                   <div className="flex justify-between items-baseline gap-2">
-                    <h2 className="font-semibold truncate">{contact?.username}</h2>
+                    <h2 className={`font-medium text-[16px] truncate ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"}`}>
+                      {contact?.username}
+                    </h2>
                     {(contact?.conversation || contactPin || hasDisappearing) && (
                       <span
-                        className={`text-xs shrink-0 ${theme === "dark" ? "text-gray-500" : "text-gray-400"}`}
+                        className={`text-[12px] shrink-0 ${theme === "dark" ? "text-[#8696a0]" : "text-[#667781]"}`}
                       >
                         {formatTimestamp(
                           latestTimestamp || contactPin?.pinnedAt || contact?.conversation?.lastMessage?.createdAt,
@@ -1072,12 +1183,14 @@ const ChatList = ({ contacts }) => {
                           const isSetByMe = Boolean(currentUserId && setById && setById === currentUserId);
                           const isOff = disappearingDuration === "Off";
                           const dispText = isSetByMe
-                            ? (isOff ? "You turned off disappearing messages" : "You turned on disappearing messages")
-                            : (isOff ? `${contact?.username || "Contact"} turned off disappearing messages` : `${contact?.username || "Contact"} turned on disappearing messages`);
+                            ? (isOff ? "You turned off disappearing messages. Tap to change." : "You turned on disappearing messages. Tap to change.")
+                            : (isOff ? `${contact?.username || "Contact"} turned off disappearing messages. Tap to change.` : `${contact?.username || "Contact"} turned on disappearing messages. Tap to change.`);
 
                           return (
                             <span className="flex items-center gap-1.5 truncate text-[#8696a0]">
-                              <WhatsAppDisappearingIcon size={12} className="inline shrink-0 text-[#8696a0]" />
+                              {isOff ? null : (
+                                <WhatsAppDisappearingIcon size={12} className="inline shrink-0 text-[#8696a0]" />
+                              )}
                               <span className="truncate">{dispText}</span>
                             </span>
                           );
@@ -1207,13 +1320,16 @@ const ChatList = ({ contacts }) => {
                             contact?.conversation?.disappearingSetBy
                           )?.toString();
                           const isSetByMe = Boolean(currentUserId && setById && setById === currentUserId);
+                          const isOff = disappearingDuration === "Off";
                           const dispText = isSetByMe
-                            ? "You turned on disappearing messages"
-                            : `${contact?.username || "Contact"} turned on disappearing messages`;
+                            ? (isOff ? "You turned off disappearing messages. Tap to change." : "You turned on disappearing messages. Tap to change.")
+                            : (isOff ? `${contact?.username || "Contact"} turned off disappearing messages. Tap to change.` : `${contact?.username || "Contact"} turned on disappearing messages. Tap to change.`);
 
                           return (
                             <span className="flex items-center gap-1.5 truncate text-[#8696a0]">
-                              <WhatsAppDisappearingIcon size={12} className="inline shrink-0 text-[#8696a0]" />
+                              {isOff ? null : (
+                                <WhatsAppDisappearingIcon size={12} className="inline shrink-0 text-[#8696a0]" />
+                              )}
                               <span className="truncate">{dispText}</span>
                             </span>
                           );
@@ -1288,7 +1404,7 @@ const ChatList = ({ contacts }) => {
                         }
 
                         return (
-                          <p className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-xs font-semibold text-white shrink-0">
+                          <p className="w-5 h-5 rounded-full bg-[#25d366] flex items-center justify-center text-[11px] font-bold text-[#111b21] shrink-0">
                             {unread}
                           </p>
                         );

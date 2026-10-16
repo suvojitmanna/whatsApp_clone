@@ -298,6 +298,7 @@ const AllMediaPage = () => {
         chatId={selectedChat === "all" ? null : selectedChat}
         contact={activePeer}
         initialTab="media"
+        isMobile={isMobile}
         onClose={() => {
           if (isMobile) {
             setIsViewingMediaOnMobile(false);

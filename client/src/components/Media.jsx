@@ -326,10 +326,25 @@ const Media = ({
   mode = "page",
   initialTab = "media",
   hideHeader = false,
+  isMobile: propIsMobile,
 }) => {
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const navigate = useNavigate();
+
+  const [isMobileState, setIsMobileState] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileState(window.innerWidth < 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const isMobile = propIsMobile !== undefined ? Boolean(propIsMobile) : isMobileState;
 
   const [activeTab, setActiveTab] = useState(initialTab);
   const [scope, setScope] = useState(contact || chatId ? "chat" : "all"); // "chat" | "all"

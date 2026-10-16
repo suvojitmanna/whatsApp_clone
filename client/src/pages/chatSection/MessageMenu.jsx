@@ -77,9 +77,11 @@ const MessageMenu = ({
                 {onEnterSelectMode && (
                     <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             setShowOptions?.(false);
-                            onEnterSelectMode(message._id || message.temp);
+                            onEnterSelectMode(message._id?._id || message._id || message.temp);
                         }}
                         className={itemClass}
                     >
@@ -307,9 +309,11 @@ const MessageMenu = ({
 
             <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setShowOptions?.(false);
-                    onEnterSelectMode?.(message._id);
+                    onEnterSelectMode?.(message._id?._id || message._id || message.temp);
                 }}
                 className={itemClass}
             >

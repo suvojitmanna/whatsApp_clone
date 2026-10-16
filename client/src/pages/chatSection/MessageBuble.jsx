@@ -827,15 +827,23 @@ const MessageBuble = ({
     );
   };
 
-  if (!message) return null;
+  if (!message || isDisappearingExpired) return null;
   const msgDOMId = (message?._id?._id || message?._id || message?.temp)?.toString();
 
   return (
     <div
       id={msgDOMId ? `msg-${msgDOMId}` : undefined}
-      onClick={isSelectMode ? () => onToggleSelect?.(message._id || message.temp) : undefined}
+      onClick={
+        isSelectMode
+          ? (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleSelect?.(message._id?._id || message._id || message.temp);
+            }
+          : undefined
+      }
       className={`w-full relative flex items-center transition-colors duration-150 ${isSelectMode
-        ? `cursor-pointer select-none py-1.5 ${isSelected
+        ? `cursor-pointer select-none py-0.5 ${isSelected
           ? isDark
             ? "bg-[#111b21]/60"
             : "bg-black/[0.06]"
@@ -843,12 +851,19 @@ const MessageBuble = ({
             ? "hover:bg-[#111b21]/40"
             : "hover:bg-black/[0.03]"
         }`
-        : "!py-0"
+        : "py-0.5"
         } ${isActive ? "z-10" : ""} ${isFirstInSequence ? "mt-2" : "mt-[2.5px]"}`}
       data-match={dataMatch ? "true" : "false"}
     >
       {isSelectMode && (
-        <div className="shrink-0 pl-6 sm:pl-7 pr-3 flex items-center justify-center select-none">
+        <div
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleSelect?.(message._id?._id || message._id || message.temp);
+          }}
+          className="shrink-0 pl-6 sm:pl-7 pr-3 flex items-center justify-center select-none cursor-pointer"
+        >
           <div
             className={`w-[18px] h-[18px] rounded-[3px] border-[1.5px] flex items-center justify-center transition-all duration-150 ${isSelected
               ? "bg-[#00a884] border-[#00a884] text-white shadow-sm"
@@ -873,12 +888,8 @@ const MessageBuble = ({
 
       <div
         className={`flex-1 flex min-w-0 ${isUserMessage
-          ? isSelectMode
-            ? "justify-end pr-4 sm:pr-8 md:pr-10"
-            : "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
-          : isSelectMode
-            ? "justify-start pr-4 sm:pr-8 md:pr-10 pl-1 sm:pl-2"
-            : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
+          ? "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
+          : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
           }`}
       >
         <div

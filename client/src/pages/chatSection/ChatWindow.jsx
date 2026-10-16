@@ -349,6 +349,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       // 1. Kept or starred messages NEVER disappear
       if (msg.isKept || msg.isStarred) return true;
 
+      // 1b. If sender forcefully deleted for everyone, keep the tombstone
+      if (msg.deletedForEveryone) return true;
+
       // 2. Messages explicitly marked non-disappearing NEVER disappear
       if (msg.isDisappearing === false) return true;
 
@@ -463,6 +466,16 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     const isMsgDeleted = (msg) => {
       if (!msg) return true;
+      if (msg.isDisappearing && !msg.isKept && !msg.deletedForEveryone) {
+        const dur = msg.disappearingDuration || disappearingDuration;
+        const durMs = getDisappearingDurationMs(dur);
+        const expTime = msg.disappearingExpiresAt
+          ? new Date(msg.disappearingExpiresAt).getTime()
+          : (msg.createdAt && durMs ? new Date(msg.createdAt).getTime() + durMs : null);
+        if (expTime && Date.now() >= expTime) {
+          return true;
+        }
+      }
       if (msg.deletedForEveryone) return true;
       if (
         msg.content === "This message was deleted" ||
@@ -559,17 +572,73 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleToggleSelectMessage = (msgId) => {
     if (!msgId) return;
     const idStr = String(msgId);
+    const container = messagesContainerRef.current;
+    const currentScrollTop = container ? container.scrollTop : null;
+
+    isProgrammaticScrollRef.current = true;
     setSelectedMessageIds((prev) =>
       prev.includes(idStr) ? prev.filter((id) => id !== idStr) : [...prev, idStr]
     );
+
+    if (container && currentScrollTop !== null) {
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = currentScrollTop;
+        }
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 80);
+      });
+    } else {
+      isProgrammaticScrollRef.current = false;
+    }
   };
 
   const handleEnterSelectMode = (initialMsgId) => {
+    const container = messagesContainerRef.current;
+    const currentScrollTop = container ? container.scrollTop : null;
+
+    isProgrammaticScrollRef.current = true;
     setIsSelectMode(true);
     if (initialMsgId) {
       setSelectedMessageIds([String(initialMsgId)]);
     } else {
       setSelectedMessageIds([]);
+    }
+
+    if (container && currentScrollTop !== null) {
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = currentScrollTop;
+        }
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 80);
+      });
+    } else {
+      isProgrammaticScrollRef.current = false;
+    }
+  };
+
+  const handleExitSelectMode = () => {
+    const container = messagesContainerRef.current;
+    const currentScrollTop = container ? container.scrollTop : null;
+
+    isProgrammaticScrollRef.current = true;
+    setIsSelectMode(false);
+    setSelectedMessageIds([]);
+
+    if (container && currentScrollTop !== null) {
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = currentScrollTop;
+        }
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 80);
+      });
+    } else {
+      isProgrammaticScrollRef.current = false;
     }
   };
 
@@ -582,8 +651,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (!isSelectMode) return;
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        setIsSelectMode(false);
-        setSelectedMessageIds([]);
+        handleExitSelectMode();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -671,8 +739,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       toast.error("Failed to delete some messages");
     } finally {
       setShowDeleteSelectedModal(false);
-      setIsSelectMode(false);
-      setSelectedMessageIds([]);
+      handleExitSelectMode();
     }
   };
 
@@ -1144,6 +1211,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         return;
       }
 
+      if (isSelectMode) return;
+
       const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
       if (isAtBottom) {
         isProgrammaticScrollRef.current = true;
@@ -1153,7 +1222,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         });
       }
     }
-  }, [messages, isMessagesLoading, selectedContact?._id]);
+  }, [messages, isMessagesLoading, selectedContact?._id, isSelectMode]);
 
   useEffect(() => {
     if (message && selectedContact) {
@@ -2006,7 +2075,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           <div
             ref={messagesContainerRef}
             onScroll={handleMessageScroll}
-            className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
+            className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto [overflow-anchor:none] custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
               }`}
             style={{
               backgroundColor:
@@ -2217,10 +2286,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               <div className="flex items-center gap-6 select-none">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsSelectMode(false);
-                    setSelectedMessageIds([]);
-                  }}
+                  onClick={handleExitSelectMode}
                   className={`p-1.5 rounded-full border border-transparent transition-all cursor-pointer active:scale-95 ${theme === "dark"
                     ? "text-[#aebac1] hover:text-white hover:bg-white/10 hover:border-white/15"
                     : "text-gray-600 hover:text-gray-900 hover:bg-black/5 hover:border-black/10"
@@ -2778,8 +2844,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           isOpen={showForwardSelectedModal}
           onClose={() => {
             setShowForwardSelectedModal(false);
-            setIsSelectMode(false);
-            setSelectedMessageIds([]);
+            handleExitSelectMode();
           }}
           messages={selectedMsgsList}
           theme={theme}
@@ -2920,8 +2985,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         messages={messages}
         onSearchClick={() => setIsSearchOpen(true)}
         onSelectMessages={() => {
-          setIsSelectMode(true);
-          setSelectedMessageIds([]);
+          handleEnterSelectMode();
         }}
         onStartCall={(type) => {
           if (type === "video") handleVideoCall();

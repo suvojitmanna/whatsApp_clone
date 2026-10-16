@@ -657,6 +657,7 @@ function initializeSocket(server) {
       const now = new Date();
       const expiredMsgs = await Message.find({
         isKept: { $ne: true },
+        deletedForEveryone: { $ne: true },
         isDisappearing: true,
         disappearingExpiresAt: { $ne: null, $lte: now },
       })

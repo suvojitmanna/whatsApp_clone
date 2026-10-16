@@ -431,6 +431,7 @@ exports.getMessages = async (req, res) => {
       {
         conversation: conversationId,
         isKept: { $ne: true },
+        deletedForEveryone: { $ne: true },
         isDisappearing: true,
         disappearingExpiresAt: { $ne: null, $lte: now },
       },
@@ -446,6 +447,7 @@ exports.getMessages = async (req, res) => {
       expiredConditions.push({
         conversation: conversationId,
         isKept: { $ne: true },
+        deletedForEveryone: { $ne: true },
         isDisappearing: true,
         disappearingExpiresAt: null,
         createdAt: {
