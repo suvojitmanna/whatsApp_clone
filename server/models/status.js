@@ -13,6 +13,15 @@ const statusSchema = new mongoose.Schema(
     mediaUrl: {
       type: String,
     },
+    mediaPublicId: {
+      type: String,
+      default: null,
+    },
+    mediaResourceType: {
+      type: String,
+      default: null,
+    },
+
     contentType: {
       type: String,
       enum: ["text", "image", "video"],

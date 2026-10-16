@@ -771,7 +771,7 @@ const ChatHeaderMenu = ({
               </button>
 
               <div
-                className={`my-1 border-t ${isDark ? "border-[#2a3942]/80" : "border-black/10"
+                className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"
                   }`}
               />
               <button
@@ -796,7 +796,7 @@ const ChatHeaderMenu = ({
               </button>
 
               <div
-                className={`my-1 border-t ${isDark ? "border-[#2a3942]/80" : "border-black/10"
+                className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"
                   }`}
               />
 

@@ -17,7 +17,6 @@ const useUserStore = create(
           isAuthenticated: true,
         });
 
-        // Notify chatStore dynamically to prevent circular dependency
         import("./chatStore")
           .then((mod) => {
             const store = mod.useChatStore || mod.default;

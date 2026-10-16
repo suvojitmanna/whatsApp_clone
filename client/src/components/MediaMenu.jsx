@@ -47,20 +47,16 @@ const MediaMenu = ({
 
   if (!isOpen || !item) return null;
 
-  // Smart viewport bound positioning
   const menuWidth = 210;
   const menuHeight = 380;
   let top = position?.top || 0;
   let left = position?.left || 0;
 
   if (typeof window !== "undefined") {
-    // If overflowing right
     if (left + menuWidth > window.innerWidth - 12) {
       left = window.innerWidth - menuWidth - 12;
     }
     if (left < 12) left = 12;
-
-    // If overflowing bottom, flip upwards
     if (top + menuHeight > window.innerHeight - 12) {
       const buttonTop = position?.buttonTop || top;
       top = Math.max(12, buttonTop - menuHeight - 4);
@@ -101,7 +97,6 @@ const MediaMenu = ({
             : "bg-white border-gray-200 text-[#3b4a54] shadow-[0_4px_24px_rgba(0,0,0,0.18)]"
             }`}
         >
-          {/* 1. Select */}
           <button
             type="button"
             onClick={() => handleAction(onSelect)}
@@ -112,7 +107,6 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              {/* Checkbox icon matching screenshot */}
               <svg
                 viewBox="0 0 24 24"
                 width="18"
@@ -130,13 +124,11 @@ const MediaMenu = ({
             <span className="leading-tight">Select</span>
           </button>
 
-          {/* Divider */}
           <div
             className={`my-1 border-t ${isDark ? "border-[#374248]/70" : "border-gray-200"
               }`}
           />
 
-          {/* 2. Go to message */}
           <button
             type="button"
             onClick={() => handleAction(onGoToMessage)}
@@ -147,7 +139,6 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              {/* Message bubble with text lines */}
               <svg
                 viewBox="0 0 24 24"
                 width="18"
@@ -166,7 +157,6 @@ const MediaMenu = ({
             <span className="leading-tight">Go to message</span>
           </button>
 
-          {/* 3. Reply */}
           <button
             type="button"
             onClick={() => handleAction(onReply)}
@@ -177,7 +167,6 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              {/* Curved reply arrow */}
               <svg
                 viewBox="0 0 24 24"
                 width="18"
@@ -195,7 +184,6 @@ const MediaMenu = ({
             <span className="leading-tight">Reply</span>
           </button>
 
-          {/* 4. Reply privately (shown if applicable) */}
           {canReplyPrivately && (
             <button
               type="button"
@@ -207,7 +195,6 @@ const MediaMenu = ({
                 className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                   }`}
               >
-                {/* Person avatar with reply arrow matching screenshot */}
                 <svg
                   viewBox="0 0 24 24"
                   width="18"
@@ -228,7 +215,6 @@ const MediaMenu = ({
             </button>
           )}
 
-          {/* 5. Download */}
           <button
             type="button"
             onClick={() => handleAction(onDownload)}
@@ -239,7 +225,6 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              {/* Download tray */}
               <svg
                 viewBox="0 0 24 24"
                 width="18"
@@ -258,7 +243,6 @@ const MediaMenu = ({
             <span className="leading-tight">Download</span>
           </button>
 
-          {/* 6. Copy */}
           <button
             type="button"
             onClick={() => handleAction(onCopy)}
@@ -269,7 +253,6 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              {/* Copy documents icon */}
               <svg
                 viewBox="0 0 24 24"
                 width="18"
@@ -287,7 +270,6 @@ const MediaMenu = ({
             <span className="leading-tight">Copy</span>
           </button>
 
-          {/* 7. Forward */}
           <button
             type="button"
             onClick={() => handleAction(onForward)}
@@ -298,7 +280,6 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              {/* Double curved forward arrow matching screenshot */}
               <svg
                 viewBox="0 0 24 24"
                 width="18"
@@ -317,7 +298,6 @@ const MediaMenu = ({
             <span className="leading-tight">Forward</span>
           </button>
 
-          {/* 8. Star / Unstar */}
           <button
             type="button"
             onClick={() => handleAction(onToggleStar)}
@@ -350,13 +330,11 @@ const MediaMenu = ({
             </span>
           </button>
 
-          {/* Divider */}
           <div
             className={`my-1 border-t ${isDark ? "border-[#374248]/70" : "border-gray-200"
               }`}
           />
 
-          {/* 9. Delete (soft pinkish-red text and icon) */}
           <button
             type="button"
             onClick={() => handleAction(onDelete)}

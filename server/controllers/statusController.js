@@ -1,4 +1,7 @@
-const { uploadFileToCloudinary } = require("../config/cloudinary");
+const {
+  uploadFileToCloudinary,
+  deleteFileFromCloudinary,
+} = require("../config/cloudinary");
 const response = require("../utils/responseHandeler.js");
 const Message = require("../models/message.js");
 const Status = require("../models/status.js");
@@ -12,6 +15,9 @@ exports.createStatus = async (req, res) => {
     let mediaUrl = null;
     let finalContentType = contentType || "text";
 
+    let mediaPublicId = null;
+    let mediaResourceType = null;
+
     if (file) {
       const uploadFile = await uploadFileToCloudinary(file);
 
@@ -20,6 +26,8 @@ exports.createStatus = async (req, res) => {
       }
 
       mediaUrl = uploadFile.secure_url;
+      mediaPublicId = uploadFile.public_id || null;
+      mediaResourceType = uploadFile.resource_type || null;
 
       if (file.mimetype.startsWith("image")) {
         finalContentType = "image";
@@ -42,6 +50,8 @@ exports.createStatus = async (req, res) => {
       user: userId,
       content: mediaUrl ? null : content.trim(),
       mediaUrl,
+      mediaPublicId,
+      mediaResourceType,
       contentType: finalContentType,
       expireAt,
     });
@@ -53,20 +63,12 @@ exports.createStatus = async (req, res) => {
     if (req.io && req.socketUserMap instanceof Map) {
       for (const [connectedUserId, socketId] of req.socketUserMap.entries()) {
         if (String(connectedUserId) !== userId) {
-          req.io.to(socketId).emit(
-            "new_status",
-            populatedStatus.toObject()
-          );
+          req.io.to(socketId).emit("new_status", populatedStatus.toObject());
         }
       }
     }
 
-    return response(
-      res,
-      201,
-      "Status created successfully",
-      populatedStatus
-    );
+    return response(res, 201, "Status created successfully", populatedStatus);
   } catch (error) {
     console.error("CREATE STATUS ERROR:", error);
     return response(res, 500, "Internal server error");
@@ -100,7 +102,7 @@ exports.viewStatus = async (req, res) => {
     }
     if (status.user.toString() !== userId) {
       const alreadyViewed = status.viewers.some(
-        (v) => v.user.toString() === userId
+        (v) => v.user.toString() === userId,
       );
       if (!alreadyViewed) {
         status.viewers.push({
@@ -114,7 +116,7 @@ exports.viewStatus = async (req, res) => {
           .populate("viewers.user", "username profilePicture");
         if (req.io && req.socketUserMap) {
           const statusOwnerSocketId = req.socketUserMap.get(
-            status.user.toString()
+            status.user.toString(),
           );
           if (statusOwnerSocketId) {
             req.io.to(statusOwnerSocketId).emit("status_viewed", {
@@ -151,6 +153,15 @@ exports.deleteStatus = async (req, res) => {
     if (String(status.user) !== String(userId)) {
       return response(res, 403, "Unauthorized to delete this status");
     }
+
+    if (status.mediaUrl) {
+      deleteFileFromCloudinary({
+        url: status.mediaUrl,
+        publicId: status.mediaPublicId,
+        resourceType: status.mediaResourceType,
+      }).catch((err) => console.error("Cloudinary status delete error:", err));
+    }
+
     await Status.deleteOne({ _id: statusId });
     if (req.io && req.socketUserMap instanceof Map) {
       for (const [connectedUserId, socketId] of req.socketUserMap) {
@@ -184,8 +195,7 @@ exports.statusReaction = async (req, res) => {
     }
 
     const existingReaction = status.reactions.find(
-      (reaction) =>
-        String(reaction.user) === String(userId)
+      (reaction) => String(reaction.user) === String(userId),
     );
 
     if (existingReaction) {
@@ -202,13 +212,11 @@ exports.statusReaction = async (req, res) => {
 
     const updatedStatus = await Status.findById(statusId).populate(
       "reactions.user",
-      "username profilePicture"
+      "username profilePicture",
     );
 
     if (req.io && req.socketUserMap instanceof Map) {
-      const ownerSocketId = req.socketUserMap.get(
-        String(status.user)
-      );
+      const ownerSocketId = req.socketUserMap.get(String(status.user));
 
       if (ownerSocketId) {
         req.io.to(ownerSocketId).emit("status_reaction_updated", {
@@ -218,12 +226,7 @@ exports.statusReaction = async (req, res) => {
       }
     }
 
-    return response(
-      res,
-      200,
-      "Reaction updated",
-      updatedStatus
-    );
+    return response(res, 200, "Reaction updated", updatedStatus);
   } catch (error) {
     console.error("STATUS REACTION ERROR:", error);
     return response(res, 500, "Internal server error");

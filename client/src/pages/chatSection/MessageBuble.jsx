@@ -1284,12 +1284,81 @@ const MessageBuble = ({
                       className="relative group/img cursor-pointer overflow-hidden rounded-xl"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setViewerModalFile({
-                          url: message.imageOrVideoUrl,
-                          name: message.fileName || "image.jpg",
-                          type: "image",
-                          size: message.fileSize,
-                        });
+                        try {
+                          const allMsgs = useChatStore.getState()?.messages || [];
+                          const mediaMsgs = allMsgs
+                            .filter(
+                              (m) =>
+                                m &&
+                                m.imageOrVideoUrl &&
+                                (m.contentType === "image" ||
+                                  m.contentType === "video")
+                            )
+                            .map((m) => {
+                              const sId = (m.sender?._id || m.sender?.id || m.sender)?.toString();
+                              return {
+                                _id: m._id,
+                                messageId: m._id,
+                                url: m.imageOrVideoUrl,
+                                name:
+                                  m.fileName ||
+                                  (m.contentType === "video"
+                                    ? "video.mp4"
+                                    : "image.jpg"),
+                                type:
+                                  m.contentType === "video"
+                                    ? "video/mp4"
+                                    : "image/jpeg",
+                                size: m.fileSize,
+                                createdAt: m.createdAt,
+                                sender: m.sender,
+                                isUserMessage: Boolean(currentUserId && sId && sId === currentUserId),
+                              };
+                            });
+
+                          let idx = mediaMsgs.findIndex(
+                            (m) => String(m._id || m.messageId) === String(message._id)
+                          );
+                          if (idx === -1) {
+                            mediaMsgs.push({
+                              _id: message._id,
+                              messageId: message._id,
+                              url: message.imageOrVideoUrl,
+                              name: message.fileName || "image.jpg",
+                              type: "image/jpeg",
+                              size: message.fileSize,
+                              createdAt: message.createdAt,
+                              sender: message.sender,
+                              isUserMessage: isUserMessage,
+                            });
+                            idx = mediaMsgs.length - 1;
+                          }
+
+                          setViewerModalFile({
+                            url: message.imageOrVideoUrl,
+                            name: message.fileName || "image.jpg",
+                            type: "image",
+                            size: message.fileSize,
+                            sender: message.sender,
+                            createdAt: message.createdAt,
+                            messageId: message._id,
+                            isUserMessage: isUserMessage,
+                            items: mediaMsgs.length > 0 ? mediaMsgs : undefined,
+                            initialIndex: idx >= 0 ? idx : 0,
+                          });
+                        } catch (err) {
+                          console.error("Error opening image viewer modal:", err);
+                          setViewerModalFile({
+                            url: message.imageOrVideoUrl,
+                            name: message.fileName || "image.jpg",
+                            type: "image",
+                            size: message.fileSize,
+                            sender: message.sender,
+                            createdAt: message.createdAt,
+                            messageId: message._id,
+                            isUserMessage: isUserMessage,
+                          });
+                        }
                       }}
                       title="Click to view image"
                     >
@@ -1322,12 +1391,89 @@ const MessageBuble = ({
 
                 {message.contentType === "video" && (
                   <div className="max-w-full">
-                    <div className="relative rounded-xl overflow-hidden">
+                    <div className="relative rounded-xl overflow-hidden group/vid">
                       <video
                         src={message.imageOrVideoUrl}
                         controls
                         className="rounded-xl w-full max-w-[280px] sm:max-w-xs md:max-w-sm ring-1 ring-black/[0.06]"
                       />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try {
+                            const allMsgs = useChatStore.getState()?.messages || [];
+                            const mediaMsgs = allMsgs
+                              .filter(
+                                (m) =>
+                                  m &&
+                                  m.imageOrVideoUrl &&
+                                  (m.contentType === "image" ||
+                                    m.contentType === "video")
+                              )
+                              .map((m) => {
+                                const sId = (m.sender?._id || m.sender?.id || m.sender)?.toString();
+                                return {
+                                  _id: m._id,
+                                  messageId: m._id,
+                                  url: m.imageOrVideoUrl,
+                                  name: m.fileName || (m.contentType === "video" ? "video.mp4" : "image.jpg"),
+                                  type: m.contentType === "video" ? "video/mp4" : "image/jpeg",
+                                  size: m.fileSize,
+                                  createdAt: m.createdAt,
+                                  sender: m.sender,
+                                  isUserMessage: Boolean(currentUserId && sId && sId === currentUserId),
+                                };
+                              });
+
+                            let idx = mediaMsgs.findIndex(
+                              (m) => String(m._id || m.messageId) === String(message._id)
+                            );
+                            if (idx === -1) {
+                              mediaMsgs.push({
+                                _id: message._id,
+                                messageId: message._id,
+                                url: message.imageOrVideoUrl,
+                                name: message.fileName || "video.mp4",
+                                type: "video/mp4",
+                                size: message.fileSize,
+                                createdAt: message.createdAt,
+                                sender: message.sender,
+                                isUserMessage: isUserMessage,
+                              });
+                              idx = mediaMsgs.length - 1;
+                            }
+
+                            setViewerModalFile({
+                              url: message.imageOrVideoUrl,
+                              name: message.fileName || "video.mp4",
+                              type: "video",
+                              size: message.fileSize,
+                              sender: message.sender,
+                              createdAt: message.createdAt,
+                              messageId: message._id,
+                              isUserMessage: isUserMessage,
+                              items: mediaMsgs.length > 0 ? mediaMsgs : undefined,
+                              initialIndex: idx >= 0 ? idx : 0,
+                            });
+                          } catch (err) {
+                            setViewerModalFile({
+                              url: message.imageOrVideoUrl,
+                              name: message.fileName || "video.mp4",
+                              type: "video",
+                              size: message.fileSize,
+                              sender: message.sender,
+                              createdAt: message.createdAt,
+                              messageId: message._id,
+                              isUserMessage: isUserMessage,
+                            });
+                          }
+                        }}
+                        className="absolute top-2 left-2 z-10 px-2 py-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-[11px] font-medium flex items-center gap-1 shadow opacity-0 group-hover/vid:opacity-100 transition-opacity cursor-pointer"
+                        title="Open video in full viewer"
+                      >
+                        <FaEye size={12} /> Full view
+                      </button>
                       {!message.content && (
                         <div className="absolute top-2 right-2 pointer-events-auto">
                           {renderTimestampAndStatus(true)}
@@ -2241,6 +2387,8 @@ const MessageBuble = ({
               isOpen={Boolean(viewerModalFile)}
               onClose={() => setViewerModalFile(null)}
               file={viewerModalFile}
+              items={viewerModalFile.items}
+              initialIndex={viewerModalFile.initialIndex || 0}
               theme={theme}
             />
           )}

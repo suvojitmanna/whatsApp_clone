@@ -865,6 +865,10 @@ const Media = ({
 
     if (activeTab === "media") {
       const isVideo = item.mediaType === "video";
+      const mediaList = mediaData?.media || [];
+      const idx = mediaList.findIndex(
+        (m) => (m.messageId || m._id) === (item.messageId || item._id)
+      );
       setViewerFile({
         name: attachedMsg || (isVideo ? "Video" : "Photo"),
         caption: attachedMsg,
@@ -872,10 +876,20 @@ const Media = ({
         type: isVideo ? "video/mp4" : "image/jpeg",
         createdAt: item.createdAt,
         sender: item.sender,
+        messageId: item.messageId || item._id,
+        items: mediaList,
+        initialIndex: idx >= 0 ? idx : 0,
       });
       setShowViewer(true);
     } else if (activeTab === "docs") {
-      const docName = item.docName || item.fileName || (item._isDecrypted ? item.content : "Document");
+      const docName =
+        item.docName ||
+        item.fileName ||
+        (item._isDecrypted ? item.content : "Document");
+      const docsList = mediaData?.docs || [];
+      const idx = docsList.findIndex(
+        (d) => (d.messageId || d._id) === (item.messageId || item._id)
+      );
       setViewerFile({
         name: docName,
         caption: attachedMsg,
@@ -883,6 +897,9 @@ const Media = ({
         type: "pdf",
         createdAt: item.createdAt,
         sender: item.sender,
+        messageId: item.messageId || item._id,
+        items: docsList,
+        initialIndex: idx >= 0 ? idx : 0,
       });
       setShowViewer(true);
     }
@@ -942,7 +959,6 @@ const Media = ({
       return;
     }
 
-    // For documents, links or video files, copy attached caption or content
     const attached = getAttachedMessage(item);
     const textToCopy = attached || url || item?.docName || "";
     if (textToCopy && navigator.clipboard?.writeText) {
@@ -2164,6 +2180,8 @@ const Media = ({
             setViewerFile(null);
           }}
           file={viewerFile}
+          items={viewerFile.items}
+          initialIndex={viewerFile.initialIndex || 0}
           theme={theme}
         />
       )}

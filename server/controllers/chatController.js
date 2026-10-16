@@ -1,4 +1,8 @@
-const { uploadFileToCloudinary } = require("../config/cloudinary");
+const {
+  uploadFileToCloudinary,
+  deleteFileFromCloudinary,
+  deleteMultipleFilesFromCloudinary,
+} = require("../config/cloudinary");
 const response = require("../utils/responseHandeler.js");
 const Message = require("../models/message.js");
 const Conversation = require("../models/ConverSation.js");
@@ -95,12 +99,17 @@ exports.sendMessage = async (req, res) => {
       } catch (e) {}
     }
 
+    let mediaPublicId = null;
+    let mediaResourceType = null;
+
     if (file) {
       const uploadFile = await uploadFileToCloudinary(file);
       if (!uploadFile?.secure_url) {
         return response(res, 400, "Failed to upload file");
       }
       imageOrVideoUrl = uploadFile?.secure_url;
+      mediaPublicId = uploadFile?.public_id || null;
+      mediaResourceType = uploadFile?.resource_type || null;
       if (customContentType) {
         contentType = customContentType;
       } else if (file.mimetype.startsWith("image")) {
@@ -223,6 +232,8 @@ exports.sendMessage = async (req, res) => {
       isEncrypted: isEncrypted === true || isEncrypted === "true",
       iv: iv || null,
       imageOrVideoUrl,
+      mediaPublicId,
+      mediaResourceType,
       fileName: fileName || file?.originalname,
       fileSize:
         fileSize || (file ? `${(file.size / 1024).toFixed(1)} KB` : null),
@@ -675,6 +686,46 @@ exports.deleteMessage = async (req, res) => {
           },
         },
       );
+      if (message.imageOrVideoUrl) {
+        const conv = await Conversation.findById(message.conversation).select(
+          "participants",
+        );
+        const participants = (
+          conv?.participants || [message.sender, message.receiver]
+        ).map((p) => p.toString());
+        const updatedDeletedFor = [
+          ...(message.deletedFor || []).map((d) => d.toString()),
+          userId.toString(),
+        ];
+        const allParticipantsDeleted =
+          participants.length > 0 &&
+          participants.every((p) => updatedDeletedFor.includes(p));
+
+        const isSelfChat =
+          message.sender.toString() === message.receiver.toString();
+        const shouldDeleteMedia =
+          allParticipantsDeleted ||
+          isSelfChat ||
+          req.body.deleteMedia === true ||
+          req.body.deleteFromCloudinary === true;
+
+        if (shouldDeleteMedia) {
+          const otherMsg = await Message.exists({
+            _id: { $ne: message._id },
+            imageOrVideoUrl: message.imageOrVideoUrl,
+            deletedForEveryone: { $ne: true },
+          });
+          if (!otherMsg) {
+            deleteFileFromCloudinary({
+              url: message.imageOrVideoUrl,
+              publicId: message.mediaPublicId,
+              resourceType: message.mediaResourceType,
+            }).catch((err) =>
+              console.error("Cloudinary delete for me error:", err),
+            );
+          }
+        }
+      }
 
       const previousMessage = await Message.findOne({
         conversation: message.conversation,
@@ -706,12 +757,31 @@ exports.deleteMessage = async (req, res) => {
         return response(res, 403, "Only sender can delete for everyone");
       }
 
+      if (message.imageOrVideoUrl) {
+        const otherMsg = await Message.exists({
+          _id: { $ne: message._id },
+          imageOrVideoUrl: message.imageOrVideoUrl,
+          deletedForEveryone: { $ne: true },
+        });
+        if (!otherMsg) {
+          deleteFileFromCloudinary({
+            url: message.imageOrVideoUrl,
+            publicId: message.mediaPublicId,
+            resourceType: message.mediaResourceType,
+          }).catch((err) =>
+            console.error("Cloudinary delete for everyone error:", err),
+          );
+        }
+      }
+
       message.deletedForEveryone = true;
       message.content = "This message was deleted";
       message.contentType = "text";
       message.isEncrypted = false;
       message.iv = null;
       message.imageOrVideoUrl = null;
+      message.mediaPublicId = null;
+      message.mediaResourceType = null;
       message.fileName = null;
       message.fileSize = null;
       message.pollData = null;
@@ -1220,6 +1290,50 @@ exports.getBlockedUsers = async (req, res) => {
   }
 };
 
+const cleanupOrphanedMedia = async (query) => {
+  try {
+    const candidates = await Message.find({
+      ...query,
+      imageOrVideoUrl: { $ne: null },
+    })
+      .select(
+        "_id conversation sender receiver deletedFor deletedForEveryone imageOrVideoUrl mediaPublicId mediaResourceType",
+      )
+      .lean();
+
+    if (!candidates || candidates.length === 0) return;
+
+    for (const msg of candidates) {
+      const participants = [
+        msg.sender?.toString(),
+        msg.receiver?.toString(),
+      ].filter(Boolean);
+      const deletedForList = (msg.deletedFor || []).map((d) => d.toString());
+      const isCompletelyDeleted =
+        msg.deletedForEveryone ||
+        (participants.length > 0 &&
+          participants.every((p) => deletedForList.includes(p)));
+
+      if (isCompletelyDeleted && msg.imageOrVideoUrl) {
+        const otherMsg = await Message.exists({
+          _id: { $ne: msg._id },
+          imageOrVideoUrl: msg.imageOrVideoUrl,
+          deletedForEveryone: { $ne: true },
+        });
+        if (!otherMsg) {
+          deleteFileFromCloudinary({
+            url: msg.imageOrVideoUrl,
+            publicId: msg.mediaPublicId,
+            resourceType: msg.mediaResourceType,
+          }).catch((e) => console.error("Cloudinary cleanup error:", e));
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error in cleanupOrphanedMedia:", err);
+  }
+};
+
 exports.clearChat = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId, targetUserId } = req.body;
@@ -1270,6 +1384,8 @@ exports.clearChat = async (req, res) => {
     await Message.updateMany(messageQuery, {
       $addToSet: { deletedFor: userId },
     });
+
+    cleanupOrphanedMedia(messageQuery);
 
     if (conv) {
       await Conversation.findByIdAndUpdate(conv._id, {
@@ -1341,6 +1457,7 @@ exports.deleteChat = async (req, res) => {
     await Message.updateMany(messageQuery, {
       $addToSet: { deletedFor: userId },
     });
+    cleanupOrphanedMedia(messageQuery);
 
     if (conv) {
       await Conversation.findByIdAndUpdate(conv._id, {

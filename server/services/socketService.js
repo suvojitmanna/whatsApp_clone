@@ -4,6 +4,7 @@ const Message = require("../models/message");
 const Conversation = require("../models/ConverSation");
 const handleVideoCallEvent = require("./videoCallService");
 const socketMiddleware = require("../middleware/socketMiddleware");
+const { deleteFileFromCloudinary } = require("../config/cloudinary");
 
 const onlineUsers = new Map();
 const typingUsers = new Map();
@@ -658,10 +659,24 @@ function initializeSocket(server) {
         isDisappearing: true,
         disappearingExpiresAt: { $ne: null, $lte: now },
       })
-        .select("_id conversation sender receiver")
+        .select(
+          "_id conversation sender receiver imageOrVideoUrl mediaPublicId mediaResourceType",
+        )
         .lean();
 
       if (expiredMsgs && expiredMsgs.length > 0) {
+        for (const m of expiredMsgs) {
+          if (m.imageOrVideoUrl) {
+            deleteFileFromCloudinary({
+              url: m.imageOrVideoUrl,
+              publicId: m.mediaPublicId,
+              resourceType: m.mediaResourceType,
+            }).catch((e) =>
+              console.error("Cloudinary expiring message delete error:", e),
+            );
+          }
+        }
+
         const expiredIds = expiredMsgs.map((m) => m._id);
         await Message.deleteMany({ _id: { $in: expiredIds } });
 

@@ -1017,10 +1017,11 @@ const ContactInfo = () => {
               : "bg-white border-gray-200 text-gray-800"
             } shadow-2xl`}
         >
-          <div
-            className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
-              }`}
-          >
+          {contactInfoTab !== "media" && (
+            <div
+              className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
+                }`}
+            >
             <div className="flex items-center gap-3 min-w-0">
               {contactInfoTab === "info" ? (
                 <motion.button
@@ -1160,6 +1161,7 @@ const ContactInfo = () => {
               </motion.button>
             )}
           </div>
+          )}
           <AnimatePresence mode="wait">
             {contactInfoTab === "info" && (
               <motion.div
@@ -3115,8 +3117,9 @@ const ContactInfo = () => {
                   contact={selectedContact}
                   chatId={chatId}
                   mode="drawer"
-                  hideHeader={true}
+                  hideHeader={false}
                   onClose={() => setContactInfoTab("info")}
+                  onCloseDrawer={() => setShowContactInfo(false)}
                 />
               </motion.div>
             )}

@@ -2280,12 +2280,12 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  deleteMessage: async (messageId, deleteFor) => {
+  deleteMessage: async (messageId, deleteFor, options = {}) => {
     try {
       const { data } = await axiosInstance.delete(
         `/chat/messages/${messageId}`,
         {
-          data: { deleteFor },
+          data: { deleteFor, deleteMedia: true, ...options },
         },
       );
 

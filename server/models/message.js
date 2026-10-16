@@ -34,6 +34,14 @@ const messageSchema = new mongoose.Schema(
 
     content: String,
     imageOrVideoUrl: String,
+    mediaPublicId: {
+      type: String,
+      default: null,
+    },
+    mediaResourceType: {
+      type: String,
+      default: null,
+    },
 
     contentType: {
       type: String,
