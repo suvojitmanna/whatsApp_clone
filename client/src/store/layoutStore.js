@@ -27,6 +27,19 @@ const useLayoutStore = create(
       isChatSearchOpen: false,
       setIsChatSearchOpen: (val) => set({ isChatSearchOpen: val }),
 
+      isMediaModalOpen: false,
+      mediaModalScope: "all",
+      mediaModalContact: null,
+      mediaModalChatId: null,
+      openMediaModal: (options = {}) =>
+        set({
+          isMediaModalOpen: true,
+          mediaModalScope: options.scope || "all",
+          mediaModalContact: options.contact || null,
+          mediaModalChatId: options.chatId || null,
+        }),
+      closeMediaModal: () => set({ isMediaModalOpen: false }),
+
       selectedMessageInfo: null,
       setSelectedMessageInfo: (message) =>
         set({

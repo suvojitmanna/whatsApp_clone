@@ -1173,9 +1173,6 @@ export const useChatStore = create((set, get) => ({
 
         set((state) => {
           let updatedMessages;
-          // ONLY show "This message was deleted" if sender forcefully clicked "Delete for everyone"
-          // If message deleted because of disappearing (isDisappearingExpiry is true or !deletedForEveryone),
-          // completely remove it from state so it NEVER shows "This message was deleted"!
           if (deletedForEveryone && !isDisappearingExpiry) {
             updatedMessages = (state.messages || []).map((msg) => {
               if (String(msg._id) === String(deletedMessageId)) {
@@ -1220,34 +1217,35 @@ export const useChatStore = create((set, get) => ({
           if (conversationId) {
             const cached = cache.get(String(conversationId));
             if (cached) {
-              const updatedCached = (deletedForEveryone && !isDisappearingExpiry)
-                ? cached.map((m) => {
-                    if (String(m._id) === String(deletedMessageId)) {
-                      const sId = String(m.sender?._id || m.sender || "");
-                      const isMe = currentUserId && sId === currentUserId;
-                      return {
-                        ...m,
-                        ...(updatedMessage || {}),
-                        deletedForEveryone: true,
-                        content: isMe
-                          ? "You deleted this message"
-                          : "This message was deleted",
-                        isEncrypted: false,
-                        imageOrVideoUrl: null,
-                        fileName: null,
-                        fileSize: null,
-                        pollData: null,
-                        contactData: null,
-                        eventData: null,
-                        reactions: [],
-                        edited: false,
-                      };
-                    }
-                    return m;
-                  })
-                : cached.filter(
-                    (m) => String(m._id) !== String(deletedMessageId),
-                  );
+              const updatedCached =
+                deletedForEveryone && !isDisappearingExpiry
+                  ? cached.map((m) => {
+                      if (String(m._id) === String(deletedMessageId)) {
+                        const sId = String(m.sender?._id || m.sender || "");
+                        const isMe = currentUserId && sId === currentUserId;
+                        return {
+                          ...m,
+                          ...(updatedMessage || {}),
+                          deletedForEveryone: true,
+                          content: isMe
+                            ? "You deleted this message"
+                            : "This message was deleted",
+                          isEncrypted: false,
+                          imageOrVideoUrl: null,
+                          fileName: null,
+                          fileSize: null,
+                          pollData: null,
+                          contactData: null,
+                          eventData: null,
+                          reactions: [],
+                          edited: false,
+                        };
+                      }
+                      return m;
+                    })
+                  : cached.filter(
+                      (m) => String(m._id) !== String(deletedMessageId),
+                    );
               cache.set(String(conversationId), updatedCached);
             }
           }
@@ -1808,9 +1806,15 @@ export const useChatStore = create((set, get) => ({
       (selectedContact?.conversation?.disappearingDuration &&
         selectedContact.conversation.disappearingDuration !== "Off" &&
         selectedContact.conversation.disappearingDuration) ||
-      (conversationId && disappearingDurationsMap[conversationId] !== "Off" && disappearingDurationsMap[conversationId]) ||
-      (receiverId && disappearingDurationsMap[receiverId] !== "Off" && disappearingDurationsMap[receiverId]) ||
-      (layoutState.defaultMessageTimer && layoutState.defaultMessageTimer !== "Off" && layoutState.defaultMessageTimer);
+      (conversationId &&
+        disappearingDurationsMap[conversationId] !== "Off" &&
+        disappearingDurationsMap[conversationId]) ||
+      (receiverId &&
+        disappearingDurationsMap[receiverId] !== "Off" &&
+        disappearingDurationsMap[receiverId]) ||
+      (layoutState.defaultMessageTimer &&
+        layoutState.defaultMessageTimer !== "Off" &&
+        layoutState.defaultMessageTimer);
 
     let isDisappearing = false;
     let disappearingDuration = null;
@@ -1876,15 +1880,15 @@ export const useChatStore = create((set, get) => ({
             const targetConvId = conversationId ? String(conversationId) : null;
             const hasSender = Boolean(
               senderId &&
-                conv.participants?.some(
-                  (p) => String(p?._id || p) === String(senderId),
-                ),
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(senderId),
+              ),
             );
             const hasReceiver = Boolean(
               receiverId &&
-                conv.participants?.some(
-                  (p) => String(p?._id || p) === String(receiverId),
-                ),
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(receiverId),
+              ),
             );
             const isTarget =
               Boolean(targetConvId && String(conv._id) === targetConvId) ||
@@ -1917,8 +1921,10 @@ export const useChatStore = create((set, get) => ({
         isEncrypted: messageData.isEncrypted ?? isEncrypted,
         iv: messageData.iv ?? iv,
         isDisappearing: messageData.isDisappearing ?? isDisappearing,
-        disappearingDuration: messageData.disappearingDuration ?? disappearingDuration,
-        disappearingExpiresAt: messageData.disappearingExpiresAt ?? disappearingExpiresAt,
+        disappearingDuration:
+          messageData.disappearingDuration ?? disappearingDuration,
+        disappearingExpiresAt:
+          messageData.disappearingExpiresAt ?? disappearingExpiresAt,
         isKept: messageData.isKept ?? false,
       };
 
@@ -1940,18 +1946,20 @@ export const useChatStore = create((set, get) => ({
           conversations: {
             ...state.conversations,
             data: state.conversations?.data?.map((conv) => {
-              const targetConvId = resolvedConvId ? String(resolvedConvId) : null;
+              const targetConvId = resolvedConvId
+                ? String(resolvedConvId)
+                : null;
               const hasSender = Boolean(
                 senderId &&
-                  conv.participants?.some(
-                    (p) => String(p?._id || p) === String(senderId),
-                  ),
+                conv.participants?.some(
+                  (p) => String(p?._id || p) === String(senderId),
+                ),
               );
               const hasReceiver = Boolean(
                 receiverId &&
-                  conv.participants?.some(
-                    (p) => String(p?._id || p) === String(receiverId),
-                  ),
+                conv.participants?.some(
+                  (p) => String(p?._id || p) === String(receiverId),
+                ),
               );
               const isTarget =
                 Boolean(targetConvId && String(conv._id) === targetConvId) ||
@@ -2021,7 +2029,7 @@ export const useChatStore = create((set, get) => ({
       Boolean(
         activeContactId &&
         ((senderId === activeContactId && receiverId === myId) ||
-         (senderId === myId && receiverId === activeContactId)),
+          (senderId === myId && receiverId === activeContactId)),
       );
 
     const isForCurrentUser =
@@ -2080,15 +2088,15 @@ export const useChatStore = create((set, get) => ({
           data: state.conversations?.data?.map((conv) => {
             const hasSender = Boolean(
               senderId &&
-                conv.participants?.some(
-                  (p) => String(p?._id || p) === String(senderId),
-                ),
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(senderId),
+              ),
             );
             const hasReceiver = Boolean(
               receiverId &&
-                conv.participants?.some(
-                  (p) => String(p?._id || p) === String(receiverId),
-                ),
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(receiverId),
+              ),
             );
 
             const isTarget =
@@ -2292,9 +2300,7 @@ export const useChatStore = create((set, get) => ({
       }
 
       const previousMsg =
-        nextMessages.length > 0
-          ? nextMessages[nextMessages.length - 1]
-          : null;
+        nextMessages.length > 0 ? nextMessages[nextMessages.length - 1] : null;
 
       const serverLastMsg = data?.data?.lastMessage || data?.lastMessage;
       const selectedContact = useLayoutStore.getState()?.selectedContact;

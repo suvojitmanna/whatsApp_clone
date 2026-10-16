@@ -4,7 +4,7 @@ import useThemeStore from "../store/themeStore";
 import useUserStore from "../store/useUserStore";
 import useLayoutStore from "../store/layoutStore";
 import { FaWhatsapp, FaUserCircle, FaCog } from "react-icons/fa";
-import { MdRadioButtonChecked } from "react-icons/md";
+import { MdOutlineCall, MdRadioButtonChecked } from "react-icons/md";
 import { motion } from "framer-motion";
 import { WhatsAppMediaFolderIcon } from "./Media";
 
@@ -14,7 +14,8 @@ const sideBar = () => {
 
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const { activeTab, setActiveTab, selectedContact } = useLayoutStore();
+  const { activeTab, setActiveTab, selectedContact, isMediaModalOpen, openMediaModal } =
+    useLayoutStore();
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -31,7 +32,8 @@ const sideBar = () => {
   if (isMobile && selectedContact && isChatRoute) return null;
 
   const getIconClass = (tabName) => {
-    const isActive = activeTab === tabName;
+    const isActive =
+      activeTab === tabName || (tabName === "media" && isMediaModalOpen);
     return `relative transition-all duration-300 ease-in-out p-3 rounded-2xl flex items-center justify-center cursor-pointer border
       ${isActive
         ? theme === "dark"
@@ -59,6 +61,17 @@ const sideBar = () => {
           </motion.div>
         </Link>
 
+        <Link to="/calls" title="Calls" aria-label="Calls">
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            className={getIconClass("calls")}
+            title="Calls"
+          >
+            <MdOutlineCall className="h-6 w-6" />
+          </motion.div>
+        </Link>
+
         <Link to="/status" title="Status" aria-label="Status">
           <motion.div
             whileHover={{ scale: 1.1 }}
@@ -79,7 +92,16 @@ const sideBar = () => {
           : "flex flex-col gap-3 items-center"
           }`}
       >
-        <Link to="/media" title="Media, links and docs" aria-label="Media, links and docs">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            openMediaModal({ scope: "all" });
+          }}
+          title="Media, links and docs"
+          aria-label="Media, links and docs"
+          className="outline-none focus:outline-none cursor-pointer"
+        >
           <motion.div
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
@@ -88,7 +110,7 @@ const sideBar = () => {
           >
             <WhatsAppMediaFolderIcon size={23} />
           </motion.div>
-        </Link>
+        </button>
         <Link to="/user-profile" title="Profile" aria-label="Profile">
           <motion.div
             whileHover={{ scale: 1.1 }}

@@ -421,11 +421,6 @@ exports.getMessages = async (req, res) => {
     }
 
     const now = new Date();
-
-    // Clean up expired disappearing messages for this conversation
-    // Clean up expired disappearing messages for this conversation
-    // STRICT RULE: ONLY messages where isDisappearing is explicitly true and whose individual timer has expired!
-    // Old chat messages and messages sent before disappearing was enabled (isDisappearing: false/null) are NEVER touched!
     const durMs = getDisappearingDurationMs(conversation.disappearingDuration);
     const expiredConditions = [
       {
@@ -1429,14 +1424,14 @@ exports.getChatMedia = async (req, res) => {
         { content: { $regex: /https?:\/\/|www\./i } },
       ],
     })
-      .populate("sender", "username profilePicture")
-      .populate("receiver", "username profilePicture")
+      .populate("sender", "username phoneNumber profilePicture")
+      .populate("receiver", "username phoneNumber profilePicture")
       .populate({
         path: "conversation",
         select: "participants updatedAt",
         populate: {
           path: "participants",
-          select: "username profilePicture",
+          select: "username phoneNumber profilePicture",
         },
       })
       .sort({ createdAt: -1 })

@@ -290,7 +290,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     if (!isDisappearingActive && !hasDisappearingMsgs) return;
 
-    // Tick every 1s for precise real-time message disappearance at each message's specific expiration time
     const interval = setInterval(() => {
       setDisappearingTick((t) => t + 1);
     }, 1000);
@@ -342,26 +341,16 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const turnedOnTime = selectedContact?.conversation?.disappearingUpdatedAt
       ? new Date(selectedContact.conversation.disappearingUpdatedAt).getTime()
       : null;
-
-    // Filter out only expired disappearing messages:
-    // STRICT RULE: Messages sent BEFORE disappearing was turned on are NEVER filtered out or deleted!
     const validMsgs = rawMsgs.filter((msg) => {
-      // 1. Kept or starred messages NEVER disappear
       if (msg.isKept || msg.isStarred) return true;
-
-      // 1b. If sender forcefully deleted for everyone, keep the tombstone
       if (msg.deletedForEveryone) return true;
-
-      // 2. Messages explicitly marked non-disappearing NEVER disappear
       if (msg.isDisappearing === false) return true;
-
-      // 3. Messages explicitly marked as disappearing:
       if (msg.isDisappearing === true) {
         const expTime = msg.disappearingExpiresAt
           ? new Date(msg.disappearingExpiresAt).getTime()
           : null;
         if (expTime) {
-          return now < expTime; // Only visible until its own specific expiration time!
+          return now < expTime;
         }
         const dur = msg.disappearingDuration || disappearingDuration;
         const durMs = getDisappearingDurationMs(dur);
@@ -369,9 +358,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         const msgTime = new Date(msg.createdAt).getTime();
         return (now - msgTime) < durMs;
       }
-
-      // 4. Legacy or in-flight messages without isDisappearing flag:
-      // STRICT CHECK: Only consider if disappearing was turned ON AND message was sent AFTER it was turned ON!
       if (
         disappearingDuration &&
         disappearingDuration !== "Off" &&
@@ -383,9 +369,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         const msgTime = new Date(msg.createdAt).getTime();
         return (now - msgTime) < durMs;
       }
-
-      // 5. Older messages sent before disappearing was enabled or when it was Off:
-      // NEVER DISAPPEAR! Stay permanent in chat!
       return true;
     });
 
@@ -3024,8 +3007,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             transition={{ duration: 0.16, ease: "easeOut" }}
             onClick={(e) => e.stopPropagation()}
             className={`w-full max-w-[360px] sm:max-w-[400px] rounded-2xl p-6 shadow-2xl border select-none ${theme === "dark"
-                ? "bg-[#233138] border-white/10 text-white"
-                : "bg-white border-black/10 text-gray-900"
+              ? "bg-[#233138] border-white/10 text-white"
+              : "bg-white border-black/10 text-gray-900"
               }`}
           >
             <h3 className="text-lg font-semibold mb-2">Delete this chat?</h3>
@@ -3041,8 +3024,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${theme === "dark"
-                    ? "hover:bg-white/10 text-gray-300"
-                    : "hover:bg-black/5 text-gray-600"
+                  ? "hover:bg-white/10 text-gray-300"
+                  : "hover:bg-black/5 text-gray-600"
                   }`}
               >
                 Cancel

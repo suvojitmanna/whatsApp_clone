@@ -10,6 +10,7 @@ import ProfilePicture from "../components/profilePicture";
 import PollDetailsPanel from "../components/PollDetailsPanel";
 import MessageInfoPanel from "../components/MessageInfoPanel";
 import StatusPlaceholder from "./StatusPlaceholder";
+import MediaModal from "./MediaModal";
 
 const Layout = ({
   children,
@@ -37,6 +38,12 @@ const Layout = ({
   const setShowProfilePicture = useLayoutStore(
     (state) => state.setShowProfilePicture,
   );
+
+  const isMediaModalOpen = useLayoutStore((state) => state.isMediaModalOpen);
+  const mediaModalScope = useLayoutStore((state) => state.mediaModalScope);
+  const mediaModalContact = useLayoutStore((state) => state.mediaModalContact);
+  const mediaModalChatId = useLayoutStore((state) => state.mediaModalChatId);
+  const closeMediaModal = useLayoutStore((state) => state.closeMediaModal);
 
   const location = useLocation();
   const isChatPage = location.pathname === "/";
@@ -112,6 +119,14 @@ const Layout = ({
             username={selectedContact?.username}
           />
         )}
+
+        <MediaModal
+          isOpen={isMediaModalOpen}
+          scope={mediaModalScope}
+          contact={mediaModalContact}
+          chatId={mediaModalChatId}
+          onClose={closeMediaModal}
+        />
       </div>
 
       <AnimatePresence>

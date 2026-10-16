@@ -649,9 +649,6 @@ function initializeSocket(server) {
     socket.on("disconnect", handleDisconnected);
   });
 
-  // Periodic cleanup of expired disappearing messages (runs every 3 seconds)
-  // STRICT RULE: Only messages where isDisappearing is explicitly true and disappearingExpiresAt <= now
-  // Non-disappearing messages and messages sent before disappearing was enabled are NEVER touched!
   setInterval(async () => {
     try {
       const now = new Date();

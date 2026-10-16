@@ -29,6 +29,7 @@ import { useChatStore, getTargetUserId } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
 import ReportModal from "../../components/ReportModal";
 import BlockModal from "../../components/BlockModal";
+import { WhatsAppMediaFolderIcon } from "../../components/Media";
 
 const ChatHeaderMenu = ({
   isOpen,
@@ -48,6 +49,7 @@ const ChatHeaderMenu = ({
 }) => {
   const isDark = theme === "dark";
   const { user } = useUserStore();
+  const openMediaModal = useLayoutStore((state) => state.openMediaModal);
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -472,6 +474,25 @@ const ChatHeaderMenu = ({
                 <span className="truncate">
                   {selectedContact?.isGroup ? "Group info" : "Contact info"}
                 </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openMediaModal({
+                    scope: "chat",
+                    contact: selectedContact,
+                    chatId:
+                      selectedContact?.conversation?._id ||
+                      selectedContact?.conversation ||
+                      selectedContact?._id,
+                  });
+                }}
+                className={itemClass}
+              >
+                <WhatsAppMediaFolderIcon size={18} className="text-[#8696a0] shrink-0" />
+                <span>Media, links and docs</span>
               </button>
 
               <button

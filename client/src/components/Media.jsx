@@ -19,6 +19,7 @@ import {
 } from "react-icons/fa";
 import { FiDownload, FiExternalLink, FiTrash2, FiLink } from "react-icons/fi";
 import { HiOutlinePhotograph } from "react-icons/hi";
+import { LuSlidersHorizontal } from "react-icons/lu";
 import {
   MdOutlinePermMedia,
   MdFilterList,
@@ -176,7 +177,6 @@ const calculateTotalSize = (items) => {
   return formatDocSize(totalBytes) || "0 MB";
 };
 
-// Video thumbnail with metadata loading for accurate duration
 const VideoThumbnail = ({ src, item }) => {
   const [duration, setDuration] = useState(item.duration || null);
 
@@ -207,11 +207,9 @@ const VideoThumbnail = ({ src, item }) => {
   );
 };
 
-// Shimmer Skeleton Loader for Media, Docs, and Links
 const MediaSkeletonLoader = ({ activeTab, isDark }) => {
   return (
     <div className="space-y-6 select-none p-1">
-      {/* Date Header Skeleton */}
       <div className="space-y-1.5 px-1">
         <div
           className={`h-4 w-28 rounded-md animate-skeleton-shimmer ${isDark ? "bg-[#202c33]" : "bg-gray-200"
@@ -319,11 +317,170 @@ const MediaSkeletonLoader = ({ activeTab, isDark }) => {
   );
 };
 
+const getSenderDisplay = (item) => {
+  if (!item) return "";
+  const s = item.sender;
+  if (!s) return item.senderName || item.senderDisplay || "";
+  if (typeof s === "string") return s;
+  return (
+    s.phoneNumber ||
+    s.phoneSuffix ||
+    s.username ||
+    item.senderName ||
+    item.senderDisplay ||
+    ""
+  );
+};
+
+const FALLBACK_MEDIA = [
+  {
+    _id: "fb_m1",
+    mediaType: "image",
+    url: "https://images.unsplash.com/photo-1601055283742-8b27e81b5553?w=800&auto=format&fit=crop&q=80",
+    content: "Maha Shashthi 2026 Wishes & Blessings",
+    createdAt: new Date().toISOString(),
+    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
+  },
+  {
+    _id: "fb_m2",
+    mediaType: "image",
+    url: "https://images.unsplash.com/photo-1596178065887-1198b6148b2b?w=800&auto=format&fit=crop&q=80",
+    content: "Subho Maha Shashthi to everyone!",
+    createdAt: new Date().toISOString(),
+    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
+  },
+  {
+    _id: "fb_m3",
+    mediaType: "image",
+    url: "https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?w=800&auto=format&fit=crop&q=80",
+    content: "Shashthi Special Pandal Inauguration",
+    createdAt: new Date().toISOString(),
+    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
+  },
+  {
+    _id: "fb_m4",
+    mediaType: "image",
+    url: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=800&auto=format&fit=crop&q=80",
+    content: "Durga Pratima 2026",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 98301 23456", username: "Rohan" },
+  },
+  {
+    _id: "fb_m5",
+    mediaType: "image",
+    url: "https://images.unsplash.com/photo-1571266028243-3716f02d2d2e?w=800&auto=format&fit=crop&q=80",
+    content: "I am Eternal... Team Hall celebration",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
+  },
+  {
+    _id: "fb_m6",
+    mediaType: "image",
+    url: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop&q=80",
+    content: "Team Hall celebration & preparation",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
+  },
+  {
+    _id: "fb_m7",
+    mediaType: "image",
+    url: "https://images.unsplash.com/photo-1533227268428-f9ed0900fb3b?w=800&auto=format&fit=crop&q=80",
+    content: "Classroom memories & chalkboard art",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
+  },
+  {
+    _id: "fb_m8",
+    mediaType: "image",
+    url: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&auto=format&fit=crop&q=80",
+    content: "Pandal hopping with friends",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 94321 09876", username: "Aniket" },
+  },
+  {
+    _id: "fb_m9",
+    mediaType: "video",
+    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    duration: 18,
+    durationStr: "0:18",
+    content: "Dhak beats and aarti live video",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
+  },
+];
+
+const FALLBACK_DOCS = [
+  {
+    _id: "fb_d1",
+    docName: "Durga Puja Event Schedule 2026.pdf",
+    fileName: "Durga Puja Event Schedule 2026.pdf",
+    fileSize: 1450000,
+    fileUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+    createdAt: new Date().toISOString(),
+    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
+  },
+  {
+    _id: "fb_d2",
+    docName: "Budget & Contribution List.xlsx",
+    fileName: "Budget & Contribution List.xlsx",
+    fileSize: 320000,
+    fileUrl: "",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
+  },
+  {
+    _id: "fb_d3",
+    docName: "Pandal Safety Guidelines.pdf",
+    fileName: "Pandal Safety Guidelines.pdf",
+    fileSize: 850000,
+    fileUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 98301 23456", username: "Rohan" },
+  },
+  {
+    _id: "fb_d4",
+    docName: "Team Roles & Responsibilities.docx",
+    fileName: "Team Roles & Responsibilities.docx",
+    fileSize: 480000,
+    fileUrl: "",
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
+    sender: { phoneNumber: "+91 94321 09876", username: "Aniket" },
+  },
+];
+
+const FALLBACK_LINKS = [
+  {
+    _id: "fb_l1",
+    url: "https://durga-puja-live-darshan.org/2026",
+    domain: "durga-puja-live-darshan.org",
+    title: "Durga Puja 2026 - Live Darshan & Pandal Hopping Guide",
+    createdAt: new Date().toISOString(),
+    sender: { phoneNumber: "+91 93304 10256", username: "Debojyoti" },
+  },
+  {
+    _id: "fb_l2",
+    url: "https://timesofindia.indiatimes.com/city/kolkata/durga-puja",
+    domain: "timesofindia.indiatimes.com",
+    title: "Kolkata Durga Puja 2026 Mega Guide, Route Maps & Awards",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 96476 06823", username: "Priyanka" },
+  },
+  {
+    _id: "fb_l3",
+    url: "https://github.com/suvojitmanna/WhatsApp",
+    domain: "github.com",
+    title: "WhatsApp MERN Stack Full Clone - GitHub Repository",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    sender: { phoneNumber: "+91 98301 23456", username: "Rohan" },
+  },
+];
+
 const Media = ({
   contact = null,
   chatId = null,
   onClose = null,
   mode = "page",
+  scopeProp = null,
   initialTab = "media",
   hideHeader = false,
   isMobile: propIsMobile,
@@ -347,7 +504,9 @@ const Media = ({
   const isMobile = propIsMobile !== undefined ? Boolean(propIsMobile) : isMobileState;
 
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [scope, setScope] = useState(contact || chatId ? "chat" : "all"); // "chat" | "all"
+  const [scope, setScope] = useState(
+    scopeProp || (contact || chatId ? "chat" : "all")
+  );
   const [selectedContactFilter, setSelectedContactFilter] = useState(
     contact?._id || ""
   );
@@ -355,16 +514,20 @@ const Media = ({
   const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Selection Mode State
+  useEffect(() => {
+    if (scopeProp) {
+      setScope(scopeProp);
+    } else if (chatId || contact) {
+      setScope("chat");
+      setSelectedContactFilter(contact?._id || "");
+    }
+  }, [scopeProp, chatId, contact]);
+
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
-
-  // Filter Menu State
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [activeFilter, setActiveFilter] = useState("all"); // "all" | "photos" | "videos" | "pdf" | "sheets" | "docs"
+  const [activeFilter, setActiveFilter] = useState("all");
   const filterRef = useRef(null);
-
-  // Modals
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -386,7 +549,6 @@ const Media = ({
   const isMessageStarred = useChatStore((state) => state.isMessageStarred);
   const starredMessages = useChatStore((state) => state.starredMessages);
 
-  // Click outside to close filter menu
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (filterRef.current && !filterRef.current.contains(e.target)) {
@@ -406,7 +568,6 @@ const Media = ({
     }
   }, [chatId, contact]);
 
-  // Clear selections when tab changes
   useEffect(() => {
     setSelectedItems([]);
   }, [activeTab]);
@@ -540,17 +701,35 @@ const Media = ({
       });
     }
 
+    const finalMedia =
+      rawMedia.length > 0
+        ? rawMedia
+        : scope === "all"
+          ? FALLBACK_MEDIA
+          : [];
+    const finalDocs =
+      rawDocs.length > 0
+        ? rawDocs
+        : scope === "all"
+          ? FALLBACK_DOCS
+          : [];
+    const finalLinks =
+      rawLinks.length > 0
+        ? rawLinks
+        : scope === "all"
+          ? FALLBACK_LINKS
+          : [];
+
     return {
-      media: rawMedia,
-      docs: rawDocs,
-      links: rawLinks,
+      media: finalMedia,
+      docs: finalDocs,
+      links: finalLinks,
     };
-  }, [mediaData, storeMessages, user?._id]);
+  }, [mediaData, storeMessages, user?._id, scope]);
 
   const filteredItems = useMemo(() => {
     let list = effectiveData[activeTab] || [];
 
-    // Filter by type
     if (activeFilter !== "all") {
       if (activeTab === "media") {
         if (activeFilter === "photos") {
@@ -576,7 +755,6 @@ const Media = ({
       }
     }
 
-    // Search query
     const q = searchQuery.trim().toLowerCase();
     if (!q) return list;
 
@@ -701,7 +879,6 @@ const Media = ({
     setSelectedItems([]);
   };
 
-  // Star / Unstar Selected
   const areAllStarred = useMemo(() => {
     if (!selectedItems.length) return false;
     return selectedItems.every((item) =>
@@ -736,7 +913,6 @@ const Media = ({
     }
   };
 
-  // Download Selected
   const handleDownloadSelected = async () => {
     toast.info(
       `Downloading ${selectedItems.length} file${selectedItems.length > 1 ? "s" : ""
@@ -755,13 +931,10 @@ const Media = ({
     }
   };
 
-  // Forward Selected
   const handleForwardSelected = () => {
     if (!selectedItems.length) return;
     setShowForwardModal(true);
   };
-
-  // Delete Selected
   const canDeleteForEveryone = useMemo(() => {
     if (!selectedItems.length) return false;
     const currentUserId = String(user?._id || user?.id);
@@ -827,7 +1000,6 @@ const Media = ({
       className={`flex flex-col h-full w-full select-none relative overflow-hidden ${isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-white text-gray-900"
         }`}
     >
-      {/* WhatsApp Web Authentic Top Header */}
       {!hideHeader && (
         <div
           className={`h-[60px] px-4 sm:px-6 flex items-center justify-between border-b shrink-0 z-20 ${isDark
@@ -835,9 +1007,8 @@ const Media = ({
             : "bg-white border-gray-200 text-gray-800"
             }`}
         >
-          {/* Left: Title & Subtitle */}
           <div className="flex items-center gap-3 min-w-0">
-            {(mode === "drawer" || isMobile) && (
+            {(mode === "drawer" || (isMobile && mode !== "modal")) && (
               <button
                 type="button"
                 onClick={() => {
@@ -930,7 +1101,7 @@ const Media = ({
                   }`}
                 title="Filter"
               >
-                <MdFilterList size={20} />
+                <LuSlidersHorizontal size={18} />
               </button>
 
               {/* Filter Dropdown Popover */}
@@ -1206,14 +1377,19 @@ const Media = ({
 
                   {/* MEDIA TAB GRID */}
                   {activeTab === "media" && (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+                    <div
+                      className={`grid ${mode === "modal"
+                          ? "grid-cols-3 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3"
+                          : "grid-cols-3 sm:grid-cols-4 md:grid-cols-5"
+                        } gap-2 sm:gap-2.5`}
+                    >
                       {items.map((item) => {
                         const isVideo = item.mediaType === "video";
                         const itemId = item.messageId || item._id;
                         const isSelected = selectedItems.some(
                           (i) => (i.messageId || i._id) === itemId
                         );
-                        const senderName = item.sender?.username || "";
+                        const senderDisplay = getSenderDisplay(item);
 
                         return (
                           <div
@@ -1271,10 +1447,10 @@ const Media = ({
                             )}
 
                             {/* Bottom-left Sender Name & Video Badge Gradient */}
-                            <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col justify-end text-white pointer-events-none">
-                              {senderName && (
-                                <span className="text-[11.5px] font-medium truncate text-white/95 drop-shadow-md leading-tight mt-0.5">
-                                  {senderName}
+                            <div className="absolute inset-x-0 bottom-0 p-2 sm:p-2.5 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end text-white pointer-events-none">
+                              {senderDisplay && (
+                                <span className="text-[11.5px] sm:text-[12px] font-medium truncate text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] leading-tight">
+                                  {senderDisplay}
                                 </span>
                               )}
                             </div>

@@ -836,10 +836,10 @@ const MessageBuble = ({
       onClick={
         isSelectMode
           ? (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggleSelect?.(message._id?._id || message._id || message.temp);
-            }
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleSelect?.(message._id?._id || message._id || message.temp);
+          }
           : undefined
       }
       className={`w-full relative flex items-center transition-colors duration-150 ${isSelectMode

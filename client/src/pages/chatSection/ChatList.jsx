@@ -14,7 +14,7 @@ import {
   FaCaretDown,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
-import { MdEventNote, MdAccessTime, MdList, MdOutlinePlaylistAdd, MdOutlineChat } from "react-icons/md";
+import { MdEventNote, MdAccessTime, MdList, MdOutlinePlaylistAdd, MdOutlineChat, MdOutlineKeyboardArrowDown } from "react-icons/md";
 import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
@@ -317,9 +317,6 @@ const getContactPin = (contact, pinnedMessages) => {
 
 const getLastMessagePreview = (lastMessage) => {
   if (!lastMessage) return null;
-
-  // STRICT WhatsApp condition: If message is disappearing and expired without being manually deleted for everyone,
-  // it MUST NOT show "This message was deleted" or "You deleted this message". It vanishes completely!
   if (lastMessage.isDisappearing && !lastMessage.isKept && !lastMessage.deletedForEveryone) {
     const durMs = getDisappearingDurationMs(lastMessage.disappearingDuration);
     const expTime = lastMessage.disappearingExpiresAt
@@ -772,11 +769,10 @@ const ChatList = ({ contacts }) => {
             type="button"
             onClick={() => searchInputRef.current?.focus()}
             title="New chat"
-            className={`p-2 rounded-full transition-colors cursor-pointer ${
-              theme === "dark"
-                ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
-                : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
-            }`}
+            className={`p-2 rounded-full transition-colors cursor-pointer ${theme === "dark"
+              ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
+              : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
+              }`}
           >
             <MdOutlineChat size={20} />
           </button>
@@ -784,11 +780,10 @@ const ChatList = ({ contacts }) => {
             type="button"
             onClick={() => setIsNewListModalOpen(true)}
             title="New list"
-            className={`p-2 rounded-full transition-colors cursor-pointer ${
-              theme === "dark"
-                ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
-                : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
-            }`}
+            className={`p-2 rounded-full transition-colors cursor-pointer ${theme === "dark"
+              ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
+              : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
+              }`}
           >
             <HiDotsVertical size={19} />
           </button>
@@ -798,27 +793,24 @@ const ChatList = ({ contacts }) => {
       {/* WhatsApp Search Bar */}
       <div className="px-3 pt-1 pb-2">
         <div
-          className={`flex items-center gap-3 px-3 py-1.5 rounded-lg transition-colors ${
-            theme === "dark"
-              ? "bg-[#202c33] text-[#e9edef]"
-              : "bg-[#f0f2f5] text-[#111b21]"
-          }`}
+          className={`flex items-center gap-3 px-3 py-1.5 rounded-lg transition-colors ${theme === "dark"
+            ? "bg-[#202c33] text-[#e9edef]"
+            : "bg-[#f0f2f5] text-[#111b21]"
+            }`}
         >
           <FaSearch
-            className={`shrink-0 transition-colors ${
-              theme === "dark" ? "text-[#8696a0]" : "text-[#54656f]"
-            }`}
+            className={`shrink-0 transition-colors ${theme === "dark" ? "text-[#8696a0]" : "text-[#54656f]"
+              }`}
             size={13}
           />
           <input
             ref={searchInputRef}
             type="text"
             placeholder="Search or start a new chat"
-            className={`w-full bg-transparent text-[14px] outline-none border-none ${
-              theme === "dark"
-                ? "text-[#e9edef] placeholder-[#8696a0]"
-                : "text-[#111b21] placeholder-[#54656f]"
-            }`}
+            className={`w-full bg-transparent text-[14px] outline-none border-none ${theme === "dark"
+              ? "text-[#e9edef] placeholder-[#8696a0]"
+              : "text-[#111b21] placeholder-[#54656f]"
+              }`}
             value={searchTerms}
             onChange={(e) => setSearchTerms(e.target.value)}
           />
@@ -841,15 +833,14 @@ const ChatList = ({ contacts }) => {
         <button
           type="button"
           onClick={() => setActiveListFilter("All")}
-          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
-            activeListFilter === "All"
-              ? theme === "dark"
-                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
-                : "bg-[#008069] text-white font-medium shadow-xs"
-              : theme === "dark"
-                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
-          }`}
+          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${activeListFilter === "All"
+            ? theme === "dark"
+              ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+              : "bg-[#008069] text-white font-medium shadow-xs"
+            : theme === "dark"
+              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+              : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+            }`}
         >
           All
         </button>
@@ -858,15 +849,14 @@ const ChatList = ({ contacts }) => {
         <button
           type="button"
           onClick={() => setActiveListFilter("Favourites")}
-          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
-            activeListFilter === "Favourites" || activeListFilter === "Favorites"
-              ? theme === "dark"
-                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
-                : "bg-[#008069] text-white font-medium shadow-xs"
-              : theme === "dark"
-                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
-          }`}
+          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${activeListFilter === "Favourites" || activeListFilter === "Favorites"
+            ? theme === "dark"
+              ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+              : "bg-[#008069] text-white font-medium shadow-xs"
+            : theme === "dark"
+              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+              : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+            }`}
         >
           Favourites{listCounts.Favourites > 0 ? ` ${listCounts.Favourites}` : ""}
         </button>
@@ -875,15 +865,14 @@ const ChatList = ({ contacts }) => {
         <button
           type="button"
           onClick={() => setActiveListFilter("Groups")}
-          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
-            activeListFilter === "Groups"
-              ? theme === "dark"
-                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
-                : "bg-[#008069] text-white font-medium shadow-xs"
-              : theme === "dark"
-                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
-          }`}
+          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${activeListFilter === "Groups"
+            ? theme === "dark"
+              ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+              : "bg-[#008069] text-white font-medium shadow-xs"
+            : theme === "dark"
+              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+              : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+            }`}
         >
           Groups{listCounts.Groups > 0 ? ` ${listCounts.Groups}` : ""}
         </button>
@@ -892,15 +881,14 @@ const ChatList = ({ contacts }) => {
         <button
           type="button"
           onClick={() => setActiveListFilter("Unread")}
-          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
-            activeListFilter === "Unread"
-              ? theme === "dark"
-                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
-                : "bg-[#008069] text-white font-medium shadow-xs"
-              : theme === "dark"
-                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
-          }`}
+          className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${activeListFilter === "Unread"
+            ? theme === "dark"
+              ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+              : "bg-[#008069] text-white font-medium shadow-xs"
+            : theme === "dark"
+              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+              : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+            }`}
         >
           Unread{listCounts.Unread > 0 ? ` ${listCounts.Unread}` : ""}
         </button>
@@ -910,11 +898,10 @@ const ChatList = ({ contacts }) => {
           <button
             type="button"
             onClick={() => setActiveListFilter(activeListFilter)}
-            className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${
-              theme === "dark"
-                ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
-                : "bg-[#008069] text-white font-medium shadow-xs"
-            }`}
+            className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all shrink-0 cursor-pointer ${theme === "dark"
+              ? "bg-[#0a332c] text-[#00a884] font-medium border border-[#00a884]/20 shadow-xs"
+              : "bg-[#008069] text-white font-medium shadow-xs"
+              }`}
           >
             {activeListFilter}{listCounts[activeListFilter] > 0 ? ` ${listCounts[activeListFilter]}` : ""}
           </button>
@@ -925,26 +912,22 @@ const ChatList = ({ contacts }) => {
           <button
             type="button"
             onClick={() => setShowListsDropdown((prev) => !prev)}
-            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-              showListsDropdown || dropdownLists.includes(activeListFilter)
-                ? theme === "dark"
-                  ? "bg-[#202c33] text-[#e9edef]"
-                  : "bg-gray-200 text-gray-900"
-                : theme === "dark"
-                  ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                  : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
-            }`}
+            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer ${showListsDropdown || dropdownLists.includes(activeListFilter)
+              ? theme === "dark"
+                ? "bg-[#202c33] text-[#e9edef]"
+                : "bg-gray-200 text-gray-900"
+              : theme === "dark"
+                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+                : "bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21] hover:bg-[#e9edef]"
+              }`}
             title="More lists"
           >
             <FaCaretDown
               size={11}
-              className={`transition-transform duration-200 ${
-                showListsDropdown ? "rotate-180" : ""
-              }`}
+              className={`transition-transform duration-200 ${showListsDropdown ? "rotate-180" : ""
+                }`}
             />
           </button>
-
-          {/* WhatsApp Dropdown Menu */}
           <AnimatePresence>
             {showListsDropdown && (
               <motion.div
@@ -952,11 +935,10 @@ const ChatList = ({ contacts }) => {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -4 }}
                 transition={{ duration: 0.12 }}
-                className={`absolute right-0 top-full mt-2 z-50 w-52 rounded-2xl shadow-2xl border p-1.5 select-none ${
-                  theme === "dark"
-                    ? "bg-[#233138] border-white/10 text-white shadow-black/70"
-                    : "bg-white border-gray-200 text-gray-900 shadow-xl"
-                }`}
+                className={`absolute right-0 top-full mt-2 z-50 w-52 rounded-2xl shadow-2xl border p-1.5 select-none ${theme === "dark"
+                  ? "bg-[#233138] border-white/10 text-white shadow-black/70"
+                  : "bg-white border-gray-200 text-gray-900 shadow-xl"
+                  }`}
               >
                 {dropdownLists.map((listName) => (
                   <button
@@ -966,23 +948,21 @@ const ChatList = ({ contacts }) => {
                       setActiveListFilter(listName);
                       setShowListsDropdown(false);
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2 text-[14px] rounded-xl cursor-pointer transition-colors ${
-                      activeListFilter === listName
-                        ? "text-[#00a884] bg-[#0a332c]/50 font-medium"
-                        : theme === "dark"
-                          ? "text-[#e9edef] hover:bg-[#182229]"
-                          : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 text-[14px] rounded-xl cursor-pointer transition-colors ${activeListFilter === listName
+                      ? "text-[#00a884] bg-[#0a332c]/50 font-medium"
+                      : theme === "dark"
+                        ? "text-[#e9edef] hover:bg-[#182229]"
+                        : "text-gray-700 hover:bg-gray-100"
+                      }`}
                   >
                     <span>{listName}</span>
                     <span
-                      className={`text-[13px] ${
-                        activeListFilter === listName
-                          ? "text-[#00a884]"
-                          : theme === "dark"
-                            ? "text-[#8696a0]"
-                            : "text-gray-400"
-                      }`}
+                      className={`text-[13px] ${activeListFilter === listName
+                        ? "text-[#00a884]"
+                        : theme === "dark"
+                          ? "text-[#8696a0]"
+                          : "text-gray-400"
+                        }`}
                     >
                       {listCounts[listName] !== undefined
                         ? listCounts[listName]
@@ -992,9 +972,8 @@ const ChatList = ({ contacts }) => {
                 ))}
 
                 <div
-                  className={`border-t my-1 mx-2 ${
-                    theme === "dark" ? "border-white/10" : "border-gray-100"
-                  }`}
+                  className={`border-t my-1 mx-2 ${theme === "dark" ? "border-white/10" : "border-gray-100"
+                    }`}
                 />
 
                 <button
@@ -1003,11 +982,10 @@ const ChatList = ({ contacts }) => {
                     setShowListsDropdown(false);
                     setIsNewListModalOpen(true);
                   }}
-                  className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[14px] font-medium rounded-xl cursor-pointer transition-colors ${
-                    theme === "dark"
-                      ? "text-[#e9edef] hover:bg-[#182229]"
-                      : "text-gray-800 hover:bg-gray-100"
-                  }`}
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[14px] font-medium rounded-xl cursor-pointer transition-colors ${theme === "dark"
+                    ? "text-[#e9edef] hover:bg-[#182229]"
+                    : "text-gray-800 hover:bg-gray-100"
+                    }`}
                 >
                   <FaPlus size={11} className="text-[#00a884]" />
                   <span>New list</span>
@@ -1348,15 +1326,15 @@ const ChatList = ({ contacts }) => {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setListModalContact(contact);
+
                         }}
                         className={`p-1.5 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100 hover:scale-110 ${theme === "dark"
                           ? "hover:bg-white/10 text-[#8696a0] hover:text-[#00a884]"
                           : "hover:bg-gray-200 text-gray-500 hover:text-[#00a884]"
                           }`}
-                        title="Add to list"
+                        title="menu"
                       >
-                        <MdOutlinePlaylistAdd size={18} />
+                        <MdOutlineKeyboardArrowDown size={18} />
                       </button>
 
                       {getContactListNames(contact).includes("Favorites") && (

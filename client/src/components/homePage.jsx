@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Layout from "./layout";
 import { motion, AnimatePresence } from "framer-motion";
-import ChatList from "../pages/chatSection/chatList";
+import ChatList from "../pages/chatSection/ChatList";
 import { getAllUsers } from "../services/user.services";
 import { FaUserFriends } from "react-icons/fa";
 import useUserStore from "../store/useUserStore";
