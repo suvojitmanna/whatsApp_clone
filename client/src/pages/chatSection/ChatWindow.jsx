@@ -282,12 +282,20 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const [disappearingTick, setDisappearingTick] = useState(0);
   useEffect(() => {
-    if (!disappearingDuration || disappearingDuration === "Off") return;
+    const rawMsgs = Array.isArray(messages) ? messages : [];
+    const hasDisappearingMsgs = rawMsgs.some(
+      (m) => m && m.isDisappearing && !m.isKept
+    );
+    const isDisappearingActive = disappearingDuration && disappearingDuration !== "Off";
+
+    if (!isDisappearingActive && !hasDisappearingMsgs) return;
+
+    // Tick every 1s for precise real-time message disappearance at each message's specific expiration time
     const interval = setInterval(() => {
       setDisappearingTick((t) => t + 1);
-    }, 15000);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [disappearingDuration]);
+  }, [disappearingDuration, messages]);
 
   const chatDisappearingEvents = useMemo(() => {
     if (!activeChatId) return [];
@@ -299,12 +307,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       disappearingEvents?.[activeChatId] ||
       [];
     if (storedEvents.length === 0 && disappearingDuration && disappearingDuration !== "Off") {
-      const rawMsgs = Array.isArray(messages) ? messages : [];
       const eventTime = selectedContact?.conversation?.disappearingUpdatedAt
         ? new Date(selectedContact.conversation.disappearingUpdatedAt).toISOString()
-        : (rawMsgs.length > 0 && rawMsgs[0]?.createdAt
-            ? new Date(new Date(rawMsgs[0].createdAt).getTime() - 2000).toISOString()
-            : new Date(Date.now() - 3600000).toISOString());
+        : new Date().toISOString();
       const effectiveSetBy =
         selectedContact?.conversation?.disappearingSetBy?._id ||
         selectedContact?.conversation?.disappearingSetBy ||
@@ -339,22 +344,46 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       : null;
 
     // Filter out only expired disappearing messages:
-    // IMPORTANT: Messages sent BEFORE disappearing was turned on are NEVER filtered out or deleted!
+    // STRICT RULE: Messages sent BEFORE disappearing was turned on are NEVER filtered out or deleted!
     const validMsgs = rawMsgs.filter((msg) => {
-      if (msg.isKept) return true;
+      // 1. Kept or starred messages NEVER disappear
+      if (msg.isKept || msg.isStarred) return true;
 
-      const isMsgDisappearing = Boolean(
-        (msg.isDisappearing && msg.disappearingDuration && msg.disappearingDuration !== "Off") ||
-        (disappearingDuration && disappearingDuration !== "Off" && turnedOnTime && new Date(msg.createdAt).getTime() >= turnedOnTime)
-      );
-      if (!isMsgDisappearing) return true; // Keep older messages permanent!
+      // 2. Messages explicitly marked non-disappearing NEVER disappear
+      if (msg.isDisappearing === false) return true;
 
-      const dur = msg.disappearingDuration || disappearingDuration;
-      const durMs = getDisappearingDurationMs(dur);
-      if (!durMs) return true;
+      // 3. Messages explicitly marked as disappearing:
+      if (msg.isDisappearing === true) {
+        const expTime = msg.disappearingExpiresAt
+          ? new Date(msg.disappearingExpiresAt).getTime()
+          : null;
+        if (expTime) {
+          return now < expTime; // Only visible until its own specific expiration time!
+        }
+        const dur = msg.disappearingDuration || disappearingDuration;
+        const durMs = getDisappearingDurationMs(dur);
+        if (!durMs) return true;
+        const msgTime = new Date(msg.createdAt).getTime();
+        return (now - msgTime) < durMs;
+      }
 
-      const msgTime = new Date(msg.createdAt).getTime();
-      return (now - msgTime) < durMs;
+      // 4. Legacy or in-flight messages without isDisappearing flag:
+      // STRICT CHECK: Only consider if disappearing was turned ON AND message was sent AFTER it was turned ON!
+      if (
+        disappearingDuration &&
+        disappearingDuration !== "Off" &&
+        turnedOnTime &&
+        new Date(msg.createdAt).getTime() >= turnedOnTime
+      ) {
+        const durMs = getDisappearingDurationMs(disappearingDuration);
+        if (!durMs) return true;
+        const msgTime = new Date(msg.createdAt).getTime();
+        return (now - msgTime) < durMs;
+      }
+
+      // 5. Older messages sent before disappearing was enabled or when it was Off:
+      // NEVER DISAPPEAR! Stay permanent in chat!
+      return true;
     });
 
     if (!chatDisappearingEvents || chatDisappearingEvents.length === 0) {

@@ -1,4 +1,4 @@
-export const DEFAULT_CHAT_LISTS = ["Favorites", "Friends", "Family", "Work"];
+export const DEFAULT_CHAT_LISTS = ["Favourites", "Communities", "Friends", "Family", "Work"];
 
 export const getAllLists = () => {
   try {
@@ -81,6 +81,7 @@ export const getContactListNames = (contact) => {
       map[userId].forEach((l) => listSet.add(l));
     }
     if ((convId && favs.includes(convId)) || (userId && favs.includes(userId))) {
+      listSet.add("Favourites");
       listSet.add("Favorites");
     }
     return Array.from(listSet);
@@ -112,15 +113,17 @@ export const toggleContactList = (contact, listName) => {
       map[convId].forEach((l) => current.add(l));
     }
 
-    if (listName === "Favorites") {
+    if (listName === "Favourites" || listName === "Favorites") {
       const isFav =
         (convId && favs.includes(convId)) || (userId && favs.includes(userId));
       if (isFav) {
         favs = favs.filter((id) => id !== convId && id !== userId);
+        current.delete("Favourites");
         current.delete("Favorites");
       } else {
         if (convId) favs.push(convId);
         else if (userId) favs.push(userId);
+        current.add("Favourites");
         current.add("Favorites");
       }
       localStorage.setItem("whatsapp_favourite_chats", JSON.stringify(favs));
@@ -163,6 +166,22 @@ export const isContactInList = (contact, listName) => {
     );
   }
 
+  if (listName === "Communities") {
+    return Boolean(
+      contact?.isCommunity ||
+      contact?.isCommunityChat ||
+      contact?.communityId ||
+      getContactListNames(contact).includes("Communities")
+    );
+  }
+
   const contactLists = getContactListNames(contact);
+  if (listName === "Favourites" || listName === "Favorites") {
+    return (
+      contactLists.includes("Favourites") || contactLists.includes("Favorites")
+    );
+  }
+
   return contactLists.includes(listName);
 };
+

@@ -12,30 +12,32 @@ import {
   FaFileExcel,
   FaFileArchive,
   FaDownload,
-  FaExternalLinkAlt,
   FaRegCopy,
   FaCheck,
-  FaPhotoVideo,
+  FaStar,
+  FaRegStar,
 } from "react-icons/fa";
-import { FiDownload, FiExternalLink, FiShare2, FiLink } from "react-icons/fi";
+import { FiDownload, FiExternalLink, FiTrash2, FiLink } from "react-icons/fi";
 import { HiOutlinePhotograph } from "react-icons/hi";
 import {
   MdOutlinePermMedia,
-  MdOutlineArticle,
-  MdChevronRight,
+  MdFilterList,
+  MdOutlineCheckBox,
   MdCheck,
   MdOutlineContentCopy,
 } from "react-icons/md";
 import { RxCross2 } from "react-icons/rx";
-import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
+import { IoArrowForward } from "react-icons/io5";
+import { RiDeleteBin6Line } from "react-icons/ri";
+import { format, isToday, isYesterday } from "date-fns";
 import { toast } from "react-toastify";
 
 import useThemeStore from "../store/themeStore";
 import useUserStore from "../store/useUserStore";
 import { useChatStore } from "../store/chatStore";
-import useLayoutStore from "../store/layoutStore";
 import axiosInstance from "../services/url.services";
 import FileViewerModal from "./FileViewerModal";
+import ForwardModal from "./ForwardModal";
 
 export const WhatsAppMediaFolderIcon = ({ size = 20, className = "" }) => (
   <svg
@@ -58,7 +60,10 @@ export const WhatsAppMediaFolderIcon = ({ size = 20, className = "" }) => (
 
 const formatDocSize = (bytes) => {
   if (!bytes) return "";
-  if (typeof bytes === "string" && (bytes.includes("KB") || bytes.includes("MB") || bytes.includes("GB"))) {
+  if (
+    typeof bytes === "string" &&
+    (bytes.includes("KB") || bytes.includes("MB") || bytes.includes("GB"))
+  ) {
     return bytes;
   }
   const num = Number(bytes);
@@ -66,6 +71,13 @@ const formatDocSize = (bytes) => {
   if (num < 1024) return `${num} B`;
   if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
   return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const formatVideoDuration = (seconds) => {
+  if (!seconds || isNaN(seconds)) return null;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 };
 
 const getFileIcon = (fileName = "") => {
@@ -105,28 +117,221 @@ const getFileIcon = (fileName = "") => {
   };
 };
 
-const formatGroupDate = (date) => {
-  if (!date) return "Recent";
+const formatDateGroup = (date) => {
+  if (!date) return { primary: "Recent", sub: null, sortKey: 0 };
   const d = new Date(date);
-  if (isNaN(d.getTime())) return "Recent";
-  if (isToday(d)) return "Today";
-  if (isYesterday(d)) return "Yesterday";
-  return format(d, "MMMM yyyy");
+  if (isNaN(d.getTime())) return { primary: "Recent", sub: null, sortKey: 0 };
+
+  if (isToday(d)) {
+    return {
+      primary: "Today",
+      sub: format(d, "d MMMM yyyy"),
+      sortKey: d.getTime(),
+    };
+  }
+  if (isYesterday(d)) {
+    return {
+      primary: "Yesterday",
+      sub: format(d, "d MMMM yyyy"),
+      sortKey: d.getTime(),
+    };
+  }
+  return {
+    primary: format(d, "MMMM yyyy"),
+    sub: format(d, "d MMMM yyyy"),
+    sortKey: d.getTime(),
+  };
+};
+
+const calculateTotalSize = (items) => {
+  let totalBytes = 0;
+  items.forEach((item) => {
+    let bytes = 0;
+    const rawSize = item.fileSize || item.size;
+    if (typeof rawSize === "number" && rawSize > 0) {
+      bytes = rawSize;
+    } else if (typeof rawSize === "string" && rawSize.trim()) {
+      const s = rawSize.trim().toUpperCase();
+      const num = parseFloat(s);
+      if (!isNaN(num)) {
+        if (s.includes("GB")) bytes = num * 1024 * 1024 * 1024;
+        else if (s.includes("MB")) bytes = num * 1024 * 1024;
+        else if (s.includes("KB")) bytes = num * 1024;
+        else bytes = num;
+      }
+    }
+
+    if (!bytes) {
+      if (item.mediaType === "video" || item.contentType === "video") {
+        bytes = 9 * 1024 * 1024; // 9 MB
+      } else if (item.mediaType === "image" || item.contentType === "image") {
+        bytes = 1.8 * 1024 * 1024; // ~1.8 MB
+      } else {
+        bytes = 2.4 * 1024 * 1024;
+      }
+    }
+    totalBytes += bytes;
+  });
+
+  return formatDocSize(totalBytes) || "0 MB";
+};
+
+// Video thumbnail with metadata loading for accurate duration
+const VideoThumbnail = ({ src, item }) => {
+  const [duration, setDuration] = useState(item.duration || null);
+
+  const handleMetadata = (e) => {
+    if (e.target.duration && !isNaN(e.target.duration) && isFinite(e.target.duration)) {
+      setDuration(Math.round(e.target.duration));
+    }
+  };
+
+  const durStr = duration ? formatVideoDuration(duration) : item.durationStr || "0:20";
+
+  return (
+    <>
+      <video
+        src={src}
+        preload="metadata"
+        onLoadedMetadata={handleMetadata}
+        className="w-full h-full object-cover pointer-events-none"
+        muted
+      />
+      {durStr && (
+        <div className="flex items-center gap-1.5 text-white text-[11px] font-medium drop-shadow-md">
+          <FaVideo size={10} className="text-white/90 shrink-0" />
+          <span>{durStr}</span>
+        </div>
+      )}
+    </>
+  );
+};
+
+// Shimmer Skeleton Loader for Media, Docs, and Links
+const MediaSkeletonLoader = ({ activeTab, isDark }) => {
+  return (
+    <div className="space-y-6 select-none p-1">
+      {/* Date Header Skeleton */}
+      <div className="space-y-1.5 px-1">
+        <div
+          className={`h-4 w-28 rounded-md animate-skeleton-shimmer ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+            }`}
+        />
+        <div
+          className={`h-3 w-36 rounded-md animate-skeleton-shimmer ${isDark ? "bg-[#202c33]/60" : "bg-gray-100"
+            }`}
+        />
+      </div>
+
+      {activeTab === "media" && (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+          {Array.from({ length: 15 }).map((_, idx) => (
+            <div
+              key={idx}
+              className={`aspect-square rounded-lg overflow-hidden relative animate-skeleton-shimmer ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+                }`}
+            >
+              <div className="absolute inset-x-0 bottom-0 p-2 flex flex-col gap-1.5 pointer-events-none">
+                {idx % 3 === 0 && (
+                  <div
+                    className={`h-2.5 w-10 rounded ${isDark ? "bg-white/10" : "bg-black/10"
+                      }`}
+                  />
+                )}
+                <div
+                  className={`h-2.5 w-20 rounded ${isDark ? "bg-white/10" : "bg-black/10"
+                    }`}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === "docs" && (
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div
+              key={idx}
+              className={`flex items-center justify-between p-3 rounded-xl border animate-skeleton-shimmer ${isDark
+                ? "bg-[#202c33]/70 border-white/5"
+                : "bg-white border-gray-200"
+                }`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-11 h-11 rounded-xl ${isDark ? "bg-white/10" : "bg-gray-200"
+                    }`}
+                />
+                <div className="space-y-1.5">
+                  <div
+                    className={`h-3.5 w-48 rounded ${isDark ? "bg-white/15" : "bg-gray-300"
+                      }`}
+                  />
+                  <div
+                    className={`h-2.5 w-24 rounded ${isDark ? "bg-white/10" : "bg-gray-200"
+                      }`}
+                  />
+                </div>
+              </div>
+              <div
+                className={`w-8 h-8 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"
+                  }`}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === "links" && (
+        <div className="space-y-2.5">
+          {Array.from({ length: 5 }).map((_, idx) => (
+            <div
+              key={idx}
+              className={`p-3.5 rounded-xl border space-y-2 animate-skeleton-shimmer ${isDark
+                ? "bg-[#202c33]/70 border-white/5"
+                : "bg-white border-gray-200"
+                }`}
+            >
+              <div className="flex items-center gap-2">
+                <div
+                  className={`w-8 h-8 rounded-lg ${isDark ? "bg-white/10" : "bg-gray-200"
+                    }`}
+                />
+                <div
+                  className={`h-3 w-28 rounded ${isDark ? "bg-emerald-500/20" : "bg-emerald-100"
+                    }`}
+                />
+              </div>
+              <div
+                className={`h-3.5 w-3/4 rounded ${isDark ? "bg-white/15" : "bg-gray-300"
+                  }`}
+              />
+              <div
+                className={`h-2.5 w-1/2 rounded ${isDark ? "bg-white/10" : "bg-gray-200"
+                  }`}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const Media = ({
   contact = null,
   chatId = null,
   onClose = null,
-  mode = "drawer", // "drawer" (in ContactInfo) or "page" (full /media page)
-  initialTab = "media", // "media" | "docs" | "links"
+  mode = "page",
+  initialTab = "media",
   hideHeader = false,
 }) => {
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState(initialTab); // "media" | "docs" | "links"
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [scope, setScope] = useState(contact || chatId ? "chat" : "all"); // "chat" | "all"
   const [selectedContactFilter, setSelectedContactFilter] = useState(
     contact?._id || ""
@@ -135,12 +340,19 @@ const Media = ({
   const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (chatId || contact) {
-      setScope("chat");
-      setSelectedContactFilter(contact?._id || "");
-    }
-  }, [chatId, contact]);
+  // Selection Mode State
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState([]);
+
+  // Filter Menu State
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [activeFilter, setActiveFilter] = useState("all"); // "all" | "photos" | "videos" | "pdf" | "sheets" | "docs"
+  const filterRef = useRef(null);
+
+  // Modals
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [mediaData, setMediaData] = useState({
     media: [],
@@ -156,6 +368,33 @@ const Media = ({
   const isDark = theme === "dark";
   const conversations = useChatStore((state) => state.conversations?.data || []);
   const storeMessages = useChatStore((state) => state.messages || []);
+  const isMessageStarred = useChatStore((state) => state.isMessageStarred);
+  const starredMessages = useChatStore((state) => state.starredMessages);
+
+  // Click outside to close filter menu
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) {
+        setShowFilterMenu(false);
+      }
+    };
+    if (showFilterMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showFilterMenu]);
+
+  useEffect(() => {
+    if (chatId || contact) {
+      setScope("chat");
+      setSelectedContactFilter(contact?._id || "");
+    }
+  }, [chatId, contact]);
+
+  // Clear selections when tab changes
+  useEffect(() => {
+    setSelectedItems([]);
+  }, [activeTab]);
 
   const resolvedConversationId = useMemo(() => {
     if (chatId) return chatId;
@@ -163,6 +402,7 @@ const Media = ({
     if (contact?.conversation) return contact.conversation;
     return null;
   }, [chatId, contact]);
+
   const fetchMediaData = async () => {
     setLoading(true);
     try {
@@ -195,6 +435,7 @@ const Media = ({
   useEffect(() => {
     fetchMediaData();
   }, [scope, resolvedConversationId, selectedContactFilter]);
+
   const effectiveData = useMemo(() => {
     const rawMedia = [...(mediaData?.media || [])];
     const rawDocs = [...(mediaData?.docs || [])];
@@ -292,14 +533,41 @@ const Media = ({
   }, [mediaData, storeMessages, user?._id]);
 
   const filteredItems = useMemo(() => {
+    let list = effectiveData[activeTab] || [];
+
+    // Filter by type
+    if (activeFilter !== "all") {
+      if (activeTab === "media") {
+        if (activeFilter === "photos") {
+          list = list.filter((i) => i.mediaType !== "video");
+        } else if (activeFilter === "videos") {
+          list = list.filter((i) => i.mediaType === "video");
+        }
+      } else if (activeTab === "docs") {
+        if (activeFilter === "pdf") {
+          list = list.filter((i) =>
+            (i.docName || i.fileName || "").toLowerCase().endsWith(".pdf")
+          );
+        } else if (activeFilter === "sheets") {
+          list = list.filter((i) => {
+            const name = (i.docName || i.fileName || "").toLowerCase();
+            return (
+              name.endsWith(".xls") ||
+              name.endsWith(".xlsx") ||
+              name.endsWith(".csv")
+            );
+          });
+        }
+      }
+    }
+
+    // Search query
     const q = searchQuery.trim().toLowerCase();
-    const list = effectiveData[activeTab] || [];
     if (!q) return list;
 
     if (activeTab === "media") {
       return list.filter((item) => {
-        const senderName =
-          item.sender?.username?.toLowerCase() || "";
+        const senderName = item.sender?.username?.toLowerCase() || "";
         const content = item.content?.toLowerCase() || "";
         return senderName.includes(q) || content.includes(q);
       });
@@ -307,8 +575,7 @@ const Media = ({
     if (activeTab === "docs") {
       return list.filter((item) => {
         const name = (item.docName || item.fileName || "").toLowerCase();
-        const senderName =
-          item.sender?.username?.toLowerCase() || "";
+        const senderName = item.sender?.username?.toLowerCase() || "";
         return name.includes(q) || senderName.includes(q);
       });
     }
@@ -321,19 +588,49 @@ const Media = ({
       });
     }
     return list;
-  }, [effectiveData, activeTab, searchQuery]);
+  }, [effectiveData, activeTab, activeFilter, searchQuery]);
 
   const groupedItems = useMemo(() => {
     const groups = {};
     filteredItems.forEach((item) => {
-      const dateKey = formatGroupDate(item.createdAt);
-      if (!groups[dateKey]) groups[dateKey] = [];
-      groups[dateKey].push(item);
+      const { primary, sub, sortKey } = formatDateGroup(item.createdAt);
+      const groupKey = `${primary}_${sub || ""}`;
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
+          primary,
+          sub,
+          sortKey,
+          items: [],
+        };
+      }
+      groups[groupKey].items.push(item);
     });
-    return Object.entries(groups);
+
+    return Object.values(groups).sort((a, b) => (b.sortKey || 0) - (a.sortKey || 0));
   }, [filteredItems]);
 
+  const toggleSelectItem = (item) => {
+    setSelectedItems((prev) => {
+      const itemId = item.messageId || item._id;
+      const exists = prev.some(
+        (i) => (i.messageId || i._id) === itemId
+      );
+      if (exists) {
+        return prev.filter(
+          (i) => (i.messageId || i._id) !== itemId
+        );
+      } else {
+        return [...prev, item];
+      }
+    });
+  };
+
   const handleOpenViewer = (item) => {
+    if (isSelectMode) {
+      toggleSelectItem(item);
+      return;
+    }
+
     if (activeTab === "media") {
       const isVideo = item.mediaType === "video";
       setViewerFile({
@@ -365,7 +662,7 @@ const Media = ({
   };
 
   const handleDownloadFile = async (e, url, fileName) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     if (!url) return;
     try {
       const res = await fetch(url);
@@ -384,76 +681,218 @@ const Media = ({
     }
   };
 
-  const counts = {
-    media: effectiveData.media.length,
-    docs: effectiveData.docs.length,
-    links: effectiveData.links.length,
+  const handleCancelSelect = () => {
+    setIsSelectMode(false);
+    setSelectedItems([]);
   };
+
+  // Star / Unstar Selected
+  const areAllStarred = useMemo(() => {
+    if (!selectedItems.length) return false;
+    return selectedItems.every((item) =>
+      isMessageStarred(item.messageId || item._id)
+    );
+  }, [selectedItems, isMessageStarred, starredMessages]);
+
+  const handleStarSelected = () => {
+    const { toggleStarMessage } = useChatStore.getState();
+    if (areAllStarred) {
+      selectedItems.forEach((item) => {
+        const id = item.messageId || item._id;
+        if (isMessageStarred(id)) {
+          toggleStarMessage(id, item);
+        }
+      });
+      toast.success(
+        `Unstarred ${selectedItems.length} item${selectedItems.length > 1 ? "s" : ""
+        }`
+      );
+    } else {
+      selectedItems.forEach((item) => {
+        const id = item.messageId || item._id;
+        if (!isMessageStarred(id)) {
+          toggleStarMessage(id, item);
+        }
+      });
+      toast.success(
+        `Starred ${selectedItems.length} item${selectedItems.length > 1 ? "s" : ""
+        }`
+      );
+    }
+  };
+
+  // Download Selected
+  const handleDownloadSelected = async () => {
+    toast.info(
+      `Downloading ${selectedItems.length} file${selectedItems.length > 1 ? "s" : ""
+      }...`
+    );
+    for (const item of selectedItems) {
+      const url =
+        item.url || item.imageOrVideoUrl || item.docUrl || item.fileUrl;
+      const name =
+        item.fileName ||
+        item.docName ||
+        (item.mediaType === "video" ? "video.mp4" : "image.jpg");
+      if (url) {
+        await handleDownloadFile(null, url, name);
+      }
+    }
+  };
+
+  // Forward Selected
+  const handleForwardSelected = () => {
+    if (!selectedItems.length) return;
+    setShowForwardModal(true);
+  };
+
+  // Delete Selected
+  const canDeleteForEveryone = useMemo(() => {
+    if (!selectedItems.length) return false;
+    const currentUserId = String(user?._id || user?.id);
+    return selectedItems.every(
+      (item) => String(item.sender?._id || item.sender) === currentUserId
+    );
+  }, [selectedItems, user?._id]);
+
+  const executeDeleteSelected = async (deleteFor) => {
+    setIsDeleting(true);
+    try {
+      const deleteMessage = useChatStore.getState().deleteMessage;
+      for (const item of selectedItems) {
+        const msgId = item.messageId || item._id;
+        if (msgId) {
+          await deleteMessage(msgId, deleteFor);
+        }
+      }
+
+      const deletedIds = new Set(
+        selectedItems.map((item) => String(item.messageId || item._id))
+      );
+      setMediaData((prev) => ({
+        ...prev,
+        media: (prev?.media || []).filter(
+          (m) => !deletedIds.has(String(m._id))
+        ),
+        docs: (prev?.docs || []).filter(
+          (d) => !deletedIds.has(String(d._id))
+        ),
+        links: (prev?.links || []).filter(
+          (l) => !deletedIds.has(String(l.messageId || l._id))
+        ),
+      }));
+
+      toast.success(
+        `Deleted ${selectedItems.length} item${selectedItems.length > 1 ? "s" : ""
+        }`
+      );
+    } catch (err) {
+      console.error("Delete failed:", err);
+      toast.error("Failed to delete some items");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+      setIsSelectMode(false);
+      setSelectedItems([]);
+    }
+  };
+
+  const selectedTotalSize = useMemo(() => {
+    return calculateTotalSize(selectedItems);
+  }, [selectedItems]);
+
+  const tabs = [
+    { id: "media", label: "Media" },
+    { id: "docs", label: "Docs" },
+    { id: "links", label: "Links" },
+  ];
 
   return (
     <div
-      className={`flex flex-col h-full w-full select-none ${mode === "page"
-        ? isDark
-          ? "bg-[#111b21] text-[#e9edef]"
-          : "bg-white text-gray-900"
-        : isDark
-          ? "bg-[#111b21] text-[#e9edef]"
-          : "bg-[#f0f2f5] text-gray-900"
+      className={`flex flex-col h-full w-full select-none relative overflow-hidden ${isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-white text-gray-900"
         }`}
     >
+      {/* WhatsApp Web Authentic Top Header */}
       {!hideHeader && (
         <div
-          className={`flex items-center justify-between px-4 py-3 shrink-0 border-b ${isDark
+          className={`h-[60px] px-4 sm:px-6 flex items-center justify-between border-b shrink-0 z-20 ${isDark
             ? "bg-[#202c33] border-[#222d34] text-white"
             : "bg-white border-gray-200 text-gray-800"
             }`}
         >
+          {/* Left: Title & Subtitle */}
           <div className="flex items-center gap-3 min-w-0">
-            <button
-              type="button"
-              onClick={() => {
-                if (onClose) {
-                  onClose();
-                } else {
-                  navigate(-1);
-                }
-              }}
-              className={`p-2 rounded-full transition-colors cursor-pointer ${isDark
-                ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
-                : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
-                }`}
-              title="Back"
-            >
-              <FaArrowLeft size={16} />
-            </button>
+            {(mode === "drawer" || isMobile) && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onClose) onClose();
+                  else navigate(-1);
+                }}
+                className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark
+                  ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
+                  : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+                  }`}
+                title="Back"
+              >
+                <FaArrowLeft size={16} />
+              </button>
+            )}
 
             <div className="flex flex-col min-w-0">
-              <h3 className="font-semibold text-[16px] truncate leading-tight">
-                {scope === "all"
-                  ? "Media, links and docs"
-                  : contact?.username
-                    ? `${contact.username}'s media`
-                    : "Media, links and docs"}
-              </h3>
+              <h2 className="text-[17px] font-semibold tracking-tight truncate leading-tight">
+                Media
+              </h2>
               <span
                 className={`text-[12px] truncate ${isDark ? "text-[#8696a0]" : "text-gray-500"
                   }`}
               >
                 {scope === "all"
-                  ? "All chats"
+                  ? "Media from all chats"
                   : contact?.username
-                    ? `Shared in this chat`
-                    : "This chat"}
+                    ? `Media from ${contact.username}`
+                    : "Media from this chat"}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          {/* Center: Tabs with WhatsApp Emerald Underline */}
+          <div className="flex items-center gap-6 sm:gap-10 h-full">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`h-full flex items-center justify-center relative px-1 sm:px-2 text-[14.5px] font-medium transition-colors cursor-pointer ${isActive
+                    ? "text-[#00a884] font-semibold"
+                    : isDark
+                      ? "text-[#8696a0] hover:text-[#d1d7db]"
+                      : "text-gray-500 hover:text-gray-800"
+                    }`}
+                >
+                  <span>{tab.label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="media-active-tab-indicator"
+                      className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#00a884] rounded-t-full"
+                      transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Search Button */}
             <button
               type="button"
               onClick={() => setIsSearching((prev) => !prev)}
               className={`p-2 rounded-full transition-colors cursor-pointer ${isSearching
-                ? "text-emerald-500 bg-emerald-500/10"
+                ? "text-[#00a884] bg-emerald-500/10"
                 : isDark
                   ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
                   : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
@@ -462,41 +901,194 @@ const Media = ({
             >
               <FaSearch size={15} />
             </button>
-            {mode === "drawer" && (
+
+            {/* Filter Menu Button */}
+            <div className="relative" ref={filterRef}>
               <button
                 type="button"
-                onClick={() => setScope((s) => (s === "chat" ? "all" : "chat"))}
-                className={`text-[12px] font-medium px-2.5 py-1 rounded-full border transition-all cursor-pointer ${scope === "all"
-                  ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
+                onClick={() => setShowFilterMenu((prev) => !prev)}
+                className={`p-2 rounded-full transition-colors cursor-pointer ${activeFilter !== "all" || showFilterMenu
+                  ? "text-[#00a884] bg-emerald-500/10"
                   : isDark
-                    ? "bg-[#111b21] hover:bg-white/10 text-[#8696a0] border-white/10"
-                    : "bg-white hover:bg-gray-50 text-gray-600 border-gray-300"
+                    ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
+                    : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
                   }`}
-                title={
-                  scope === "all"
-                    ? "Switch to this chat"
-                    : "View media from all chats"
-                }
+                title="Filter"
               >
-                {scope === "all" ? "All chats" : "This chat"}
+                <MdFilterList size={20} />
               </button>
+
+              {/* Filter Dropdown Popover */}
+              <AnimatePresence>
+                {showFilterMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                    transition={{ duration: 0.12 }}
+                    className={`absolute right-0 top-full mt-2 w-48 rounded-xl shadow-2xl border p-1.5 z-50 select-none ${isDark
+                      ? "bg-[#233138] border-white/10 text-white shadow-black/60"
+                      : "bg-white border-gray-200 text-gray-800 shadow-xl"
+                      }`}
+                  >
+                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#8696a0]">
+                      Filter {activeTab}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveFilter("all");
+                        setShowFilterMenu(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "all"
+                        ? "text-[#00a884] bg-emerald-500/10 font-medium"
+                        : isDark
+                          ? "hover:bg-white/5"
+                          : "hover:bg-gray-100"
+                        }`}
+                    >
+                      <span>All</span>
+                      {activeFilter === "all" && <MdCheck size={16} />}
+                    </button>
+
+                    {activeTab === "media" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveFilter("photos");
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "photos"
+                            ? "text-[#00a884] bg-emerald-500/10 font-medium"
+                            : isDark
+                              ? "hover:bg-white/5"
+                              : "hover:bg-gray-100"
+                            }`}
+                        >
+                          <span>Photos only</span>
+                          {activeFilter === "photos" && <MdCheck size={16} />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveFilter("videos");
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "videos"
+                            ? "text-[#00a884] bg-emerald-500/10 font-medium"
+                            : isDark
+                              ? "hover:bg-white/5"
+                              : "hover:bg-gray-100"
+                            }`}
+                        >
+                          <span>Videos only</span>
+                          {activeFilter === "videos" && <MdCheck size={16} />}
+                        </button>
+                      </>
+                    )}
+
+                    {activeTab === "docs" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveFilter("pdf");
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "pdf"
+                            ? "text-[#00a884] bg-emerald-500/10 font-medium"
+                            : isDark
+                              ? "hover:bg-white/5"
+                              : "hover:bg-gray-100"
+                            }`}
+                        >
+                          <span>PDFs only</span>
+                          {activeFilter === "pdf" && <MdCheck size={16} />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveFilter("sheets");
+                            setShowFilterMenu(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "sheets"
+                            ? "text-[#00a884] bg-emerald-500/10 font-medium"
+                            : isDark
+                              ? "hover:bg-white/5"
+                              : "hover:bg-gray-100"
+                            }`}
+                        >
+                          <span>Spreadsheets (Excel)</span>
+                          {activeFilter === "sheets" && <MdCheck size={16} />}
+                        </button>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Select Mode Toggle / Cancel button */}
+            {isSelectMode ? (
+              <button
+                type="button"
+                onClick={handleCancelSelect}
+                className="text-[14px] font-medium text-[#00a884] hover:text-[#06cf9c] px-2 py-1 rounded transition-colors cursor-pointer select-none"
+              >
+                Cancel
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsSelectMode(true)}
+                  className={`p-2 rounded-full transition-colors cursor-pointer ${isDark
+                    ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
+                    : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+                    }`}
+                  title="Select"
+                >
+                  <MdOutlineCheckBox size={20} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onClose) onClose();
+                    else navigate(-1);
+                  }}
+                  className={`p-2 rounded-full transition-colors cursor-pointer ${isDark
+                    ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
+                    : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
+                    }`}
+                  title="Close"
+                >
+                  <RxCross2 size={19} />
+                </button>
+              </>
             )}
           </div>
         </div>
       )}
+
+      {/* Smooth Slide-down Search Bar */}
       <AnimatePresence>
         {isSearching && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className={`px-4 py-2 border-b overflow-hidden ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-gray-50 border-gray-200"
+            className={`px-4 sm:px-6 py-2 border-b overflow-hidden shrink-0 ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-gray-50 border-gray-200"
               }`}
           >
-            <div className="relative">
+            <div className="relative max-w-xl mx-auto">
               <FaSearch
                 size={13}
-                className={`absolute left-3 top-1/2 -translate-y-1/2 ${isDark ? "text-[#8696a0]" : "text-gray-400"
+                className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDark ? "text-[#8696a0]" : "text-gray-400"
                   }`}
               />
               <input
@@ -523,135 +1115,11 @@ const Media = ({
           </motion.div>
         )}
       </AnimatePresence>
-      {mode === "page" && (
-        <div
-          className={`flex items-center gap-2 px-4 py-2 border-b overflow-x-auto scrollbar-hide text-xs ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-gray-50 border-gray-200"
-            }`}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setScope("all");
-              setSelectedContactFilter("");
-            }}
-            className={`px-3 py-1 rounded-full whitespace-nowrap font-medium transition-colors cursor-pointer ${scope === "all"
-              ? "bg-emerald-500 text-white"
-              : isDark
-                ? "bg-[#202c33] text-[#8696a0] hover:text-white"
-                : "bg-white text-gray-600 border border-gray-200"
-              }`}
-          >
-            All chats
-          </button>
 
-          {conversations.slice(0, 8).map((conv) => {
-            const peer = conv.participants?.find(
-              (p) => p._id !== user?._id && p !== user?._id
-            );
-            if (!peer) return null;
-            const peerId = peer._id || peer;
-            const isSelected =
-              scope === "chat" && selectedContactFilter === peerId;
-
-            return (
-              <button
-                key={conv._id}
-                type="button"
-                onClick={() => {
-                  setScope("chat");
-                  setSelectedContactFilter(peerId);
-                }}
-                className={`px-3 py-1 rounded-full whitespace-nowrap font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${isSelected
-                  ? "bg-emerald-500 text-white"
-                  : isDark
-                    ? "bg-[#202c33] text-[#8696a0] hover:text-white"
-                    : "bg-white text-gray-600 border border-gray-200"
-                  }`}
-              >
-                {peer.profilePicture && (
-                  <img
-                    src={peer.profilePicture}
-                    alt=""
-                    className="w-3.5 h-3.5 rounded-full object-cover"
-                  />
-                )}
-                <span>{peer.username || "Chat"}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      <div
-        className={`flex border-b shrink-0 ${isDark
-          ? "bg-[#111b21] border-[#222d34]"
-          : "bg-white border-gray-200"
-          }`}
-      >
-        {[
-          { id: "media", label: "Media", count: counts.media },
-          { id: "docs", label: "Docs", count: counts.docs },
-          { id: "links", label: "Links", count: counts.links },
-        ].map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-3 text-center text-[14px] font-medium transition-colors relative cursor-pointer flex items-center justify-center gap-1.5 ${isActive
-                ? isDark
-                  ? "text-[#00a884]"
-                  : "text-[#00a884] font-semibold"
-                : isDark
-                  ? "text-[#8696a0] hover:text-[#d1d7db]"
-                  : "text-gray-500 hover:text-gray-800"
-                }`}
-            >
-              <span>{tab.label}</span>
-              {tab.count > 0 && (
-                <span
-                  className={`text-[11px] px-1.5 py-0.2 rounded-full ${isActive
-                    ? "bg-emerald-500/20 text-emerald-400 font-semibold"
-                    : isDark
-                      ? "bg-white/10 text-[#8696a0]"
-                      : "bg-gray-100 text-gray-500"
-                    }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-              {isActive && (
-                <motion.div
-                  layoutId="media-tab-indicator"
-                  className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#00a884]"
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                />
-              )}
-            </button>
-          );
-        })}
-        {hideHeader && (
-          <button
-            type="button"
-            onClick={() => setIsSearching((prev) => !prev)}
-            className={`px-3 py-3 transition-colors cursor-pointer flex items-center justify-center ${isSearching
-                ? "text-[#00a884]"
-                : isDark
-                  ? "text-[#8696a0] hover:text-white"
-                  : "text-gray-500 hover:text-gray-900"
-              }`}
-            title="Search"
-          >
-            <FaSearch size={14} />
-          </button>
-        )}
-      </div>
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 pb-20">
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-64 gap-3 text-[#8696a0]">
-            <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-            <span className="text-sm">Loading {activeTab}...</span>
-          </div>
+          <MediaSkeletonLoader activeTab={activeTab} isDark={isDark} />
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[350px] text-center px-6 select-none">
             <h4
@@ -679,16 +1147,13 @@ const Media = ({
                   : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)
                   } shared in your chats will appear here.`}
             </p>
+
             {scope === "chat" && (
               <button
                 type="button"
                 onClick={() => {
-                  if (mode === "drawer") {
-                    navigate("/media");
-                  } else {
-                    setScope("all");
-                    setSelectedContactFilter("");
-                  }
+                  setScope("all");
+                  setSelectedContactFilter("");
                 }}
                 className="flex items-center gap-2 text-[#00a884] hover:text-[#06cf9c] font-medium text-[15px] transition-colors cursor-pointer group hover:underline"
               >
@@ -699,262 +1164,560 @@ const Media = ({
                 <span>View media from all chats</span>
               </button>
             )}
-
-            {scope === "all" && mode === "drawer" && contact && (
-              <button
-                type="button"
-                onClick={() => setScope("chat")}
-                className="flex items-center gap-2 text-[#00a884] hover:text-[#06cf9c] font-medium text-[14px] transition-colors cursor-pointer"
-              >
-                <FaArrowLeft size={13} />
-                <span>Back to this chat's media</span>
-              </button>
-            )}
           </div>
         ) : (
-          <div className="space-y-6 pb-6">
-            {groupedItems.map(([dateGroup, items]) => (
-              <div key={dateGroup} className="space-y-2.5">
-                <h5
-                  className={`text-[12px] font-semibold tracking-wider uppercase px-1 ${isDark ? "text-[#8696a0]" : "text-gray-500"
-                    }`}
-                >
-                  {dateGroup}
-                </h5>
-                {activeTab === "media" && (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
-                    {items.map((item) => {
-                      const isVideo = item.mediaType === "video";
-                      return (
-                        <div
-                          key={item._id}
-                          onClick={() => handleOpenViewer(item)}
-                          className={`relative aspect-square rounded-lg overflow-hidden group cursor-pointer transition-transform duration-200 hover:scale-[1.02] shadow-sm ${isDark ? "bg-[#202c33]" : "bg-gray-200"
-                            }`}
-                        >
-                          {isVideo ? (
-                            <video
-                              src={item.url}
-                              className="w-full h-full object-cover pointer-events-none"
-                              muted
-                              preload="metadata"
-                            />
-                          ) : (
-                            <img
-                              src={item.url}
-                              alt=""
-                              loading="lazy"
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
-                          )}
-
-                          {isVideo && (
-                            <div className="absolute inset-0 bg-black/25 flex items-center justify-center group-hover:bg-black/40 transition-colors">
-                              <div className="w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center shadow-lg backdrop-blur-xs">
-                                <FaPlay size={11} className="ml-0.5" />
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between text-white text-[10.5px]">
-                            <span className="truncate max-w-[70%] font-medium">
-                              {item.sender?.username || "Photo"}
-                            </span>
-                            <span className="opacity-80 shrink-0">
-                              {item.createdAt
-                                ? format(new Date(item.createdAt), "HH:mm")
-                                : ""}
-                            </span>
-                          </div>
-                          {scope === "all" && item.sender?.username && (
-                            <div className="absolute top-1 left-1 bg-black/60 backdrop-blur-xs text-[10px] text-white px-1.5 py-0.5 rounded-md truncate max-w-[85%] font-medium pointer-events-none">
-                              {item.sender.username}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {activeTab === "docs" && (
-                  <div className="space-y-1.5">
-                    {items.map((item) => {
-                      const docName =
-                        item.docName || item.fileName || "Document";
-                      const iconInfo = getFileIcon(docName);
-                      const docUrl = item.docUrl || item.fileUrl || item.url;
-                      const sizeStr = formatDocSize(item.fileSize);
-
-                      return (
-                        <div
-                          key={item._id}
-                          onClick={() => handleOpenViewer(item)}
-                          className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group ${isDark
-                            ? "bg-[#202c33]/70 hover:bg-[#202c33] border-white/5 hover:border-white/10"
-                            : "bg-white hover:bg-gray-50 border-gray-200 shadow-xs"
-                            }`}
-                        >
-                          <div className="flex items-center gap-3 min-w-0 pr-3">
-                            <div
-                              className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${iconInfo.bg}`}
-                            >
-                              {iconInfo.icon}
-                            </div>
-
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-[14px] font-medium truncate leading-tight group-hover:text-emerald-500 transition-colors">
-                                {docName}
-                              </span>
-                              <div
-                                className={`flex items-center gap-2 text-[11.5px] mt-1 ${isDark ? "text-[#8696a0]" : "text-gray-500"
-                                  }`}
-                              >
-                                {sizeStr && <span>{sizeStr}</span>}
-                                {sizeStr && <span>•</span>}
-                                <span>{iconInfo.label}</span>
-                                {item.sender?.username && scope === "all" && (
-                                  <>
-                                    <span>•</span>
-                                    <span className="truncate">
-                                      {item.sender.username}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={(e) =>
-                                handleDownloadFile(e, docUrl, docName)
-                              }
-                              className={`p-2 rounded-full transition-colors ${isDark
-                                ? "hover:bg-white/10 text-[#8696a0] hover:text-white"
-                                : "hover:bg-gray-100 text-gray-500 hover:text-gray-800"
-                                }`}
-                              title="Download"
-                            >
-                              <FiDownload size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {activeTab === "links" && (
-                  <div className="space-y-2">
-                    {items.map((item) => (
-                      <div
-                        key={item._id}
-                        className={`p-3 rounded-xl border transition-all group ${isDark
-                          ? "bg-[#202c33]/70 hover:bg-[#202c33] border-white/5 hover:border-white/10"
-                          : "bg-white hover:bg-gray-50 border-gray-200 shadow-xs"
+          <div className="space-y-6">
+            {groupedItems.map((group) => {
+              const { primary, sub, items } = group;
+              return (
+                <div key={`${primary}_${sub || ""}`} className="space-y-2">
+                  {/* WhatsApp-Style Date Header */}
+                  <div className="space-y-0.5 mb-2.5 px-0.5">
+                    <h4
+                      className={`text-[15px] font-semibold leading-tight ${isDark ? "text-[#e9edef]" : "text-gray-900"
+                        }`}
+                    >
+                      {primary}
+                    </h4>
+                    {sub && (
+                      <p
+                        className={`text-[12px] leading-tight ${isDark ? "text-[#8696a0]" : "text-gray-500"
                           }`}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3 min-w-0">
+                        {sub}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* MEDIA TAB GRID */}
+                  {activeTab === "media" && (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+                      {items.map((item) => {
+                        const isVideo = item.mediaType === "video";
+                        const itemId = item.messageId || item._id;
+                        const isSelected = selectedItems.some(
+                          (i) => (i.messageId || i._id) === itemId
+                        );
+                        const senderName = item.sender?.username || "";
+
+                        return (
+                          <div
+                            key={itemId}
+                            onClick={() => handleOpenViewer(item)}
+                            className={`relative aspect-square rounded-lg overflow-hidden group cursor-pointer transition-all duration-200 select-none shadow-xs ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+                              } ${isSelected
+                                ? "ring-2 ring-emerald-500 brightness-95"
+                                : "hover:brightness-105"
+                              }`}
+                          >
+                            {/* Checkbox at Top-Left */}
                             <div
-                              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${isDark
-                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                                : "bg-emerald-50 border-emerald-200 text-emerald-600"
+                              className={`absolute top-2 left-2 z-20 transition-all ${isSelectMode
+                                ? "opacity-100 scale-100"
+                                : "opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100"
                                 }`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isSelectMode) setIsSelectMode(true);
+                                toggleSelectItem(item);
+                              }}
                             >
-                              <FiLink size={18} />
+                              {isSelected ? (
+                                <div className="w-[18px] h-[18px] rounded-[4px] bg-white text-black flex items-center justify-center font-bold shadow-md transition-transform active:scale-90">
+                                  <FaCheck size={11} className="stroke-[1.5]" />
+                                </div>
+                              ) : (
+                                <div className="w-[18px] h-[18px] rounded-[4px] border-[1.8px] border-white/85 bg-black/35 backdrop-blur-xs flex items-center justify-center hover:border-white transition-all active:scale-90" />
+                              )}
                             </div>
 
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-[12px] font-semibold text-emerald-500 truncate uppercase tracking-wider">
-                                {item.domain}
-                              </span>
+                            {/* Media (Image or Video) */}
+                            {isVideo ? (
+                              <VideoThumbnail
+                                src={item.url || item.imageOrVideoUrl}
+                                item={item}
+                              />
+                            ) : (
+                              <img
+                                src={item.url || item.imageOrVideoUrl}
+                                alt=""
+                                loading="lazy"
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            )}
 
-                              <a
-                                href={item.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`text-[13.5px] font-medium break-all mt-0.5 hover:underline transition-colors ${isDark
-                                  ? "text-[#53bdeb] hover:text-[#7fd2f5]"
-                                  : "text-blue-600 hover:text-blue-800"
-                                  }`}
-                              >
-                                {item.url}
-                              </a>
+                            {/* Center Play Button for Video */}
+                            {isVideo && (
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center shadow-lg backdrop-blur-xs group-hover:scale-110 transition-transform">
+                                  <FaPlay size={11} className="ml-0.5" />
+                                </div>
+                              </div>
+                            )}
 
-                              {item.title && item.title !== item.url && (
-                                <p
-                                  className={`text-[12px] line-clamp-2 mt-1 leading-relaxed ${isDark ? "text-[#8696a0]" : "text-gray-600"
-                                    }`}
+                            {/* Bottom-left Sender Name & Video Badge Gradient */}
+                            <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col justify-end text-white pointer-events-none">
+                              {senderName && (
+                                <span className="text-[11.5px] font-medium truncate text-white/95 drop-shadow-md leading-tight mt-0.5">
+                                  {senderName}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* DOCS TAB LIST */}
+                  {activeTab === "docs" && (
+                    <div className="space-y-1.5">
+                      {items.map((item) => {
+                        const itemId = item.messageId || item._id;
+                        const isSelected = selectedItems.some(
+                          (i) => (i.messageId || i._id) === itemId
+                        );
+                        const docName =
+                          item.docName || item.fileName || "Document";
+                        const iconInfo = getFileIcon(docName);
+                        const docUrl = item.docUrl || item.fileUrl || item.url;
+                        const sizeStr = formatDocSize(item.fileSize);
+
+                        return (
+                          <div
+                            key={itemId}
+                            onClick={() => handleOpenViewer(item)}
+                            className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group select-none ${isSelected
+                              ? isDark
+                                ? "bg-emerald-500/15 border-emerald-500/40"
+                                : "bg-emerald-50 border-emerald-500/30"
+                              : isDark
+                                ? "bg-[#202c33]/70 hover:bg-[#202c33] border-white/5 hover:border-white/10"
+                                : "bg-white hover:bg-gray-50 border-gray-200 shadow-xs"
+                              }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 pr-3">
+                              {/* Selection Checkbox */}
+                              {isSelectMode && (
+                                <div
+                                  className="shrink-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSelectItem(item);
+                                  }}
                                 >
-                                  {item.title}
-                                </p>
+                                  {isSelected ? (
+                                    <div className="w-[18px] h-[18px] rounded-[4px] bg-white text-black flex items-center justify-center font-bold shadow-md">
+                                      <FaCheck size={11} />
+                                    </div>
+                                  ) : (
+                                    <div className="w-[18px] h-[18px] rounded-[4px] border-[1.8px] border-white/60 bg-black/20" />
+                                  )}
+                                </div>
                               )}
 
                               <div
-                                className={`flex items-center gap-2 text-[11px] mt-2 ${isDark ? "text-[#8696a0]" : "text-gray-400"
-                                  }`}
+                                className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${iconInfo.bg}`}
                               >
-                                {item.createdAt && (
-                                  <span>
-                                    {format(
-                                      new Date(item.createdAt),
-                                      "MMM d, HH:mm"
+                                {iconInfo.icon}
+                              </div>
+
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[14px] font-medium truncate leading-tight group-hover:text-emerald-500 transition-colors">
+                                  {docName}
+                                </span>
+                                <div
+                                  className={`flex items-center gap-2 text-[11.5px] mt-1 ${isDark ? "text-[#8696a0]" : "text-gray-500"
+                                    }`}
+                                >
+                                  {sizeStr && <span>{sizeStr}</span>}
+                                  {sizeStr && <span>•</span>}
+                                  <span>{iconInfo.label}</span>
+                                  {item.sender?.username && (
+                                    <>
+                                      <span>•</span>
+                                      <span className="truncate">
+                                        {item.sender.username}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={(e) =>
+                                  handleDownloadFile(e, docUrl, docName)
+                                }
+                                className={`p-2 rounded-full transition-colors ${isDark
+                                  ? "hover:bg-white/10 text-[#8696a0] hover:text-white"
+                                  : "hover:bg-gray-100 text-gray-500 hover:text-gray-800"
+                                  }`}
+                                title="Download"
+                              >
+                                <FiDownload size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* LINKS TAB LIST */}
+                  {activeTab === "links" && (
+                    <div className="space-y-2">
+                      {items.map((item) => {
+                        const itemId = item.messageId || item._id;
+                        const isSelected = selectedItems.some(
+                          (i) => (i.messageId || i._id) === itemId
+                        );
+
+                        return (
+                          <div
+                            key={itemId}
+                            onClick={() => {
+                              if (isSelectMode) toggleSelectItem(item);
+                            }}
+                            className={`p-3 rounded-xl border transition-all group select-none ${isSelected
+                              ? isDark
+                                ? "bg-emerald-500/15 border-emerald-500/40"
+                                : "bg-emerald-50 border-emerald-500/30"
+                              : isDark
+                                ? "bg-[#202c33]/70 hover:bg-[#202c33] border-white/5 hover:border-white/10"
+                                : "bg-white hover:bg-gray-50 border-gray-200 shadow-xs"
+                              }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-start gap-3 min-w-0">
+                                {/* Selection Checkbox */}
+                                {isSelectMode && (
+                                  <div
+                                    className="shrink-0 mt-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleSelectItem(item);
+                                    }}
+                                  >
+                                    {isSelected ? (
+                                      <div className="w-[18px] h-[18px] rounded-[4px] bg-white text-black flex items-center justify-center font-bold shadow-md">
+                                        <FaCheck size={11} />
+                                      </div>
+                                    ) : (
+                                      <div className="w-[18px] h-[18px] rounded-[4px] border-[1.8px] border-white/60 bg-black/20" />
                                     )}
+                                  </div>
+                                )}
+
+                                <div
+                                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${isDark
+                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                    : "bg-emerald-50 border-emerald-200 text-emerald-600"
+                                    }`}
+                                >
+                                  <FiLink size={18} />
+                                </div>
+
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-[12px] font-semibold text-emerald-500 truncate uppercase tracking-wider">
+                                    {item.domain}
                                   </span>
-                                )}
-                                {item.sender?.username && scope === "all" && (
-                                  <>
-                                    <span>•</span>
-                                    <span>{item.sender.username}</span>
-                                  </>
-                                )}
+
+                                  <a
+                                    href={item.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => {
+                                      if (isSelectMode) e.preventDefault();
+                                    }}
+                                    className={`text-[13.5px] font-medium break-all mt-0.5 hover:underline transition-colors ${isDark
+                                      ? "text-[#53bdeb] hover:text-[#7fd2f5]"
+                                      : "text-blue-600 hover:text-blue-800"
+                                      }`}
+                                  >
+                                    {item.url}
+                                  </a>
+
+                                  {item.title && item.title !== item.url && (
+                                    <p
+                                      className={`text-[12px] line-clamp-2 mt-1 leading-relaxed ${isDark
+                                        ? "text-[#8696a0]"
+                                        : "text-gray-600"
+                                        }`}
+                                    >
+                                      {item.title}
+                                    </p>
+                                  )}
+
+                                  <div
+                                    className={`flex items-center gap-2 text-[11px] mt-2 ${isDark
+                                      ? "text-[#8696a0]"
+                                      : "text-gray-400"
+                                      }`}
+                                  >
+                                    {item.createdAt && (
+                                      <span>
+                                        {format(
+                                          new Date(item.createdAt),
+                                          "MMM d, HH:mm"
+                                        )}
+                                      </span>
+                                    )}
+                                    {item.sender?.username && (
+                                      <>
+                                        <span>•</span>
+                                        <span>{item.sender.username}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCopyLink(item.url, item._id)
+                                  }
+                                  className={`p-1.5 rounded-lg transition-colors ${copiedId === item._id
+                                    ? "text-emerald-500 bg-emerald-500/10"
+                                    : isDark
+                                      ? "text-[#8696a0] hover:text-white hover:bg-white/10"
+                                      : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                                    }`}
+                                  title="Copy link"
+                                >
+                                  {copiedId === item._id ? (
+                                    <MdCheck size={16} />
+                                  ) : (
+                                    <MdOutlineContentCopy size={16} />
+                                  )}
+                                </button>
+
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`p-1.5 rounded-lg transition-colors ${isDark
+                                    ? "text-[#8696a0] hover:text-white hover:bg-white/10"
+                                    : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                                    }`}
+                                  title="Open link"
+                                >
+                                  <FiExternalLink size={16} />
+                                </a>
                               </div>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-1 shrink-0 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => handleCopyLink(item.url, item._id)}
-                              className={`p-1.5 rounded-lg transition-colors ${copiedId === item._id
-                                ? "text-emerald-500 bg-emerald-500/10"
-                                : isDark
-                                  ? "text-[#8696a0] hover:text-white hover:bg-white/10"
-                                  : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                                }`}
-                              title="Copy link"
-                            >
-                              {copiedId === item._id ? (
-                                <MdCheck size={16} />
-                              ) : (
-                                <MdOutlineContentCopy size={16} />
-                              )}
-                            </button>
-
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`p-1.5 rounded-lg transition-colors ${isDark
-                                ? "text-[#8696a0] hover:text-white hover:bg-white/10"
-                                : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                                }`}
-                              title="Open link"
-                            >
-                              <FiExternalLink size={16} />
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Floating Bottom Action Toolbar when Items are Selected */}
+      <AnimatePresence>
+        {isSelectMode && selectedItems.length > 0 && (
+          <motion.div
+            initial={{ y: 70, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 70, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 360, damping: 28 }}
+            className={`fixed bottom-0 inset-x-0 sm:absolute sm:inset-x-0 h-[58px] px-6 border-t flex items-center justify-between z-40 select-none shadow-2xl backdrop-blur-md ${isDark
+              ? "bg-[#202c33]/95 border-[#2a3942] text-white"
+              : "bg-white/95 border-gray-200 text-gray-900"
+              }`}
+          >
+            {/* Left: Red Trash with Total Size */}
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-2 text-rose-400 hover:text-rose-300 font-medium text-[14px] transition-colors cursor-pointer group px-2 py-1.5 rounded-lg hover:bg-rose-500/10 active:scale-95"
+              title="Delete selected"
+            >
+              <FiTrash2
+                size={18}
+                className="text-rose-400 group-hover:scale-110 transition-transform"
+              />
+              <span className="font-semibold">{selectedTotalSize}</span>
+            </button>
+
+            {/* Center: Selected count */}
+            <div className="text-[14px] font-medium text-[#e9edef] tracking-wide">
+              {selectedItems.length} selected
+            </div>
+
+            {/* Right: Star, Download, Green Circle Forward button */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleStarSelected}
+                className={`p-2 rounded-full transition-colors cursor-pointer active:scale-90 ${areAllStarred
+                  ? "text-amber-400 hover:bg-amber-400/10"
+                  : isDark
+                    ? "text-[#aebac1] hover:text-white hover:bg-white/10"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                  }`}
+                title={areAllStarred ? "Unstar selected" : "Star selected"}
+              >
+                {areAllStarred ? <FaStar size={18} /> : <FaRegStar size={18} />}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadSelected}
+                className={`p-2 rounded-full transition-colors cursor-pointer active:scale-90 ${isDark
+                  ? "text-[#aebac1] hover:text-white hover:bg-white/10"
+                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+                  }`}
+                title="Download selected"
+              >
+                <FiDownload size={19} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleForwardSelected}
+                className="w-10 h-10 rounded-full bg-[#00a884] hover:bg-[#02906f] text-[#111b21] flex items-center justify-center shadow-lg cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                title="Forward selected"
+              >
+                <IoArrowForward size={19} className="stroke-[1.5]" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div
+          className={`fixed inset-0 z-[10000] flex items-center justify-center px-4 backdrop-blur-xl ${isDark ? "bg-black/70" : "bg-black/30"
+            }`}
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 20 }}
+            transition={{ type: "spring", stiffness: 280, damping: 22 }}
+            className={`relative w-full max-w-sm overflow-hidden rounded-[28px] border p-6 shadow-2xl backdrop-blur-2xl ${isDark
+              ? "border-white/[0.08] bg-gradient-to-br from-[#202c33]/95 via-[#111b21]/95 to-[#0b141a]/95 shadow-black/50"
+              : "border-white/70 bg-gradient-to-br from-white/95 via-white/90 to-zinc-100/95 shadow-black/10"
+              }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              aria-label="Close"
+              title="Close"
+              onClick={() => setShowDeleteModal(false)}
+              className={`absolute right-4 top-4 z-30 flex h-8 w-8 items-center justify-center rounded-full transition-colors duration-200 cursor-pointer ${isDark
+                ? "bg-white/[0.06] text-gray-400 hover:bg-white/15 hover:text-white"
+                : "bg-black/[0.05] text-gray-500 hover:bg-black/10 hover:text-gray-900"
+                }`}
+            >
+              <RxCross2 size={16} />
+            </button>
+
+            <div className="relative flex flex-col items-center text-center">
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className={`relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border shadow-lg ${isDark
+                  ? "border-red-400/10 bg-gradient-to-br from-red-500/20 to-red-600/5 text-red-400 shadow-red-500/10"
+                  : "border-red-500/10 bg-gradient-to-br from-red-500/10 to-red-500/5 text-red-500 shadow-red-500/10"
+                  }`}
+              >
+                <RiDeleteBin6Line size={27} />
+              </motion.div>
+              <h2
+                className={`text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-zinc-900"
+                  }`}
+              >
+                Delete {selectedItems.length} message
+                {selectedItems.length > 1 ? "s" : ""}?
+              </h2>
+              <p
+                className={`mt-2 max-w-[290px] text-sm leading-6 ${isDark ? "text-zinc-400" : "text-zinc-500"
+                  }`}
+              >
+                Choose how you want to delete selected messages. This action
+                cannot be undone.
+              </p>
+            </div>
+
+            <div className="relative mt-7 flex flex-col gap-3">
+              {canDeleteForEveryone && (
+                <motion.button
+                  type="button"
+                  disabled={isDeleting}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => executeDeleteSelected("everyone")}
+                  className="group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 cursor-pointer border-red-500/10 bg-gradient-to-r from-red-500/90 to-rose-600/90 text-white shadow-lg shadow-red-500/10 hover:border-red-300/20 hover:from-red-500 hover:to-rose-500"
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2.5">
+                    <RiDeleteBin6Line size={17} />
+                    <span>
+                      {isDeleting ? "Deleting..." : "Delete for everyone"}
+                    </span>
+                  </span>
+                </motion.button>
+              )}
+
+              <motion.button
+                type="button"
+                disabled={isDeleting}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => executeDeleteSelected("me")}
+                className={`group relative w-full overflow-hidden rounded-2xl border px-4 py-3.5 font-semibold transition-all duration-300 cursor-pointer ${isDark
+                  ? "border-white/[0.08] bg-gradient-to-r from-zinc-800/90 to-zinc-900/90 text-zinc-100 shadow-lg shadow-black/10 hover:border-emerald-400/20 hover:from-zinc-700/90 hover:to-zinc-800/90 hover:text-emerald-300"
+                  : "border-black/[0.06] bg-gradient-to-r from-zinc-100 to-white text-zinc-800 shadow-md hover:border-emerald-500/20 hover:from-emerald-50 hover:to-white hover:text-emerald-700"
+                  }`}
+              >
+                <span className="relative z-10 flex items-center justify-center gap-2.5">
+                  <RiDeleteBin6Line size={17} />
+                  <span>{isDeleting ? "Deleting..." : "Delete for me"}</span>
+                </span>
+              </motion.button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteModal(false)}
+                className={`w-full py-2.5 text-sm font-medium rounded-xl transition-colors cursor-pointer ${isDark
+                  ? "text-gray-400 hover:text-white hover:bg-white/5"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-black/5"
+                  }`}
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Forward Modal */}
+      {showForwardModal && (
+        <ForwardModal
+          isOpen={showForwardModal}
+          onClose={() => {
+            setShowForwardModal(false);
+            setIsSelectMode(false);
+            setSelectedItems([]);
+          }}
+          messages={selectedItems}
+          theme={theme}
+        />
+      )}
+
+      {/* File Viewer Modal */}
       {showViewer && viewerFile && (
         <FileViewerModal
           isOpen={showViewer}

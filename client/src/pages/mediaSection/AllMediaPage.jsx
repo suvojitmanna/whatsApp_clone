@@ -293,30 +293,6 @@ const AllMediaPage = () => {
   );
   const mainMediaContent = (
     <div className="h-full w-full flex flex-col relative overflow-hidden">
-      {isMobile && isViewingMediaOnMobile && (
-        <div
-          className={`flex items-center gap-3 px-4 py-3 shrink-0 border-b ${isDark ? "bg-[#202c33] border-[#222d34] text-white" : "bg-white border-gray-200"
-            }`}
-        >
-          <button
-            type="button"
-            onClick={() => setIsViewingMediaOnMobile(false)}
-            className="p-1 rounded-full text-[#8696a0] hover:text-white"
-          >
-            <FaArrowLeft size={16} />
-          </button>
-          <div className="flex flex-col min-w-0">
-            <span className="text-[15px] font-semibold truncate">
-              {selectedChat === "all"
-                ? "All chats media"
-                : activePeer?.username
-                  ? `${activePeer.username}'s media`
-                  : "Chat media"}
-            </span>
-          </div>
-        </div>
-      )}
-
       <Media
         mode="page"
         chatId={selectedChat === "all" ? null : selectedChat}
@@ -326,7 +302,7 @@ const AllMediaPage = () => {
           if (isMobile) {
             setIsViewingMediaOnMobile(false);
           } else {
-            navigate(-1);
+            navigate("/");
           }
         }}
       />

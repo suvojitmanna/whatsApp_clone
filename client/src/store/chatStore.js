@@ -3,6 +3,7 @@ import { getSocket, initializeSocket } from "../services/chatService";
 import axiosInstance from "../services/url.services";
 import useUserStore from "./useUserStore";
 import useLayoutStore from "./layoutStore";
+import { getDisappearingDurationMs } from "../utils/formatTime";
 import {
   getSharedAesKey,
   encryptText,
@@ -392,6 +393,32 @@ export const useChatStore = create((set, get) => ({
     } catch (error) {
       console.error("deleteChat error:", error);
     }
+  },
+  updateConversationDisappearing: (targetIds, duration, setBy, updatedAt) => {
+    const idsSet = new Set((targetIds || []).map(String));
+    const effectiveTime = updatedAt || new Date().toISOString();
+    set((state) => {
+      const nextData = state.conversations?.data?.map((conv) => {
+        const cId = String(conv._id);
+        const matches =
+          idsSet.has(cId) ||
+          conv.participants?.some((p) => idsSet.has(String(p?._id || p)));
+        if (matches) {
+          return {
+            ...conv,
+            disappearingDuration: duration,
+            disappearingSetBy: setBy,
+            disappearingUpdatedAt: effectiveTime,
+          };
+        }
+        return conv;
+      });
+      return {
+        conversations: state.conversations
+          ? { ...state.conversations, data: nextData }
+          : state.conversations,
+      };
+    });
   },
   pinMessage: async (
     conversationId,
@@ -1123,6 +1150,7 @@ export const useChatStore = create((set, get) => ({
         lastMessage,
         deletedForEveryone,
         updatedMessage,
+        isDisappearingExpiry,
       }) => {
         const currentUserId = (
           get().currentUser || useUserStore.getState().user
@@ -1145,7 +1173,10 @@ export const useChatStore = create((set, get) => ({
 
         set((state) => {
           let updatedMessages;
-          if (deletedForEveryone) {
+          // ONLY show "This message was deleted" if sender forcefully clicked "Delete for everyone"
+          // If message deleted because of disappearing (isDisappearingExpiry is true or !deletedForEveryone),
+          // completely remove it from state so it NEVER shows "This message was deleted"!
+          if (deletedForEveryone && !isDisappearingExpiry) {
             updatedMessages = (state.messages || []).map((msg) => {
               if (String(msg._id) === String(deletedMessageId)) {
                 const sId = String(msg.sender?._id || msg.sender || "");
@@ -1189,7 +1220,7 @@ export const useChatStore = create((set, get) => ({
           if (conversationId) {
             const cached = cache.get(String(conversationId));
             if (cached) {
-              const updatedCached = deletedForEveryone
+              const updatedCached = (deletedForEveryone && !isDisappearingExpiry)
                 ? cached.map((m) => {
                     if (String(m._id) === String(deletedMessageId)) {
                       const sId = String(m.sender?._id || m.sender || "");
@@ -1771,6 +1802,38 @@ export const useChatStore = create((set, get) => ({
       } catch (e) {}
     }
 
+    const layoutState = useLayoutStore.getState?.() || {};
+    const disappearingDurationsMap = layoutState.disappearingDurations || {};
+    const activeDisappearingDuration =
+      (selectedContact?.conversation?.disappearingDuration &&
+        selectedContact.conversation.disappearingDuration !== "Off" &&
+        selectedContact.conversation.disappearingDuration) ||
+      (conversationId && disappearingDurationsMap[conversationId] !== "Off" && disappearingDurationsMap[conversationId]) ||
+      (receiverId && disappearingDurationsMap[receiverId] !== "Off" && disappearingDurationsMap[receiverId]) ||
+      (layoutState.defaultMessageTimer && layoutState.defaultMessageTimer !== "Off" && layoutState.defaultMessageTimer);
+
+    let isDisappearing = false;
+    let disappearingDuration = null;
+    let disappearingExpiresAt = null;
+
+    if (activeDisappearingDuration && activeDisappearingDuration !== "Off") {
+      const durMs = getDisappearingDurationMs(activeDisappearingDuration);
+      if (durMs) {
+        isDisappearing = true;
+        disappearingDuration = activeDisappearingDuration;
+        disappearingExpiresAt = new Date(Date.now() + durMs).toISOString();
+      }
+    }
+
+    if (isDisappearing) {
+      formData.set("isDisappearing", "true");
+      formData.set("disappearingDuration", disappearingDuration);
+      formData.set("disappearingExpiresAt", disappearingExpiresAt);
+    } else {
+      formData.set("isDisappearing", "false");
+      formData.set("disappearingDuration", "Off");
+    }
+
     const optimisticMessage = {
       _id: tempId,
       sender: { _id: senderId },
@@ -1793,6 +1856,10 @@ export const useChatStore = create((set, get) => ({
       messageStatus: messageStatus || "send",
       replyTo: replyTo || null,
       replyMessage: parsedReplyMessage,
+      isDisappearing,
+      disappearingDuration,
+      disappearingExpiresAt,
+      isKept: false,
     };
 
     set((state) => {
@@ -1838,6 +1905,10 @@ export const useChatStore = create((set, get) => ({
         _isDecrypted: true,
         isEncrypted: messageData.isEncrypted ?? isEncrypted,
         iv: messageData.iv ?? iv,
+        isDisappearing: messageData.isDisappearing ?? isDisappearing,
+        disappearingDuration: messageData.disappearingDuration ?? disappearingDuration,
+        disappearingExpiresAt: messageData.disappearingExpiresAt ?? disappearingExpiresAt,
+        isKept: messageData.isKept ?? false,
       };
 
       const resolvedConvId =

@@ -28,6 +28,7 @@ import { toast } from "react-toastify";
 import { useChatStore } from "../../store/chatStore";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
+import { getDisappearingDurationMs } from "../../utils/formatTime";
 import ReactionDetailsModal from "../../components/ReactionDetailsModal";
 import FileViewerModal from "../../components/FileViewerModal";
 import ForwardModal from "../../components/ForwardModal";
@@ -304,10 +305,29 @@ const MessageBuble = ({
   );
   const isDark = theme === "dark";
   const isSticker = message.contentType === "sticker";
+  const isDisappearingExpired = useMemo(() => {
+    if (!message || message.isKept || message.deletedForEveryone) return false;
+    if (message.isDisappearing) {
+      const expTime = message.disappearingExpiresAt
+        ? new Date(message.disappearingExpiresAt).getTime()
+        : null;
+      if (expTime) {
+        return Date.now() >= expTime;
+      }
+      const dur = message.disappearingDuration || disappearingDuration;
+      const durMs = getDisappearingDurationMs(dur);
+      if (durMs && message.createdAt) {
+        return Date.now() >= new Date(message.createdAt).getTime() + durMs;
+      }
+    }
+    return false;
+  }, [message, disappearingDuration]);
+
   const isDeletedForEveryone = Boolean(
-    message.deletedForEveryone ||
-    message.content === "This message was deleted" ||
-    message.content === "You deleted this message"
+    !isDisappearingExpired &&
+    (message.deletedForEveryone ||
+      message.content === "This message was deleted" ||
+      message.content === "You deleted this message")
   );
 
   const conversationId = currentConversation?._id || message?.conversationId || layoutSelectedContact?._id;

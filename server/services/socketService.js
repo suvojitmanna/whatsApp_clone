@@ -648,6 +648,80 @@ function initializeSocket(server) {
 
     socket.on("disconnect", handleDisconnected);
   });
+
+  // Periodic cleanup of expired disappearing messages (runs every 3 seconds)
+  // STRICT RULE: Only messages where isDisappearing is explicitly true and disappearingExpiresAt <= now
+  // Non-disappearing messages and messages sent before disappearing was enabled are NEVER touched!
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const expiredMsgs = await Message.find({
+        isKept: { $ne: true },
+        isDisappearing: true,
+        disappearingExpiresAt: { $ne: null, $lte: now },
+      })
+        .select("_id conversation sender receiver")
+        .lean();
+
+      if (expiredMsgs && expiredMsgs.length > 0) {
+        const expiredIds = expiredMsgs.map((m) => m._id);
+        await Message.deleteMany({ _id: { $in: expiredIds } });
+
+        const convGroups = new Map();
+        expiredMsgs.forEach((m) => {
+          const cId = m.conversation?.toString();
+          if (cId) {
+            if (!convGroups.has(cId)) convGroups.set(cId, []);
+            convGroups.get(cId).push(m);
+          }
+        });
+
+        for (const [cId, msgs] of convGroups.entries()) {
+          const conv = await Conversation.findById(cId).select(
+            "participants lastMessage",
+          );
+          const latestRemaining = await Message.findOne({ conversation: cId })
+            .sort({ createdAt: -1 })
+            .lean();
+
+          if (conv) {
+            if (
+              conv.lastMessage &&
+              expiredIds.some(
+                (id) => id.toString() === conv.lastMessage.toString(),
+              )
+            ) {
+              conv.lastMessage = latestRemaining?._id || null;
+              await conv.save();
+            }
+
+            const participants = conv.participants || [];
+            msgs.forEach((m) => {
+              const msgIdStr = m._id.toString();
+              participants.forEach((p) => {
+                const targetId = (p._id || p).toString();
+                const payload = {
+                  deletedMessageId: msgIdStr,
+                  conversationId: cId,
+                  lastMessage: latestRemaining || null,
+                  deletedForEveryone: false,
+                  isDisappearingExpiry: true,
+                };
+                io.to(targetId).emit("message_deleted", payload);
+                const sockId = onlineUsers.get(targetId);
+                if (sockId) {
+                  io.to(sockId).emit("message_deleted", payload);
+                }
+              });
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error in background disappearing cleanup interval:", err);
+    }
+  }, 3000);
+
   io.socketUserMap = onlineUsers;
   return io;
 }

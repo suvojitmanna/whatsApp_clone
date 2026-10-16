@@ -11,6 +11,7 @@ import {
   FaHeadphones,
   FaFileAlt,
   FaHeart,
+  FaCaretDown,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
 import { MdEventNote, MdAccessTime, MdList, MdOutlinePlaylistAdd } from "react-icons/md";
@@ -531,6 +532,8 @@ const ChatList = ({ contacts }) => {
   const [listsRevision, setListsRevision] = useState(0);
   const [listModalContact, setListModalContact] = useState(null);
   const [isNewListModalOpen, setIsNewListModalOpen] = useState(false);
+  const [showListsDropdown, setShowListsDropdown] = useState(false);
+  const listsDropdownRef = useRef(null);
 
   useEffect(() => {
     const handleListsChanged = () => {
@@ -542,13 +545,74 @@ const ChatList = ({ contacts }) => {
       window.removeEventListener("whatsapp_lists_changed", handleListsChanged);
   }, []);
 
-  const totalUnreadCount = useMemo(() => {
-    if (!contacts) return 0;
-    return contacts.filter((c) => {
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        listsDropdownRef.current &&
+        !listsDropdownRef.current.contains(e.target)
+      ) {
+        setShowListsDropdown(false);
+      }
+    };
+    if (showListsDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showListsDropdown]);
+
+  const listCounts = useMemo(() => {
+    const counts = {
+      All: contacts?.length || 0,
+      Favourites: 0,
+      Groups: 0,
+      Unread: 0,
+      Communities: 0,
+    };
+    if (!contacts) return counts;
+
+    contacts.forEach((c) => {
       const u = c?.conversation?.unreadCount;
-      return typeof u === "number" && u > 0;
-    }).length;
-  }, [contacts]);
+      if (typeof u === "number" && u > 0) {
+        counts.Unread += 1;
+      }
+      if (isContactInList(c, "Groups")) {
+        counts.Groups += 1;
+      }
+      if (isContactInList(c, "Favourites") || isContactInList(c, "Favorites")) {
+        counts.Favourites += 1;
+      }
+      if (isContactInList(c, "Communities")) {
+        counts.Communities += 1;
+      }
+    });
+
+    availableLists.forEach((l) => {
+      if (counts[l] === undefined) {
+        counts[l] = contacts.filter((c) => isContactInList(c, l)).length;
+      }
+    });
+
+    return counts;
+  }, [contacts, availableLists, listsRevision]);
+
+  const dropdownLists = useMemo(() => {
+    const base = ["Communities"];
+    availableLists.forEach((l) => {
+      if (
+        l !== "Favorites" &&
+        l !== "Favourites" &&
+        l !== "All" &&
+        l !== "Unread" &&
+        l !== "Groups" &&
+        !base.includes(l)
+      ) {
+        base.push(l);
+      }
+    });
+    return base;
+  }, [availableLists]);
+
+  const totalUnreadCount = listCounts.Unread;
 
   const filteredContact = useMemo(() => {
     if (!contacts) return [];
@@ -651,110 +715,194 @@ const ChatList = ({ contacts }) => {
           )}
         </div>
       </div>
-      <div className="px-3 pb-2 pt-0.5 flex items-center gap-1.5 overflow-x-auto scrollbar-hide select-none border-b border-white/5">
+      <div className="px-3 pb-2 pt-0.5 flex items-center gap-1.5 overflow-x-auto scrollbar-hide select-none border-b border-white/5 relative">
+        {/* All */}
         <button
           type="button"
           onClick={() => setActiveListFilter("All")}
           className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer ${activeListFilter === "All"
-              ? theme === "dark"
-                ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
-                : "bg-[#00a884] text-white font-semibold shadow-sm"
-              : theme === "dark"
-                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+            ? theme === "dark"
+              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
+              : "bg-[#00a884] text-white font-semibold shadow-xs"
+            : theme === "dark"
+              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+              : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
             }`}
         >
           All
         </button>
+
+        {/* Favourites */}
+        <button
+          type="button"
+          onClick={() => setActiveListFilter("Favourites")}
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeListFilter === "Favourites" || activeListFilter === "Favorites"
+            ? theme === "dark"
+              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
+              : "bg-[#00a884] text-white font-semibold shadow-xs"
+            : theme === "dark"
+              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+              : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+            }`}
+        >
+          <span>Favourites</span>
+          {listCounts.Favourites > 0 && (
+            <span className="text-[11px] opacity-80 font-semibold ml-0.5">
+              {listCounts.Favourites}
+            </span>
+          )}
+        </button>
+
+        {/* Groups */}
+        <button
+          type="button"
+          onClick={() => setActiveListFilter("Groups")}
+          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeListFilter === "Groups"
+            ? theme === "dark"
+              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
+              : "bg-[#00a884] text-white font-semibold shadow-xs"
+            : theme === "dark"
+              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+              : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+            }`}
+        >
+          <span>Groups</span>
+          {listCounts.Groups > 0 && (
+            <span className="text-[11px] opacity-80 font-semibold ml-0.5">
+              {listCounts.Groups}
+            </span>
+          )}
+        </button>
+
+        {/* Unread */}
         <button
           type="button"
           onClick={() => setActiveListFilter("Unread")}
           className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeListFilter === "Unread"
-              ? theme === "dark"
-                ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
-                : "bg-[#00a884] text-white font-semibold shadow-sm"
-              : theme === "dark"
-                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+            ? theme === "dark"
+              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
+              : "bg-[#00a884] text-white font-semibold shadow-xs"
+            : theme === "dark"
+              ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
+              : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
             }`}
         >
           <span>Unread</span>
-          {totalUnreadCount > 0 && (
-            <span
-              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${activeListFilter === "Unread"
-                  ? "bg-[#111b21] text-[#00a884]"
-                  : "bg-emerald-500 text-white"
-                }`}
-            >
-              {totalUnreadCount}
+          {listCounts.Unread > 0 && (
+            <span className="text-[11px] opacity-80 font-semibold ml-0.5">
+              {listCounts.Unread}
             </span>
           )}
         </button>
-        <button
-          type="button"
-          onClick={() => setActiveListFilter("Favorites")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${activeListFilter === "Favorites"
+
+        {/* Active dropdown list if selected */}
+        {dropdownLists.includes(activeListFilter) && (
+          <button
+            type="button"
+            onClick={() => setActiveListFilter(activeListFilter)}
+            className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${theme === "dark"
+              ? "bg-[#103629] text-[#25d366] font-semibold border border-[#00a884]/30 shadow-xs"
+              : "bg-[#00a884] text-white font-semibold shadow-xs"
+              }`}
+          >
+            <span>{activeListFilter}</span>
+            {listCounts[activeListFilter] > 0 && (
+              <span className="text-[11px] opacity-80 font-semibold ml-0.5">
+                {listCounts[activeListFilter]}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Dropdown trigger caret button */}
+        <div className="relative shrink-0" ref={listsDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setShowListsDropdown((prev) => !prev)}
+            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer ${showListsDropdown || dropdownLists.includes(activeListFilter)
               ? theme === "dark"
-                ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
-                : "bg-[#00a884] text-white font-semibold shadow-sm"
+                ? "bg-[#103629] text-[#25d366] border border-[#00a884]/30"
+                : "bg-[#00a884] text-white"
               : theme === "dark"
                 ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
                 : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-            }`}
-        >
-          <FaHeart
-            size={11}
-            className={activeListFilter === "Favorites" ? "text-[#111b21]" : "text-rose-400"}
-          />
-          <span>Favorites</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveListFilter("Groups")}
-          className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer ${activeListFilter === "Groups"
-              ? theme === "dark"
-                ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
-                : "bg-[#00a884] text-white font-semibold shadow-sm"
-              : theme === "dark"
-                ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-            }`}
-        >
-          Groups
-        </button>
-        {availableLists
-          .filter((l) => l !== "Favorites")
-          .map((listName) => {
-            const isActive = activeListFilter === listName;
-            return (
-              <button
-                key={listName}
-                type="button"
-                onClick={() => setActiveListFilter(listName)}
-                className={`px-3 py-1 rounded-full text-[12.5px] font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${isActive
-                    ? theme === "dark"
-                      ? "bg-[#00a884] text-[#111b21] font-semibold shadow-sm"
-                      : "bg-[#00a884] text-white font-semibold shadow-sm"
-                    : theme === "dark"
-                      ? "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942]"
-                      : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+              }`}
+            title="More lists"
+          >
+            <FaCaretDown
+              size={12}
+              className={`transition-transform duration-200 ${showListsDropdown ? "rotate-180" : ""
+                }`}
+            />
+          </button>
+
+          {/* WhatsApp Dropdown Menu */}
+          <AnimatePresence>
+            {showListsDropdown && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                transition={{ duration: 0.12 }}
+                className={`absolute right-0 top-full mt-1.5 z-50 w-52 rounded-2xl shadow-2xl border p-1.5 select-none ${theme === "dark"
+                  ? "bg-[#233138] border-white/10 text-white shadow-black/70"
+                  : "bg-white border-gray-200 text-gray-900 shadow-xl"
                   }`}
               >
-                <span>{listName}</span>
-              </button>
-            );
-          })}
-        <button
-          type="button"
-          onClick={() => setIsNewListModalOpen(true)}
-          className={`p-1.5 rounded-full transition-all shrink-0 cursor-pointer flex items-center justify-center ${theme === "dark"
-              ? "bg-[#202c33] hover:bg-[#2a3942] text-[#8696a0] hover:text-white"
-              : "bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900"
-            }`}
-          title="Create new list"
-        >
-          <FaPlus size={10} />
-        </button>
+                {dropdownLists.map((listName) => (
+                  <button
+                    key={listName}
+                    type="button"
+                    onClick={() => {
+                      setActiveListFilter(listName);
+                      setShowListsDropdown(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 text-[13.5px] rounded-xl cursor-pointer transition-colors ${activeListFilter === listName
+                      ? "text-[#25d366] bg-emerald-500/10 font-medium"
+                      : theme === "dark"
+                        ? "text-gray-200 hover:bg-white/5 hover:text-white"
+                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                      }`}
+                  >
+                    <span>{listName}</span>
+                    <span
+                      className={`text-[12px] font-medium ${activeListFilter === listName
+                        ? "text-[#25d366]"
+                        : theme === "dark"
+                          ? "text-[#8696a0]"
+                          : "text-gray-400"
+                        }`}
+                    >
+                      {listCounts[listName] !== undefined
+                        ? listCounts[listName]
+                        : 0}
+                    </span>
+                  </button>
+                ))}
+
+                <div
+                  className={`border-t my-1 mx-2 ${theme === "dark" ? "border-white/10" : "border-gray-100"
+                    }`}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowListsDropdown(false);
+                    setIsNewListModalOpen(true);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[13.5px] font-medium rounded-xl cursor-pointer transition-colors ${theme === "dark"
+                    ? "text-white hover:bg-white/5"
+                    : "text-gray-800 hover:bg-gray-100"
+                    }`}
+                >
+                  <FaPlus size={11} className="text-[#00a884]" />
+                  <span>New list</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       <div
@@ -1087,8 +1235,8 @@ const ChatList = ({ contacts }) => {
                           setListModalContact(contact);
                         }}
                         className={`p-1.5 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100 hover:scale-110 ${theme === "dark"
-                            ? "hover:bg-white/10 text-[#8696a0] hover:text-[#00a884]"
-                            : "hover:bg-gray-200 text-gray-500 hover:text-[#00a884]"
+                          ? "hover:bg-white/10 text-[#8696a0] hover:text-[#00a884]"
+                          : "hover:bg-gray-200 text-gray-500 hover:text-[#00a884]"
                           }`}
                         title="Add to list"
                       >

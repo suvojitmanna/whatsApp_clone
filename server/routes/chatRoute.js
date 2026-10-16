@@ -18,5 +18,7 @@ router.get("/blocked-users", authMiddleware, chatController.getBlockedUsers);
 router.post("/clear-chat", authMiddleware, chatController.clearChat);
 router.post("/delete-chat", authMiddleware, chatController.deleteChat);
 router.get("/media", authMiddleware, chatController.getChatMedia);
+router.put("/conversation/:conversationId/disappearing", authMiddleware, chatController.setDisappearingDuration);
+router.post("/disappearing-duration", authMiddleware, chatController.setDisappearingDuration);
 
 module.exports = router;

@@ -186,16 +186,32 @@ exports.sendMessage = async (req, res) => {
     let disappearingDuration = null;
     let disappearingExpiresAt = null;
 
-    if (
+    const requestedDuration =
       conversation.disappearingDuration &&
       conversation.disappearingDuration !== "Off"
-    ) {
-      const durMs = getDisappearingDurationMs(conversation.disappearingDuration);
+        ? conversation.disappearingDuration
+        : req.body.disappearingDuration &&
+            req.body.disappearingDuration !== "Off"
+          ? req.body.disappearingDuration
+          : null;
+
+    if (requestedDuration && requestedDuration !== "Off") {
+      const durMs = getDisappearingDurationMs(requestedDuration);
       if (durMs) {
         isDisappearing = true;
-        disappearingDuration = conversation.disappearingDuration;
+        disappearingDuration = requestedDuration;
         disappearingExpiresAt = new Date(Date.now() + durMs);
       }
+    }
+
+    if (
+      requestedDuration &&
+      conversation.disappearingDuration !== requestedDuration
+    ) {
+      conversation.disappearingDuration = requestedDuration;
+      conversation.disappearingUpdatedAt =
+        conversation.disappearingUpdatedAt || now;
+      await conversation.save();
     }
 
     const message = new Message({
@@ -407,7 +423,10 @@ exports.getMessages = async (req, res) => {
     const now = new Date();
 
     // Clean up expired disappearing messages for this conversation
-    // ONLY delete messages that were sent AFTER disappearing was enabled and whose timer has expired!
+    // Clean up expired disappearing messages for this conversation
+    // STRICT RULE: ONLY messages where isDisappearing is explicitly true and whose individual timer has expired!
+    // Old chat messages and messages sent before disappearing was enabled (isDisappearing: false/null) are NEVER touched!
+    const durMs = getDisappearingDurationMs(conversation.disappearingDuration);
     const expiredConditions = [
       {
         conversation: conversationId,
@@ -420,22 +439,20 @@ exports.getMessages = async (req, res) => {
     if (
       conversation.disappearingDuration &&
       conversation.disappearingDuration !== "Off" &&
-      conversation.disappearingUpdatedAt
+      conversation.disappearingUpdatedAt &&
+      durMs
     ) {
-      const durMs = getDisappearingDurationMs(
-        conversation.disappearingDuration,
-      );
-      if (durMs) {
-        const cutoff = new Date(Date.now() - durMs);
-        expiredConditions.push({
-          conversation: conversationId,
-          isKept: { $ne: true },
-          createdAt: {
-            $gte: conversation.disappearingUpdatedAt,
-            $lte: cutoff,
-          },
-        });
-      }
+      const cutoff = new Date(Date.now() - durMs);
+      expiredConditions.push({
+        conversation: conversationId,
+        isKept: { $ne: true },
+        isDisappearing: true,
+        disappearingExpiresAt: null,
+        createdAt: {
+          $gte: conversation.disappearingUpdatedAt,
+          $lte: cutoff,
+        },
+      });
     }
 
     if (expiredConditions.length > 0) {
@@ -1503,6 +1520,85 @@ exports.getChatMedia = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getChatMedia:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.setDisappearingDuration = async (req, res) => {
+  try {
+    const conversationId = req.params.conversationId || req.body.conversationId;
+    const { duration, receiverId } = req.body;
+    const userId = req.user._id;
+
+    let conv = null;
+    if (conversationId && mongoose.Types.ObjectId.isValid(conversationId)) {
+      conv = await Conversation.findById(conversationId);
+    }
+
+    if (!conv && receiverId && mongoose.Types.ObjectId.isValid(receiverId)) {
+      conv = await Conversation.findOne({
+        participants: { $all: [userId.toString(), receiverId.toString()] },
+      });
+      if (!conv) {
+        conv = await Conversation.create({
+          participants: [userId.toString(), receiverId.toString()].sort(),
+          disappearingDuration: duration || "Off",
+          disappearingSetBy: userId,
+          disappearingUpdatedAt: new Date(),
+        });
+      }
+    }
+
+    if (!conv) {
+      return response(res, 404, "Conversation not found");
+    }
+
+    const prevDuration = conv.disappearingDuration || "Off";
+    const now = new Date();
+    conv.disappearingDuration = duration || "Off";
+    conv.disappearingSetBy = userId;
+    conv.disappearingUpdatedAt = now;
+    await conv.save();
+
+    let action = "updated";
+    if (prevDuration === "Off" && duration !== "Off") {
+      action = "turned_on";
+    } else if (duration === "Off") {
+      action = "turned_off";
+    }
+
+    const newEvent = {
+      _id: `disp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      isDisappearingSystemEvent: true,
+      action,
+      duration: conv.disappearingDuration,
+      previousDuration: prevDuration,
+      setBy: userId,
+      createdAt: now.toISOString(),
+      timestamp: now.getTime(),
+    };
+
+    const io = req.io;
+    if (io && conv.participants) {
+      const payload = {
+        chatId: conv._id.toString(),
+        conversationId: conv._id.toString(),
+        secondaryId: receiverId || null,
+        duration: conv.disappearingDuration,
+        event: newEvent,
+        setBy: userId,
+      };
+      conv.participants.forEach((p) => {
+        io.to(p.toString()).emit("disappearing_update", payload);
+      });
+    }
+
+    return response(res, 200, "Disappearing messages updated", {
+      conversation: conv,
+      event: newEvent,
+    });
+  } catch (error) {
+    console.error("Error in setDisappearingDuration:", error);
     return response(res, 500, "Internal server error");
   }
 };
