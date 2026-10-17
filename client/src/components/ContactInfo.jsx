@@ -1020,24 +1020,22 @@ const ContactInfo = () => {
         >
           {contactInfoTab !== "media" && (
             <div
-              className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
+              className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-[#f0f2f5] border-gray-200 text-gray-900"
                 }`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 {contactInfoTab === "info" ? (
-                  <motion.button
-                    whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                    whileTap={{ scale: 0.95 }}
+                  <button
+                    type="button"
                     onClick={() => setShowContactInfo(false)}
-                    className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
+                    className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
                     title="Close"
                   >
                     <RxCross2 size={22} />
-                  </motion.button>
+                  </button>
                 ) : (
-                  <motion.button
-                    whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                    whileTap={{ scale: 0.95 }}
+                  <button
+                    type="button"
                     onClick={() => {
                       stopCamera();
                       setScanError(null);
@@ -1069,11 +1067,11 @@ const ContactInfo = () => {
                         setContactInfoTab("info");
                       }
                     }}
-                    className="p-1 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
+                    className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
                     title="Back"
                   >
-                    <FaArrowLeft size={20} />
-                  </motion.button>
+                    <FaArrowLeft size={18} />
+                  </button>
                 )}
 
                 {contactInfoTab === "security" ? (
@@ -1119,47 +1117,44 @@ const ContactInfo = () => {
               </div>
 
               {contactInfoTab === "info" ? (
-                <motion.button
-                  whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                  className="p-2 rounded-full text-gray-500 dark:text-gray-400 transition-colors"
+                <button
+                  type="button"
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer flex items-center justify-center"
                   title="Edit contact"
                 >
-                  <FaPen className="h-4 w-4 cursor-pointer" />
-                </motion.button>
+                  <FaPen className="h-4 w-4" />
+                </button>
               ) : contactInfoTab === "chatTheme" || contactInfoTab === "wallpaper" ? (
-                <motion.button
-                  whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                  whileTap={{ scale: 0.95 }}
+                <button
+                  type="button"
                   onClick={handleResetTheme}
-                  className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
                   title={contactInfoTab === "wallpaper" ? "Reset wallpaper" : "Reset theme"}
                 >
                   <MdRefresh size={22} />
-                </motion.button>
+                </button>
               ) : contactInfoTab === "chatBubble" ? (
-                <motion.button
-                  whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                  whileTap={{ scale: 0.95 }}
+                <button
+                  type="button"
                   onClick={handleResetBubbleColor}
-                  className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
                   title="Reset chat bubble"
                 >
                   <MdRefresh size={22} />
-                </motion.button>
+                </button>
               ) : contactInfoTab === "allThemes" || contactInfoTab === "solidColour" ? null : (
-                <motion.button
-                  whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                  whileTap={{ scale: 0.95 }}
+                <button
+                  type="button"
                   onClick={() => {
                     stopCamera();
                     setScanError(null);
                     setShowContactInfo(false);
                   }}
-                  className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
                   title="Close"
                 >
                   <RxCross2 size={22} />
-                </motion.button>
+                </button>
               )}
             </div>
           )}

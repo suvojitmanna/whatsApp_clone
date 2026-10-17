@@ -40,7 +40,7 @@ const ChatHeader = ({
   return (
     <div
       onContextMenu={handleChatContextMenu}
-      className={`px-3 py-2 sm:px-4 sm:py-2.5 min-h-[58px] border-b shrink-0 z-30 ${theme === "dark"
+      className={`px-3 py-1.5 sm:px-3 sm:py-1.3 min-h-[58px] border-b shrink-0 z-30 ${theme === "dark"
         ? "bg-[#202c33] border-gray-700/60 text-white"
         : "bg-[#f0f2f5] border-gray-200 text-gray-900"
         } flex items-center`}

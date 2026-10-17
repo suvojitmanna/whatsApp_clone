@@ -5,6 +5,7 @@ import {
   FaPlay,
   FaFilePdf,
   FaCheck,
+  FaStar,
 } from "react-icons/fa";
 import { TbStarOff } from "react-icons/tb";
 import { VscSearchLarge } from "react-icons/vsc";
@@ -19,6 +20,7 @@ import {
   MdDoneAll,
   MdChevronRight,
   MdOutlineStarBorderPurple500,
+  MdOutlinePermMedia,
 } from "react-icons/md";
 import { RxCross2 } from "react-icons/rx";
 import { IoArrowRedoOutline, IoReturnDownForward } from "react-icons/io5";
@@ -96,7 +98,6 @@ const ContactMedia = ({
     return null;
   }, [chatId, contact]);
 
-  // Fetch media from server if conversation exists
   useEffect(() => {
     let isMounted = true;
     const fetchChatMedia = async () => {
@@ -155,13 +156,11 @@ const ContactMedia = ({
     };
   }, [resolvedConversationId, contact, user?._id]);
 
-  // Combine real items with fallbacks
   const effectiveData = useMemo(() => {
     const rawMedia = [...(mediaData?.media || [])];
     const rawDocs = [...(mediaData?.docs || [])];
     const rawLinks = [...(mediaData?.links || [])];
 
-    // Merge store messages
     const existingIds = new Set([
       ...rawMedia.map((m) => String(m._id)),
       ...rawDocs.map((d) => String(d._id)),
@@ -424,7 +423,6 @@ const ContactMedia = ({
       className={`flex flex-col h-full w-full select-none relative overflow-hidden ${isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-white text-gray-900"
         }`}
     >
-      {/* Dual-State Top Bar */}
       <div className="flex flex-col shrink-0 z-20">
         <div
           className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 transition-colors select-none ${isDark
@@ -556,8 +554,11 @@ const ContactMedia = ({
                 >
                   <FaArrowLeft size={18} />
                 </button>
-                <h2 className="text-[16px] font-semibold tracking-tight text-[#e9edef] truncate">
-                  Media, links and docs
+                <h2 className={`text-[16px] font-semibold tracking-tight truncate ${isDark
+                  ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
+                  : "hover:bg-gray-100 text-gray-600"
+                  }`}>
+                  Media, docs and links
                 </h2>
               </div>
 
@@ -591,7 +592,6 @@ const ContactMedia = ({
           )}
         </div>
 
-        {/* Tabs Bar */}
         <div
           className={`h-[44px] flex items-center border-b shrink-0 px-2 select-none ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
             }`}
@@ -627,7 +627,6 @@ const ContactMedia = ({
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4">
         {loading ? (
           <div className="flex items-center justify-center h-48 text-[#8696a0] text-sm">
@@ -652,7 +651,6 @@ const ContactMedia = ({
                     {primary}
                   </h4>
 
-                  {/* MEDIA TAB */}
                   {activeTab === "media" && (
                     <div className="grid grid-cols-3 gap-1.5">
                       {items.map((item) => {
@@ -660,6 +658,12 @@ const ContactMedia = ({
                         const itemId = item.messageId || item._id;
                         const isSelected = selectedItems.some(
                           (i) => (i.messageId || i._id) === itemId
+                        );
+                        const isStarred = Boolean(
+                          item.isStarred ||
+                          item.starred ||
+                          isMessageStarred(itemId) ||
+                          starredMessages?.[itemId]
                         );
                         const mediaSrc = item.url || item.imageOrVideoUrl;
 
@@ -685,13 +689,12 @@ const ContactMedia = ({
                                 },
                               });
                             }}
-                            className={`relative aspect-square rounded-lg overflow-hidden group cursor-pointer select-none transition-all ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+                            className={`relative aspect-square rounded-lg overflow-hidden group cursor-pointer select-none transition-all duration-150 ${isDark ? "bg-[#202c33]" : "bg-gray-200"
                               } ${isSelected
-                                ? "border-[3.5px] border-[#00a884]"
-                                : "hover:brightness-105"
+                                ? "border-2 border-[#00a884] ring-2 ring-[#00a884]/40"
+                                : "border-2 border-transparent hover:border-[#00a884] hover:brightness-105"
                               }`}
                           >
-                            {/* Checkbox */}
                             {isSelected ? (
                               <div
                                 className="absolute top-1.5 left-1.5 z-20 w-[18px] h-[18px] rounded-[3px] bg-white text-black flex items-center justify-center shadow-md cursor-pointer"
@@ -713,11 +716,10 @@ const ContactMedia = ({
                                   toggleSelectItem(item);
                                 }}
                               >
-                                <div className="w-[18px] h-[18px] rounded-[3px] border-[1.5px] border-white/80 bg-black/30 backdrop-blur-xs flex items-center justify-center hover:border-white transition-all shadow-sm" />
+                                <div className="w-[18px] h-[18px] rounded-[3px] border-[1.5px] border-white/80 bg-black/30 backdrop-blur-xs flex items-center justify-center group-hover:border-white hover:border-white transition-all shadow-sm" />
                               </div>
                             )}
 
-                            {/* Down Arrow Menu */}
                             {!isSelected && (
                               <div
                                 className={`absolute top-1 right-1 z-20 flex items-center justify-center rounded-full p-1 cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
@@ -734,7 +736,7 @@ const ContactMedia = ({
                                         item,
                                         position: {
                                           top: rect.bottom + 4,
-                                          left: rect.right - 210,
+                                          left: Math.max(10, rect.right - 210),
                                           buttonTop: rect.top,
                                         },
                                       }
@@ -743,6 +745,12 @@ const ContactMedia = ({
                                 title="Menu"
                               >
                                 <MdOutlineKeyboardArrowDown size={18} />
+                              </div>
+                            )}
+
+                            {isStarred && (
+                              <div className="absolute bottom-1.5 right-1.5 z-20 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] pointer-events-none">
+                                <FaStar size={11} className="text-white fill-white" />
                               </div>
                             )}
 
@@ -775,13 +783,18 @@ const ContactMedia = ({
                     </div>
                   )}
 
-                  {/* DOCS TAB */}
                   {activeTab === "docs" && (
                     <div className="space-y-3">
                       {items.map((item) => {
                         const itemId = item.messageId || item._id;
                         const isSelected = selectedItems.some(
                           (i) => (i.messageId || i._id) === itemId
+                        );
+                        const isStarred = Boolean(
+                          item.isStarred ||
+                          item.starred ||
+                          isMessageStarred(itemId) ||
+                          starredMessages?.[itemId]
                         );
                         const isOutgoing =
                           item.isOutgoing ||
@@ -811,7 +824,6 @@ const ContactMedia = ({
                               });
                             }}
                           >
-                            {/* Checkbox */}
                             {isSelected ? (
                               <div
                                 className="pt-3.5 cursor-pointer shrink-0"
@@ -820,7 +832,7 @@ const ContactMedia = ({
                                   toggleSelectItem(item);
                                 }}
                               >
-                                <div className="w-[18px] h-[18px] rounded-[3px] bg-[#00a884] text-white flex items-center justify-center shadow-sm">
+                                <div className={`w-[18px] h-[18px] rounded-[3px] ${isDark ? "bg-white text-black" : "bg-[#111b21] text-white"} flex items-center justify-center shadow-sm`}>
                                   <FaCheck size={10} className="stroke-[2]" />
                                 </div>
                               </div>
@@ -835,11 +847,10 @@ const ContactMedia = ({
                                   toggleSelectItem(item);
                                 }}
                               >
-                                <div className="w-[18px] h-[18px] rounded-[3px] border-[1.8px] border-[#8696a0]/70 group-hover:border-[#00a884] hover:border-[#00a884] transition-colors" />
+                                <div className={`w-[18px] h-[18px] rounded-[3px] border-[1.8px] ${isDark ? "border-[#8696a0]/70 bg-black/20 group-hover:border-white hover:border-white" : "border-gray-400 bg-white group-hover:border-gray-600 hover:border-gray-600"} transition-colors`} />
                               </div>
                             )}
 
-                            {/* Chat bubble */}
                             <div
                               onClick={() => {
                                 if (selectedItems.length > 0) {
@@ -848,11 +859,15 @@ const ContactMedia = ({
                                   handleOpenViewer(item);
                                 }
                               }}
-                              className={`flex-1 rounded-xl p-2.5 transition-all cursor-pointer shadow-sm relative ${isSelected ? "ring-2 ring-[#00a884]" : ""
-                                } ${isOutgoing ? "bg-[#005c4b] text-white" : "bg-[#202c33] text-white"
+                              className={`flex-1 rounded-xl p-2.5 transition-all duration-150 cursor-pointer shadow-sm relative border ${isSelected
+                                ? isDark
+                                  ? "bg-white/10 border-white/30 ring-1 ring-white/20 text-white"
+                                  : "bg-gray-100 border-gray-300 ring-1 ring-gray-300 text-gray-900"
+                                : isDark
+                                  ? "bg-[#202c33] hover:bg-[#28363e] border-white/5 text-white"
+                                  : "bg-white hover:bg-[#f0f2f5] border-gray-200/80 text-gray-900 shadow-xs"
                                 }`}
                             >
-                              {/* Down Arrow Menu */}
                               {!isSelected && (
                                 <div
                                   className={`absolute top-2 right-2 z-20 flex items-center justify-center rounded-full p-1 cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
@@ -881,7 +896,6 @@ const ContactMedia = ({
                                 </div>
                               )}
 
-                              {/* Forwarded Header */}
                               {isForwarded && (
                                 <div className="flex items-center gap-1.5 text-[#8696a0] text-[12px] italic mb-1.5">
                                   <IoArrowRedoOutline className="scale-x-[-1]" size={14} />
@@ -889,27 +903,25 @@ const ContactMedia = ({
                                 </div>
                               )}
 
-                              {/* Document preview card */}
                               {item.previewHeader ? (
-                                <div className="w-full bg-white text-black p-3 rounded-t-md mb-2 shadow-inner border border-black/10 text-center select-none flex flex-col justify-between min-h-[110px]">
-                                  <div className="text-[11px] font-bold tracking-tight text-gray-900 border-b border-black/20 pb-1 uppercase">
+                                <div className={`w-full p-3 rounded-t-md mb-2 shadow-inner border text-center select-none flex flex-col justify-between min-h-[110px] ${isDark ? "bg-[#111b21] text-[#e9edef] border-white/10" : "bg-white text-black border-black/10"}`}>
+                                  <div className={`text-[11px] font-bold tracking-tight pb-1 uppercase border-b ${isDark ? "text-white border-white/10" : "text-gray-900 border-black/20"}`}>
                                     {item.previewHeader.split("\n")[0] ||
                                       "MEGHNAD SAHA INSTITUTE OF TECHNOLOGY"}
                                   </div>
-                                  <div className="text-[9.5px] text-gray-700 font-semibold my-1">
+                                  <div className={`text-[9.5px] font-semibold my-1 ${isDark ? "text-[#8696a0]" : "text-gray-700"}`}>
                                     {item.previewHeader.split("\n")[1] ||
                                       "Computer Science & Engineering"}
                                   </div>
-                                  <div className="w-5 h-5 mx-auto my-0.5 rounded-full border border-gray-400 flex items-center justify-center text-[7px] text-gray-500 font-serif font-bold">
+                                  <div className={`w-5 h-5 mx-auto my-0.5 rounded-full border flex items-center justify-center text-[7px] font-serif font-bold ${isDark ? "border-white/20 text-[#8696a0]" : "border-gray-400 text-gray-500"}`}>
                                     ★
                                   </div>
-                                  <div className="text-[8.5px] text-gray-600 font-medium tracking-tight">
+                                  <div className={`text-[8.5px] font-medium tracking-tight ${isDark ? "text-[#8696a0]" : "text-gray-600"}`}>
                                     {docName.replace(/\.pdf$/i, "")}
                                   </div>
                                 </div>
                               ) : null}
 
-                              {/* File info row */}
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-9 rounded-[3px] bg-[#e53935] text-white flex flex-col items-center justify-center shrink-0 shadow-sm relative overflow-hidden">
                                   <FaFilePdf size={15} />
@@ -919,7 +931,7 @@ const ContactMedia = ({
                                 </div>
 
                                 <div className="flex flex-col min-w-0 flex-1">
-                                  <span className="text-[14px] font-medium truncate leading-snug">
+                                  <span className={`text-[14px] font-medium truncate leading-snug ${isDark ? "text-white" : "text-gray-900"}`}>
                                     {docName}
                                   </span>
                                   <span className="text-[12px] text-[#8696a0] mt-0.5 truncate">
@@ -931,8 +943,10 @@ const ContactMedia = ({
                                 </div>
                               </div>
 
-                              {/* Date and ticks */}
                               <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-[#8696a0]">
+                                {isStarred && (
+                                  <FaStar size={10} className="text-white/80 shrink-0" />
+                                )}
                                 <span>{dateDisplay}</span>
                                 {isOutgoing && (
                                   <MdDoneAll size={15} className="text-[#53bdeb] ml-0.5" />
@@ -945,13 +959,18 @@ const ContactMedia = ({
                     </div>
                   )}
 
-                  {/* LINKS TAB */}
                   {activeTab === "links" && (
                     <div className="space-y-3">
                       {items.map((item) => {
                         const itemId = item.messageId || item._id;
                         const isSelected = selectedItems.some(
                           (i) => (i.messageId || i._id) === itemId
+                        );
+                        const isStarred = Boolean(
+                          item.isStarred ||
+                          item.starred ||
+                          isMessageStarred(itemId) ||
+                          starredMessages?.[itemId]
                         );
                         const isOutgoing =
                           item.isOutgoing ||
@@ -983,7 +1002,6 @@ const ContactMedia = ({
                               });
                             }}
                           >
-                            {/* Header row */}
                             <div
                               onClick={() => {
                                 if (selectedItems.length > 0) {
@@ -1020,9 +1038,7 @@ const ContactMedia = ({
                               </div>
                             </div>
 
-                            {/* Link content row */}
                             <div className="flex items-start gap-3 mt-1">
-                              {/* Checkbox */}
                               {isSelected ? (
                                 <div
                                   className="pt-3.5 cursor-pointer shrink-0"
@@ -1031,7 +1047,7 @@ const ContactMedia = ({
                                     toggleSelectItem(item);
                                   }}
                                 >
-                                  <div className="w-[18px] h-[18px] rounded-[3px] bg-[#00a884] text-white flex items-center justify-center shadow-sm">
+                                  <div className={`w-[18px] h-[18px] rounded-[3px] ${isDark ? "bg-white text-black" : "bg-[#111b21] text-white"} flex items-center justify-center shadow-sm`}>
                                     <FaCheck size={10} className="stroke-[2]" />
                                   </div>
                                 </div>
@@ -1046,23 +1062,26 @@ const ContactMedia = ({
                                     toggleSelectItem(item);
                                   }}
                                 >
-                                  <div className="w-[18px] h-[18px] rounded-[3px] border-[1.8px] border-[#8696a0]/70 group-hover:border-[#00a884] hover:border-[#00a884] transition-colors" />
+                                  <div className={`w-[18px] h-[18px] rounded-[3px] border-[1.8px] ${isDark ? "border-[#8696a0]/70 bg-black/20 group-hover:border-white hover:border-white" : "border-gray-400 bg-white group-hover:border-gray-600 hover:border-gray-600"} transition-colors`} />
                                 </div>
                               )}
 
-                              {/* Chat bubble */}
                               <div
                                 onClick={() => {
                                   if (selectedItems.length > 0) {
                                     toggleSelectItem(item);
                                   }
                                 }}
-                                className={`flex-1 rounded-xl p-2.5 transition-all shadow-sm relative ${selectedItems.length > 0 ? "cursor-pointer" : ""
-                                  } ${isSelected ? "ring-2 ring-[#00a884]" : ""
-                                  } ${isOutgoing ? "bg-[#005c4b] text-white" : "bg-[#202c33] text-white"
+                                className={`flex-1 rounded-xl p-2.5 transition-all duration-150 shadow-sm relative border ${selectedItems.length > 0 ? "cursor-pointer" : ""
+                                  } ${isSelected
+                                    ? isDark
+                                      ? "bg-white/10 border-white/30 ring-1 ring-white/20 text-white"
+                                      : "bg-gray-100 border-gray-300 ring-1 ring-gray-300 text-gray-900"
+                                    : isDark
+                                      ? "bg-[#202c33] hover:bg-[#28363e] border-white/5 text-white"
+                                      : "bg-white hover:bg-[#f0f2f5] border-gray-200/80 text-gray-900 shadow-xs"
                                   }`}
                               >
-                                {/* Down Arrow Menu */}
                                 {!isSelected && (
                                   <div
                                     className={`absolute top-2 right-2 z-20 flex items-center justify-center rounded-full p-1 cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
@@ -1091,8 +1110,8 @@ const ContactMedia = ({
                                   </div>
                                 )}
 
-                                <div className="bg-[#111b21]/75 rounded-lg p-2.5 space-y-1 border border-white/5">
-                                  <div className="text-[13.5px] font-bold text-white truncate">
+                                <div className={`rounded-lg p-2.5 space-y-1 border ${isDark ? "bg-[#111b21]/80 border-white/10" : "bg-gray-100/90 border-gray-200/60"}`}>
+                                  <div className={`text-[13.5px] font-bold truncate ${isDark ? "text-[#e9edef]" : "text-gray-900"}`}>
                                     {item.domain || "live-classes.vercel.app"}
                                   </div>
                                   <div className="text-[12px] text-[#8696a0] line-clamp-2 break-all leading-snug">
@@ -1110,12 +1129,15 @@ const ContactMedia = ({
                                   onClick={(e) => {
                                     if (selectedItems.length > 0) e.preventDefault();
                                   }}
-                                  className="text-[#00a884] hover:text-[#06cf9c] underline text-[13px] break-all block mt-2 font-normal"
+                                  className={`underline text-[13px] break-all block mt-2 font-normal transition-colors ${isDark ? "text-[#53bdeb] hover:text-[#7fd2f5]" : "text-blue-600 hover:text-blue-800"}`}
                                 >
                                   {item.url}
                                 </a>
 
                                 <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-[#8696a0]">
+                                  {isStarred && (
+                                    <FaStar size={10} className="text-white/80 shrink-0" />
+                                  )}
                                   <span>{timeDisplay}</span>
                                   {isOutgoing && (
                                     <MdDoneAll size={15} className="text-[#53bdeb] ml-0.5" />
@@ -1135,8 +1157,8 @@ const ContactMedia = ({
         )}
       </div>
 
-      {/* Sticky Bottom Action */}
-      <div className="shrink-0 h-[52px] border-t px-4 flex items-center justify-center select-none bg-[#111b21] border-[#222d34]">
+      <div className={`shrink-0 h-[52px] border-t px-4 flex items-center justify-center select-none ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"} `
+      }>
         <button
           type="button"
           onClick={() => {
@@ -1147,7 +1169,7 @@ const ContactMedia = ({
           className="flex items-center gap-2 text-[#00a884] hover:text-[#06cf9c] font-medium text-[14px] transition-colors cursor-pointer group"
         >
           {activeTab === "media" ? (
-            <HiOutlinePhotograph size={20} className="transition-transform group-hover:scale-105" />
+            <MdOutlinePermMedia size={20} className="transition-transform group-hover:scale-105" />
           ) : activeTab === "docs" ? (
             <HiOutlineDocumentText size={20} className="transition-transform group-hover:scale-105" />
           ) : (
@@ -1163,7 +1185,6 @@ const ContactMedia = ({
         </button>
       </div>
 
-      {/* Delete Modal */}
       {showDeleteModal && (
         <div
           className="fixed inset-0 z-[10000] flex items-center justify-center px-4 backdrop-blur-xs bg-black/60"
@@ -1217,7 +1238,6 @@ const ContactMedia = ({
         </div>
       )}
 
-      {/* Forward Modal */}
       {showForwardModal && (
         <ForwardModal
           isOpen={showForwardModal}
@@ -1229,12 +1249,17 @@ const ContactMedia = ({
         />
       )}
 
-      {/* Media Menu */}
       {activeMenu && (
         <MediaMenu
+          isOpen={Boolean(activeMenu)}
           item={activeMenu.item}
           position={activeMenu.position}
           onClose={() => setActiveMenu(null)}
+          onOpenLink={(item) => {
+            if (item?.url) {
+              window.open(item.url, "_blank", "noopener,noreferrer");
+            }
+          }}
           onDownload={(item) => {
             const url = item.url || item.imageOrVideoUrl || item.docUrl || item.fileUrl;
             const name = item.fileName || item.docName || "file";
@@ -1259,7 +1284,6 @@ const ContactMedia = ({
         />
       )}
 
-      {/* File Viewer Modal */}
       {showViewer && viewerFile && (
         <FileViewerModal
           isOpen={showViewer}

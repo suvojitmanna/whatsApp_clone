@@ -83,6 +83,31 @@ const formatVideoDuration = (seconds) => {
   return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
 };
 
+const parseFileSize = (item) => {
+  if (!item) return 0;
+  const raw = item.fileSize ?? item.size ?? item.bytes;
+  if (raw !== undefined && raw !== null && raw !== "") {
+    if (typeof raw === "number") return raw;
+    if (typeof raw === "string") {
+      const clean = raw.trim().toUpperCase();
+      const num = parseFloat(clean);
+      if (!isNaN(num)) {
+        if (clean.endsWith("GB")) return num * 1024 * 1024 * 1024;
+        if (clean.endsWith("MB")) return num * 1024 * 1024;
+        if (clean.endsWith("KB")) return num * 1024;
+        return num;
+      }
+    }
+  }
+  if (item.mediaType === "video" || item.contentType === "video") {
+    return 5 * 1024 * 1024;
+  }
+  if (item.mediaType === "image" || item.contentType === "image" || item.imageOrVideoUrl) {
+    return 1 * 1024 * 1024;
+  }
+  return 0;
+};
+
 const getFileIcon = (fileName = "") => {
   const ext = (fileName.split(".").pop() || "").toLowerCase();
   if (ext === "pdf") {
@@ -249,35 +274,37 @@ const MediaSkeletonLoader = ({ activeTab, isDark }) => {
       )}
 
       {activeTab === "docs" && (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <div
-              key={idx}
-              className={`flex items-center justify-between p-3 rounded-xl border animate-skeleton-shimmer ${isDark
-                ? "bg-[#202c33]/70 border-white/5"
-                : "bg-white border-gray-200"
-                }`}
-            >
-              <div className="flex items-center gap-3">
+        <div className="space-y-0">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <div key={idx}>
+              <div
+                className={`flex items-center justify-between p-3 rounded-xl animate-skeleton-shimmer ${isDark ? "bg-[#202c33]/70" : "bg-white"
+                  }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-11 h-11 rounded-xl ${isDark ? "bg-white/10" : "bg-gray-200"
+                      }`}
+                  />
+
+                  <div className="space-y-1.5">
+                    <div
+                      className={`h-3.5 w-48 rounded ${isDark ? "bg-white/15" : "bg-gray-300"
+                        }`}
+                    />
+
+                    <div
+                      className={`h-2.5 w-24 rounded ${isDark ? "bg-white/10" : "bg-gray-200"
+                        }`}
+                    />
+                  </div>
+                </div>
+
                 <div
-                  className={`w-11 h-11 rounded-xl ${isDark ? "bg-white/10" : "bg-gray-200"
+                  className={`w-8 h-8 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"
                     }`}
                 />
-                <div className="space-y-1.5">
-                  <div
-                    className={`h-3.5 w-48 rounded ${isDark ? "bg-white/15" : "bg-gray-300"
-                      }`}
-                  />
-                  <div
-                    className={`h-2.5 w-24 rounded ${isDark ? "bg-white/10" : "bg-gray-200"
-                      }`}
-                  />
-                </div>
               </div>
-              <div
-                className={`w-8 h-8 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"
-                  }`}
-              />
             </div>
           ))}
         </div>
@@ -406,7 +433,8 @@ const Media = ({
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [sentByFilter, setSentByFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
   const filterRef = useRef(null);
   const searchContainerRef = useRef(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -764,32 +792,40 @@ const Media = ({
     };
   }, [mediaData, storeMessages, user?._id, scope]);
 
+  const isFromYou = (item) => {
+    if (!item) return false;
+    if (item.isOutgoing) return true;
+    if (item.sender === "You" || item.sender?.username === "You") return true;
+
+    const currentUserId = String(user?._id || user?.id || "");
+    const currentUserPhone = String(user?.phoneNumber || user?.phone || "");
+    const currentUsername = String(user?.username || "").toLowerCase();
+
+    const senderId = String(
+      item.sender?._id ||
+      item.sender?.id ||
+      (typeof item.sender === "string" ? item.sender : "") ||
+      ""
+    );
+    if (currentUserId && senderId === currentUserId) return true;
+
+    const senderPhone = String(item.sender?.phoneNumber || item.sender?.phone || "");
+    if (currentUserPhone && senderPhone && senderPhone === currentUserPhone) return true;
+
+    const senderName = String(item.sender?.username || (typeof item.sender === "string" ? item.sender : "") || "").toLowerCase();
+    if (currentUsername && senderName && senderName === currentUsername) return true;
+
+    return false;
+  };
+
   const filteredItems = useMemo(() => {
     let list = effectiveData[activeTab] || [];
 
-    if (activeFilter !== "all") {
-      if (activeTab === "media") {
-        if (activeFilter === "photos") {
-          list = list.filter((i) => i.mediaType !== "video");
-        } else if (activeFilter === "videos") {
-          list = list.filter((i) => i.mediaType === "video");
-        }
-      } else if (activeTab === "docs") {
-        if (activeFilter === "pdf") {
-          list = list.filter((i) =>
-            (i.docName || i.fileName || "").toLowerCase().endsWith(".pdf")
-          );
-        } else if (activeFilter === "sheets") {
-          list = list.filter((i) => {
-            const name = (i.docName || i.fileName || "").toLowerCase();
-            return (
-              name.endsWith(".xls") ||
-              name.endsWith(".xlsx") ||
-              name.endsWith(".csv")
-            );
-          });
-        }
-      }
+    // Filter by Sent by: All / You / Others
+    if (sentByFilter === "you") {
+      list = list.filter((item) => isFromYou(item));
+    } else if (sentByFilter === "others") {
+      list = list.filter((item) => !isFromYou(item));
     }
 
     const q = searchQuery.trim().toLowerCase();
@@ -818,9 +854,25 @@ const Media = ({
       });
     }
     return list;
-  }, [effectiveData, activeTab, activeFilter, searchQuery]);
+  }, [effectiveData, activeTab, sentByFilter, searchQuery, user]);
 
   const groupedItems = useMemo(() => {
+    if (sortBy === "largest") {
+      const sorted = [...filteredItems].sort((a, b) => {
+        const sizeA = parseFileSize(a);
+        const sizeB = parseFileSize(b);
+        if (sizeB !== sizeA) return sizeB - sizeA;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      });
+      return [
+        {
+          primary: "Largest files",
+          sub: `${sorted.length} item${sorted.length === 1 ? "" : "s"}`,
+          items: sorted,
+        },
+      ];
+    }
+
     const groups = {};
     filteredItems.forEach((item) => {
       const { primary, sub, sortKey } = formatDateGroup(item.createdAt);
@@ -836,8 +888,22 @@ const Media = ({
       groups[groupKey].items.push(item);
     });
 
-    return Object.values(groups).sort((a, b) => (b.sortKey || 0) - (a.sortKey || 0));
-  }, [filteredItems]);
+    const groupList = Object.values(groups);
+    if (sortBy === "oldest") {
+      groupList.sort((a, b) => (a.sortKey || 0) - (b.sortKey || 0));
+      groupList.forEach((g) => {
+        g.items.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+      });
+    } else {
+      // "newest"
+      groupList.sort((a, b) => (b.sortKey || 0) - (a.sortKey || 0));
+      groupList.forEach((g) => {
+        g.items.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      });
+    }
+
+    return groupList;
+  }, [filteredItems, sortBy]);
 
   const toggleSelectItem = (item) => {
     setSelectedItems((prev) => {
@@ -957,6 +1023,14 @@ const Media = ({
         toast.error("Failed to copy image to clipboard");
       }
       return;
+    }
+
+    if (item.url && !item.imageOrVideoUrl && !item.docUrl) {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(item.url);
+        toast.success("Link copied to clipboard");
+        return;
+      }
     }
 
     const attached = getAttachedMessage(item);
@@ -1346,15 +1420,18 @@ const Media = ({
               <button
                 type="button"
                 onClick={() => setShowFilterMenu((prev) => !prev)}
-                className={`p-2 rounded-full transition-colors cursor-pointer ${activeFilter !== "all" || showFilterMenu
+                className={`p-2 rounded-full transition-colors cursor-pointer relative ${sentByFilter !== "all" || sortBy !== "newest" || showFilterMenu
                   ? "text-[#00a884] bg-emerald-500/10"
                   : isDark
                     ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
                     : "hover:bg-gray-100 text-gray-600 hover:text-gray-900"
                   }`}
-                title="Filter"
+                title="Filter and Sort"
               >
                 <BsFilterLeft size={22} />
+                {(sentByFilter !== "all" || sortBy !== "newest") && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#00a884] ring-2 ring-[#202c33]" />
+                )}
               </button>
 
               <AnimatePresence>
@@ -1364,107 +1441,111 @@ const Media = ({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -4 }}
                     transition={{ duration: 0.12 }}
-                    className={`absolute right-0 top-full mt-2 w-48 rounded-xl shadow-2xl border p-1.5 z-50 select-none ${isDark
-                      ? "bg-[#233138] border-white/10 text-white shadow-black/60"
-                      : "bg-white border-gray-200 text-gray-800 shadow-xl"
+                    className={`absolute left-[-61px] right-0 top-full mt-2 w-[210px] rounded-2xl shadow-2xl border p-2 z-50 select-none ${isDark
+                      ? "bg-[#182229] border-white/10 text-white shadow-black/80"
+                      : "bg-white border-gray-200 text-gray-900 shadow-2xl"
                       }`}
                   >
-                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#8696a0]">
-                      Filter {activeTab}
+                    <div className="px-3 pt-2 pb-1.5 text-[13px] font-semibold text-[#8696a0]">
+                      Sent by
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveFilter("all");
-                        setShowFilterMenu(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "all"
-                        ? "text-[#00a884] bg-emerald-500/10 font-medium"
-                        : isDark
-                          ? "hover:bg-white/5"
-                          : "hover:bg-gray-100"
+                    <div className="space-y-0.5">
+                      {[
+                        { id: "all", label: "All" },
+                        { id: "you", label: "You" },
+                        { id: "others", label: "Others" },
+                      ].map((opt) => {
+                        const isSelected = sentByFilter === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setSentByFilter(opt.id)}
+                            className={`w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors ${isDark
+                              ? "hover:bg-white/5 active:bg-white/10"
+                              : "hover:bg-gray-100 active:bg-gray-200"
+                              }`}
+                          >
+                            <div
+                              className={`w-[19px] h-[19px] rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected
+                                ? isDark
+                                  ? "border-white"
+                                  : "border-[#111b21]"
+                                : isDark
+                                  ? "border-white/80"
+                                  : "border-gray-500"
+                                }`}
+                            >
+                              {isSelected && (
+                                <div
+                                  className={`w-[9px] h-[9px] rounded-full ${isDark ? "bg-white" : "bg-[#111b21]"
+                                    }`}
+                                />
+                              )}
+                            </div>
+                            <span
+                              className={`text-[15px] font-medium leading-none ${isDark ? "text-white" : "text-gray-900"
+                                }`}
+                            >
+                              {opt.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div
+                      className={`my-2 border-t ${isDark ? "border-[#2a3942]" : "border-gray-200"
                         }`}
-                    >
-                      <span>All</span>
-                      {activeFilter === "all" && <MdCheck size={16} />}
-                    </button>
+                    />
+                    <div className="px-3 pt-1 pb-1.5 text-[13px] font-semibold text-[#8696a0]">
+                      Sort by
+                    </div>
 
-                    {activeTab === "media" && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveFilter("photos");
-                            setShowFilterMenu(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "photos"
-                            ? "text-[#00a884] bg-emerald-500/10 font-medium"
-                            : isDark
-                              ? "hover:bg-white/5"
-                              : "hover:bg-gray-100"
-                            }`}
-                        >
-                          <span>Photos only</span>
-                          {activeFilter === "photos" && <MdCheck size={16} />}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveFilter("videos");
-                            setShowFilterMenu(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "videos"
-                            ? "text-[#00a884] bg-emerald-500/10 font-medium"
-                            : isDark
-                              ? "hover:bg-white/5"
-                              : "hover:bg-gray-100"
-                            }`}
-                        >
-                          <span>Videos only</span>
-                          {activeFilter === "videos" && <MdCheck size={16} />}
-                        </button>
-                      </>
-                    )}
-
-                    {activeTab === "docs" && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveFilter("pdf");
-                            setShowFilterMenu(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "pdf"
-                            ? "text-[#00a884] bg-emerald-500/10 font-medium"
-                            : isDark
-                              ? "hover:bg-white/5"
-                              : "hover:bg-gray-100"
-                            }`}
-                        >
-                          <span>PDFs only</span>
-                          {activeFilter === "pdf" && <MdCheck size={16} />}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveFilter("sheets");
-                            setShowFilterMenu(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-[13.5px] rounded-lg cursor-pointer transition-colors ${activeFilter === "sheets"
-                            ? "text-[#00a884] bg-emerald-500/10 font-medium"
-                            : isDark
-                              ? "hover:bg-white/5"
-                              : "hover:bg-gray-100"
-                            }`}
-                        >
-                          <span>Spreadsheets (Excel)</span>
-                          {activeFilter === "sheets" && <MdCheck size={16} />}
-                        </button>
-                      </>
-                    )}
+                    <div className="space-y-0.5">
+                      {[
+                        { id: "newest", label: "Newest" },
+                        { id: "oldest", label: "Oldest" },
+                        { id: "largest", label: "Largest" },
+                      ].map((opt) => {
+                        const isSelected = sortBy === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setSortBy(opt.id)}
+                            className={`w-full flex items-center gap-3.5 px-3 py-2 rounded-xl cursor-pointer transition-colors ${isDark
+                              ? "hover:bg-white/5 active:bg-white/10"
+                              : "hover:bg-gray-100 active:bg-gray-200"
+                              }`}
+                          >
+                            <div
+                              className={`w-[19px] h-[19px] rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected
+                                ? isDark
+                                  ? "border-white"
+                                  : "border-[#111b21]"
+                                : isDark
+                                  ? "border-white/80"
+                                  : "border-gray-500"
+                                }`}
+                            >
+                              {isSelected && (
+                                <div
+                                  className={`w-[9px] h-[9px] rounded-full ${isDark ? "bg-white" : "bg-[#111b21]"
+                                    }`}
+                                />
+                              )}
+                            </div>
+                            <span
+                              className={`text-[15px] font-medium leading-none ${isDark ? "text-white" : "text-gray-900"
+                                }`}
+                            >
+                              {opt.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1512,7 +1593,41 @@ const Media = ({
         </div>
       )}
 
-
+      {!loading && filteredItems.length > 0 && activeTab === "docs" ? (
+        <div
+          className={`flex items-center justify-between px-6 sm:px-8 py-2.5 text-[11.5px] font-semibold uppercase tracking-wider border-y select-none shrink-0 transition-colors ${isDark
+            ? "bg-[#111b21] border-[#4b555b] text-[#8696a0]"
+            : "bg-[#f0f2f5] border-gray-200 text-gray-500"
+            }`}
+        >
+          <div className="w-[45%] sm:w-[40%] flex items-center pl-7 sm:pl-8">
+            <span>Doc</span>
+          </div>
+          <div className="hidden md:flex flex-1 items-center justify-center px-4 text-center">
+            <span>Caption</span>
+          </div>
+          <div className="w-[35%] sm:w-[25%] flex items-center justify-end pr-14 sm:pr-18">
+            <span>Sent by</span>
+          </div>
+        </div>
+      ) : !loading && filteredItems.length > 0 && activeTab === "links" ? (
+        <div
+          className={`flex items-center justify-between px-6 sm:px-8 py-2.5 text-[11.5px] font-semibold uppercase tracking-wider border-b select-none shrink-0 transition-colors ${isDark
+            ? "bg-[#111b21] border-[#222d34] text-[#8696a0]"
+            : "bg-[#f0f2f5] border-gray-200 text-gray-500"
+            }`}
+        >
+          <div className="w-[45%] sm:w-[40%] flex items-center pl-7 sm:pl-8">
+            <span>Link</span>
+          </div>
+          <div className="hidden md:flex flex-1 items-center justify-center px-4 text-center">
+            <span>Message</span>
+          </div>
+          <div className="w-[35%] sm:w-[25%] flex items-center justify-end pr-16 sm:pr-22">
+            <span>Sent by</span>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-5 pb-20">
         {loading ? (
@@ -1525,11 +1640,13 @@ const Media = ({
             >
               {searchQuery
                 ? `No ${activeTab} found`
-                : activeTab === "media"
-                  ? "No media"
-                  : activeTab === "docs"
-                    ? "No docs"
-                    : "No links"}
+                : sentByFilter !== "all"
+                  ? `No ${activeTab} sent by ${sentByFilter === "you" ? "you" : "others"}`
+                  : activeTab === "media"
+                    ? "No media"
+                    : activeTab === "docs"
+                      ? "No docs"
+                      : "No links"}
             </h4>
 
             <p
@@ -1554,11 +1671,29 @@ const Media = ({
                 }}
                 className="flex items-center gap-2 text-[#00a884] hover:text-[#06cf9c] font-medium text-[15px] transition-colors cursor-pointer group hover:underline"
               >
-                <HiOutlinePhotograph
-                  size={19}
-                  className="transition-transform group-hover:scale-110"
-                />
-                <span>View media from all chats</span>
+                {activeTab === "media" ? (
+                  <HiOutlinePhotograph
+                    size={19}
+                    className="transition-transform group-hover:scale-110"
+                  />
+                ) : activeTab === "docs" ? (
+                  <FaFileAlt
+                    size={16}
+                    className="transition-transform group-hover:scale-110"
+                  />
+                ) : (
+                  <FiLink
+                    size={17}
+                    className="transition-transform group-hover:scale-110"
+                  />
+                )}
+                <span>
+                  {activeTab === "media"
+                    ? "View media from all chats"
+                    : activeTab === "docs"
+                      ? "View docs from all chats"
+                      : "View links from all chats"}
+                </span>
               </button>
             )}
           </div>
@@ -1598,6 +1733,12 @@ const Media = ({
                         const isSelected = selectedItems.some(
                           (i) => (i.messageId || i._id) === itemId
                         );
+                        const isStarred = Boolean(
+                          item.isStarred ||
+                          item.starred ||
+                          (isMessageStarred && isMessageStarred(itemId)) ||
+                          starredMessages?.[itemId]
+                        );
                         const senderDisplay = getSenderDisplay(item);
                         const attachedMessage = getAttachedMessage(item);
                         const hoverText = attachedMessage || (isVideo ? "Video" : "Photo");
@@ -1626,32 +1767,31 @@ const Media = ({
                               });
                             }}
                             title={hoverText}
-                            className={`relative aspect-square rounded-lg overflow-hidden group cursor-pointer transition-all duration-200 select-none shadow-xs ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+                            className={`relative aspect-square rounded-lg overflow-hidden group cursor-pointer transition-all duration-200 select-none shadow-xs border-2 ${isDark ? "bg-[#202c33]" : "bg-gray-200"
                               } ${isSelected
-                                ? "ring-2 ring-emerald-500 brightness-95"
-                                : "hover:brightness-105"
+                                ? "border-[#00a884] ring-2 ring-[#00a884]/40 brightness-95"
+                                : "border-transparent hover:border-[#00a884] hover:brightness-105"
                               }`}
                           >
-                              <div
-                                className={`absolute top-2 left-2 z-20 transition-all ${
-                                  isSelectMode || isSelected
-                                    ? "opacity-100 scale-100"
-                                    : "opacity-0 group-hover:opacity-100 scale-100"
+                            <div
+                              className={`absolute top-2 left-2 z-20 transition-all ${isSelectMode || isSelected
+                                ? "opacity-100 scale-100"
+                                : "opacity-0 group-hover:opacity-100 scale-100"
                                 }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!isSelectMode) setIsSelectMode(true);
-                                  toggleSelectItem(item);
-                                }}
-                              >
-                                {isSelected ? (
-                                  <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md transition-transform active:scale-90">
-                                    <FaCheck size={11} className="stroke-[2]" />
-                                  </div>
-                                ) : (
-                                  <div className="w-[19px] h-[19px] rounded-[4px] border-[1.8px] border-white/85 bg-black/35 backdrop-blur-xs flex items-center justify-center hover:border-white transition-all active:scale-90" />
-                                )}
-                              </div>
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isSelectMode) setIsSelectMode(true);
+                                toggleSelectItem(item);
+                              }}
+                            >
+                              {isSelected ? (
+                                <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md transition-transform active:scale-90">
+                                  <FaCheck size={11} className="stroke-[2]" />
+                                </div>
+                              ) : (
+                                <div className="w-[19px] h-[19px] rounded-[4px] border-[1.8px] border-white/85 bg-black/35 backdrop-blur-xs flex items-center justify-center group-hover:border-[#00a884] hover:border-[#00a884] transition-all active:scale-90" />
+                              )}
+                            </div>
 
                             {!isSelectMode && (
                               <div
@@ -1711,12 +1851,18 @@ const Media = ({
                             )}
 
                             <div className="absolute inset-x-0 bottom-0 p-2 sm:p-2.5 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end text-white pointer-events-none">
-
-                              {senderDisplay && (
-                                <span className="text-[11.5px] sm:text-[12px] font-medium truncate text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] leading-tight">
-                                  {senderDisplay}
-                                </span>
-                              )}
+                              <div className="flex items-center justify-between w-full min-w-0">
+                                {senderDisplay && (
+                                  <span className="text-[11.5px] sm:text-[12px] font-medium truncate text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] leading-tight">
+                                    {senderDisplay}
+                                  </span>
+                                )}
+                                {isStarred && (
+                                  <div className="shrink-0 ml-auto pl-1.5 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] flex items-center">
+                                    <FaStar size={11} className="text-white fill-white" />
+                                  </div>
+                                )}
+                              </div>
 
                               <div className="grid grid-rows-[0fr] opacity-0 group-hover:grid-rows-[1fr] group-hover:opacity-100 transition-all duration-200">
                                 <div className="overflow-hidden">
@@ -1748,11 +1894,22 @@ const Media = ({
                         const isSelected = selectedItems.some(
                           (i) => (i.messageId || i._id) === itemId
                         );
+                        const isStarred = Boolean(
+                          item.isStarred ||
+                          item.starred ||
+                          (isMessageStarred && isMessageStarred(itemId)) ||
+                          starredMessages?.[itemId]
+                        );
                         const docName =
                           item.docName || item.fileName || "Document";
                         const iconInfo = getFileIcon(docName);
                         const docUrl = item.docUrl || item.fileUrl || item.url;
                         const sizeStr = formatDocSize(item.fileSize);
+                        const dateDisplay = item.createdAt
+                          ? format(new Date(item.createdAt), "dd/MM/yyyy")
+                          : "";
+                        const attachedMessage = getAttachedMessage(item);
+                        const senderName = item.sender?.username || getSenderDisplay(item) || "Unknown";
 
                         return (
                           <div
@@ -1764,22 +1921,34 @@ const Media = ({
                                 handleOpenViewer(item);
                               }
                             }}
-                            className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer group select-none ${isSelected
+                            onContextMenu={(e) => {
+                              if (isSelectMode) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setActiveMenu({
+                                item,
+                                position: {
+                                  top: e.clientY + 4,
+                                  left: Math.max(10, Math.min(window.innerWidth - 220, e.clientX - 100)),
+                                  buttonTop: e.clientY,
+                                },
+                              });
+                            }}
+                            className={`flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer group select-none ${isSelected
                               ? isDark
-                                ? "bg-emerald-500/15 border-emerald-500/40"
-                                : "bg-emerald-50 border-emerald-500/30"
+                                ? "bg-emerald-500/15"
+                                : "bg-emerald-50"
                               : isDark
-                                ? "bg-[#202c33]/70 hover:bg-[#202c33] border-white/5 hover:border-white/10"
-                                : "bg-white hover:bg-gray-50 border-gray-200 shadow-xs"
+                                ? "bg-[#202c33]/70 hover:bg-[#28363e]"
+                                : "bg-white hover:bg-[#e0e6ea] shadow-xs"
                               }`}
                           >
-                            <div className="flex items-center gap-3 min-w-0 pr-3">
+                            <div className="w-[45%] sm:w-[40%] flex items-center gap-3 min-w-0 pr-3">
                               <div
-                                className={`shrink-0 transition-opacity duration-150 ${
-                                  isSelectMode || isSelected
-                                    ? "opacity-100"
-                                    : "opacity-0 group-hover:opacity-100"
-                                }`}
+                                className={`shrink-0 transition-opacity duration-150 ${isSelectMode || isSelected
+                                  ? "opacity-100"
+                                  : "opacity-0 group-hover:opacity-100"
+                                  }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (!isSelectMode) setIsSelectMode(true);
@@ -1791,12 +1960,12 @@ const Media = ({
                                     <FaCheck size={11} className="stroke-[2]" />
                                   </div>
                                 ) : (
-                                  <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"} group-hover:border-[#00a884]`} />
+                                  <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"} group-hover:border-[#00a884] hover:border-[#00a884] transition-colors`} />
                                 )}
                               </div>
 
                               <div
-                                className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${iconInfo.bg}`}
+                                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${iconInfo.bg}`}
                               >
                                 {iconInfo.icon}
                               </div>
@@ -1806,25 +1975,45 @@ const Media = ({
                                   {docName}
                                 </span>
                                 <div
-                                  className={`flex items-center gap-2 text-[11.5px] mt-1 ${isDark ? "text-[#8696a0]" : "text-gray-500"
+                                  className={`flex items-center gap-1.5 text-[11.5px] mt-1 ${isDark ? "text-[#8696a0]" : "text-gray-500"
                                     }`}
                                 >
                                   {sizeStr && <span>{sizeStr}</span>}
                                   {sizeStr && <span>•</span>}
                                   <span>{iconInfo.label}</span>
-                                  {item.sender?.username && (
-                                    <>
-                                      <span>•</span>
-                                      <span className="truncate">
-                                        {item.sender.username}
-                                      </span>
-                                    </>
-                                  )}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1 shrink-0">
+                            <div className="hidden md:flex flex-1 items-center justify-center px-4 min-w-0">
+                              <span
+                                className={`text-[13px] truncate text-center max-w-[280px] ${attachedMessage
+                                  ? isDark
+                                    ? "text-[#d1d7db]"
+                                    : "text-gray-700"
+                                  : "text-[#8696a0]/40"
+                                  }`}
+                                title={attachedMessage || ""}
+                              >
+                                {attachedMessage || "—"}
+                              </span>
+                            </div>
+
+                            <div className="w-[35%] sm:w-[25%] flex items-center justify-end gap-2 shrink-0">
+                              <div className="flex flex-col items-end min-w-0 max-w-[120px] sm:max-w-[140px]">
+                                <span className={`text-[12.5px] font-medium truncate w-full text-right ${isDark ? "text-[#e9edef]" : "text-gray-800"}`} title={senderName}>
+                                  {senderName}
+                                </span>
+                                {dateDisplay && (
+                                  <div className={`flex items-center gap-1 text-[11px] mt-0.5 ${isDark ? "text-[#8696a0]" : "text-gray-500"}`}>
+                                    {isStarred && (
+                                      <FaStar size={10} className={`${isDark ? "text-white/80" : "text-gray-600"} shrink-0`} />
+                                    )}
+                                    <span>{dateDisplay}</span>
+                                  </div>
+                                )}
+                              </div>
+
                               <button
                                 type="button"
                                 onClick={(e) =>
@@ -1838,6 +2027,34 @@ const Media = ({
                               >
                                 <FiDownload size={16} />
                               </button>
+
+                              {!isSelectMode && (
+                                <div
+                                  className={`p-1.5 rounded-full cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
+                                    ? "opacity-100 bg-black/40 text-white shadow-md scale-105"
+                                    : "opacity-0 group-hover:opacity-100 hover:bg-black/20 text-[#8696a0] hover:text-white"
+                                    }`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setActiveMenu((prev) =>
+                                      (prev?.item?.messageId || prev?.item?._id) === itemId
+                                        ? null
+                                        : {
+                                          item,
+                                          position: {
+                                            top: rect.bottom + 4,
+                                            left: Math.max(10, rect.right - 210),
+                                            buttonTop: rect.top,
+                                          },
+                                        }
+                                    );
+                                  }}
+                                  title="Menu"
+                                >
+                                  <MdOutlineKeyboardArrowDown size={18} />
+                                </div>
+                              )}
                             </div>
 
                           </div>
@@ -1847,12 +2064,23 @@ const Media = ({
                   )}
 
                   {activeTab === "links" && (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {items.map((item) => {
                         const itemId = item.messageId || item._id;
                         const isSelected = selectedItems.some(
                           (i) => (i.messageId || i._id) === itemId
                         );
+                        const isStarred = Boolean(
+                          item.isStarred ||
+                          item.starred ||
+                          (isMessageStarred && isMessageStarred(itemId)) ||
+                          starredMessages?.[itemId]
+                        );
+                        const attachedMessage = getAttachedMessage(item) || item.title || "";
+                        const senderName = item.sender?.username || getSenderDisplay(item) || "Unknown";
+                        const timeDisplay = item.createdAt
+                          ? format(new Date(item.createdAt), "MMM d, HH:mm")
+                          : "";
 
                         return (
                           <div
@@ -1860,136 +2088,175 @@ const Media = ({
                             onClick={() => {
                               if (isSelectMode) toggleSelectItem(item);
                             }}
-                            className={`p-3 rounded-xl border transition-all group select-none ${isSelected
+                            onContextMenu={(e) => {
+                              if (isSelectMode) return;
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setActiveMenu({
+                                item,
+                                position: {
+                                  top: e.clientY + 4,
+                                  left: Math.max(10, Math.min(window.innerWidth - 220, e.clientX - 100)),
+                                  buttonTop: e.clientY,
+                                },
+                              });
+                            }}
+                            className={`flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer group select-none border-2 ${isSelected
                               ? isDark
-                                ? "bg-emerald-500/15 border-emerald-500/40"
-                                : "bg-emerald-50 border-emerald-500/30"
+                                ? "bg-emerald-500/15 border-[#00a884] ring-2 ring-[#00a884]/40"
+                                : "bg-emerald-50 border-[#00a884] ring-2 ring-[#00a884]/40"
                               : isDark
-                                ? "bg-[#202c33]/70 hover:bg-[#202c33] border-white/5 hover:border-white/10"
-                                : "bg-white hover:bg-gray-50 border-gray-200 shadow-xs"
+                                ? "bg-[#202c33]/70 hover:bg-[#28363e] border-transparent"
+                                : "bg-white hover:bg-[#e0e6ea] border-transparent shadow-xs"
                               }`}
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-3 min-w-0">
-                                <div
-                                  className={`shrink-0 mt-2 transition-opacity duration-150 ${
-                                    isSelectMode || isSelected
-                                      ? "opacity-100"
-                                      : "opacity-0 group-hover:opacity-100"
+                            <div className="w-[45%] sm:w-[40%] flex items-center gap-3 min-w-0 pr-3">
+                              <div
+                                className={`shrink-0 transition-opacity duration-150 ${isSelectMode || isSelected
+                                  ? "opacity-100"
+                                  : "opacity-0 group-hover:opacity-100"
                                   }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!isSelectMode) setIsSelectMode(true);
-                                    toggleSelectItem(item);
-                                  }}
-                                >
-                                  {isSelected ? (
-                                    <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md">
-                                      <FaCheck size={11} className="stroke-[2]" />
-                                    </div>
-                                  ) : (
-                                    <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"} group-hover:border-[#00a884]`} />
-                                  )}
-                                </div>
-
-                                <div
-                                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${isDark
-                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                                    : "bg-emerald-50 border-emerald-200 text-emerald-600"
-                                    }`}
-                                >
-                                  <FiLink size={18} />
-                                </div>
-
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-[12px] font-semibold text-emerald-500 truncate uppercase tracking-wider">
-                                    {item.domain}
-                                  </span>
-
-                                  <a
-                                    href={item.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => {
-                                      if (isSelectMode) e.preventDefault();
-                                    }}
-                                    className={`text-[13.5px] font-medium break-all mt-0.5 hover:underline transition-colors ${isDark
-                                      ? "text-[#53bdeb] hover:text-[#7fd2f5]"
-                                      : "text-blue-600 hover:text-blue-800"
-                                      }`}
-                                  >
-                                    {item.url}
-                                  </a>
-
-                                  {item.title && item.title !== item.url && (
-                                    <p
-                                      className={`text-[12px] line-clamp-2 mt-1 leading-relaxed ${isDark
-                                        ? "text-[#8696a0]"
-                                        : "text-gray-600"
-                                        }`}
-                                    >
-                                      {item.title}
-                                    </p>
-                                  )}
-
-                                  <div
-                                    className={`flex items-center gap-2 text-[11px] mt-2 ${isDark
-                                      ? "text-[#8696a0]"
-                                      : "text-gray-400"
-                                      }`}
-                                  >
-                                    {item.createdAt && (
-                                      <span>
-                                        {format(
-                                          new Date(item.createdAt),
-                                          "MMM d, HH:mm"
-                                        )}
-                                      </span>
-                                    )}
-                                    {item.sender?.username && (
-                                      <>
-                                        <span>•</span>
-                                        <span>{item.sender.username}</span>
-                                      </>
-                                    )}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!isSelectMode) setIsSelectMode(true);
+                                  toggleSelectItem(item);
+                                }}
+                              >
+                                {isSelected ? (
+                                  <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md">
+                                    <FaCheck size={11} className="stroke-[2]" />
                                   </div>
-                                </div>
+                                ) : (
+                                  <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"} group-hover:border-[#00a884] hover:border-[#00a884] transition-colors`} />
+                                )}
                               </div>
 
-                              <div className="flex items-center gap-1 shrink-0 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleCopyLink(item.url, item._id)
-                                  }
-                                  className={`p-1.5 rounded-lg transition-colors ${copiedId === item._id
-                                    ? "text-emerald-500 bg-emerald-500/10"
-                                    : isDark
-                                      ? "text-[#8696a0] hover:text-white hover:bg-white/10"
-                                      : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                                    }`}
-                                  title="Copy link"
-                                >
-                                  {copiedId === item._id ? (
-                                    <MdCheck size={16} />
-                                  ) : (
-                                    <MdOutlineContentCopy size={16} />
-                                  )}
-                                </button>
+                              <div
+                                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${isDark
+                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                  : "bg-emerald-50 border-emerald-200 text-emerald-600"
+                                  }`}
+                              >
+                                <FiLink size={18} />
+                              </div>
+
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[12px] font-semibold text-emerald-500 truncate uppercase tracking-wider">
+                                  {item.domain}
+                                </span>
 
                                 <a
                                   href={item.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className={`p-1.5 rounded-lg transition-colors ${isDark
-                                    ? "text-[#8696a0] hover:text-white hover:bg-white/10"
-                                    : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                                  onClick={(e) => {
+                                    if (isSelectMode) e.preventDefault();
+                                  }}
+                                  className={`text-[13.5px] font-medium truncate mt-0.5 hover:underline transition-colors ${isDark
+                                    ? "text-[#53bdeb] hover:text-[#7fd2f5]"
+                                    : "text-blue-600 hover:text-blue-800"
                                     }`}
-                                  title="Open link"
                                 >
-                                  <FiExternalLink size={16} />
+                                  {item.url}
                                 </a>
                               </div>
+                            </div>
+
+                            <div className="hidden md:flex flex-1 items-center justify-center px-4 min-w-0">
+                              <span
+                                className={`text-[13px] truncate text-center max-w-[280px] ${attachedMessage
+                                  ? isDark
+                                    ? "text-[#d1d7db]"
+                                    : "text-gray-700"
+                                  : isDark
+                                    ? "text-[#8696a0]/40"
+                                    : "text-gray-400"
+                                  }`}
+                                title={attachedMessage || ""}
+                              >
+                                {attachedMessage || "—"}
+                              </span>
+                            </div>
+
+                            <div className="w-[35%] sm:w-[25%] flex items-center justify-end gap-1.5 shrink-0">
+                              <div className="flex flex-col items-end min-w-0 max-w-[120px] sm:max-w-[140px] mr-1">
+                                <span className={`text-[12.5px] font-medium truncate w-full text-right ${isDark ? "text-[#e9edef]" : "text-gray-800"}`} title={senderName}>
+                                  {senderName}
+                                </span>
+                                {timeDisplay && (
+                                  <div className={`flex items-center gap-1 text-[11px] mt-0.5 ${isDark ? "text-[#8696a0]" : "text-gray-500"}`}>
+                                    {isStarred && (
+                                      <FaStar size={10} className={`${isDark ? "text-white/80" : "text-gray-600"} shrink-0`} />
+                                    )}
+                                    <span>{timeDisplay}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopyLink(item.url, item._id)
+                                }
+                                className={`p-1.5 rounded-lg transition-colors ${copiedId === item._id
+                                  ? "text-emerald-500 bg-emerald-500/10"
+                                  : isDark
+                                    ? "text-[#8696a0] hover:text-white hover:bg-white/10"
+                                    : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                                  }`}
+                                title="Copy link"
+                              >
+                                {copiedId === item._id ? (
+                                  <MdCheck size={16} />
+                                ) : (
+                                  <MdOutlineContentCopy size={16} />
+                                )}
+                              </button>
+
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`p-1.5 rounded-lg transition-colors ${isDark
+                                  ? "text-[#8696a0] hover:text-white hover:bg-white/10"
+                                  : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                                  }`}
+                                title="Open link"
+                              >
+                                <FiExternalLink size={16} />
+                              </a>
+
+                              {!isSelectMode && (
+                                <div
+                                  className={`p-1.5 rounded-full cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
+                                    ? isDark
+                                      ? "opacity-100 bg-black/40 text-white shadow-md scale-105"
+                                      : "opacity-100 bg-gray-200 text-gray-900 shadow-md scale-105"
+                                    : isDark
+                                      ? "opacity-0 group-hover:opacity-100 hover:bg-black/20 text-[#8696a0] hover:text-white"
+                                      : "opacity-0 group-hover:opacity-100 hover:bg-gray-100 text-gray-500 hover:text-gray-800"
+                                    }`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setActiveMenu((prev) =>
+                                      (prev?.item?.messageId || prev?.item?._id) === itemId
+                                        ? null
+                                        : {
+                                          item,
+                                          position: {
+                                            top: rect.bottom + 4,
+                                            left: Math.max(10, rect.right - 210),
+                                            buttonTop: rect.top,
+                                          },
+                                        }
+                                    );
+                                  }}
+                                  title="Menu"
+                                >
+                                  <MdOutlineKeyboardArrowDown size={18} />
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -2002,6 +2269,34 @@ const Media = ({
           </div>
         )}
       </div>
+
+      {scope === "chat" && !isSelectMode && (
+        <div className={`shrink-0 h-[52px] border-t px-4 flex items-center justify-center select-none ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"}`}>
+          <button
+            type="button"
+            onClick={() => {
+              setScope("all");
+              setSelectedContactFilter("");
+            }}
+            className="flex items-center gap-2 text-[#00a884] hover:text-[#06cf9c] font-medium text-[14px] transition-colors cursor-pointer group"
+          >
+            {activeTab === "media" ? (
+              <HiOutlinePhotograph size={19} className="transition-transform group-hover:scale-105" />
+            ) : activeTab === "docs" ? (
+              <FaFileAlt size={16} className="transition-transform group-hover:scale-105" />
+            ) : (
+              <FiLink size={17} className="transition-transform group-hover:scale-105" />
+            )}
+            <span>
+              {activeTab === "media"
+                ? "View media from all chats"
+                : activeTab === "docs"
+                  ? "View docs from all chats"
+                  : "View links from all chats"}
+            </span>
+          </button>
+        </div>
+      )}
 
       <AnimatePresence>
         {isSelectMode && selectedItems.length > 0 && (
@@ -2203,6 +2498,11 @@ const Media = ({
           position={activeMenu.position}
           isStarred={isMessageStarred(activeMenu.item?.messageId || activeMenu.item?._id)}
           canReplyPrivately={Boolean(activeMenu.item?.sender)}
+          onOpenLink={(item) => {
+            if (item?.url) {
+              window.open(item.url, "_blank", "noopener,noreferrer");
+            }
+          }}
           onSelect={handleMenuSelect}
           onGoToMessage={handleMenuGoToMessage}
           onReply={handleMenuReply}

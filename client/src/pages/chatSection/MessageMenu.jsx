@@ -6,7 +6,7 @@ import { BsEmojiSmile } from "react-icons/bs";
 import { TbPin } from "react-icons/tb";
 import { SiMetaai } from "react-icons/si";
 import { RiEditLine, RiDeleteBin6Line } from "react-icons/ri";
-import { FiThumbsDown, FiCheckSquare } from "react-icons/fi";
+import { FiThumbsDown, FiCheckSquare, FiExternalLink } from "react-icons/fi";
 import { useChatStore } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
 import { WhatsAppUnpinIcon } from "./MessageBuble";
@@ -107,8 +107,28 @@ const MessageMenu = ({
         message?.imageOrVideoUrl
     );
 
+    const linkMatch = message?.content ? message.content.match(/(https?:\/\/[^\s]+)/) : null;
+    const detectedUrl = message?.url || (linkMatch ? linkMatch[0] : null);
+
     return (
         <>
+            {detectedUrl && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        window.open(detectedUrl, "_blank", "noopener,noreferrer");
+                    }}
+                    className={itemClass}
+                >
+                    <FiExternalLink
+                        size={17}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Open link in a new tab</span>
+                </button>
+            )}
+
             <button
                 type="button"
                 onClick={() => {
