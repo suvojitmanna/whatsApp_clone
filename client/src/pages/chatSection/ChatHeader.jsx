@@ -36,6 +36,7 @@ const ChatHeader = ({
   headerMenuBtnRef,
   setHeaderMenuAnchor,
   setShowHeaderMenu,
+  onCloseChat,
 }) => {
   return (
     <div
@@ -47,8 +48,12 @@ const ChatHeader = ({
     >
       <button
         onClick={() => {
-          setSelectedContact(null);
-          setCurrentConversation(null);
+          if (onCloseChat) {
+            onCloseChat();
+          } else {
+            setSelectedContact?.(null);
+            setCurrentConversation?.(null);
+          }
         }}
         className="mr-1 sm:mr-2 p-2 rounded-full text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
         title="Back to chats"

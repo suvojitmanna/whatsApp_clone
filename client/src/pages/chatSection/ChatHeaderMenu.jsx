@@ -46,6 +46,7 @@ const ChatHeaderMenu = ({
   onOpenContactInfo,
   onOpenDisappearingMessages,
   onOpenChatTheme,
+  onCloseChat,
 }) => {
   const isDark = theme === "dark";
   const { user } = useUserStore();
@@ -283,11 +284,15 @@ const ChatHeaderMenu = ({
   };
 
   const handleCloseChat = () => {
-    setSelectedContact?.(null);
-    setCurrentConversation?.(null);
-    try {
-      useLayoutStore.getState().setSelectedContact(null);
-    } catch { }
+    if (onCloseChat) {
+      onCloseChat();
+    } else {
+      setSelectedContact?.(null);
+      setCurrentConversation?.(null);
+      try {
+        useLayoutStore.getState().setSelectedContact(null);
+      } catch { }
+    }
     onClose();
   };
 

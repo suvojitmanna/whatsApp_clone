@@ -163,12 +163,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const messagesContainerRef = useRef(null);
   const prevContactIdRef = useRef(null);
-  const isProgrammaticScrollRef = useRef(false);
+  const isProgrammaticScrollRef = useRef(true);
   const restoredChatIdRef = useRef(null);
   const previousChatRef = useRef({ contactId: null, convId: null });
   const currentChatScrollRef = useRef(null);
   const scrollDebounceTimerRef = useRef(null);
   const hasUserScrolledSinceSwitchRef = useRef(false);
+  const isUserInteractingRef = useRef(false);
+  const isShowingLastMessageRef = useRef(false);
 
   let matchCounter = -1;
 
@@ -1022,41 +1024,105 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const getChatKeys = (contact) => {
     const contactId = contact?._id?.toString() || null;
     const convId = (contact?.conversation?._id || contact?.conversation || currentConversation?._id)?.toString() || null;
-    return { contactId, convId };
+    const targetId = typeof getTargetUserId === "function" ? getTargetUserId(contact, user?._id) : null;
+    return { contactId, convId, targetId };
   };
 
-  const commitScrollPosition = (contactId, convId, pos) => {
+  const getAnchorMessage = (container) => {
+    if (!container) return null;
+    const containerRect = container.getBoundingClientRect();
+    const bubbles = container.querySelectorAll("[id^='msg-']");
+    for (let i = 0; i < bubbles.length; i++) {
+      const bubble = bubbles[i];
+      const rect = bubble.getBoundingClientRect();
+      if (rect.bottom > containerRect.top + 8) {
+        const msgId = bubble.id.replace("msg-", "");
+        const offset = rect.top - containerRect.top;
+        return { msgId, offset };
+      }
+    }
+    return null;
+  };
+
+  const commitScrollPosition = (contactId, convId, pos, targetId) => {
     if (!pos) return;
     const save = useChatStore.getState().saveScrollPosition;
-    if (contactId) {
-      save(contactId, pos);
+    const ids = [contactId, convId, targetId].filter(Boolean);
+    if (ids.length > 0) {
+      save(ids, pos);
     }
-    if (convId && convId !== contactId) {
-      save(convId, pos);
+  };
+
+  const saveCurrentScrollNow = () => {
+    const el = messagesContainerRef.current;
+    if (!el || !selectedContact?._id) return;
+    if (isProgrammaticScrollRef.current) return;
+    if (isMessagesLoading || messages.length === 0) return;
+
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 25;
+    const anchor = getAnchorMessage(el);
+    const pos = {
+      scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      isAtBottom,
+      anchorMsgId: anchor?.msgId || null,
+      anchorOffset: anchor?.offset || 0,
+      timestamp: Date.now(),
+    };
+    currentChatScrollRef.current = pos;
+    const { contactId, convId, targetId } = getChatKeys(selectedContact);
+    commitScrollPosition(contactId, convId, pos, targetId);
+  };
+
+  const handleCloseChatWindow = () => {
+    saveCurrentScrollNow();
+    setSelectedContact?.(null);
+    setCurrentConversation?.(null);
+    try {
+      useLayoutStore.getState().setSelectedContact(null);
+    } catch { }
+  };
+
+  const scrollToLastMessage = (behavior = "auto") => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    isProgrammaticScrollRef.current = true;
+    if (messageEndRef.current) {
+      try {
+        messageEndRef.current.scrollIntoView({
+          behavior: behavior === "smooth" ? "smooth" : "instant",
+          block: "end",
+        });
+      } catch {
+        el.scrollTop = el.scrollHeight;
+      }
+    } else {
+      el.scrollTop = el.scrollHeight;
     }
+    const timer = setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 100);
+    return timer;
   };
 
   const scrollToBottom = (behavior = "auto") => {
+    isShowingLastMessageRef.current = true;
+    hasUserScrolledSinceSwitchRef.current = true;
+    scrollToLastMessage(behavior);
     const el = messagesContainerRef.current;
     if (el) {
-      isProgrammaticScrollRef.current = true;
-      if (behavior === "smooth") {
-        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-      } else {
-        el.scrollTop = el.scrollHeight;
-      }
-      hasUserScrolledSinceSwitchRef.current = true;
       const bottomPos = {
         isAtBottom: true,
         scrollTop: el.scrollHeight,
         scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        anchorMsgId: null,
+        anchorOffset: 0,
       };
       currentChatScrollRef.current = bottomPos;
-      const { contactId, convId } = getChatKeys(selectedContact);
-      commitScrollPosition(contactId, convId, bottomPos);
-      setTimeout(() => {
-        isProgrammaticScrollRef.current = false;
-      }, 60);
+      const { contactId, convId, targetId } = getChatKeys(selectedContact);
+      commitScrollPosition(contactId, convId, bottomPos, targetId);
     }
   };
 
@@ -1065,24 +1131,29 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (!el || !selectedContact?._id) return;
     if (isProgrammaticScrollRef.current) return;
     if (isMessagesLoading || messages.length === 0) return;
-    if (el.scrollHeight <= el.clientHeight + 10) return;
+
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 35;
+    if (!isAtBottom) {
+      isShowingLastMessageRef.current = false;
+    } else {
+      isShowingLastMessageRef.current = true;
+    }
 
     hasUserScrolledSinceSwitchRef.current = true;
-    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+    const anchor = getAnchorMessage(el);
     const pos = {
       scrollTop: el.scrollTop,
       scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
       isAtBottom,
+      anchorMsgId: anchor?.msgId || null,
+      anchorOffset: anchor?.offset || 0,
+      timestamp: Date.now(),
     };
     currentChatScrollRef.current = pos;
 
-    const { contactId, convId } = getChatKeys(selectedContact);
-    if (scrollDebounceTimerRef.current) {
-      clearTimeout(scrollDebounceTimerRef.current);
-    }
-    scrollDebounceTimerRef.current = setTimeout(() => {
-      commitScrollPosition(contactId, convId, pos);
-    }, 150);
+    const { contactId, convId, targetId } = getChatKeys(selectedContact);
+    commitScrollPosition(contactId, convId, pos, targetId);
   };
 
   useEffect(() => {
@@ -1093,17 +1164,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const prevConvId = previousChatRef.current.convId;
 
     if (prevContactId && prevContactId !== nextContactId) {
-      if (scrollDebounceTimerRef.current) {
-        clearTimeout(scrollDebounceTimerRef.current);
-      }
       const el = messagesContainerRef.current;
       let posToSave = currentChatScrollRef.current;
       if (!posToSave && el && el.scrollHeight > el.clientHeight + 10 && !isProgrammaticScrollRef.current) {
-        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 25;
+        const anchor = getAnchorMessage(el);
         posToSave = {
           scrollTop: el.scrollTop,
           scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
           isAtBottom,
+          anchorMsgId: anchor?.msgId || null,
+          anchorOffset: anchor?.offset || 0,
         };
       }
       if (posToSave) {
@@ -1114,26 +1186,36 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       restoredChatIdRef.current = null;
       hasUserScrolledSinceSwitchRef.current = false;
       isProgrammaticScrollRef.current = true;
+      isShowingLastMessageRef.current = false;
     }
 
     previousChatRef.current = { contactId: nextContactId, convId: nextConvId };
   }, [selectedContact?._id]);
 
   useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveCurrentScrollNow();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [selectedContact?._id]);
+
+  useEffect(() => {
     return () => {
-      if (scrollDebounceTimerRef.current) {
-        clearTimeout(scrollDebounceTimerRef.current);
-      }
       const prevContactId = previousChatRef.current.contactId;
       const prevConvId = previousChatRef.current.convId;
       const el = messagesContainerRef.current;
       let posToSave = currentChatScrollRef.current;
       if (!posToSave && el && el.scrollHeight > el.clientHeight + 10 && !isProgrammaticScrollRef.current) {
-        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 25;
+        const anchor = getAnchorMessage(el);
         posToSave = {
           scrollTop: el.scrollTop,
           scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
           isAtBottom,
+          anchorMsgId: anchor?.msgId || null,
+          anchorOffset: anchor?.offset || 0,
         };
       }
       if (prevContactId && posToSave) {
@@ -1146,6 +1228,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const el = messagesContainerRef.current;
     const contactId = selectedContact?._id?.toString();
     const convId = (selectedContact?.conversation?._id || currentConversation?._id)?.toString();
+    const targetId = typeof getTargetUserId === "function" ? getTargetUserId(selectedContact, user?._id) : null;
 
     if (!el || !contactId || isMessagesLoading || messages.length === 0) return;
 
@@ -1153,80 +1236,144 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       const allPositions = useChatStore.getState().scrollPositions || {};
       const savedPos =
         (convId && allPositions[convId]) ||
-        (contactId && allPositions[contactId]);
+        (contactId && allPositions[contactId]) ||
+        (targetId && allPositions[targetId]);
 
       isProgrammaticScrollRef.current = true;
+      restoredChatIdRef.current = contactId;
 
-      const rafId = requestAnimationFrame(() => {
-        if (!messagesContainerRef.current) return;
-        const container = messagesContainerRef.current;
+      if (!savedPos || savedPos.isAtBottom) {
+        // No saved position in this tab session (e.g. newly opened tab, or chat opened for the first time):
+        // Automatically scroll to the bottom, showing the LAST MESSAGE!
+        isShowingLastMessageRef.current = true;
+        currentChatScrollRef.current = {
+          scrollTop: el.scrollHeight,
+          scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
+          isAtBottom: true,
+        };
 
-        if (savedPos && !savedPos.isAtBottom && typeof savedPos.scrollTop === "number") {
-          container.scrollTop = savedPos.scrollTop;
-          currentChatScrollRef.current = savedPos;
-        } else {
-          container.scrollTop = container.scrollHeight;
-          currentChatScrollRef.current = {
-            scrollTop: container.scrollHeight,
-            scrollHeight: container.scrollHeight,
-            isAtBottom: true,
-          };
-        }
+        scrollToLastMessage();
 
-        restoredChatIdRef.current = contactId;
+        const raf = requestAnimationFrame(() => {
+          scrollToLastMessage();
+        });
+        const t1 = setTimeout(() => scrollToLastMessage(), 60);
+        const t2 = setTimeout(() => scrollToLastMessage(), 180);
+        const t3 = setTimeout(() => scrollToLastMessage(), 350);
+        const t4 = setTimeout(() => scrollToLastMessage(), 600);
 
-        requestAnimationFrame(() => {
-          if (!messagesContainerRef.current) return;
-          const currentContainer = messagesContainerRef.current;
-          if (
-            savedPos &&
-            !savedPos.isAtBottom &&
-            typeof savedPos.scrollTop === "number" &&
-            !hasUserScrolledSinceSwitchRef.current
-          ) {
-            if (Math.abs(currentContainer.scrollTop - savedPos.scrollTop) > 2) {
-              currentContainer.scrollTop = savedPos.scrollTop;
+        return () => {
+          cancelAnimationFrame(raf);
+          clearTimeout(t1);
+          clearTimeout(t2);
+          clearTimeout(t3);
+          clearTimeout(t4);
+        };
+      } else {
+        // Saved position exists in this tab:
+        // Closed at ANY intermediate position -> restore that exact position!
+        isShowingLastMessageRef.current = false;
+        currentChatScrollRef.current = savedPos;
+
+        const applyPosition = () => {
+          const container = messagesContainerRef.current;
+          if (!container) return;
+          isProgrammaticScrollRef.current = true;
+
+          if (savedPos.anchorMsgId) {
+            const bubble = document.getElementById(`msg-${savedPos.anchorMsgId}`);
+            if (bubble) {
+              const containerRect = container.getBoundingClientRect();
+              const bubbleRect = bubble.getBoundingClientRect();
+              const diff = bubbleRect.top - (containerRect.top + (savedPos.anchorOffset || 0));
+              container.scrollTop += diff;
+              return;
             }
           }
-          setTimeout(() => {
-            isProgrammaticScrollRef.current = false;
-          }, 80);
-        });
-      });
+          if (typeof savedPos.scrollTop === "number") {
+            container.scrollTop = savedPos.scrollTop;
+          }
+        };
 
-      return () => cancelAnimationFrame(rafId);
-    } else {
-      const allPositions = useChatStore.getState().scrollPositions || {};
-      const savedPos =
-        (convId && allPositions[convId]) ||
-        (contactId && allPositions[contactId]);
+        applyPosition();
 
-      if (
-        !hasUserScrolledSinceSwitchRef.current &&
-        savedPos &&
-        !savedPos.isAtBottom &&
-        typeof savedPos.scrollTop === "number"
-      ) {
-        isProgrammaticScrollRef.current = true;
-        el.scrollTop = savedPos.scrollTop;
-        setTimeout(() => {
+        const raf = requestAnimationFrame(applyPosition);
+        const t1 = setTimeout(applyPosition, 40);
+        const t2 = setTimeout(applyPosition, 120);
+        const t3 = setTimeout(() => {
+          applyPosition();
           isProgrammaticScrollRef.current = false;
-        }, 50);
-        return;
-      }
+        }, 250);
 
+        return () => {
+          cancelAnimationFrame(raf);
+          clearTimeout(t1);
+          clearTimeout(t2);
+          clearTimeout(t3);
+        };
+      }
+    } else {
       if (isSelectMode) return;
 
-      const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-      if (isAtBottom) {
-        isProgrammaticScrollRef.current = true;
-        el.scrollTop = el.scrollHeight;
-        requestAnimationFrame(() => {
-          isProgrammaticScrollRef.current = false;
-        });
+      if (isShowingLastMessageRef.current) {
+        scrollToLastMessage();
       }
     }
   }, [messages, isMessagesLoading, selectedContact?._id, isSelectMode]);
+
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    let resizeTimer = null;
+    const observer = new ResizeObserver(() => {
+      if (isShowingLastMessageRef.current && !isMessagesLoading && messages.length > 0) {
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          scrollToLastMessage();
+        }, 30);
+      }
+    });
+
+    observer.observe(el);
+    if (el.firstElementChild) {
+      observer.observe(el.firstElementChild);
+    }
+
+    return () => {
+      observer.disconnect();
+      if (resizeTimer) clearTimeout(resizeTimer);
+    };
+  }, [selectedContact?._id, isMessagesLoading, messages.length]);
+
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    const handleUserInteractionStart = () => {
+      isUserInteractingRef.current = true;
+    };
+    const handleUserInteractionEnd = () => {
+      setTimeout(() => {
+        isUserInteractingRef.current = false;
+      }, 150);
+    };
+
+    el.addEventListener("wheel", handleUserInteractionStart, { passive: true });
+    el.addEventListener("touchstart", handleUserInteractionStart, { passive: true });
+    el.addEventListener("pointerdown", handleUserInteractionStart, { passive: true });
+    window.addEventListener("pointerup", handleUserInteractionEnd, { passive: true });
+    window.addEventListener("touchend", handleUserInteractionEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("wheel", handleUserInteractionStart);
+      el.removeEventListener("touchstart", handleUserInteractionStart);
+      el.removeEventListener("pointerdown", handleUserInteractionStart);
+      window.removeEventListener("pointerup", handleUserInteractionEnd);
+      window.removeEventListener("touchend", handleUserInteractionEnd);
+    };
+  }, []);
 
   useEffect(() => {
     if (message && selectedContact) {
@@ -1413,16 +1560,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         };
         currentChatScrollRef.current = bottomPos;
         hasUserScrolledSinceSwitchRef.current = true;
-        const { contactId, convId } = getChatKeys(selectedContact);
-        commitScrollPosition(contactId, convId, bottomPos);
+        isShowingLastMessageRef.current = true;
+        const { contactId, convId, targetId } = getChatKeys(selectedContact);
+        commitScrollPosition(contactId, convId, bottomPos, targetId);
       }
-      if (messagesContainerRef.current) {
-        isProgrammaticScrollRef.current = true;
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        setTimeout(() => {
-          isProgrammaticScrollRef.current = false;
-        }, 60);
-      }
+      scrollToLastMessage();
     } catch (error) {
       console.error("Failed to send message", error);
     } finally {
@@ -1951,6 +2093,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           headerMenuBtnRef={headerMenuBtnRef}
           setHeaderMenuAnchor={setHeaderMenuAnchor}
           setShowHeaderMenu={setShowHeaderMenu}
+          onCloseChat={handleCloseChatWindow}
         />
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -2976,6 +3119,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         onOpenContactInfo={() => setShowContactInfo(true)}
         onOpenDisappearingMessages={() => openContactInfoWithTab("disappearing")}
         onOpenChatTheme={() => openContactInfoWithTab("chatTheme")}
+        onCloseChat={handleCloseChatWindow}
       />
 
       <BlockModal

@@ -1,11 +1,17 @@
-export const DEFAULT_CHAT_LISTS = ["Favourites", "Communities", "Friends", "Family", "Work"];
+export const DEFAULT_CHAT_LISTS = ["Favourites", "Communities"];
 
 export const getAllLists = () => {
   try {
-    const custom = JSON.parse(
-      localStorage.getItem("whatsapp_all_custom_lists") || "[]"
+    const deletedDefaults = JSON.parse(
+      localStorage.getItem("whatsapp_deleted_default_lists") || "[]",
     );
-    const combined = [...DEFAULT_CHAT_LISTS, ...custom];
+    const custom = JSON.parse(
+      localStorage.getItem("whatsapp_all_custom_lists") || "[]",
+    );
+    const activeDefaults = DEFAULT_CHAT_LISTS.filter(
+      (l) => !deletedDefaults.includes(l),
+    );
+    const combined = [...activeDefaults, ...custom];
     return Array.from(new Set(combined));
   } catch {
     return DEFAULT_CHAT_LISTS;
@@ -16,12 +22,23 @@ export const createCustomList = (name) => {
   const trimmed = (name || "").trim();
   if (!trimmed) return null;
   try {
+    const deletedDefaults = JSON.parse(
+      localStorage.getItem("whatsapp_deleted_default_lists") || "[]",
+    );
+    if (deletedDefaults.includes(trimmed)) {
+      const updatedDeleted = deletedDefaults.filter((l) => l !== trimmed);
+      localStorage.setItem(
+        "whatsapp_deleted_default_lists",
+        JSON.stringify(updatedDeleted),
+      );
+    }
+
     const all = getAllLists();
     if (all.some((l) => l.toLowerCase() === trimmed.toLowerCase())) {
       return trimmed;
     }
     const custom = JSON.parse(
-      localStorage.getItem("whatsapp_all_custom_lists") || "[]"
+      localStorage.getItem("whatsapp_all_custom_lists") || "[]",
     );
     const updated = [...custom, trimmed];
     localStorage.setItem("whatsapp_all_custom_lists", JSON.stringify(updated));
@@ -35,15 +52,30 @@ export const createCustomList = (name) => {
 
 export const deleteCustomList = (name) => {
   const trimmed = (name || "").trim();
-  if (!trimmed || DEFAULT_CHAT_LISTS.includes(trimmed)) return false;
+  const protectedLists = ["All", "Unread", "Favourites", "Favorites", "Groups"];
+  if (!trimmed || protectedLists.includes(trimmed)) return false;
   try {
     const custom = JSON.parse(
-      localStorage.getItem("whatsapp_all_custom_lists") || "[]"
+      localStorage.getItem("whatsapp_all_custom_lists") || "[]",
     );
     const updated = custom.filter((l) => l !== trimmed);
     localStorage.setItem("whatsapp_all_custom_lists", JSON.stringify(updated));
+
+    if (DEFAULT_CHAT_LISTS.includes(trimmed)) {
+      const deletedDefaults = JSON.parse(
+        localStorage.getItem("whatsapp_deleted_default_lists") || "[]",
+      );
+      if (!deletedDefaults.includes(trimmed)) {
+        deletedDefaults.push(trimmed);
+        localStorage.setItem(
+          "whatsapp_deleted_default_lists",
+          JSON.stringify(deletedDefaults),
+        );
+      }
+    }
+
     const map = JSON.parse(
-      localStorage.getItem("whatsapp_contact_lists") || "{}"
+      localStorage.getItem("whatsapp_contact_lists") || "{}",
     );
     Object.keys(map).forEach((key) => {
       if (Array.isArray(map[key])) {
@@ -60,17 +92,61 @@ export const deleteCustomList = (name) => {
   }
 };
 
+export const renameCustomList = (oldName, newName) => {
+  const oldTrimmed = (oldName || "").trim();
+  const newTrimmed = (newName || "").trim();
+  const protectedLists = [
+    "All",
+    "Unread",
+    "Favourites",
+    "Favorites",
+    "Groups",
+    "Communities",
+  ];
+  if (!oldTrimmed || !newTrimmed || protectedLists.includes(oldTrimmed))
+    return false;
+  if (oldTrimmed === newTrimmed) return true;
+
+  try {
+    const custom = JSON.parse(
+      localStorage.getItem("whatsapp_all_custom_lists") || "[]",
+    );
+    const updated = custom.map((l) => (l === oldTrimmed ? newTrimmed : l));
+    localStorage.setItem(
+      "whatsapp_all_custom_lists",
+      JSON.stringify(Array.from(new Set(updated))),
+    );
+
+    const map = JSON.parse(
+      localStorage.getItem("whatsapp_contact_lists") || "{}",
+    );
+    Object.keys(map).forEach((key) => {
+      if (Array.isArray(map[key])) {
+        map[key] = map[key].map((l) => (l === oldTrimmed ? newTrimmed : l));
+      }
+    });
+    localStorage.setItem("whatsapp_contact_lists", JSON.stringify(map));
+    window.dispatchEvent(new Event("whatsapp_lists_changed"));
+    return true;
+  } catch (e) {
+    console.error("Error renaming custom list:", e);
+    return false;
+  }
+};
+
 export const getContactListNames = (contact) => {
   if (!contact) return [];
   try {
     const map = JSON.parse(
-      localStorage.getItem("whatsapp_contact_lists") || "{}"
+      localStorage.getItem("whatsapp_contact_lists") || "{}",
     );
     const favs = JSON.parse(
-      localStorage.getItem("whatsapp_favourite_chats") || "[]"
+      localStorage.getItem("whatsapp_favourite_chats") || "[]",
     );
 
-    const convId = (contact.conversation?._id || contact.conversation)?.toString();
+    const convId = (
+      contact.conversation?._id || contact.conversation
+    )?.toString();
     const userId = (contact._id || contact.id)?.toString();
 
     const listSet = new Set();
@@ -80,7 +156,10 @@ export const getContactListNames = (contact) => {
     if (userId && map[userId]) {
       map[userId].forEach((l) => listSet.add(l));
     }
-    if ((convId && favs.includes(convId)) || (userId && favs.includes(userId))) {
+    if (
+      (convId && favs.includes(convId)) ||
+      (userId && favs.includes(userId))
+    ) {
       listSet.add("Favourites");
       listSet.add("Favorites");
     }
@@ -94,13 +173,15 @@ export const toggleContactList = (contact, listName) => {
   if (!contact || !listName) return [];
   try {
     const map = JSON.parse(
-      localStorage.getItem("whatsapp_contact_lists") || "{}"
+      localStorage.getItem("whatsapp_contact_lists") || "{}",
     );
     let favs = JSON.parse(
-      localStorage.getItem("whatsapp_favourite_chats") || "[]"
+      localStorage.getItem("whatsapp_favourite_chats") || "[]",
     );
 
-    const convId = (contact.conversation?._id || contact.conversation)?.toString();
+    const convId = (
+      contact.conversation?._id || contact.conversation
+    )?.toString();
     const userId = (contact._id || contact.id)?.toString();
     const key = convId || userId;
     if (!key) return [];
@@ -162,7 +243,7 @@ export const isContactInList = (contact, listName) => {
       contact?.isGroup ||
       contact?.isGroupChat ||
       (contact?.conversation?.participants &&
-        contact.conversation.participants.length > 2)
+        contact.conversation.participants.length > 2),
     );
   }
 
@@ -171,7 +252,7 @@ export const isContactInList = (contact, listName) => {
       contact?.isCommunity ||
       contact?.isCommunityChat ||
       contact?.communityId ||
-      getContactListNames(contact).includes("Communities")
+      getContactListNames(contact).includes("Communities"),
     );
   }
 
@@ -185,3 +266,57 @@ export const isContactInList = (contact, listName) => {
   return contactLists.includes(listName);
 };
 
+export const updateListContacts = (
+  listName,
+  selectedContactIds,
+  allContacts,
+) => {
+  if (!listName || !Array.isArray(allContacts)) return false;
+  try {
+    const map = JSON.parse(
+      localStorage.getItem("whatsapp_contact_lists") || "{}",
+    );
+    let favs = JSON.parse(
+      localStorage.getItem("whatsapp_favourite_chats") || "[]",
+    );
+    const idSet = new Set(selectedContactIds.map(String));
+
+    allContacts.forEach((contact) => {
+      const convId = (
+        contact.conversation?._id || contact.conversation
+      )?.toString();
+      const userId = (contact._id || contact.id)?.toString();
+      const isSelected =
+        (userId && idSet.has(userId)) || (convId && idSet.has(convId));
+
+      if (listName === "Favourites" || listName === "Favorites") {
+        if (isSelected) {
+          if (convId && !favs.includes(convId)) favs.push(convId);
+          if (userId && !favs.includes(userId)) favs.push(userId);
+        } else {
+          favs = favs.filter((id) => id !== convId && id !== userId);
+        }
+      }
+
+      [convId, userId].filter(Boolean).forEach((key) => {
+        const cur = new Set(map[key] || []);
+        if (isSelected) {
+          cur.add(listName);
+        } else {
+          cur.delete(listName);
+        }
+        map[key] = Array.from(cur);
+      });
+    });
+
+    if (listName === "Favourites" || listName === "Favorites") {
+      localStorage.setItem("whatsapp_favourite_chats", JSON.stringify(favs));
+    }
+    localStorage.setItem("whatsapp_contact_lists", JSON.stringify(map));
+    window.dispatchEvent(new Event("whatsapp_lists_changed"));
+    return true;
+  } catch (e) {
+    console.error("Error updating list contacts:", e);
+    return false;
+  }
+};

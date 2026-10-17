@@ -19,6 +19,13 @@ function syncMessagesCache(cache, convId, newMessages) {
 
 const readStatusCache = new Set();
 
+if (typeof window !== "undefined") {
+  try {
+    sessionStorage.removeItem("whatsapp_chat_scroll_positions");
+    localStorage.removeItem("whatsapp_chat_scroll_positions");
+  } catch {}
+}
+
 export const getTargetUserId = (contact, currentUserId) => {
   if (!contact) return null;
   if (Array.isArray(contact.participants) && contact.participants.length > 0) {
@@ -753,16 +760,20 @@ export const useChatStore = create((set, get) => ({
     }
   },
   scrollPositions: {},
-  saveScrollPosition: (id, pos) => {
-    if (!id || !pos) return;
-    const strId = (id?._id || id)?.toString();
-    if (!strId) return;
-    set((state) => ({
-      scrollPositions: {
-        ...state.scrollPositions,
-        [strId]: pos,
-      },
-    }));
+  saveScrollPosition: (idOrIds, pos) => {
+    if (!idOrIds || !pos) return;
+    const ids = (Array.isArray(idOrIds) ? idOrIds : [idOrIds])
+      .map((item) => (item?._id || item)?.toString())
+      .filter(Boolean);
+    if (ids.length === 0) return;
+
+    set((state) => {
+      const nextPositions = { ...state.scrollPositions };
+      for (const id of ids) {
+        nextPositions[id] = pos;
+      }
+      return { scrollPositions: nextPositions };
+    });
   },
 
   initSocketListener: () => {

@@ -57,6 +57,8 @@ import { toast } from "react-toastify";
 import axiosInstance from "../services/url.services";
 import { WhatsAppMediaFolderIcon } from "./Media";
 import ContactMedia from "./ContactMedia";
+import FileViewerModal from "./FileViewerModal";
+import { FALLBACK_MEDIA } from "../assets/rawData";
 
 const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   <button
@@ -107,7 +109,7 @@ const ContactInfo = () => {
   } = useLayoutStore();
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const { isUserOnline, messages, starredMessages, toggleStarMessage, blockedContacts, blockContact, unblockContact, clearChat } = useChatStore();
+  const { isUserOnline, messages, starredMessages, isMessageStarred, toggleStarMessage, blockedContacts, blockContact, unblockContact, clearChat } = useChatStore();
   const setIsChatSearchOpen = useLayoutStore((state) => state.setIsChatSearchOpen);
 
   const handleExecuteClearChat = async () => {
@@ -314,6 +316,9 @@ const ContactInfo = () => {
   }, [chatId]);
 
   const [chatMediaCount, setChatMediaCount] = useState(0);
+  const [chatMediaList, setChatMediaList] = useState([]);
+  const [previewModalFile, setPreviewModalFile] = useState(null);
+  const [previewModalIndex, setPreviewModalIndex] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -324,7 +329,13 @@ const ContactInfo = () => {
           params: { conversationId: chatId },
         });
         const total = data?.data?.counts?.total ?? data?.counts?.total ?? 0;
-        if (isMounted) setChatMediaCount(total);
+        const media = data?.data?.media ?? data?.media ?? [];
+        if (isMounted) {
+          setChatMediaCount(total);
+          if (Array.isArray(media)) {
+            setChatMediaList(media);
+          }
+        }
       } catch (err) {
         if (Array.isArray(messages) && isMounted) {
           const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
@@ -346,6 +357,147 @@ const ContactInfo = () => {
       isMounted = false;
     };
   }, [chatId, messages?.length]);
+
+  const isItemStarred = useCallback(
+    (item) => {
+      if (!item) return false;
+      const itemId = (item._id || item.messageId || item.temp)?.toString();
+      if (itemId && starredMessages?.[itemId]) return true;
+      if (isMessageStarred && itemId && isMessageStarred(itemId)) return true;
+      if (
+        itemId &&
+        chatStarredMessages.some(
+          (sm) => (sm.messageId || sm.message?._id)?.toString() === itemId
+        )
+      ) {
+        return true;
+      }
+      return Boolean(item.isStarred || item.starred);
+    },
+    [starredMessages, isMessageStarred, chatStarredMessages]
+  );
+
+  const previewImages = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    const currentUserId = user?._id?.toString();
+
+    if (Array.isArray(messages)) {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i];
+        if (!m || m.deletedForEveryone) continue;
+        if (
+          currentUserId &&
+          m.deletedFor &&
+          Array.isArray(m.deletedFor) &&
+          m.deletedFor.some((id) => String(id) === currentUserId)
+        ) {
+          continue;
+        }
+
+        const isVideo =
+          m.contentType === "video" ||
+          Boolean(
+            (m.imageOrVideoUrl || m.url) &&
+            (m.imageOrVideoUrl || m.url).match(/\.(mp4|webm|mov|mkv)($|\?)/i)
+          );
+        const isImage =
+          m.contentType === "image" ||
+          Boolean((m.imageOrVideoUrl || m.url) && !isVideo);
+
+        if (isImage) {
+          const src = m.imageOrVideoUrl || m.url;
+          const id = String(m._id || m.temp || src);
+          if (src && !seen.has(id) && !seen.has(src)) {
+            seen.add(id);
+            seen.add(src);
+            list.push({
+              _id: m._id || m.temp,
+              messageId: m._id || m.temp,
+              url: src,
+              createdAt: m.createdAt,
+            });
+          }
+        }
+      }
+    }
+
+    if (Array.isArray(chatMediaList)) {
+      chatMediaList.forEach((m) => {
+        if (!m) return;
+        const isVideo =
+          m.mediaType === "video" ||
+          m.contentType === "video" ||
+          Boolean(
+            (m.url || m.imageOrVideoUrl) &&
+            (m.url || m.imageOrVideoUrl).match(/\.(mp4|webm|mov|mkv)($|\?)/i)
+          );
+        const isImage =
+          m.mediaType === "image" ||
+          m.contentType === "image" ||
+          Boolean((m.url || m.imageOrVideoUrl) && !isVideo);
+
+        if (isImage) {
+          const src = m.url || m.imageOrVideoUrl;
+          const id = String(m._id || m.messageId || src);
+          if (src && !seen.has(id) && !seen.has(src)) {
+            seen.add(id);
+            seen.add(src);
+            list.push({
+              ...m,
+              _id: m._id || m.messageId || id,
+              messageId: m._id || m.messageId || id,
+              url: src,
+            });
+          }
+        }
+      });
+    }
+
+    if (list.length === 0 && Array.isArray(FALLBACK_MEDIA)) {
+      return FALLBACK_MEDIA.filter((m) => m.mediaType === "image").slice(0, 4);
+    }
+
+    return list.slice(0, 4);
+  }, [messages, chatMediaList, user?._id]);
+
+  const handleOpenImagePreview = (item, idx, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const url = item.url || item.imageOrVideoUrl;
+    if (!url) return;
+
+    setPreviewModalIndex(idx);
+    setPreviewModalFile({
+      url,
+      name: item.fileName || "image.jpg",
+      type: "image",
+      fileType: "image",
+      size: item.fileSize,
+      sender: item.sender,
+      createdAt: item.createdAt,
+      messageId: item._id || item.messageId,
+      _id: item._id || item.messageId,
+      _rawItem: item,
+      isUserMessage: String(item.sender?._id || item.sender) === String(user?._id),
+      items: previewImages.map((img) => ({
+        url: img.url || img.imageOrVideoUrl,
+        name: img.fileName || "image.jpg",
+        type: "image",
+        fileType: "image",
+        size: img.fileSize,
+        sender: img.sender,
+        createdAt: img.createdAt,
+        messageId: img._id || img.messageId,
+        _id: img._id || img.messageId,
+        _rawItem: img,
+        isUserMessage: String(img.sender?._id || img.sender) === String(user?._id),
+      })),
+      initialIndex: idx,
+    });
+  };
 
   const [newListName, setNewListName] = useState("");
 
@@ -1280,37 +1432,94 @@ const ContactInfo = () => {
                     </p>
                   </motion.div>
 
-                  <div className="my-4 border-t border-white/10" />
+                  <div className={`-my-0.10 border-t ${isDark ? "border-white/20" : "border-black/10"}`} />
 
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.42, type: "spring", stiffness: 100 }}
                     onClick={() => setContactInfoTab("media")}
-                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
-                      ? "bg-[#202c33]/70 hover:bg-[#202c33] border border-white/5 hover:border-white/10 text-white"
-                      : "bg-black/5 hover:bg-black/8 border border-black/5 text-gray-900"
-                      }`}
+                    className={`relative -my-2 rounded-2xl transition-all duration-300 backdrop-blur-2xl`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div
+                      className={`flex items-center justify-between rounded-xl p-2.5 transition-all duration-200 cursor-pointer ${theme === "dark"
+                        ? "hover:bg-[#202c33] text-white"
+                        : "hover:bg-black/5 text-gray-900"
+                        }`}
+                    >
                       <div className="flex items-center gap-3.5">
                         <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
                           <WhatsAppMediaFolderIcon size={20} />
                         </div>
+
                         <span className="text-[15px] font-medium tracking-tight">
                           Media, links and docs
                         </span>
                       </div>
+
                       <div className="flex items-center gap-2 text-[#8696a0]">
                         <span className="text-[14px] font-normal">
                           {chatMediaCount}
                         </span>
-                        <MdChevronRight size={18} />
+
+                        {previewImages.length === 0 && <MdChevronRight size={18} />}
                       </div>
                     </div>
+
+
+                    {previewImages.length > 0 && (
+                      <div className="grid grid-cols-4 gap-2 mt-3.5">
+                        {previewImages.map((item, idx) => {
+                          const isStarred = isItemStarred(item);
+                          const src = item.url || item.imageOrVideoUrl;
+
+                          return (
+                            <div
+                              key={item._id || item.messageId || idx}
+                              onClick={(e) => handleOpenImagePreview(item, idx, e)}
+                              className="relative aspect-square rounded-xl overflow-hidden bg-black/20 group/thumb cursor-pointer transition-all duration-300 hover:ring-2 hover:ring-[#00a884]/60"
+                              title="Click to view image"
+                            >
+                              <img
+                                src={src}
+                                alt=""
+                                loading="lazy"
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                              />
+
+                              <div
+                                className="absolute inset-0 z-[5] pointer-events-none opacity-0 group-hover/thumb:opacity-100 bg-gradient-to-r from-transparent via-white/30 to-transparent backdrop-blur-[1px]"
+                                style={{
+                                  transform: "translateX(-100%)",
+                                  transition: "opacity 300ms ease",
+                                  animation: "none",
+                                }}
+                              />
+                              <div
+                                className="absolute inset-0 z-[5] pointer-events-none opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-white/25 to-transparent backdrop-blur-[1px] -translate-x-full group-hover/thumb:translate-x-full transition-transform duration-700 ease-in-out"
+                              />
+
+                              <div
+                                className="absolute inset-0 z-[4] pointer-events-none opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-300 bg-white/[0.04] border border-white/20 rounded-xl"
+                              />
+
+                              {isStarred && (
+                                <div className="absolute bottom-1.5 right-1.5 z-10 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] pointer-events-none">
+                                  <FaStar
+                                    size={11}
+                                    className="text-white fill-white"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
                   </motion.div>
 
-                  <div className="my-4 border-t border-white/10" />
+                  <div className={`mt-6 border-t ${isDark ? "border-white/20" : "border-black/10"}`} />
 
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
@@ -3185,6 +3394,17 @@ const ContactInfo = () => {
             onReport={handleConfirmReport}
             theme={theme}
           />
+
+          {previewModalFile && (
+            <FileViewerModal
+              isOpen={Boolean(previewModalFile)}
+              onClose={() => setPreviewModalFile(null)}
+              file={previewModalFile}
+              items={previewModalFile.items}
+              initialIndex={previewModalIndex}
+              theme={theme}
+            />
+          )}
           <div
             ref={cursorTooltipRef}
             className="fixed pointer-events-none z-[999999] px-2.5 py-1 rounded-md bg-[#1f2c34] text-white text-[12px] font-medium shadow-2xl border border-white/15 whitespace-nowrap backdrop-blur-md -translate-x-1/2 select-none"
