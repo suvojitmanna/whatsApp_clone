@@ -25,6 +25,7 @@ import { useChatStore } from "../../store/chatStore";
 import { WhatsAppPinIcon, WhatsAppDisappearingIcon } from "./MessageBuble";
 import AddToListModal from "../../components/AddToListModal";
 import NewListModal from "../../components/NewListModal";
+import ChatlistMenu from "./ChatlistMenu";
 import {
   getAllLists,
   isContactInList,
@@ -573,6 +574,55 @@ const getLastMessagePreview = (lastMessage) => {
   return null;
 };
 
+export const isChatPinned = (contact, pinnedList) => {
+  if (!contact || !pinnedList || pinnedList.length === 0) return false;
+  const candidates = [
+    contact._id,
+    contact.id,
+    contact.conversation?._id,
+    contact.conversation,
+  ].filter(Boolean).map(String);
+  return candidates.some((id) => pinnedList.map(String).includes(id));
+};
+
+export const isChatArchived = (contact, archivedList) => {
+  if (!contact || !archivedList || archivedList.length === 0) return false;
+  const candidates = [
+    contact._id,
+    contact.id,
+    contact.conversation?._id,
+    contact.conversation,
+  ].filter(Boolean).map(String);
+  return candidates.some((id) => archivedList.map(String).includes(id));
+};
+
+export const isChatMuted = (contact, mutedMap) => {
+  if (!contact || !mutedMap) return false;
+  const candidates = [
+    contact._id,
+    contact.id,
+    contact.conversation?._id,
+    contact.conversation,
+  ].filter(Boolean).map(String);
+  return candidates.some((id) => {
+    const val = mutedMap[id];
+    if (!val) return false;
+    if (val === "always") return true;
+    return typeof val === "number" && val > Date.now();
+  });
+};
+
+export const isChatMarkedUnread = (contact, unreadList) => {
+  if (!contact || !unreadList || unreadList.length === 0) return false;
+  const candidates = [
+    contact._id,
+    contact.id,
+    contact.conversation?._id,
+    contact.conversation,
+  ].filter(Boolean).map(String);
+  return candidates.some((id) => unreadList.map(String).includes(id));
+};
+
 const ChatList = ({ contacts }) => {
   const { user } = useUserStore();
   const { isUserTyping } = useChatStore();
@@ -598,6 +648,72 @@ const ChatList = ({ contacts }) => {
   const [isNewListModalOpen, setIsNewListModalOpen] = useState(false);
   const [showListsDropdown, setShowListsDropdown] = useState(false);
   const listsDropdownRef = useRef(null);
+
+  const [chatlistMenu, setChatlistMenu] = useState(null);
+  const [pinnedChats, setPinnedChats] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("whatsapp_pinned_chats") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [archivedChats, setArchivedChats] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("whatsapp_archived_chats") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [markedUnreadChats, setMarkedUnreadChats] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("whatsapp_marked_unread_chats") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [mutedChats, setMutedChats] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("whatsapp_muted_chats") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const [showArchivedOnly, setShowArchivedOnly] = useState(false);
+
+  useEffect(() => {
+    const handlePinnedChanged = () => {
+      try {
+        setPinnedChats(JSON.parse(localStorage.getItem("whatsapp_pinned_chats") || "[]"));
+      } catch { }
+    };
+    const handleArchivedChanged = () => {
+      try {
+        setArchivedChats(JSON.parse(localStorage.getItem("whatsapp_archived_chats") || "[]"));
+      } catch { }
+    };
+    const handleUnreadChanged = () => {
+      try {
+        setMarkedUnreadChats(JSON.parse(localStorage.getItem("whatsapp_marked_unread_chats") || "[]"));
+      } catch { }
+    };
+    const handleMutedChanged = () => {
+      try {
+        setMutedChats(JSON.parse(localStorage.getItem("whatsapp_muted_chats") || "{}"));
+      } catch { }
+    };
+
+    window.addEventListener("whatsapp_pinned_changed", handlePinnedChanged);
+    window.addEventListener("whatsapp_archived_changed", handleArchivedChanged);
+    window.addEventListener("whatsapp_unread_changed", handleUnreadChanged);
+    window.addEventListener("whatsapp_muted_changed", handleMutedChanged);
+
+    return () => {
+      window.removeEventListener("whatsapp_pinned_changed", handlePinnedChanged);
+      window.removeEventListener("whatsapp_archived_changed", handleArchivedChanged);
+      window.removeEventListener("whatsapp_unread_changed", handleUnreadChanged);
+      window.removeEventListener("whatsapp_muted_changed", handleMutedChanged);
+    };
+  }, []);
 
   const [dispTick, setDispTick] = useState(0);
   useEffect(() => {
@@ -640,6 +756,17 @@ const ChatList = ({ contacts }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showListsDropdown]);
 
+  const archivedCount = useMemo(() => {
+    if (!contacts) return 0;
+    return contacts.filter((c) => isChatArchived(c, archivedChats)).length;
+  }, [contacts, archivedChats]);
+
+  useEffect(() => {
+    if (showArchivedOnly && archivedCount === 0) {
+      setShowArchivedOnly(false);
+    }
+  }, [archivedCount, showArchivedOnly]);
+
   const listCounts = useMemo(() => {
     const counts = {
       All: contacts?.length || 0,
@@ -652,7 +779,8 @@ const ChatList = ({ contacts }) => {
 
     contacts.forEach((c) => {
       const u = c?.conversation?.unreadCount;
-      if (typeof u === "number" && u > 0) {
+      const isMarked = isChatMarkedUnread(c, markedUnreadChats);
+      if ((typeof u === "number" && u > 0) || isMarked) {
         counts.Unread += 1;
       }
       if (isContactInList(c, "Groups")) {
@@ -673,7 +801,7 @@ const ChatList = ({ contacts }) => {
     });
 
     return counts;
-  }, [contacts, availableLists, listsRevision]);
+  }, [contacts, availableLists, listsRevision, markedUnreadChats]);
 
   const dropdownLists = useMemo(() => {
     const base = ["Communities"];
@@ -703,15 +831,34 @@ const ChatList = ({ contacts }) => {
       list = list.filter((contact) =>
         contact?.username?.toLowerCase().includes(term)
       );
+    } else if (showArchivedOnly) {
+      list = list.filter((contact) => isChatArchived(contact, archivedChats));
+    } else {
+      list = list.filter((contact) => !isChatArchived(contact, archivedChats));
     }
 
     if (activeListFilter !== "All") {
-      list = list.filter((contact) =>
-        isContactInList(contact, activeListFilter)
-      );
+      if (activeListFilter === "Unread") {
+        list = list.filter((contact) => {
+          const u = contact?.conversation?.unreadCount;
+          return (
+            (typeof u === "number" && u > 0) ||
+            isChatMarkedUnread(contact, markedUnreadChats)
+          );
+        });
+      } else {
+        list = list.filter((contact) =>
+          isContactInList(contact, activeListFilter)
+        );
+      }
     }
 
     return [...list].sort((a, b) => {
+      const isPinnedA = isChatPinned(a, pinnedChats);
+      const isPinnedB = isChatPinned(b, pinnedChats);
+      if (isPinnedA && !isPinnedB) return -1;
+      if (!isPinnedA && isPinnedB) return 1;
+
       const pinA = getContactPin(a, pinnedMessages);
       const pinB = getContactPin(b, pinnedMessages);
 
@@ -732,7 +879,18 @@ const ChatList = ({ contacts }) => {
       );
       return timeB - timeA;
     });
-  }, [contacts, searchTerms, pinnedMessages, activeListFilter, listsRevision, dispTick]);
+  }, [
+    contacts,
+    searchTerms,
+    pinnedMessages,
+    activeListFilter,
+    listsRevision,
+    dispTick,
+    pinnedChats,
+    archivedChats,
+    markedUnreadChats,
+    showArchivedOnly,
+  ]);
 
   useEffect(() => {
     if (listContainerRef.current) {
@@ -981,6 +1139,70 @@ const ChatList = ({ contacts }) => {
         onScroll={(e) => setChatListScrollTop(e.target.scrollTop)}
         className="overflow-y-auto flex-1 custom-scrollbar"
       >
+        {archivedCount > 0 && !searchTerms && activeListFilter === "All" && (
+          showArchivedOnly ? (
+            <div
+              onClick={() => setShowArchivedOnly(false)}
+              className={`mx-2 my-1 px-3 py-2.5 rounded-xl flex items-center gap-3 cursor-pointer transition-colors ${theme === "dark"
+                  ? "hover:bg-[#202c33] text-[#e9edef]"
+                  : "hover:bg-[#f5f6f6] text-[#111b21]"
+                }`}
+            >
+              <button
+                type="button"
+                className="p-1 hover:bg-white/10 rounded-full cursor-pointer"
+                title="Back to all chats"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="19" y1="12" x2="5" y2="12"></line>
+                  <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+              </button>
+              <span className="font-semibold text-[15px]">
+                Archived ({archivedCount})
+              </span>
+            </div>
+          ) : (
+            <div
+              onClick={() => setShowArchivedOnly(true)}
+              className={`mx-2 my-1 px-3.5 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition-colors ${theme === "dark"
+                  ? "hover:bg-[#202c33] text-[#e9edef]"
+                  : "hover:bg-[#f5f6f6] text-[#111b21]"
+                }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="19"
+                  height="19"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-[#00a884] shrink-0"
+                >
+                  <rect x="3" y="4" width="18" height="4" rx="1"></rect>
+                  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path>
+                  <line x1="12" y1="12" x2="12" y2="16"></line>
+                  <polyline points="9 14 12 17 15 14"></polyline>
+                </svg>
+                <span className="font-medium text-[15px]">Archived</span>
+              </div>
+              <span className="text-xs text-[#00a884] font-semibold">{archivedCount}</span>
+            </div>
+          )
+        )}
+
         {filteredContact.length === 0 ? (
           activeListFilter !== "All" ? (
             <motion.div
@@ -1068,7 +1290,14 @@ const ChatList = ({ contacts }) => {
                 title={`Chat with ${contact?.username || "user"}`}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  setListModalContact(contact);
+                  setChatlistMenu({
+                    contact,
+                    coords: {
+                      x: e.clientX,
+                      y: e.clientY,
+                      isContextMenu: true,
+                    },
+                  });
                 }}
                 onClick={() => {
                   setSelectedContact(contact);
@@ -1076,14 +1305,34 @@ const ChatList = ({ contacts }) => {
                   if (contact?.conversation?._id) {
                     useChatStore.getState().clearUnreadCount(contact.conversation._id);
                   }
+                  try {
+                    const key = (contact.conversation?._id || contact._id)?.toString();
+                    const marked = JSON.parse(
+                      localStorage.getItem("whatsapp_marked_unread_chats") || "[]"
+                    );
+                    if (marked.includes(key) || marked.includes(String(contact._id))) {
+                      const next = marked.filter(
+                        (id) => id !== key && id !== String(contact._id)
+                      );
+                      localStorage.setItem(
+                        "whatsapp_marked_unread_chats",
+                        JSON.stringify(next)
+                      );
+                      window.dispatchEvent(new Event("whatsapp_unread_changed"));
+                    }
+                  } catch { }
                 }}
-                className={`mx-2 my-0.5 p-2.5 rounded-xl flex items-center cursor-pointer transition-colors relative group ${theme === "dark"
-                  ? selectedContact?._id === contact._id
-                    ? "bg-[#2a3942]"
-                    : "hover:bg-[#202c33]"
-                  : selectedContact?._id === contact._id
-                    ? "bg-[#e9edef]"
-                    : "hover:bg-[#f5f6f6]"
+                className={`mx-2 my-0.5 p-2.5 rounded-xl flex items-center cursor-pointer transition-colors relative group ${chatlistMenu?.contact?._id === contact._id
+                    ? theme === "dark"
+                      ? "bg-[#202c33]"
+                      : "bg-[#f5f6f6]"
+                    : theme === "dark"
+                      ? selectedContact?._id === contact._id
+                        ? "bg-[#2a3942]"
+                        : "hover:bg-[#202c33]"
+                      : selectedContact?._id === contact._id
+                        ? "bg-[#e9edef]"
+                        : "hover:bg-[#f5f6f6]"
                   }`}
               >
                 <div className="relative shrink-0">
@@ -1306,13 +1555,24 @@ const ChatList = ({ contacts }) => {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setChatlistMenu({
+                            contact,
+                            coords: {
+                              x: rect.right,
+                              y: rect.bottom + 4,
+                              isContextMenu: false,
+                            },
+                          });
                         }}
-                        className={`p-1.5 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100 hover:scale-110 ${theme === "dark"
-                          ? "hover:bg-white/10 text-[#8696a0] hover:text-[#00a884]"
-                          : "hover:bg-gray-200 text-gray-500 hover:text-[#00a884]"
+                        className={`p-1.5 rounded-full transition-all cursor-pointer ${chatlistMenu?.contact?._id === contact._id
+                            ? "opacity-100"
+                            : "opacity-0 group-hover:opacity-100"
+                          } hover:scale-110 ${theme === "dark"
+                            ? "hover:bg-white/10 text-[#8696a0] hover:text-[#00a884]"
+                            : "hover:bg-gray-200 text-gray-500 hover:text-[#00a884]"
                           }`}
-                        title="menu"
+                        title="Menu"
                       >
                         <MdOutlineKeyboardArrowDown size={18} />
                       </button>
@@ -1325,13 +1585,35 @@ const ChatList = ({ contacts }) => {
                         />
                       )}
 
-                      {contactPin && (
+                      {isChatMuted(contact, mutedChats) && (
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="13"
+                          height="13"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-[#8696a0] shrink-0"
+                          title="Notifications muted"
+                        >
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                          <path d="M18.63 13A17.89 17.89 0 0 1 18 8"></path>
+                          <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"></path>
+                          <path d="M18 8a6 6 0 0 0-9.33-5"></path>
+                          <line x1="1" y1="1" x2="23" y2="23"></line>
+                        </svg>
+                      )}
+
+                      {(isChatPinned(contact, pinnedChats) || contactPin) && (
                         <WhatsAppPinIcon
                           size={13}
                           className="text-[#8696a0] shrink-0"
-                          title="Pinned message in chat"
+                          title="Pinned"
                         />
                       )}
+
                       {(() => {
                         const isCurrentOpen = Boolean(
                           selectedContact?._id &&
@@ -1345,6 +1627,7 @@ const ChatList = ({ contacts }) => {
                           return null;
                         }
 
+                        const isMarked = isChatMarkedUnread(contact, markedUnreadChats);
                         const unread = contact?.conversation?.unreadCount;
                         const currentUserId = user?._id?.toString();
                         const lastMsgSenderId = (
@@ -1357,15 +1640,24 @@ const ChatList = ({ contacts }) => {
                           lastMsgSenderId === currentUserId
                         );
 
-                        if (isSenderOfLast || !unread || unread <= 0) {
-                          return null;
+                        if (!isSenderOfLast && unread && unread > 0) {
+                          return (
+                            <p className="w-5 h-5 rounded-full bg-[#25d366] flex items-center justify-center text-[11px] font-bold text-[#111b21] shrink-0">
+                              {unread}
+                            </p>
+                          );
                         }
 
-                        return (
-                          <p className="w-5 h-5 rounded-full bg-[#25d366] flex items-center justify-center text-[11px] font-bold text-[#111b21] shrink-0">
-                            {unread}
-                          </p>
-                        );
+                        if (isMarked) {
+                          return (
+                            <span
+                              className="w-2.5 h-2.5 rounded-full bg-[#25d366] shrink-0 inline-block shadow-xs"
+                              title="Unread"
+                            />
+                          );
+                        }
+
+                        return null;
                       })()}
                     </div>
                   </div>
@@ -1375,6 +1667,17 @@ const ChatList = ({ contacts }) => {
           })
         )}
       </div>
+
+      {chatlistMenu && (
+        <ChatlistMenu
+          isOpen={Boolean(chatlistMenu)}
+          onClose={() => setChatlistMenu(null)}
+          contact={chatlistMenu.contact}
+          anchorCoords={chatlistMenu.coords}
+          onOpenAddToList={() => setListModalContact(chatlistMenu.contact)}
+          onOpenNewList={() => setIsNewListModalOpen(true)}
+        />
+      )}
 
       {listModalContact && (
         <AddToListModal

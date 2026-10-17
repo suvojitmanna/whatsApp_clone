@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   FaArrowLeft,
   FaPlay,
@@ -11,7 +11,6 @@ import { TbStarOff } from "react-icons/tb";
 import { VscSearchLarge } from "react-icons/vsc";
 import { FiDownload } from "react-icons/fi";
 import {
-  HiOutlinePhotograph,
   HiOutlineDocumentText,
   HiOutlineLink,
 } from "react-icons/hi";
@@ -45,6 +44,162 @@ const formatDocSize = (bytes) => {
   return `${(num / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+const ContactMediaSkeleton = ({ activeTab, isDark }) => {
+  return (
+    <div className="space-y-6 select-none animate-pulse">
+      {activeTab === "media" && (
+        <>
+          <div className="space-y-2.5">
+            <div
+              className={`h-3 w-24 rounded-md ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+                }`}
+            />
+            <div className="grid grid-cols-3 gap-1.5">
+              {[...Array(6)].map((_, i) => (
+                <div
+                  key={`media-skel-1-${i}`}
+                  className={`aspect-square rounded-lg ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+                    }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2.5">
+            <div
+              className={`h-3 w-28 rounded-md ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+                }`}
+            />
+            <div className="grid grid-cols-3 gap-1.5">
+              {[...Array(6)].map((_, i) => (
+                <div
+                  key={`media-skel-2-${i}`}
+                  className={`aspect-square rounded-lg ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+                    }`}
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === "docs" && (
+        <div className="space-y-3">
+          <div
+            className={`h-3 w-24 rounded-md mb-2 ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+              }`}
+          />
+          {[...Array(4)].map((_, i) => (
+            <React.Fragment key={`doc-skel-${i}`}>
+              <div
+                className={`p-3 rounded-xl border flex flex-col gap-2 ${isDark
+                  ? "bg-[#202c33] border-transparent"
+                  : "bg-white border-transparent"
+                  }`}
+              >
+                {i === 0 && (
+                  <div
+                    className={`w-full h-24 rounded-t-md mb-1 ${isDark ? "bg-[#182229]" : "bg-gray-100"
+                      }`}
+                  />
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-9 rounded-[3px] bg-[#e53935]/30 shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div
+                      className={`h-3.5 w-3/4 rounded ${isDark ? "bg-[#2a3942]" : "bg-gray-200"
+                        }`}
+                    />
+                    <div
+                      className={`h-2.5 w-1/2 rounded ${isDark ? "bg-[#2a3942]/60" : "bg-gray-200/70"
+                        }`}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end mt-0.5">
+                  <div
+                    className={`h-2 w-16 rounded ${isDark ? "bg-[#2a3942]/40" : "bg-gray-200/50"
+                      }`}
+                  />
+                </div>
+              </div>
+              {i < 3 && (
+                <div
+                  className={`border-b ${isDark ? "border-[#222d34]" : "border-gray-200"
+                    } my-2.5 mx-1`}
+                />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+
+      {activeTab === "links" && (
+        <div className="space-y-4">
+          <div
+            className={`h-3 w-24 rounded-md mb-2 ${isDark ? "bg-[#202c33]" : "bg-gray-200"
+              }`}
+          />
+          {[...Array(4)].map((_, i) => (
+            <React.Fragment key={`link-skel-${i}`}>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-5 h-5 rounded-full ${isDark ? "bg-[#2a3942]" : "bg-gray-300"
+                        }`}
+                    />
+                    <div
+                      className={`h-3 w-28 rounded ${isDark ? "bg-[#2a3942]" : "bg-gray-200"
+                        }`}
+                    />
+                  </div>
+                  <div
+                    className={`h-2.5 w-14 rounded ${isDark ? "bg-[#2a3942]/60" : "bg-gray-200"
+                      }`}
+                  />
+                </div>
+
+                <div
+                  className={`p-3 rounded-xl border flex gap-3 ${isDark
+                    ? "bg-[#202c33] border-transparent"
+                    : "bg-white border-transparent"
+                    }`}
+                >
+                  <div
+                    className={`w-16 h-16 rounded-lg shrink-0 ${isDark ? "bg-[#182229]" : "bg-gray-200"
+                      }`}
+                  />
+                  <div className="flex-1 space-y-2 py-1">
+                    <div
+                      className={`h-3.5 w-4/5 rounded ${isDark ? "bg-[#2a3942]" : "bg-gray-200"
+                        }`}
+                    />
+                    <div
+                      className={`h-2.5 w-full rounded ${isDark ? "bg-[#2a3942]/60" : "bg-gray-100"
+                        }`}
+                    />
+                    <div
+                      className={`h-2 w-28 rounded ${isDark ? "bg-[#2a3942]/40" : "bg-gray-100"
+                        }`}
+                    />
+                  </div>
+                </div>
+              </div>
+              {i < 3 && (
+                <div
+                  className={`border-b ${isDark ? "border-[#222d34]" : "border-gray-200"
+                    } my-2.5 mx-1`}
+                />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ContactMedia = ({
   contact = null,
   chatId = null,
@@ -60,7 +215,7 @@ const ContactMedia = ({
   const [activeTab, setActiveTab] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState([]);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -101,7 +256,10 @@ const ContactMedia = ({
   useEffect(() => {
     let isMounted = true;
     const fetchChatMedia = async () => {
-      if (!resolvedConversationId && !contact?._id) return;
+      if (!resolvedConversationId && !contact?._id) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const { data } = await axiosInstance.get(`/chat/media`, {
@@ -448,7 +606,7 @@ const ContactMedia = ({
                 >
                   <RxCross2 size={20} />
                 </button>
-                <span className="text-[15px] font-medium tracking-normal text-[#e9edef]">
+                <span className={`text-[15px] font-medium tracking-normal ${isDark ? "text-[#e9edef]" : "text-gray-900"}`}>
                   {selectedItems.length} selected
                 </span>
               </div>
@@ -554,10 +712,7 @@ const ContactMedia = ({
                 >
                   <FaArrowLeft size={18} />
                 </button>
-                <h2 className={`text-[16px] font-semibold tracking-tight truncate ${isDark
-                  ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
-                  : "hover:bg-gray-100 text-gray-600"
-                  }`}>
+                <h2 className={`text-[16px] font-semibold tracking-tight truncate ${isDark ? "text-[#e9edef]" : "text-gray-900"}`}>
                   Media, docs and links
                 </h2>
               </div>
@@ -629,12 +784,13 @@ const ContactMedia = ({
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4">
         {loading ? (
-          <div className="flex items-center justify-center h-48 text-[#8696a0] text-sm">
-            Loading...
-          </div>
+          <ContactMediaSkeleton activeTab={activeTab} isDark={isDark} />
         ) : groupedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full min-h-[350px] text-center px-6 select-none">
-            <h4 className="text-[18px] font-bold mb-1.5 text-white">
+            <h4
+              className={`text-[18px] font-bold mb-1.5 ${isDark ? "text-white" : "text-gray-900"
+                }`}
+            >
               No {activeTab} found
             </h4>
             <p className="text-[13px] text-[#8696a0] max-w-[260px] leading-relaxed">
@@ -722,9 +878,9 @@ const ContactMedia = ({
 
                             {!isSelected && (
                               <div
-                                className={`absolute top-1 right-1 z-20 flex items-center justify-center rounded-full p-1 cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
-                                  ? "opacity-100 bg-black/60 text-white shadow-md scale-105"
-                                  : "opacity-0 group-hover:opacity-100 hover:bg-black/40 text-white"
+                                className={`absolute top-1.5 right-1.5 z-20 flex items-center justify-center rounded-full p-1 cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
+                                  ? "opacity-100 bg-black/70 text-white shadow-md scale-105"
+                                  : "opacity-0 group-hover:opacity-100 bg-black/40 hover:bg-black/70 text-white shadow-sm"
                                   }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -785,7 +941,7 @@ const ContactMedia = ({
 
                   {activeTab === "docs" && (
                     <div className="space-y-3">
-                      {items.map((item) => {
+                      {items.map((item, index) => {
                         const itemId = item.messageId || item._id;
                         const isSelected = selectedItems.some(
                           (i) => (i.messageId || i._id) === itemId
@@ -805,52 +961,10 @@ const ContactMedia = ({
                         const isForwarded = item.isForwarded || item.forwarded;
                         const dateDisplay = item.createdAt
                           ? format(new Date(item.createdAt), "dd/MM/yyyy")
-                          : "20/09/2026";
+                          : "";
 
                         return (
-                          <div
-                            key={itemId}
-                            className="flex items-start gap-3 select-none group"
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setActiveMenu({
-                                item,
-                                position: {
-                                  top: e.clientY + 4,
-                                  left: Math.max(10, Math.min(window.innerWidth - 220, e.clientX - 100)),
-                                  buttonTop: e.clientY,
-                                },
-                              });
-                            }}
-                          >
-                            {isSelected ? (
-                              <div
-                                className="pt-3.5 cursor-pointer shrink-0"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleSelectItem(item);
-                                }}
-                              >
-                                <div className={`w-[18px] h-[18px] rounded-[3px] ${isDark ? "bg-white text-black" : "bg-[#111b21] text-white"} flex items-center justify-center shadow-sm`}>
-                                  <FaCheck size={10} className="stroke-[2]" />
-                                </div>
-                              </div>
-                            ) : (
-                              <div
-                                className={`pt-3.5 cursor-pointer shrink-0 transition-opacity duration-150 ${selectedItems.length > 0
-                                  ? "opacity-100"
-                                  : "opacity-0 group-hover:opacity-100"
-                                  }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleSelectItem(item);
-                                }}
-                              >
-                                <div className={`w-[18px] h-[18px] rounded-[3px] border-[1.8px] ${isDark ? "border-[#8696a0]/70 bg-black/20 group-hover:border-white hover:border-white" : "border-gray-400 bg-white group-hover:border-gray-600 hover:border-gray-600"} transition-colors`} />
-                              </div>
-                            )}
-
+                          <React.Fragment key={itemId}>
                             <div
                               onClick={() => {
                                 if (selectedItems.length > 0) {
@@ -859,20 +973,37 @@ const ContactMedia = ({
                                   handleOpenViewer(item);
                                 }
                               }}
-                              className={`flex-1 rounded-xl p-2.5 transition-all duration-150 cursor-pointer shadow-sm relative border ${isSelected
+                              onContextMenu={(e) => {
+                                if (selectedItems.length > 0) return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setActiveMenu({
+                                  item,
+                                  position: {
+                                    top: e.clientY + 4,
+                                    left: Math.max(10, Math.min(window.innerWidth - 220, e.clientX - 100)),
+                                    buttonTop: e.clientY,
+                                  },
+                                });
+                              }}
+                              className={`w-full rounded-xl p-2.5 transition-all duration-150 cursor-pointer relative select-none border group ${isSelected
                                 ? isDark
-                                  ? "bg-white/10 border-white/30 ring-1 ring-white/20 text-white"
-                                  : "bg-gray-100 border-gray-300 ring-1 ring-gray-300 text-gray-900"
+                                  ? "bg-white/10 border-white/20 text-white"
+                                  : "bg-gray-100 border-gray-300 text-gray-900"
                                 : isDark
-                                  ? "bg-[#202c33] hover:bg-[#28363e] border-white/5 text-white"
-                                  : "bg-white hover:bg-[#f0f2f5] border-gray-200/80 text-gray-900 shadow-xs"
+                                  ? "bg-transparent hover:bg-[#202c33] border-transparent hover:border-white/15 text-white"
+                                  : "bg-transparent hover:bg-[#f0f2f5] border-transparent hover:border-gray-200 text-gray-900"
                                 }`}
                             >
                               {!isSelected && (
                                 <div
                                   className={`absolute top-2 right-2 z-20 flex items-center justify-center rounded-full p-1 cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
-                                    ? "opacity-100 bg-black/40 text-white shadow-md scale-105"
-                                    : "opacity-0 group-hover:opacity-100 hover:bg-black/30 text-white/80 hover:text-white"
+                                    ? isDark
+                                      ? "opacity-100 bg-black/40 text-white shadow-md scale-105"
+                                      : "opacity-100 bg-gray-200 text-gray-900 shadow-md scale-105"
+                                    : isDark
+                                      ? "opacity-0 group-hover:opacity-100 hover:bg-white/10 text-[#8696a0] hover:text-white"
+                                      : "opacity-0 group-hover:opacity-100 hover:bg-gray-200 text-[#54656f] hover:text-[#111b21]"
                                     }`}
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -904,7 +1035,7 @@ const ContactMedia = ({
                               )}
 
                               {item.previewHeader ? (
-                                <div className={`w-full p-3 rounded-t-md mb-2 shadow-inner border text-center select-none flex flex-col justify-between min-h-[110px] ${isDark ? "bg-[#111b21] text-[#e9edef] border-white/10" : "bg-white text-black border-black/10"}`}>
+                                <div className={`w-full p-3 rounded-t-md mb-2 shadow-inner border text-center select-none flex flex-col justify-between min-h-[110px] ${isDark ? "bg-[#111b21] text-[#e9edef] border-transparent group-hover:border-white/10" : "bg-white text-black border-black/10"}`}>
                                   <div className={`text-[11px] font-bold tracking-tight pb-1 uppercase border-b ${isDark ? "text-white border-white/10" : "text-gray-900 border-black/20"}`}>
                                     {item.previewHeader.split("\n")[0] ||
                                       "MEGHNAD SAHA INSTITUTE OF TECHNOLOGY"}
@@ -923,6 +1054,33 @@ const ContactMedia = ({
                               ) : null}
 
                               <div className="flex items-center gap-3">
+                                {isSelected ? (
+                                  <div
+                                    className="cursor-pointer shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleSelectItem(item);
+                                    }}
+                                  >
+                                    <div className={`w-[18px] h-[18px] rounded-[3px] ${isDark ? "bg-white text-black" : "bg-[#111b21] text-white"} flex items-center justify-center shadow-sm`}>
+                                      <FaCheck size={10} className="stroke-[2]" />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className={`cursor-pointer shrink-0 transition-opacity duration-150 ${selectedItems.length > 0
+                                      ? "opacity-100"
+                                      : "opacity-0 group-hover:opacity-100"
+                                      }`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleSelectItem(item);
+                                    }}
+                                  >
+                                    <div className={`w-[18px] h-[18px] rounded-[3px] border-[1.8px] ${isDark ? "border-[#8696a0]/70 bg-black/20 group-hover:border-white hover:border-white" : "border-gray-400 bg-white group-hover:border-gray-600 hover:border-gray-600"} transition-colors`} />
+                                  </div>
+                                )}
+
                                 <div className="w-8 h-9 rounded-[3px] bg-[#e53935] text-white flex flex-col items-center justify-center shrink-0 shadow-sm relative overflow-hidden">
                                   <FaFilePdf size={15} />
                                   <span className="text-[7px] font-black tracking-tight mt-0.5">
@@ -945,7 +1103,7 @@ const ContactMedia = ({
 
                               <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-[#8696a0]">
                                 {isStarred && (
-                                  <FaStar size={10} className="text-white/80 shrink-0" />
+                                  <FaStar size={10} className={`${isDark ? "text-white/80" : "text-gray-500"} shrink-0`} />
                                 )}
                                 <span>{dateDisplay}</span>
                                 {isOutgoing && (
@@ -953,7 +1111,13 @@ const ContactMedia = ({
                                 )}
                               </div>
                             </div>
-                          </div>
+                            {index < items.length - 1 && (
+                              <div
+                                className={`border-b ${isDark ? "border-[#222d34]" : "border-gray-200"
+                                  } my-2.5 mx-1`}
+                              />
+                            )}
+                          </React.Fragment>
                         );
                       })}
                     </div>
@@ -961,7 +1125,7 @@ const ContactMedia = ({
 
                   {activeTab === "links" && (
                     <div className="space-y-3">
-                      {items.map((item) => {
+                      {items.map((item, index) => {
                         const itemId = item.messageId || item._id;
                         const isSelected = selectedItems.some(
                           (i) => (i.messageId || i._id) === itemId
@@ -986,85 +1150,60 @@ const ContactMedia = ({
                           contact?.username || contact?.fullName || "Contact";
 
                         return (
-                          <div
-                            key={itemId}
-                            className="select-none group"
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setActiveMenu({
-                                item,
-                                position: {
-                                  top: e.clientY + 4,
-                                  left: Math.max(10, Math.min(window.innerWidth - 220, e.clientX - 100)),
-                                  buttonTop: e.clientY,
-                                },
-                              });
-                            }}
-                          >
+                          <React.Fragment key={itemId}>
                             <div
-                              onClick={() => {
-                                if (selectedItems.length > 0) {
-                                  toggleSelectItem(item);
-                                }
+                              className="select-none group"
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setActiveMenu({
+                                  item,
+                                  position: {
+                                    top: e.clientY + 4,
+                                    left: Math.max(10, Math.min(window.innerWidth - 220, e.clientX - 100)),
+                                    buttonTop: e.clientY,
+                                  },
+                                });
                               }}
-                              className="flex items-center justify-between px-1 py-1 text-[#8696a0] text-[12px] cursor-pointer hover:text-white transition-colors"
                             >
-                              <div className="flex items-center gap-2 min-w-0">
-                                {item.sender?.profilePicture ? (
-                                  <img
-                                    src={item.sender.profilePicture}
-                                    alt=""
-                                    className="w-5 h-5 rounded-full object-cover shrink-0"
-                                  />
-                                ) : (
-                                  <div className="w-5 h-5 rounded-full bg-[#e53935] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                              <div
+                                onClick={() => {
+                                  if (selectedItems.length > 0) {
+                                    toggleSelectItem(item);
+                                  }
+                                }}
+                                className={`flex items-center justify-between px-1 py-1 text-[12px] cursor-pointer transition-colors ${isDark
+                                  ? "text-[#8696a0] hover:text-[#e9edef]"
+                                  : "text-gray-500 hover:text-gray-800"
+                                  }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {item.sender?.profilePicture ? (
+                                    <img
+                                      src={item.sender.profilePicture}
+                                      alt=""
+                                      className="w-5 h-5 rounded-full object-cover shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-5 h-5 rounded-full bg-[#e53935] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                                      {isOutgoing
+                                        ? "Y"
+                                        : item.sender?.username?.[0]?.toUpperCase() || "S"}
+                                    </div>
+                                  )}
+
+                                  <span className={`text-[13px] font-medium truncate ${isDark ? "text-[#e9edef]" : "text-gray-900"}`}>
                                     {isOutgoing
-                                      ? "Y"
-                                      : item.sender?.username?.[0]?.toUpperCase() || "S"}
-                                  </div>
-                                )}
-
-                                <span className="text-[13px] font-medium text-[#e9edef] truncate">
-                                  {isOutgoing
-                                    ? `You ▸ ${otherPartyName}`
-                                    : `${item.sender?.username || otherPartyName} ▸ You`}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-1 shrink-0 text-[12px]">
-                                <span>{dateDisplay}</span>
-                                <MdChevronRight size={16} />
-                              </div>
-                            </div>
-
-                            <div className="flex items-start gap-3 mt-1">
-                              {isSelected ? (
-                                <div
-                                  className="pt-3.5 cursor-pointer shrink-0"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleSelectItem(item);
-                                  }}
-                                >
-                                  <div className={`w-[18px] h-[18px] rounded-[3px] ${isDark ? "bg-white text-black" : "bg-[#111b21] text-white"} flex items-center justify-center shadow-sm`}>
-                                    <FaCheck size={10} className="stroke-[2]" />
-                                  </div>
+                                      ? `You ▸ ${otherPartyName}`
+                                      : `${item.sender?.username || otherPartyName} ▸ You`}
+                                  </span>
                                 </div>
-                              ) : (
-                                <div
-                                  className={`pt-3.5 cursor-pointer shrink-0 transition-opacity duration-150 ${selectedItems.length > 0
-                                    ? "opacity-100"
-                                    : "opacity-0 group-hover:opacity-100"
-                                    }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleSelectItem(item);
-                                  }}
-                                >
-                                  <div className={`w-[18px] h-[18px] rounded-[3px] border-[1.8px] ${isDark ? "border-[#8696a0]/70 bg-black/20 group-hover:border-white hover:border-white" : "border-gray-400 bg-white group-hover:border-gray-600 hover:border-gray-600"} transition-colors`} />
+
+                                <div className="flex items-center gap-1 shrink-0 text-[12px]">
+                                  <span>{dateDisplay}</span>
+                                  <MdChevronRight size={16} />
                                 </div>
-                              )}
+                              </div>
 
                               <div
                                 onClick={() => {
@@ -1072,21 +1211,25 @@ const ContactMedia = ({
                                     toggleSelectItem(item);
                                   }
                                 }}
-                                className={`flex-1 rounded-xl p-2.5 transition-all duration-150 shadow-sm relative border ${selectedItems.length > 0 ? "cursor-pointer" : ""
+                                className={`w-full rounded-xl p-2.5 transition-all duration-150 relative border select-none group mt-1 ${selectedItems.length > 0 ? "cursor-pointer" : ""
                                   } ${isSelected
                                     ? isDark
                                       ? "bg-white/10 border-white/30 ring-1 ring-white/20 text-white"
                                       : "bg-gray-100 border-gray-300 ring-1 ring-gray-300 text-gray-900"
                                     : isDark
-                                      ? "bg-[#202c33] hover:bg-[#28363e] border-white/5 text-white"
-                                      : "bg-white hover:bg-[#f0f2f5] border-gray-200/80 text-gray-900 shadow-xs"
+                                      ? "bg-transparent hover:bg-[#202c33] border-transparent hover:border-white/15 text-white"
+                                      : "bg-transparent hover:bg-[#f0f2f5] border-transparent hover:border-gray-200 text-gray-900"
                                   }`}
                               >
                                 {!isSelected && (
                                   <div
                                     className={`absolute top-2 right-2 z-20 flex items-center justify-center rounded-full p-1 cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
-                                      ? "opacity-100 bg-black/40 text-white shadow-md scale-105"
-                                      : "opacity-0 group-hover:opacity-100 hover:bg-black/30 text-white/80 hover:text-white"
+                                      ? isDark
+                                        ? "opacity-100 bg-black/40 text-white shadow-md scale-105"
+                                        : "opacity-100 bg-gray-200 text-gray-900 shadow-md scale-105"
+                                      : isDark
+                                        ? "opacity-0 group-hover:opacity-100 hover:bg-white/10 text-[#8696a0] hover:text-white"
+                                        : "opacity-0 group-hover:opacity-100 hover:bg-gray-200 text-[#54656f] hover:text-[#111b21]"
                                       }`}
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1110,42 +1253,79 @@ const ContactMedia = ({
                                   </div>
                                 )}
 
-                                <div className={`rounded-lg p-2.5 space-y-1 border ${isDark ? "bg-[#111b21]/80 border-white/10" : "bg-gray-100/90 border-gray-200/60"}`}>
-                                  <div className={`text-[13.5px] font-bold truncate ${isDark ? "text-[#e9edef]" : "text-gray-900"}`}>
-                                    {item.domain || "live-classes.vercel.app"}
-                                  </div>
-                                  <div className="text-[12px] text-[#8696a0] line-clamp-2 break-all leading-snug">
-                                    {item.url}
-                                  </div>
-                                  <div className="text-[11px] text-[#8696a0] pt-0.5">
-                                    {item.domain || "live-classes.vercel.app"}
-                                  </div>
-                                </div>
-
-                                <a
-                                  href={item.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => {
-                                    if (selectedItems.length > 0) e.preventDefault();
-                                  }}
-                                  className={`underline text-[13px] break-all block mt-2 font-normal transition-colors ${isDark ? "text-[#53bdeb] hover:text-[#7fd2f5]" : "text-blue-600 hover:text-blue-800"}`}
-                                >
-                                  {item.url}
-                                </a>
-
-                                <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-[#8696a0]">
-                                  {isStarred && (
-                                    <FaStar size={10} className="text-white/80 shrink-0" />
+                                <div className="flex items-start gap-3">
+                                  {isSelected ? (
+                                    <div
+                                      className="pt-2 cursor-pointer shrink-0"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSelectItem(item);
+                                      }}
+                                    >
+                                      <div className={`w-[18px] h-[18px] rounded-[3px] ${isDark ? "bg-white text-black" : "bg-[#111b21] text-white"} flex items-center justify-center shadow-sm`}>
+                                        <FaCheck size={10} className="stroke-[2]" />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div
+                                      className={`pt-2 cursor-pointer shrink-0 transition-opacity duration-150 ${selectedItems.length > 0
+                                        ? "opacity-100"
+                                        : "opacity-0 group-hover:opacity-100"
+                                        }`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSelectItem(item);
+                                      }}
+                                    >
+                                      <div className={`w-[18px] h-[18px] rounded-[3px] border-[1.8px] ${isDark ? "border-[#8696a0]/70 bg-black/20 group-hover:border-white hover:border-white" : "border-gray-400 bg-white group-hover:border-gray-600 hover:border-gray-600"} transition-colors`} />
+                                    </div>
                                   )}
-                                  <span>{timeDisplay}</span>
-                                  {isOutgoing && (
-                                    <MdDoneAll size={15} className="text-[#53bdeb] ml-0.5" />
-                                  )}
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className={`rounded-lg p-2.5 space-y-1 border ${isDark ? "bg-[#111b21]/80 border-transparent group-hover:border-white/10" : "bg-gray-100/90 border-gray-200/60"}`}>
+                                      <div className={`text-[13.5px] font-bold truncate ${isDark ? "text-[#e9edef]" : "text-gray-900"}`}>
+                                        {item.domain || "live-classes.vercel.app"}
+                                      </div>
+                                      <div className="text-[12px] text-[#8696a0] line-clamp-2 break-all leading-snug">
+                                        {item.url}
+                                      </div>
+                                      <div className="text-[11px] text-[#8696a0] pt-0.5">
+                                        {item.domain || "live-classes.vercel.app"}
+                                      </div>
+                                    </div>
+
+                                    <a
+                                      href={item.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => {
+                                        if (selectedItems.length > 0) e.preventDefault();
+                                      }}
+                                      className={`underline text-[13px] break-all block mt-2 font-normal transition-colors ${isDark ? "text-[#53bdeb] hover:text-[#7fd2f5]" : "text-blue-600 hover:text-blue-800"}`}
+                                    >
+                                      {item.url}
+                                    </a>
+
+                                    <div className="flex items-center justify-end gap-1 mt-1 text-[11px] text-[#8696a0]">
+                                      {isStarred && (
+                                        <FaStar size={10} className={`${isDark ? "text-white/80" : "text-gray-500"} shrink-0`} />
+                                      )}
+                                      <span>{timeDisplay}</span>
+                                      {isOutgoing && (
+                                        <MdDoneAll size={15} className="text-[#53bdeb] ml-0.5" />
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
+                            {index < items.length - 1 && (
+                              <div
+                                className={`border-b ${isDark ? "border-[#222d34]" : "border-gray-200"
+                                  } my-2.5 mx-1`}
+                              />
+                            )}
+                          </React.Fragment>
                         );
                       })}
                     </div>
@@ -1253,6 +1433,7 @@ const ContactMedia = ({
         <MediaMenu
           isOpen={Boolean(activeMenu)}
           item={activeMenu.item}
+          type={activeMenu.type || (activeTab === "links" ? "link" : activeTab === "docs" ? "doc" : "media")}
           position={activeMenu.position}
           onClose={() => setActiveMenu(null)}
           onOpenLink={(item) => {

@@ -7,6 +7,7 @@ const MediaMenu = ({
   isOpen,
   onClose,
   item,
+  type,
   position = { top: 0, left: 0 },
   isStarred = false,
   canReplyPrivately = true,
@@ -26,7 +27,24 @@ const MediaMenu = ({
   const menuRef = useRef(null);
   const isDark = theme === "dark";
   const toggleStarAction = onToggleStar || onStar;
-  const isLinkItem = Boolean(item?.url && !item?.imageOrVideoUrl && !item?.docUrl);
+  const isLinkItem = Boolean(
+    type === "link" ||
+    item?.type === "link" ||
+    item?.contentType === "link" ||
+    item?.mediaType === "link" ||
+    item?.domain ||
+    (item?.url &&
+      !item?.imageOrVideoUrl &&
+      !item?.docUrl &&
+      !item?.fileUrl &&
+      !item?.docName &&
+      !item?.fileName &&
+      item?.mediaType !== "image" &&
+      item?.mediaType !== "video" &&
+      item?.contentType !== "image" &&
+      item?.contentType !== "video" &&
+      item?.contentType !== "document")
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -130,7 +148,7 @@ const MediaMenu = ({
             </span>
             <span className="leading-tight">Select</span>
           </button>
-          {(item?.url || onOpenLink) && (
+          {isLinkItem && (
             <>
               <button
                 type="button"
