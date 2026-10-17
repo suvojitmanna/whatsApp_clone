@@ -43,6 +43,7 @@ const Layout = ({
   const mediaModalScope = useLayoutStore((state) => state.mediaModalScope);
   const mediaModalContact = useLayoutStore((state) => state.mediaModalContact);
   const mediaModalChatId = useLayoutStore((state) => state.mediaModalChatId);
+  const mediaModalInitialTab = useLayoutStore((state) => state.mediaModalInitialTab);
   const closeMediaModal = useLayoutStore((state) => state.closeMediaModal);
 
   const location = useLocation();
@@ -125,6 +126,7 @@ const Layout = ({
           scope={mediaModalScope}
           contact={mediaModalContact}
           chatId={mediaModalChatId}
+          initialTab={mediaModalInitialTab}
           onClose={closeMediaModal}
         />
       </div>

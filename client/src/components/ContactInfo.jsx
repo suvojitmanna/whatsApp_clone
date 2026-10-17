@@ -55,7 +55,8 @@ import {
 } from "../utils/chatThemes";
 import { toast } from "react-toastify";
 import axiosInstance from "../services/url.services";
-import Media, { WhatsAppMediaFolderIcon } from "./Media";
+import { WhatsAppMediaFolderIcon } from "./Media";
+import ContactMedia from "./ContactMedia";
 
 const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   <button
@@ -1022,145 +1023,145 @@ const ContactInfo = () => {
               className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
                 }`}
             >
-            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-3 min-w-0">
+                {contactInfoTab === "info" ? (
+                  <motion.button
+                    whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowContactInfo(false)}
+                    className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
+                    title="Close"
+                  >
+                    <RxCross2 size={22} />
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      stopCamera();
+                      setScanError(null);
+                      if (contactInfoTab === "allThemes") {
+                        setContactInfoTab("chatTheme");
+                      } else if (contactInfoTab === "chatBubble") {
+                        setContactInfoTab("chatTheme");
+                      } else if (contactInfoTab === "wallpaper") {
+                        setContactInfoTab("chatTheme");
+                      } else if (contactInfoTab === "solidColour") {
+                        setContactInfoTab("wallpaper");
+                      } else if (contactInfoTab === "chatTheme") {
+                        if (previousContactInfoTab === "info") {
+                          setContactInfoTab("info");
+                        } else {
+                          setShowContactInfo(false);
+                        }
+                      } else if (contactInfoTab === "defaultTimer") {
+                        setContactInfoTab("disappearing");
+                      } else if (contactInfoTab === "disappearing") {
+                        if (previousContactInfoTab === "info") {
+                          setContactInfoTab("info");
+                        } else {
+                          setShowContactInfo(false);
+                        }
+                      } else if (contactInfoTab === "privacy") {
+                        setContactInfoTab("security");
+                      } else {
+                        setContactInfoTab("info");
+                      }
+                    }}
+                    className="p-1 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
+                    title="Back"
+                  >
+                    <FaArrowLeft size={20} />
+                  </motion.button>
+                )}
+
+                {contactInfoTab === "security" ? (
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-semibold text-[16px] leading-tight truncate">
+                      Verify security code
+                    </span>
+                    <span className="text-[12px] text-[#8696a0] font-normal truncate">
+                      You, {selectedContact?.username || "Contact"}
+                    </span>
+                  </div>
+                ) : (
+                  <h2 className="font-semibold text-[17px] tracking-tight truncate">
+                    {contactInfoTab === "privacy"
+                      ? "Your chats and calls are private"
+                      : contactInfoTab === "media"
+                        ? "Media, links and docs"
+                        : contactInfoTab === "disappearing"
+                          ? "Disappearing messages"
+                          : contactInfoTab === "defaultTimer"
+                            ? "Default message timer"
+                            : contactInfoTab === "chatTheme"
+                              ? "Chat theme"
+                              : contactInfoTab === "chatBubble"
+                                ? "Chat bubble"
+                                : contactInfoTab === "allThemes"
+                                  ? "Themes"
+                                  : contactInfoTab === "wallpaper"
+                                    ? "Wallpaper"
+                                    : contactInfoTab === "solidColour"
+                                      ? "Solid colour"
+                                      : contactInfoTab === "starred"
+                                        ? "Starred messages"
+                                        : contactInfoTab === "kept"
+                                          ? "Kept messages"
+                                          : contactInfoTab === "advancedPrivacy"
+                                            ? "Advanced"
+                                            : contactInfoTab === "lists"
+                                              ? "Add to list"
+                                              : "Contact Info"}
+                  </h2>
+                )}
+              </div>
+
               {contactInfoTab === "info" ? (
+                <motion.button
+                  whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                  className="p-2 rounded-full text-gray-500 dark:text-gray-400 transition-colors"
+                  title="Edit contact"
+                >
+                  <FaPen className="h-4 w-4 cursor-pointer" />
+                </motion.button>
+              ) : contactInfoTab === "chatTheme" || contactInfoTab === "wallpaper" ? (
                 <motion.button
                   whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowContactInfo(false)}
-                  className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
-                  title="Close"
+                  onClick={handleResetTheme}
+                  className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
+                  title={contactInfoTab === "wallpaper" ? "Reset wallpaper" : "Reset theme"}
                 >
-                  <RxCross2 size={22} />
+                  <MdRefresh size={22} />
                 </motion.button>
-              ) : (
+              ) : contactInfoTab === "chatBubble" ? (
+                <motion.button
+                  whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleResetBubbleColor}
+                  className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
+                  title="Reset chat bubble"
+                >
+                  <MdRefresh size={22} />
+                </motion.button>
+              ) : contactInfoTab === "allThemes" || contactInfoTab === "solidColour" ? null : (
                 <motion.button
                   whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     stopCamera();
                     setScanError(null);
-                    if (contactInfoTab === "allThemes") {
-                      setContactInfoTab("chatTheme");
-                    } else if (contactInfoTab === "chatBubble") {
-                      setContactInfoTab("chatTheme");
-                    } else if (contactInfoTab === "wallpaper") {
-                      setContactInfoTab("chatTheme");
-                    } else if (contactInfoTab === "solidColour") {
-                      setContactInfoTab("wallpaper");
-                    } else if (contactInfoTab === "chatTheme") {
-                      if (previousContactInfoTab === "info") {
-                        setContactInfoTab("info");
-                      } else {
-                        setShowContactInfo(false);
-                      }
-                    } else if (contactInfoTab === "defaultTimer") {
-                      setContactInfoTab("disappearing");
-                    } else if (contactInfoTab === "disappearing") {
-                      if (previousContactInfoTab === "info") {
-                        setContactInfoTab("info");
-                      } else {
-                        setShowContactInfo(false);
-                      }
-                    } else if (contactInfoTab === "privacy") {
-                      setContactInfoTab("security");
-                    } else {
-                      setContactInfoTab("info");
-                    }
+                    setShowContactInfo(false);
                   }}
-                  className="p-1 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
-                  title="Back"
+                  className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
+                  title="Close"
                 >
-                  <FaArrowLeft size={20} />
+                  <RxCross2 size={22} />
                 </motion.button>
               )}
-
-              {contactInfoTab === "security" ? (
-                <div className="flex flex-col min-w-0">
-                  <span className="font-semibold text-[16px] leading-tight truncate">
-                    Verify security code
-                  </span>
-                  <span className="text-[12px] text-[#8696a0] font-normal truncate">
-                    You, {selectedContact?.username || "Contact"}
-                  </span>
-                </div>
-              ) : (
-                <h2 className="font-semibold text-[17px] tracking-tight truncate">
-                  {contactInfoTab === "privacy"
-                    ? "Your chats and calls are private"
-                    : contactInfoTab === "media"
-                      ? "Media, links and docs"
-                      : contactInfoTab === "disappearing"
-                        ? "Disappearing messages"
-                        : contactInfoTab === "defaultTimer"
-                          ? "Default message timer"
-                          : contactInfoTab === "chatTheme"
-                            ? "Chat theme"
-                            : contactInfoTab === "chatBubble"
-                              ? "Chat bubble"
-                              : contactInfoTab === "allThemes"
-                                ? "Themes"
-                                : contactInfoTab === "wallpaper"
-                                  ? "Wallpaper"
-                                  : contactInfoTab === "solidColour"
-                                    ? "Solid colour"
-                                    : contactInfoTab === "starred"
-                                      ? "Starred messages"
-                                      : contactInfoTab === "kept"
-                                        ? "Kept messages"
-                                        : contactInfoTab === "advancedPrivacy"
-                                          ? "Advanced"
-                                          : contactInfoTab === "lists"
-                                            ? "Add to list"
-                                            : "Contact Info"}
-                </h2>
-              )}
             </div>
-
-            {contactInfoTab === "info" ? (
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                className="p-2 rounded-full text-gray-500 dark:text-gray-400 transition-colors"
-                title="Edit contact"
-              >
-                <FaPen className="h-4 w-4 cursor-pointer" />
-              </motion.button>
-            ) : contactInfoTab === "chatTheme" || contactInfoTab === "wallpaper" ? (
-              <motion.button
-                whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleResetTheme}
-                className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
-                title={contactInfoTab === "wallpaper" ? "Reset wallpaper" : "Reset theme"}
-              >
-                <MdRefresh size={22} />
-              </motion.button>
-            ) : contactInfoTab === "chatBubble" ? (
-              <motion.button
-                whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleResetBubbleColor}
-                className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
-                title="Reset chat bubble"
-              >
-                <MdRefresh size={22} />
-              </motion.button>
-            ) : contactInfoTab === "allThemes" || contactInfoTab === "solidColour" ? null : (
-              <motion.button
-                whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  stopCamera();
-                  setScanError(null);
-                  setShowContactInfo(false);
-                }}
-                className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
-                title="Close"
-              >
-                <RxCross2 size={22} />
-              </motion.button>
-            )}
-          </div>
           )}
           <AnimatePresence mode="wait">
             {contactInfoTab === "info" && (
@@ -1292,8 +1293,8 @@ const ContactInfo = () => {
                     transition={{ delay: 0.42, type: "spring", stiffness: 100 }}
                     onClick={() => setContactInfoTab("media")}
                     className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
-                        ? "bg-[#202c33]/70 hover:bg-[#202c33] border border-white/5 hover:border-white/10 text-white"
-                        : "bg-black/5 hover:bg-black/8 border border-black/5 text-gray-900"
+                      ? "bg-[#202c33]/70 hover:bg-[#202c33] border border-white/5 hover:border-white/10 text-white"
+                      : "bg-black/5 hover:bg-black/8 border border-black/5 text-gray-900"
                       }`}
                   >
                     <div className="flex items-center justify-between">
@@ -3113,11 +3114,9 @@ const ContactInfo = () => {
                 transition={{ duration: 0.15 }}
                 className="flex flex-col flex-1 overflow-hidden select-none"
               >
-                <Media
+                <ContactMedia
                   contact={selectedContact}
                   chatId={chatId}
-                  mode="drawer"
-                  hideHeader={false}
                   onClose={() => setContactInfoTab("info")}
                   onCloseDrawer={() => setShowContactInfo(false)}
                 />

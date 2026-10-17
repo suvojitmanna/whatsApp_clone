@@ -31,12 +31,14 @@ const useLayoutStore = create(
       mediaModalScope: "all",
       mediaModalContact: null,
       mediaModalChatId: null,
+      mediaModalInitialTab: "media",
       openMediaModal: (options = {}) =>
         set({
           isMediaModalOpen: true,
           mediaModalScope: options.scope || "all",
           mediaModalContact: options.contact || null,
           mediaModalChatId: options.chatId || null,
+          mediaModalInitialTab: options.initialTab || "media",
         }),
       closeMediaModal: () => set({ isMediaModalOpen: false }),
 

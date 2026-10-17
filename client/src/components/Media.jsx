@@ -1632,11 +1632,15 @@ const Media = ({
                                 : "hover:brightness-105"
                               }`}
                           >
-                            {isSelectMode && (
                               <div
-                                className="absolute top-2 left-2 z-20 transition-all opacity-100 scale-100"
+                                className={`absolute top-2 left-2 z-20 transition-all ${
+                                  isSelectMode || isSelected
+                                    ? "opacity-100 scale-100"
+                                    : "opacity-0 group-hover:opacity-100 scale-100"
+                                }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (!isSelectMode) setIsSelectMode(true);
                                   toggleSelectItem(item);
                                 }}
                               >
@@ -1648,7 +1652,6 @@ const Media = ({
                                   <div className="w-[19px] h-[19px] rounded-[4px] border-[1.8px] border-white/85 bg-black/35 backdrop-blur-xs flex items-center justify-center hover:border-white transition-all active:scale-90" />
                                 )}
                               </div>
-                            )}
 
                             {!isSelectMode && (
                               <div
@@ -1771,23 +1774,26 @@ const Media = ({
                               }`}
                           >
                             <div className="flex items-center gap-3 min-w-0 pr-3">
-                              {isSelectMode && (
-                                <div
-                                  className="shrink-0"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleSelectItem(item);
-                                  }}
-                                >
-                                  {isSelected ? (
-                                    <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md">
-                                      <FaCheck size={11} className="stroke-[2]" />
-                                    </div>
-                                  ) : (
-                                    <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"}`} />
-                                  )}
-                                </div>
-                              )}
+                              <div
+                                className={`shrink-0 transition-opacity duration-150 ${
+                                  isSelectMode || isSelected
+                                    ? "opacity-100"
+                                    : "opacity-0 group-hover:opacity-100"
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!isSelectMode) setIsSelectMode(true);
+                                  toggleSelectItem(item);
+                                }}
+                              >
+                                {isSelected ? (
+                                  <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md">
+                                    <FaCheck size={11} className="stroke-[2]" />
+                                  </div>
+                                ) : (
+                                  <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"} group-hover:border-[#00a884]`} />
+                                )}
+                              </div>
 
                               <div
                                 className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${iconInfo.bg}`}
@@ -1865,23 +1871,26 @@ const Media = ({
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-3 min-w-0">
-                                {isSelectMode && (
-                                  <div
-                                    className="shrink-0 mt-2"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleSelectItem(item);
-                                    }}
-                                  >
-                                    {isSelected ? (
-                                      <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md">
-                                        <FaCheck size={11} className="stroke-[2]" />
-                                      </div>
-                                    ) : (
-                                      <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"}`} />
-                                    )}
-                                  </div>
-                                )}
+                                <div
+                                  className={`shrink-0 mt-2 transition-opacity duration-150 ${
+                                    isSelectMode || isSelected
+                                      ? "opacity-100"
+                                      : "opacity-0 group-hover:opacity-100"
+                                  }`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!isSelectMode) setIsSelectMode(true);
+                                    toggleSelectItem(item);
+                                  }}
+                                >
+                                  {isSelected ? (
+                                    <div className="w-[19px] h-[19px] rounded-[4px] bg-[#00a884] text-[#111b21] flex items-center justify-center font-bold shadow-md">
+                                      <FaCheck size={11} className="stroke-[2]" />
+                                    </div>
+                                  ) : (
+                                    <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/60 bg-black/20" : "border-gray-400 bg-white"} group-hover:border-[#00a884]`} />
+                                  )}
+                                </div>
 
                                 <div
                                   className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${isDark

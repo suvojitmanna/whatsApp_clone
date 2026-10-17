@@ -55,6 +55,7 @@ const MediaModal = ({
             chatId={chatId}
             initialTab={initialTab}
             onClose={onClose}
+            onCloseDrawer={onClose}
           />
         </motion.div>
       </div>
