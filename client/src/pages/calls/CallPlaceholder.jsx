@@ -164,8 +164,8 @@ const CallPlaceholder = ({
                   ? "bg-[#202c33] hover:bg-[#2a3942] text-[#e9edef] border border-white/[0.06]"
                   : "bg-[#e9edef] hover:bg-[#dfe5e7] text-[#111b21] border border-gray-300/60"
               }`}
-              title="Call a number"
-              aria-label="Call a number"
+              title="Call a number or email"
+              aria-label="Call a number or email"
             >
               <MdDialpad className="text-2xl" />
             </button>
@@ -174,7 +174,7 @@ const CallPlaceholder = ({
                 isDark ? "text-[#e9edef]" : "text-[#111b21]"
               }`}
             >
-              Call a number
+              Call a number or email
             </span>
           </div>
         </div>

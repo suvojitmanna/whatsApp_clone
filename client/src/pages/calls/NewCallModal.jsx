@@ -254,14 +254,14 @@ export const NewCallView = ({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-[15.5px]">
-                    Call a phone number
+                    Call a phone number or email
                   </div>
                   <div
                     className={`text-[12.5px] truncate ${
                       isDark ? "text-[#8696a0]" : "text-[#54656f]"
                     }`}
                   >
-                    Enter a number to start a voice or video call
+                    Enter a number or email to start a voice or video call
                   </div>
                 </div>
               </div>

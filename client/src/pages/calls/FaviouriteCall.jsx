@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import useThemeStore from "../../store/themeStore";
-import useCallStore, { SEED_FAVOURITE_CANDIDATES } from "../../store/useCallStore";
+import useCallStore from "../../store/useCallStore";
 import {
   MdClose,
   MdSearch,
@@ -166,7 +166,6 @@ export const AddFavouritesModal = ({
 
   const allCandidates = useMemo(() => {
     const map = new Map();
-    SEED_FAVOURITE_CANDIDATES.forEach((c) => map.set(c._id, c));
     contacts.forEach((c) => {
       const id = c._id || c.id;
       if (id && !map.has(id)) {

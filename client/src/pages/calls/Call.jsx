@@ -4,7 +4,7 @@ import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
 import useVideoCallStore from "../../store/videoCallStore";
-import useCallStore, { SEED_FAVOURITE_CANDIDATES } from "../../store/useCallStore";
+import useCallStore from "../../store/useCallStore";
 import { getAllUsers } from "../../services/user.services";
 import CallInfo from "./CallInfo";
 import CallPlaceholder from "./CallPlaceholder";
@@ -98,7 +98,6 @@ const Call = () => {
 
   const availableContacts = useMemo(() => {
     const map = new Map();
-    SEED_FAVOURITE_CANDIDATES.forEach((c) => map.set(c._id, c));
     allUsers.forEach((u) => {
       if (u._id !== user?._id) {
         map.set(u._id, u);
@@ -179,6 +178,7 @@ const Call = () => {
         <PhoneNumberView
           onBack={() => setActiveSidebarView("calls")}
           onStartCall={handleStartCall}
+          contacts={availableContacts}
         />
       ) : (
         <div
