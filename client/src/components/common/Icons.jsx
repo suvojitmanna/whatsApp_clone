@@ -1298,3 +1298,34 @@ export const CallLaptopIllustration = ({ className = "w-44 h-32" }) => (
     <rect x="73" y="86.5" width="14" height="2" rx="1" fill="#94a3b8" />
   </svg>
 );
+
+export const WhatsAppChatsIcon = ({
+  size = 24,
+  width,
+  height,
+  className = "",
+  strokeWidth = 2,
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <path d="M 3.5 5.5 H 17.5 A 3 3 0 0 1 20.5 8.5 V 15.5 A 3 3 0 0 1 17.5 18.5 H 9 A 3 3 0 0 1 6.5 16 V 10 L 3.5 5.5 Z" />
+      <path d="M 10.5 10.5 H 16" />
+      <path d="M 10.5 14 H 13.8" />
+    </svg>
+  );
+};
+

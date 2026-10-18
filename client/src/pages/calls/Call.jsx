@@ -10,6 +10,8 @@ import CallInfo from "./CallInfo";
 import CallPlaceholder from "./CallPlaceholder";
 import { formatCallDate } from "../../utils/formatTime";
 import NewCallModal, { NewCallView } from "./NewCallModal";
+import PhoneNumberView from "./PhoneNumberView";
+import NewCallLinkModal from "./NewCallLinkModal";
 import {
   AddFavouritesModal,
   FavouritesView,
@@ -43,6 +45,7 @@ const Call = () => {
   );
   const [activeSidebarView, setActiveSidebarView] = useState("calls");
   const [showNewCallModal, setShowNewCallModal] = useState(false);
+  const [showCallLinkModal, setShowCallLinkModal] = useState(false);
   const [showFavouriteModal, setShowFavouriteModal] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [activeMenuCallId, setActiveMenuCallId] = useState(null);
@@ -168,6 +171,13 @@ const Call = () => {
           onBack={() => setActiveSidebarView("calls")}
           onClose={() => setActiveSidebarView("calls")}
           contacts={availableContacts}
+          onStartCall={handleStartCall}
+          onOpenCallLink={() => setShowCallLinkModal(true)}
+          onOpenDialpad={() => setActiveSidebarView("phonenumber")}
+        />
+      ) : activeSidebarView === "phonenumber" ? (
+        <PhoneNumberView
+          onBack={() => setActiveSidebarView("calls")}
           onStartCall={handleStartCall}
         />
       ) : (
@@ -592,6 +602,13 @@ const Call = () => {
         onClose={() => setShowFavouriteModal(false)}
         contacts={availableContacts}
       />
+
+      <NewCallLinkModal
+        isOpen={showCallLinkModal}
+        onClose={() => setShowCallLinkModal(false)}
+        contacts={availableContacts}
+        onStartCall={handleStartCall}
+      />
     </div>
   );
 
@@ -616,7 +633,9 @@ const Call = () => {
   ) : (
     <CallPlaceholder
       onNewCall={() => setActiveSidebarView("newcall")}
+      onOpenDialpad={() => setActiveSidebarView("phonenumber")}
       onStartCall={handleStartCall}
+      contacts={availableContacts}
     />
   );
 

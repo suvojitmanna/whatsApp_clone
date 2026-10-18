@@ -6,6 +6,8 @@ import {
   MdVideocam,
   MdSearch,
   MdClear,
+  MdLink,
+  MdDialpad,
 } from "react-icons/md";
 import { ContactAvatar } from "./FaviouriteCall";
 
@@ -14,6 +16,8 @@ export const NewCallView = ({
   onClose,
   contacts = [],
   onStartCall,
+  onOpenCallLink,
+  onOpenDialpad,
 }) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
@@ -207,6 +211,64 @@ export const NewCallView = ({
       />
 
       <div className="flex-1 overflow-y-auto px-2 py-2 scrollbar-thin">
+        {!searchTerm && selectedIds.length === 0 && (
+          <div className="flex flex-col gap-1 mb-2 pb-2 border-b border-gray-500/10">
+            {onOpenCallLink && (
+              <div
+                onClick={onOpenCallLink}
+                className={`mx-1 p-2.5 rounded-xl flex items-center gap-3.5 transition-all cursor-pointer ${
+                  isDark
+                    ? "hover:bg-[#1f2b33] text-[#e9edef]"
+                    : "hover:bg-[#e9edef] text-[#111b21]"
+                }`}
+              >
+                <div className="w-11 h-11 rounded-full bg-[#00a884] text-black flex items-center justify-center shrink-0 shadow-sm">
+                  <MdLink className="text-2xl" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-[15.5px]">
+                    New call link
+                  </div>
+                  <div
+                    className={`text-[12.5px] truncate ${
+                      isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                    }`}
+                  >
+                    Share a link for your WhatsApp call
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {onOpenDialpad && (
+              <div
+                onClick={onOpenDialpad}
+                className={`mx-1 p-2.5 rounded-xl flex items-center gap-3.5 transition-all cursor-pointer ${
+                  isDark
+                    ? "hover:bg-[#1f2b33] text-[#e9edef]"
+                    : "hover:bg-[#e9edef] text-[#111b21]"
+                }`}
+              >
+                <div className="w-11 h-11 rounded-full bg-[#00a884] text-black flex items-center justify-center shrink-0 shadow-sm">
+                  <MdDialpad className="text-xl" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-[15.5px]">
+                    Call a phone number
+                  </div>
+                  <div
+                    className={`text-[12.5px] truncate ${
+                      isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                    }`}
+                  >
+                    Enter a number to start a voice or video call
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {filteredContacts.length === 0 ? (
           <div
             className={`py-12 text-center text-sm ${isDark ? "text-[#8696a0]" : "text-[#54656f]"

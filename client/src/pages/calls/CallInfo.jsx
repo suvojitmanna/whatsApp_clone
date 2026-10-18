@@ -19,6 +19,7 @@ import {
   MdStarBorder,
   MdArrowBack,
 } from "react-icons/md";
+import { WhatsAppChatsIcon } from "../../components/common/Icons";
 
 export const CallInfo = ({
   call,
@@ -107,9 +108,9 @@ export const CallInfo = ({
         }`}
     >
       <div
-        className={`h-16 px-6 flex items-center justify-between shrink-0 sticky top-0 z-10 border-b ${isDark
-          ? "bg-[#111b21] border-[#222e35]"
-          : "bg-[#f0f2f5] border-gray-200"
+        className={`h-16 px-6 flex items-center justify-between shrink-0 sticky top-0 z-10 ${isDark
+          ? "bg-[#111b21]"
+          : "bg-[#f0f2f5]"
           }`}
       >
         <div className="flex items-center gap-3">
@@ -147,11 +148,11 @@ export const CallInfo = ({
         </button>
       </div>
 
-      <div className="px-6 py-4 max-w-2xl w-full flex flex-col gap-4">
+      <div className="px-6 py-2 max-w-6xl w-full flex flex-col gap-4">
         <div
           className={`rounded-2xl overflow-hidden border transition-colors shadow-xs ${isDark
-            ? "bg-[#182229] border-[#222e35]/80"
-            : "bg-white border-gray-200 shadow-sm"
+            ? "border-[#222e35]/80"
+            : "border-gray-200 shadow-sm"
             }`}
         >
           <div className="p-4 sm:p-5 flex items-center justify-between">
@@ -182,7 +183,7 @@ export const CallInfo = ({
                 title="Message"
                 aria-label="Message contact"
               >
-                <MdOutlineChatBubbleOutline className="text-2xl" />
+                <WhatsAppChatsIcon className="text-2xl" />
               </button>
 
               <button
@@ -196,7 +197,7 @@ export const CallInfo = ({
                 title="Video call"
                 aria-label="Video call contact"
               >
-                <MdOutlineVideocam className="text-2xl" />
+                <MdOutlineVideocam className="text-3xl" />
               </button>
 
               <button
