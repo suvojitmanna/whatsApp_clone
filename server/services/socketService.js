@@ -4,6 +4,7 @@ const Message = require("../models/message");
 const Conversation = require("../models/ConverSation");
 const handleVideoCallEvent = require("./videoCallService");
 const socketMiddleware = require("../middleware/socketMiddleware");
+const { deleteFileFromCloudinary } = require("../config/cloudinary");
 
 const onlineUsers = new Map();
 const typingUsers = new Map();
@@ -38,11 +39,14 @@ function initializeSocket(server) {
         const pendingMessages = await Message.find({
           receiver: userId,
           messageStatus: "send",
+          blockedDelivery: { $ne: true },
+          deletedFor: { $ne: userId },
         });
 
         if (pendingMessages.length > 0) {
+          const pendingIds = pendingMessages.map((m) => m._id);
           await Message.updateMany(
-            { receiver: userId, messageStatus: "send" },
+            { _id: { $in: pendingIds } },
             { $set: { messageStatus: "delivered", deliveredAt: now } },
           );
 
@@ -393,8 +397,9 @@ function initializeSocket(server) {
           if (!resolvedConvId && (receiverId || secondaryId) && pinnedBy) {
             try {
               const otherId = (receiverId || secondaryId).toString();
-              const participants = [pinnedBy.toString(), otherId].sort();
-              const foundConv = await Conversation.findOne({ participants });
+              const foundConv = await Conversation.findOne({
+                participants: { $all: [pinnedBy.toString(), otherId] },
+              });
               if (foundConv) {
                 resolvedConvId = foundConv._id.toString();
               }
@@ -407,10 +412,11 @@ function initializeSocket(server) {
               if (conv && conv.participants) {
                 conv.participants.forEach((p) => targets.add(p.toString()));
               }
+              const pinnedByUserId = pinnedBy?._id || pinnedBy;
               await Conversation.findByIdAndUpdate(resolvedConvId, {
                 pinnedMessage: {
                   message: message?._id || message,
-                  pinnedBy: pinnedBy,
+                  pinnedBy: pinnedByUserId,
                   duration: duration || "7 days",
                   pinnedAt: new Date(pinnedAt),
                   expiresAt: new Date(expiresAt),
@@ -461,8 +467,9 @@ function initializeSocket(server) {
           if (!resolvedConvId && (receiverId || secondaryId) && unpinnedBy) {
             try {
               const otherId = (receiverId || secondaryId).toString();
-              const participants = [unpinnedBy.toString(), otherId].sort();
-              const foundConv = await Conversation.findOne({ participants });
+              const foundConv = await Conversation.findOne({
+                participants: { $all: [unpinnedBy.toString(), otherId] },
+              });
               if (foundConv) {
                 resolvedConvId = foundConv._id.toString();
               }
@@ -508,16 +515,91 @@ function initializeSocket(server) {
 
     socket.on(
       "disappearing_update",
-      ({ chatId, conversationId, secondaryId, receiverId, duration, event, setBy }) => {
+      async ({
+        chatId,
+        conversationId,
+        secondaryId,
+        receiverId,
+        duration,
+        event,
+        setBy,
+      }) => {
         try {
+          let resolvedConvId = conversationId;
           const targets = new Set();
-          if (receiverId) targets.add((receiverId._id || receiverId).toString());
-          if (secondaryId) targets.add((secondaryId._id || secondaryId).toString());
-          if (chatId) targets.add(chatId.toString());
+          if (receiverId)
+            targets.add((receiverId._id || receiverId).toString());
+          if (secondaryId)
+            targets.add((secondaryId._id || secondaryId).toString());
+          if (setBy) targets.add((setBy._id || setBy).toString());
+
+          if (!resolvedConvId && chatId) {
+            try {
+              const convById = await Conversation.findById(chatId);
+              if (convById) {
+                resolvedConvId = convById._id.toString();
+              } else {
+                targets.add(chatId.toString());
+                if (setBy) {
+                  const foundConv = await Conversation.findOne({
+                    participants: {
+                      $all: [setBy.toString(), chatId.toString()],
+                    },
+                  });
+                  if (foundConv) {
+                    resolvedConvId = foundConv._id.toString();
+                  }
+                }
+              }
+            } catch (e) {}
+          }
+
+          if (!resolvedConvId && setBy) {
+            const otherId = (receiverId || secondaryId || chatId)?.toString();
+            if (otherId && otherId !== setBy.toString()) {
+              try {
+                let foundConv = await Conversation.findOne({
+                  participants: { $all: [setBy.toString(), otherId] },
+                });
+                if (!foundConv) {
+                  foundConv = await Conversation.create({
+                    participants: [setBy.toString(), otherId].sort(),
+                    disappearingDuration: duration || "Off",
+                    disappearingSetBy: setBy || null,
+                    disappearingUpdatedAt: new Date(),
+                  });
+                }
+                if (foundConv) {
+                  resolvedConvId = foundConv._id.toString();
+                }
+              } catch (e) {}
+            }
+          }
+
+          if (resolvedConvId) {
+            try {
+              const conv = await Conversation.findById(resolvedConvId);
+              if (conv && conv.participants) {
+                conv.participants.forEach((p) => targets.add(p.toString()));
+              }
+              await Conversation.findByIdAndUpdate(resolvedConvId, {
+                disappearingDuration: duration || "Off",
+                disappearingSetBy: setBy || null,
+                disappearingUpdatedAt: new Date(),
+              });
+            } catch (e) {
+              console.error(
+                "Error saving disappearing update to conversation:",
+                e,
+              );
+            }
+          }
 
           const payload = {
-            chatId: conversationId || chatId || secondaryId,
-            conversationId,
+            chatId: resolvedConvId || conversationId || chatId || secondaryId,
+            conversationId: resolvedConvId || conversationId,
+            secondaryId,
+            receiverId,
             duration,
             event,
             setBy,
@@ -531,8 +613,8 @@ function initializeSocket(server) {
             }
           });
 
-          if (conversationId) {
-            socket.to(conversationId).emit("disappearing_update", payload);
+          if (resolvedConvId) {
+            socket.to(resolvedConvId).emit("disappearing_update", payload);
           }
         } catch (error) {
           console.error("Error in disappearing_update socket event:", error);
@@ -567,6 +649,92 @@ function initializeSocket(server) {
 
     socket.on("disconnect", handleDisconnected);
   });
+
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const expiredMsgs = await Message.find({
+        isKept: { $ne: true },
+        deletedForEveryone: { $ne: true },
+        isDisappearing: true,
+        disappearingExpiresAt: { $ne: null, $lte: now },
+      })
+        .select(
+          "_id conversation sender receiver imageOrVideoUrl mediaPublicId mediaResourceType",
+        )
+        .lean();
+
+      if (expiredMsgs && expiredMsgs.length > 0) {
+        for (const m of expiredMsgs) {
+          if (m.imageOrVideoUrl) {
+            deleteFileFromCloudinary({
+              url: m.imageOrVideoUrl,
+              publicId: m.mediaPublicId,
+              resourceType: m.mediaResourceType,
+            }).catch((e) =>
+              console.error("Cloudinary expiring message delete error:", e),
+            );
+          }
+        }
+
+        const expiredIds = expiredMsgs.map((m) => m._id);
+        await Message.deleteMany({ _id: { $in: expiredIds } });
+
+        const convGroups = new Map();
+        expiredMsgs.forEach((m) => {
+          const cId = m.conversation?.toString();
+          if (cId) {
+            if (!convGroups.has(cId)) convGroups.set(cId, []);
+            convGroups.get(cId).push(m);
+          }
+        });
+
+        for (const [cId, msgs] of convGroups.entries()) {
+          const conv = await Conversation.findById(cId).select(
+            "participants lastMessage",
+          );
+          const latestRemaining = await Message.findOne({ conversation: cId })
+            .sort({ createdAt: -1 })
+            .lean();
+
+          if (conv) {
+            if (
+              conv.lastMessage &&
+              expiredIds.some(
+                (id) => id.toString() === conv.lastMessage.toString(),
+              )
+            ) {
+              conv.lastMessage = latestRemaining?._id || null;
+              await conv.save();
+            }
+
+            const participants = conv.participants || [];
+            msgs.forEach((m) => {
+              const msgIdStr = m._id.toString();
+              participants.forEach((p) => {
+                const targetId = (p._id || p).toString();
+                const payload = {
+                  deletedMessageId: msgIdStr,
+                  conversationId: cId,
+                  lastMessage: latestRemaining || null,
+                  deletedForEveryone: false,
+                  isDisappearingExpiry: true,
+                };
+                io.to(targetId).emit("message_deleted", payload);
+                const sockId = onlineUsers.get(targetId);
+                if (sockId) {
+                  io.to(sockId).emit("message_deleted", payload);
+                }
+              });
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error in background disappearing cleanup interval:", err);
+    }
+  }, 3000);
+
   io.socketUserMap = onlineUsers;
   return io;
 }

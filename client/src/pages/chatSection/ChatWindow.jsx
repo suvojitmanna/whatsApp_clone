@@ -1,18 +1,15 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
-import { useChatStore, decryptSingleMessage } from "../../store/chatStore";
+import { useChatStore, decryptSingleMessage, getTargetUserId } from "../../store/chatStore";
 import { isToday, isYesterday, format } from "date-fns";
 import whatsappImage from "../../assets/whatsapp_image.png";
 import {
-  FaArrowLeft,
   FaCamera,
   FaFileAlt,
   FaHeadphones,
   FaImage,
   FaLock,
-  FaPhone,
-  FaVideo,
   FaMicrophone,
   FaRegStar,
   FaStar,
@@ -32,13 +29,11 @@ import MessageBuble, {
 import MessageSkeletonLoader from "./MessageSkeletonLoader";
 import EmojiPicker from "emoji-picker-react";
 import useOutsideClick from "../../hook/useOutsideClick";
-import formatTimestamp from "../../utils/formatTime";
 import VideoCallManager from "../videoCall/videoCallManager";
 import { getSocket } from "../../services/chatService";
 import useVideoCallStore from "../../store/videoCallStore";
 import useLayoutStore from "../../store/layoutStore";
-import { HiDotsVertical } from "react-icons/hi";
-import { FiSearch, FiDownload } from "react-icons/fi";
+import { FiDownload } from "react-icons/fi";
 import { LuForward } from "react-icons/lu";
 import { motion, AnimatePresence } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
@@ -53,8 +48,35 @@ import FileViewerModal from "../../components/FileViewerModal";
 import ForwardModal from "../../components/ForwardModal";
 import AttachInput from "../../components/AttachInput";
 import ChatHeaderMenu from "./ChatHeaderMenu";
+import ChatHeader from "./ChatHeader";
 import BlockModal from "../../components/BlockModal";
 import ReportModal from "../../components/ReportModal";
+import { getPinActorAndLabel } from "./ChatList";
+
+function getDisappearingDurationMs(duration) {
+  if (!duration || duration === "Off") return null;
+  const dur = String(duration).toLowerCase().trim();
+  if (dur.includes("24 hour") || dur === "24h") return 24 * 60 * 60 * 1000;
+  if (dur.includes("7 day") || dur === "7d") return 7 * 24 * 60 * 60 * 1000;
+  if (dur.includes("90 day") || dur === "90d") return 90 * 24 * 60 * 60 * 1000;
+  if (dur.includes("minute")) {
+    const m = parseInt(dur, 10);
+    return (m || 1) * 60 * 1000;
+  }
+  if (dur.includes("hour")) {
+    const h = parseInt(dur, 10);
+    return (h || 1) * 60 * 60 * 1000;
+  }
+  if (dur.includes("day")) {
+    const d = parseInt(dur, 10);
+    return (d || 1) * 24 * 60 * 60 * 1000;
+  }
+  if (dur.includes("second")) {
+    const s = parseInt(dur, 10);
+    return (s || 1) * 1000;
+  }
+  return null;
+}
 
 const isValidate = (date) => {
   return date instanceof Date && !isNaN(date);
@@ -87,6 +109,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBlockedMenu, setShowBlockedMenu] = useState(false);
   const blockedMenuRef = useRef(null);
   const headerMenuBtnRef = useRef(null);
@@ -134,16 +157,20 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     blockedContacts,
     blockContact,
     unblockContact,
+    deleteChat,
+    clearChat,
   } = useChatStore();
 
   const messagesContainerRef = useRef(null);
   const prevContactIdRef = useRef(null);
-  const isProgrammaticScrollRef = useRef(false);
+  const isProgrammaticScrollRef = useRef(true);
   const restoredChatIdRef = useRef(null);
   const previousChatRef = useRef({ contactId: null, convId: null });
   const currentChatScrollRef = useRef(null);
   const scrollDebounceTimerRef = useRef(null);
   const hasUserScrolledSinceSwitchRef = useRef(false);
+  const isUserInteractingRef = useRef(false);
+  const isShowingLastMessageRef = useRef(false);
 
   let matchCounter = -1;
 
@@ -163,9 +190,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     );
   }, [selectedContact]);
 
+  const targetUserId = useMemo(() => {
+    return getTargetUserId(selectedContact, user?._id);
+  }, [selectedContact, user?._id]);
+
   const isBlocked = useMemo(() => {
     if (!blockedContacts || blockedContacts.length === 0) return false;
     const candidates = [
+      targetUserId,
       chatId,
       selectedContact?._id,
       selectedContact?.id,
@@ -173,19 +205,31 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       selectedContact?.conversation,
       selectedContact?.conversationId,
     ].filter(Boolean).map(String);
-    return candidates.some((id) => blockedContacts.includes(id));
-  }, [chatId, selectedContact, blockedContacts]);
+    return candidates.some((id) => blockedContacts.map(String).includes(id));
+  }, [chatId, selectedContact, blockedContacts, targetUserId]);
 
   const handleUnblockContact = () => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (targetId) {
-      unblockContact(targetId);
+      unblockContact(targetId, chatId);
       toast.success(`${selectedContact?.username || "Contact"} unblocked`);
     }
   };
 
+  const handleExecuteDeleteChat = async () => {
+    const targetId = targetUserId || selectedContact?._id || chatId;
+    await deleteChat(chatId, targetId);
+    setSelectedContact?.(null);
+    setCurrentConversation?.(null);
+    try {
+      useLayoutStore.getState().setSelectedContact(null);
+    } catch { }
+    toast.success("Chat deleted");
+    setShowDeleteConfirm(false);
+  };
+
   const handleConfirmBlock = ({ report } = {}) => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (!targetId) return;
     blockContact(targetId);
     if (report) {
@@ -231,18 +275,46 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const disappearingDuration =
     (activeChatId && disappearingDurations?.[activeChatId]) ||
+    (selectedContact?.conversation?.disappearingDuration &&
+      selectedContact.conversation.disappearingDuration !== "Off"
+      ? selectedContact.conversation.disappearingDuration
+      : null) ||
     defaultMessageTimer ||
     "Off";
 
+  const [disappearingTick, setDisappearingTick] = useState(0);
+  useEffect(() => {
+    const rawMsgs = Array.isArray(messages) ? messages : [];
+    const hasDisappearingMsgs = rawMsgs.some(
+      (m) => m && m.isDisappearing && !m.isKept
+    );
+    const isDisappearingActive = disappearingDuration && disappearingDuration !== "Off";
+
+    if (!isDisappearingActive && !hasDisappearingMsgs) return;
+
+    const interval = setInterval(() => {
+      setDisappearingTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [disappearingDuration, messages]);
+
   const chatDisappearingEvents = useMemo(() => {
     if (!activeChatId) return [];
-    const events = disappearingEvents?.[activeChatId] || [];
-    if (events.length === 0 && disappearingDuration && disappearingDuration !== "Off") {
-      const rawMsgs = Array.isArray(messages) ? messages : [];
-      const earliestMsgTime =
-        rawMsgs.length > 0 && rawMsgs[0]?.createdAt
-          ? new Date(new Date(rawMsgs[0].createdAt).getTime() - 2000).toISOString()
-          : new Date(Date.now() - 3600000).toISOString();
+    const convId = (selectedContact?.conversation?._id || selectedContact?.conversation)?.toString();
+    const contactId = selectedContact?._id?.toString();
+    const storedEvents =
+      (convId && disappearingEvents?.[convId]?.length > 0 && disappearingEvents[convId]) ||
+      (contactId && disappearingEvents?.[contactId]?.length > 0 && disappearingEvents[contactId]) ||
+      disappearingEvents?.[activeChatId] ||
+      [];
+    if (storedEvents.length === 0 && disappearingDuration && disappearingDuration !== "Off") {
+      const eventTime = selectedContact?.conversation?.disappearingUpdatedAt
+        ? new Date(selectedContact.conversation.disappearingUpdatedAt).toISOString()
+        : new Date().toISOString();
+      const effectiveSetBy =
+        selectedContact?.conversation?.disappearingSetBy?._id ||
+        selectedContact?.conversation?.disappearingSetBy ||
+        null;
       return [
         {
           _id: `disp_init_${activeChatId}`,
@@ -250,28 +322,75 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           action: "turned_on",
           duration: disappearingDuration,
           previousDuration: "Off",
-          createdAt: earliestMsgTime,
-          timestamp: new Date(earliestMsgTime).getTime(),
-          setBy: user?._id || null,
+          createdAt: eventTime,
+          timestamp: new Date(eventTime).getTime(),
+          setBy: effectiveSetBy,
         },
       ];
     }
-    return events;
-  }, [activeChatId, disappearingEvents, disappearingDuration, messages, user?._id]);
+    return storedEvents;
+  }, [
+    activeChatId,
+    selectedContact,
+    disappearingEvents,
+    disappearingDuration,
+    messages,
+  ]);
 
   const combinedMessages = useMemo(() => {
     const rawMsgs = Array.isArray(messages) ? messages : [];
+    const now = Date.now();
+    const turnedOnTime = selectedContact?.conversation?.disappearingUpdatedAt
+      ? new Date(selectedContact.conversation.disappearingUpdatedAt).getTime()
+      : null;
+    const validMsgs = rawMsgs.filter((msg) => {
+      if (msg.isKept || msg.isStarred) return true;
+      if (msg.deletedForEveryone) return true;
+      if (msg.isDisappearing === false) return true;
+      if (msg.isDisappearing === true) {
+        const expTime = msg.disappearingExpiresAt
+          ? new Date(msg.disappearingExpiresAt).getTime()
+          : null;
+        if (expTime) {
+          return now < expTime;
+        }
+        const dur = msg.disappearingDuration || disappearingDuration;
+        const durMs = getDisappearingDurationMs(dur);
+        if (!durMs) return true;
+        const msgTime = new Date(msg.createdAt).getTime();
+        return (now - msgTime) < durMs;
+      }
+      if (
+        disappearingDuration &&
+        disappearingDuration !== "Off" &&
+        turnedOnTime &&
+        new Date(msg.createdAt).getTime() >= turnedOnTime
+      ) {
+        const durMs = getDisappearingDurationMs(disappearingDuration);
+        if (!durMs) return true;
+        const msgTime = new Date(msg.createdAt).getTime();
+        return (now - msgTime) < durMs;
+      }
+      return true;
+    });
+
     if (!chatDisappearingEvents || chatDisappearingEvents.length === 0) {
-      return rawMsgs;
+      return validMsgs;
     }
-    const combined = [...rawMsgs, ...chatDisappearingEvents];
+    const combined = [...validMsgs, ...chatDisappearingEvents];
     combined.sort((a, b) => {
       const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
       const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
       return timeA - timeB;
     });
     return combined;
-  }, [messages, chatDisappearingEvents]);
+  }, [
+    messages,
+    chatDisappearingEvents,
+    disappearingDuration,
+    selectedContact,
+    disappearingTick,
+  ]);
 
   const activeChatThemeId = (activeChatId && chatThemes?.[activeChatId]) || "default";
   const activeChatTheme = useMemo(() => getChatTheme(activeChatThemeId), [activeChatThemeId]);
@@ -308,7 +427,60 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       });
     }
 
+    if (
+      !pin &&
+      selectedContact?.conversation?.pinnedMessage &&
+      selectedContact.conversation.pinnedMessage.message
+    ) {
+      const convPin = selectedContact.conversation.pinnedMessage;
+      const expires = convPin.expiresAt
+        ? new Date(convPin.expiresAt).getTime()
+        : null;
+      if (!expires || expires > Date.now()) {
+        pin = {
+          message: convPin.message,
+          duration: convPin.duration || "7 days",
+          pinnedAt: convPin.pinnedAt
+            ? new Date(convPin.pinnedAt).getTime()
+            : Date.now(),
+          expiresAt: expires,
+          pinnedBy: convPin.pinnedBy,
+        };
+      }
+    }
+
+    const isMsgDeleted = (msg) => {
+      if (!msg) return true;
+      if (msg.isDisappearing && !msg.isKept && !msg.deletedForEveryone) {
+        const dur = msg.disappearingDuration || disappearingDuration;
+        const durMs = getDisappearingDurationMs(dur);
+        const expTime = msg.disappearingExpiresAt
+          ? new Date(msg.disappearingExpiresAt).getTime()
+          : (msg.createdAt && durMs ? new Date(msg.createdAt).getTime() + durMs : null);
+        if (expTime && Date.now() >= expTime) {
+          return true;
+        }
+      }
+      if (msg.deletedForEveryone) return true;
+      if (
+        msg.content === "This message was deleted" ||
+        msg.content === "You deleted this message"
+      ) {
+        return true;
+      }
+      if (
+        user?._id &&
+        msg.deletedFor &&
+        Array.isArray(msg.deletedFor) &&
+        msg.deletedFor.some((id) => String(id) === String(user._id))
+      ) {
+        return true;
+      }
+      return false;
+    };
+
     if (!pin || !pin.message) return null;
+    if (isMsgDeleted(pin.message)) return null;
     if (pin.expiresAt && pin.expiresAt <= Date.now()) return null;
 
     if (pin.message?._id && Array.isArray(messages)) {
@@ -330,6 +502,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     selectedContact?._id,
     selectedContact?.conversation,
     messages,
+    user?._id,
   ]);
 
   const selectedMsgsList = useMemo(() => {
@@ -384,17 +557,73 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleToggleSelectMessage = (msgId) => {
     if (!msgId) return;
     const idStr = String(msgId);
+    const container = messagesContainerRef.current;
+    const currentScrollTop = container ? container.scrollTop : null;
+
+    isProgrammaticScrollRef.current = true;
     setSelectedMessageIds((prev) =>
       prev.includes(idStr) ? prev.filter((id) => id !== idStr) : [...prev, idStr]
     );
+
+    if (container && currentScrollTop !== null) {
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = currentScrollTop;
+        }
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 80);
+      });
+    } else {
+      isProgrammaticScrollRef.current = false;
+    }
   };
 
   const handleEnterSelectMode = (initialMsgId) => {
+    const container = messagesContainerRef.current;
+    const currentScrollTop = container ? container.scrollTop : null;
+
+    isProgrammaticScrollRef.current = true;
     setIsSelectMode(true);
     if (initialMsgId) {
       setSelectedMessageIds([String(initialMsgId)]);
     } else {
       setSelectedMessageIds([]);
+    }
+
+    if (container && currentScrollTop !== null) {
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = currentScrollTop;
+        }
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 80);
+      });
+    } else {
+      isProgrammaticScrollRef.current = false;
+    }
+  };
+
+  const handleExitSelectMode = () => {
+    const container = messagesContainerRef.current;
+    const currentScrollTop = container ? container.scrollTop : null;
+
+    isProgrammaticScrollRef.current = true;
+    setIsSelectMode(false);
+    setSelectedMessageIds([]);
+
+    if (container && currentScrollTop !== null) {
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = currentScrollTop;
+        }
+        setTimeout(() => {
+          isProgrammaticScrollRef.current = false;
+        }, 80);
+      });
+    } else {
+      isProgrammaticScrollRef.current = false;
     }
   };
 
@@ -407,8 +636,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (!isSelectMode) return;
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        setIsSelectMode(false);
-        setSelectedMessageIds([]);
+        handleExitSelectMode();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -496,8 +724,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       toast.error("Failed to delete some messages");
     } finally {
       setShowDeleteSelectedModal(false);
-      setIsSelectMode(false);
-      setSelectedMessageIds([]);
+      handleExitSelectMode();
     }
   };
 
@@ -521,8 +748,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (msg.contentType === "document") {
       return msg.fileName ? `📄 ${msg.fileName}` : "📄 Document";
     }
-    if (msg.contentType === "poll") {
-      return `📊 ${msg.pollData?.question || "Poll"}`;
+    if (msg.contentType === "poll" || msg.pollData || msg.poll) {
+      const q =
+        msg.pollData?.question ||
+        msg.poll?.question ||
+        (typeof msg.content === "string" ? msg.content.replace(/^Poll:\s*/, "") : "Poll");
+      return `📊 ${q}`;
     }
     if (msg.contentType === "event") {
       return `📅 ${msg.eventData?.eventName || "Event"}`;
@@ -638,6 +869,27 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       messageInputRef.current?.focus();
     }, 50);
   };
+
+  useEffect(() => {
+    const handleReplyEvent = (e) => {
+      if (e.detail?.message) {
+        handleStartReply(e.detail.message);
+      }
+    };
+    const handleScrollEvent = (e) => {
+      if (e.detail?.messageId) {
+        setTimeout(() => {
+          handleScrollToPinnedMessage(e.detail.messageId);
+        }, 300);
+      }
+    };
+    window.addEventListener("start-reply-message", handleReplyEvent);
+    window.addEventListener("scroll-to-message", handleScrollEvent);
+    return () => {
+      window.removeEventListener("start-reply-message", handleReplyEvent);
+      window.removeEventListener("scroll-to-message", handleScrollEvent);
+    };
+  }, []);
 
   const getReplyPreviewText = (msg) => {
     if (!msg) return "";
@@ -772,41 +1024,105 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const getChatKeys = (contact) => {
     const contactId = contact?._id?.toString() || null;
     const convId = (contact?.conversation?._id || contact?.conversation || currentConversation?._id)?.toString() || null;
-    return { contactId, convId };
+    const targetId = typeof getTargetUserId === "function" ? getTargetUserId(contact, user?._id) : null;
+    return { contactId, convId, targetId };
   };
 
-  const commitScrollPosition = (contactId, convId, pos) => {
+  const getAnchorMessage = (container) => {
+    if (!container) return null;
+    const containerRect = container.getBoundingClientRect();
+    const bubbles = container.querySelectorAll("[id^='msg-']");
+    for (let i = 0; i < bubbles.length; i++) {
+      const bubble = bubbles[i];
+      const rect = bubble.getBoundingClientRect();
+      if (rect.bottom > containerRect.top + 8) {
+        const msgId = bubble.id.replace("msg-", "");
+        const offset = rect.top - containerRect.top;
+        return { msgId, offset };
+      }
+    }
+    return null;
+  };
+
+  const commitScrollPosition = (contactId, convId, pos, targetId) => {
     if (!pos) return;
     const save = useChatStore.getState().saveScrollPosition;
-    if (contactId) {
-      save(contactId, pos);
+    const ids = [contactId, convId, targetId].filter(Boolean);
+    if (ids.length > 0) {
+      save(ids, pos);
     }
-    if (convId && convId !== contactId) {
-      save(convId, pos);
+  };
+
+  const saveCurrentScrollNow = () => {
+    const el = messagesContainerRef.current;
+    if (!el || !selectedContact?._id) return;
+    if (isProgrammaticScrollRef.current) return;
+    if (isMessagesLoading || messages.length === 0) return;
+
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 25;
+    const anchor = getAnchorMessage(el);
+    const pos = {
+      scrollTop: el.scrollTop,
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      isAtBottom,
+      anchorMsgId: anchor?.msgId || null,
+      anchorOffset: anchor?.offset || 0,
+      timestamp: Date.now(),
+    };
+    currentChatScrollRef.current = pos;
+    const { contactId, convId, targetId } = getChatKeys(selectedContact);
+    commitScrollPosition(contactId, convId, pos, targetId);
+  };
+
+  const handleCloseChatWindow = () => {
+    saveCurrentScrollNow();
+    setSelectedContact?.(null);
+    setCurrentConversation?.(null);
+    try {
+      useLayoutStore.getState().setSelectedContact(null);
+    } catch { }
+  };
+
+  const scrollToLastMessage = (behavior = "auto") => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    isProgrammaticScrollRef.current = true;
+    if (messageEndRef.current) {
+      try {
+        messageEndRef.current.scrollIntoView({
+          behavior: behavior === "smooth" ? "smooth" : "instant",
+          block: "end",
+        });
+      } catch {
+        el.scrollTop = el.scrollHeight;
+      }
+    } else {
+      el.scrollTop = el.scrollHeight;
     }
+    const timer = setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 100);
+    return timer;
   };
 
   const scrollToBottom = (behavior = "auto") => {
+    isShowingLastMessageRef.current = true;
+    hasUserScrolledSinceSwitchRef.current = true;
+    scrollToLastMessage(behavior);
     const el = messagesContainerRef.current;
     if (el) {
-      isProgrammaticScrollRef.current = true;
-      if (behavior === "smooth") {
-        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-      } else {
-        el.scrollTop = el.scrollHeight;
-      }
-      hasUserScrolledSinceSwitchRef.current = true;
       const bottomPos = {
         isAtBottom: true,
         scrollTop: el.scrollHeight,
         scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        anchorMsgId: null,
+        anchorOffset: 0,
       };
       currentChatScrollRef.current = bottomPos;
-      const { contactId, convId } = getChatKeys(selectedContact);
-      commitScrollPosition(contactId, convId, bottomPos);
-      setTimeout(() => {
-        isProgrammaticScrollRef.current = false;
-      }, 60);
+      const { contactId, convId, targetId } = getChatKeys(selectedContact);
+      commitScrollPosition(contactId, convId, bottomPos, targetId);
     }
   };
 
@@ -815,24 +1131,29 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (!el || !selectedContact?._id) return;
     if (isProgrammaticScrollRef.current) return;
     if (isMessagesLoading || messages.length === 0) return;
-    if (el.scrollHeight <= el.clientHeight + 10) return;
+
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 35;
+    if (!isAtBottom) {
+      isShowingLastMessageRef.current = false;
+    } else {
+      isShowingLastMessageRef.current = true;
+    }
 
     hasUserScrolledSinceSwitchRef.current = true;
-    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+    const anchor = getAnchorMessage(el);
     const pos = {
       scrollTop: el.scrollTop,
       scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
       isAtBottom,
+      anchorMsgId: anchor?.msgId || null,
+      anchorOffset: anchor?.offset || 0,
+      timestamp: Date.now(),
     };
     currentChatScrollRef.current = pos;
 
-    const { contactId, convId } = getChatKeys(selectedContact);
-    if (scrollDebounceTimerRef.current) {
-      clearTimeout(scrollDebounceTimerRef.current);
-    }
-    scrollDebounceTimerRef.current = setTimeout(() => {
-      commitScrollPosition(contactId, convId, pos);
-    }, 150);
+    const { contactId, convId, targetId } = getChatKeys(selectedContact);
+    commitScrollPosition(contactId, convId, pos, targetId);
   };
 
   useEffect(() => {
@@ -843,17 +1164,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const prevConvId = previousChatRef.current.convId;
 
     if (prevContactId && prevContactId !== nextContactId) {
-      if (scrollDebounceTimerRef.current) {
-        clearTimeout(scrollDebounceTimerRef.current);
-      }
       const el = messagesContainerRef.current;
       let posToSave = currentChatScrollRef.current;
       if (!posToSave && el && el.scrollHeight > el.clientHeight + 10 && !isProgrammaticScrollRef.current) {
-        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 25;
+        const anchor = getAnchorMessage(el);
         posToSave = {
           scrollTop: el.scrollTop,
           scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
           isAtBottom,
+          anchorMsgId: anchor?.msgId || null,
+          anchorOffset: anchor?.offset || 0,
         };
       }
       if (posToSave) {
@@ -864,26 +1186,36 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       restoredChatIdRef.current = null;
       hasUserScrolledSinceSwitchRef.current = false;
       isProgrammaticScrollRef.current = true;
+      isShowingLastMessageRef.current = false;
     }
 
     previousChatRef.current = { contactId: nextContactId, convId: nextConvId };
   }, [selectedContact?._id]);
 
   useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveCurrentScrollNow();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [selectedContact?._id]);
+
+  useEffect(() => {
     return () => {
-      if (scrollDebounceTimerRef.current) {
-        clearTimeout(scrollDebounceTimerRef.current);
-      }
       const prevContactId = previousChatRef.current.contactId;
       const prevConvId = previousChatRef.current.convId;
       const el = messagesContainerRef.current;
       let posToSave = currentChatScrollRef.current;
       if (!posToSave && el && el.scrollHeight > el.clientHeight + 10 && !isProgrammaticScrollRef.current) {
-        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 25;
+        const anchor = getAnchorMessage(el);
         posToSave = {
           scrollTop: el.scrollTop,
           scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
           isAtBottom,
+          anchorMsgId: anchor?.msgId || null,
+          anchorOffset: anchor?.offset || 0,
         };
       }
       if (prevContactId && posToSave) {
@@ -896,6 +1228,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const el = messagesContainerRef.current;
     const contactId = selectedContact?._id?.toString();
     const convId = (selectedContact?.conversation?._id || currentConversation?._id)?.toString();
+    const targetId = typeof getTargetUserId === "function" ? getTargetUserId(selectedContact, user?._id) : null;
 
     if (!el || !contactId || isMessagesLoading || messages.length === 0) return;
 
@@ -903,78 +1236,140 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       const allPositions = useChatStore.getState().scrollPositions || {};
       const savedPos =
         (convId && allPositions[convId]) ||
-        (contactId && allPositions[contactId]);
+        (contactId && allPositions[contactId]) ||
+        (targetId && allPositions[targetId]);
 
       isProgrammaticScrollRef.current = true;
+      restoredChatIdRef.current = contactId;
 
-      const rafId = requestAnimationFrame(() => {
-        if (!messagesContainerRef.current) return;
-        const container = messagesContainerRef.current;
+      if (!savedPos || savedPos.isAtBottom) {
+        isShowingLastMessageRef.current = true;
+        currentChatScrollRef.current = {
+          scrollTop: el.scrollHeight,
+          scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
+          isAtBottom: true,
+        };
 
-        if (savedPos && !savedPos.isAtBottom && typeof savedPos.scrollTop === "number") {
-          container.scrollTop = savedPos.scrollTop;
-          currentChatScrollRef.current = savedPos;
-        } else {
-          container.scrollTop = container.scrollHeight;
-          currentChatScrollRef.current = {
-            scrollTop: container.scrollHeight,
-            scrollHeight: container.scrollHeight,
-            isAtBottom: true,
-          };
-        }
+        scrollToLastMessage();
 
-        restoredChatIdRef.current = contactId;
+        const raf = requestAnimationFrame(() => {
+          scrollToLastMessage();
+        });
+        const t1 = setTimeout(() => scrollToLastMessage(), 60);
+        const t2 = setTimeout(() => scrollToLastMessage(), 180);
+        const t3 = setTimeout(() => scrollToLastMessage(), 350);
+        const t4 = setTimeout(() => scrollToLastMessage(), 600);
 
-        requestAnimationFrame(() => {
-          if (!messagesContainerRef.current) return;
-          const currentContainer = messagesContainerRef.current;
-          if (
-            savedPos &&
-            !savedPos.isAtBottom &&
-            typeof savedPos.scrollTop === "number" &&
-            !hasUserScrolledSinceSwitchRef.current
-          ) {
-            if (Math.abs(currentContainer.scrollTop - savedPos.scrollTop) > 2) {
-              currentContainer.scrollTop = savedPos.scrollTop;
+        return () => {
+          cancelAnimationFrame(raf);
+          clearTimeout(t1);
+          clearTimeout(t2);
+          clearTimeout(t3);
+          clearTimeout(t4);
+        };
+      } else {
+        isShowingLastMessageRef.current = false;
+        currentChatScrollRef.current = savedPos;
+
+        const applyPosition = () => {
+          const container = messagesContainerRef.current;
+          if (!container) return;
+          isProgrammaticScrollRef.current = true;
+
+          if (savedPos.anchorMsgId) {
+            const bubble = document.getElementById(`msg-${savedPos.anchorMsgId}`);
+            if (bubble) {
+              const containerRect = container.getBoundingClientRect();
+              const bubbleRect = bubble.getBoundingClientRect();
+              const diff = bubbleRect.top - (containerRect.top + (savedPos.anchorOffset || 0));
+              container.scrollTop += diff;
+              return;
             }
           }
-          setTimeout(() => {
-            isProgrammaticScrollRef.current = false;
-          }, 80);
-        });
-      });
+          if (typeof savedPos.scrollTop === "number") {
+            container.scrollTop = savedPos.scrollTop;
+          }
+        };
 
-      return () => cancelAnimationFrame(rafId);
-    } else {
-      const allPositions = useChatStore.getState().scrollPositions || {};
-      const savedPos =
-        (convId && allPositions[convId]) ||
-        (contactId && allPositions[contactId]);
+        applyPosition();
 
-      if (
-        !hasUserScrolledSinceSwitchRef.current &&
-        savedPos &&
-        !savedPos.isAtBottom &&
-        typeof savedPos.scrollTop === "number"
-      ) {
-        isProgrammaticScrollRef.current = true;
-        el.scrollTop = savedPos.scrollTop;
-        setTimeout(() => {
+        const raf = requestAnimationFrame(applyPosition);
+        const t1 = setTimeout(applyPosition, 40);
+        const t2 = setTimeout(applyPosition, 120);
+        const t3 = setTimeout(() => {
+          applyPosition();
           isProgrammaticScrollRef.current = false;
-        }, 50);
-        return;
+        }, 250);
+
+        return () => {
+          cancelAnimationFrame(raf);
+          clearTimeout(t1);
+          clearTimeout(t2);
+          clearTimeout(t3);
+        };
       }
+    } else {
+      if (isSelectMode) return;
 
-      const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-      if (isAtBottom) {
-        isProgrammaticScrollRef.current = true;
-        el.scrollTop = el.scrollHeight;
-        requestAnimationFrame(() => {
-          isProgrammaticScrollRef.current = false;
-        });
+      if (isShowingLastMessageRef.current) {
+        scrollToLastMessage();
       }
     }
-  }, [messages, isMessagesLoading, selectedContact?._id]);
+  }, [messages, isMessagesLoading, selectedContact?._id, isSelectMode]);
+
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    let resizeTimer = null;
+    const observer = new ResizeObserver(() => {
+      if (isShowingLastMessageRef.current && !isMessagesLoading && messages.length > 0) {
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          scrollToLastMessage();
+        }, 30);
+      }
+    });
+
+    observer.observe(el);
+    if (el.firstElementChild) {
+      observer.observe(el.firstElementChild);
+    }
+
+    return () => {
+      observer.disconnect();
+      if (resizeTimer) clearTimeout(resizeTimer);
+    };
+  }, [selectedContact?._id, isMessagesLoading, messages.length]);
+
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    const handleUserInteractionStart = () => {
+      isUserInteractingRef.current = true;
+    };
+    const handleUserInteractionEnd = () => {
+      setTimeout(() => {
+        isUserInteractingRef.current = false;
+      }, 150);
+    };
+
+    el.addEventListener("wheel", handleUserInteractionStart, { passive: true });
+    el.addEventListener("touchstart", handleUserInteractionStart, { passive: true });
+    el.addEventListener("pointerdown", handleUserInteractionStart, { passive: true });
+    window.addEventListener("pointerup", handleUserInteractionEnd, { passive: true });
+    window.addEventListener("touchend", handleUserInteractionEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("wheel", handleUserInteractionStart);
+      el.removeEventListener("touchstart", handleUserInteractionStart);
+      el.removeEventListener("pointerdown", handleUserInteractionStart);
+      window.removeEventListener("pointerup", handleUserInteractionEnd);
+      window.removeEventListener("touchend", handleUserInteractionEnd);
+    };
+  }, []);
 
   useEffect(() => {
     if (message && selectedContact) {
@@ -1088,7 +1483,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     setIsSending(true);
     try {
-      const status = online ? "delivered" : "send";
+      const receiverId = targetUserId || selectedContact?._id;
       const replyData = replyingTo
         ? {
           _id: replyingTo._id,
@@ -1105,8 +1500,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           const item = selectedFiles[i];
           const formData = new FormData();
           formData.append("senderId", user?._id);
-          formData.append("receiverId", selectedContact?._id);
-          formData.append("messageStatus", status);
+          formData.append("receiverId", receiverId);
+          formData.append("messageStatus", "send");
           formData.append("media", item.file);
           formData.append("fileName", item.name);
           formData.append("fileSize", item.size);
@@ -1128,8 +1523,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       } else if (trimmedMessage) {
         const formData = new FormData();
         formData.append("senderId", user?._id);
-        formData.append("receiverId", selectedContact?._id);
-        formData.append("messageStatus", status);
+        formData.append("receiverId", receiverId);
+        formData.append("messageStatus", "send");
         formData.append("content", trimmedMessage);
         formData.append("contentType", "text");
         if (replyData) {
@@ -1161,16 +1556,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         };
         currentChatScrollRef.current = bottomPos;
         hasUserScrolledSinceSwitchRef.current = true;
-        const { contactId, convId } = getChatKeys(selectedContact);
-        commitScrollPosition(contactId, convId, bottomPos);
+        isShowingLastMessageRef.current = true;
+        const { contactId, convId, targetId } = getChatKeys(selectedContact);
+        commitScrollPosition(contactId, convId, bottomPos, targetId);
       }
-      if (messagesContainerRef.current) {
-        isProgrammaticScrollRef.current = true;
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        setTimeout(() => {
-          isProgrammaticScrollRef.current = false;
-        }, 60);
-      }
+      scrollToLastMessage();
     } catch (error) {
       console.error("Failed to send message", error);
     } finally {
@@ -1183,8 +1573,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", selectedContact?._id);
-      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("messageStatus", "send");
       formData.append("contentType", "poll");
       formData.append("content", question.trim());
       formData.append(
@@ -1209,8 +1599,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", selectedContact?._id);
-      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("messageStatus", "send");
       formData.append("contentType", "contact");
       formData.append("content", `Contact: ${contactInfo.name}`);
       formData.append("contactData", JSON.stringify(contactInfo));
@@ -1226,8 +1616,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", selectedContact?._id);
-      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("messageStatus", "send");
       formData.append("contentType", "event");
       formData.append("content", `Event: ${eventInfo.title}`);
       formData.append("eventData", JSON.stringify(eventInfo));
@@ -1284,8 +1674,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     try {
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", selectedContact?._id);
-      formData.append("messageStatus", online ? "delivered" : "send");
+      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("messageStatus", "send");
       formData.append("contentType", "sticker");
       formData.append("content", "Sticker");
 
@@ -1311,9 +1701,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         : "turned_on";
     const duration = isEvent ? eventData.duration : disappearingDuration;
     const isOff = duration === "Off" || action === "turned_off";
-    const isByMe =
-      !eventData?.setBy ||
-      String(eventData?.setBy?._id || eventData?.setBy) === String(user?._id);
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const setById = (
+      eventData?.setBy?._id ||
+      eventData?.setBy?.id ||
+      eventData?.setBy ||
+      selectedContact?.conversation?.disappearingSetBy?._id ||
+      selectedContact?.conversation?.disappearingSetBy
+    )?.toString();
+    const isByMe = Boolean(setById && currentUserId && setById === currentUserId);
     const actor = isByMe ? "You" : (selectedContact?.username || "Contact");
 
     let text;
@@ -1377,9 +1773,22 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       dateString = format(date, "EEEE, MMMM d");
     }
 
-    const isPinnedByMe =
-      !activePin?.pinnedBy ||
-      String(activePin?.pinnedBy?._id || activePin?.pinnedBy) === String(user?._id);
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const pinnedById = (
+      activePin?.pinnedBy?._id ||
+      activePin?.pinnedBy?.id ||
+      activePin?.pinnedBy
+    )?.toString();
+
+    let isPinnedByMe = false;
+    if (pinnedById && currentUserId) {
+      isPinnedByMe = pinnedById === currentUserId;
+    } else if (activePin?.message) {
+      const msgSender = (
+        activePin.message?.sender?._id || activePin.message?.sender
+      )?.toString();
+      isPinnedByMe = Boolean(msgSender && currentUserId && msgSender === currentUserId);
+    }
 
     return (
       <div className="flex flex-col items-center justify-center my-2 select-none gap-2">
@@ -1392,46 +1801,26 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           {dateString}
         </span>
 
-        {includePinNotification && activePin?.message && (
-          <button
-            type="button"
-            onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
-            className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-all duration-200 cursor-pointer active:scale-95 ${theme === "dark"
-              ? "bg-[#182229] hover:bg-[#202c33] text-[#8696a0] hover:text-[#d1d7db]"
-              : "bg-white hover:bg-gray-50 text-[#54656f] border border-black/5"
-              }`}
-            title="Click to jump to pinned message"
-          >
-            {isPinnedByMe
-              ? "You pinned a message"
-              : `${selectedContact?.username || "Contact"} pinned a message`}
-          </button>
-        )}
-      </div>
-    );
-  };
-
-  const renderPinSystemNotification = () => {
-    if (!activePin || !activePin.message) return null;
-    const isPinnedByMe =
-      !activePin.pinnedBy ||
-      String(activePin.pinnedBy?._id || activePin.pinnedBy) === String(user?._id);
-
-    return (
-      <div className="flex justify-center my-1 select-none">
-        <button
-          type="button"
-          onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
-          className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-all duration-200 cursor-pointer active:scale-95 ${theme === "dark"
-            ? "bg-[#182229] hover:bg-[#202c33] text-[#8696a0] hover:text-[#d1d7db]"
-            : "bg-white hover:bg-gray-50 text-[#54656f] border border-black/5"
-            }`}
-          title="Click to jump to pinned message"
-        >
-          {isPinnedByMe
-            ? "You pinned a message"
-            : `${selectedContact?.username || "Contact"} pinned a message`}
-        </button>
+        {includePinNotification && activePin?.message && (() => {
+          const { text: pinNoticeText } = getPinActorAndLabel(
+            activePin,
+            user?._id || user?.id,
+            selectedContact?.username,
+          );
+          return (
+            <button
+              type="button"
+              onClick={() => handleScrollToPinnedMessage(activePin.message?._id)}
+              className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm transition-all duration-200 cursor-pointer active:scale-95 ${theme === "dark"
+                ? "bg-[#182229] hover:bg-[#202c33] text-[#8696a0] hover:text-[#d1d7db]"
+                : "bg-white hover:bg-gray-50 text-[#54656f] border border-black/5"
+                }`}
+              title="Click to jump to pinned message"
+            >
+              {pinNoticeText}
+            </button>
+          );
+        })()}
       </div>
     );
   };
@@ -1672,393 +2061,39 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         onContextMenu={handleChatContextMenu}
         className={`h-full w-full flex flex-col overflow-hidden ${theme === "dark" ? "bg-[#0b141a] text-white" : "bg-[#efe7de] text-gray-900"}`}
       >
-        <div
-          onContextMenu={handleChatContextMenu}
-          className={`px-3 py-2 sm:px-4 sm:py-2.5 min-h-[58px] border-b shrink-0 z-30 ${theme === "dark"
-            ? "bg-[#202c33] border-gray-700/60 text-white"
-            : "bg-[#f0f2f5] border-gray-200 text-gray-900"
-            } flex items-center`}
-        >
-          <button
-            onClick={() => {
-              setSelectedContact(null);
-              setCurrentConversation(null);
-            }}
-            className="mr-1 sm:mr-2 p-2 rounded-full text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
-            title="Back to chats"
-          >
-            <FaArrowLeft className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
-          </button>
-
-          <div className="relative ml-1 sm:ml-2">
-            <motion.img
-              layoutId="profile-image"
-              src={selectedContact?.profilePicture || "/default-avatar.png"}
-              alt={selectedContact?.username}
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowContactInfo(true);
-              }}
-              title="View contact info"
-              className="w-10 h-10 rounded-full cursor-pointer object-cover hover:opacity-90 active:scale-95 transition-all shadow-sm"
-            />
-
-            {online && (
-              <span
-                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#202c33]" : "border-white"} bg-emerald-500 shadow-sm`}
-                title="Online"
-              ></span>
-            )}
-          </div>
-
-          <div
-            className="ml-3 flex-grow cursor-pointer min-w-0 group"
-            onClick={() => setShowContactInfo(true)}
-            title="View contact info"
-          >
-            <div className="flex items-center gap-2">
-              <h2 className={`font-semibold text-start text-base sm:text-lg truncate group-hover:text-emerald-500 transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
-                }`}>
-                {selectedContact?.username}
-              </h2>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openContactInfoWithTab("security");
-                }}
-                title="End-to-end encrypted chat. Click to verify."
-                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer"
-              >
-                <FaLock className="w-2.5 h-2.5" />
-                <span className="font-medium hidden sm:inline">Encrypted</span>
-              </button>
-
-              {disappearingDuration !== "Off" && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openContactInfoWithTab("disappearing");
-                  }}
-                  title={`Disappearing messages: ${disappearingDuration}. Click to change.`}
-                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500/20 active:scale-95 transition-all cursor-pointer"
-                >
-                  <WhatsAppDisappearingIcon size={12} className="shrink-0" />
-                  <span className="font-medium">{disappearingDuration}</span>
-                </button>
-              )}
-            </div>
-
-            {isTyping ? (
-              <div className="text-xs sm:text-sm text-emerald-500 font-medium">Typing...</div>
-            ) : (
-              <p
-                className={`text-xs sm:text-sm truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                  }`}
-              >
-                {online
-                  ? "Online"
-                  : lastSeen
-                    ? `Last seen ${formatTimestamp(lastSeen)}`
-                    : "Offline"}
-              </p>
-            )}
-          </div>
-
-          <div className="px-2 sm:px-4 py-2" ref={searchIconRef}>
-            <div className="relative flex items-center justify-end">
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                title="Search in chat"
-                className={`${isSearchOpen
-                  ? "opacity-0 pointer-events-none scale-90"
-                  : "opacity-100 scale-100"
-                  } group relative p-2 rounded-xl transition-all duration-300 bg-white/30 dark:bg-zinc-800/30 backdrop-blur-xl before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-br before:from-white/40 before:to-transparent before:opacity-60 before:pointer-events-none border border-white/30 dark:border-white/10 hover:border-green-400/40 shadow-[0_2px_15px_rgba(0,0,0,0.06)]
-                hover:shadow-[0_8px_30px_rgba(0,255,150,0.15)] active:scale-95 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-600/50`}
-              >
-                <FiSearch className="h-4 w-4 text-zinc-700 dark:text-zinc-300 group-hover:text-green-500 group-hover:scale-110 transition-all duration-300" />
-              </button>
-
-              <div
-                className={`absolute right-0 origin-right transition-all duration-300 ${isSearchOpen
-                  ? "w-60 sm:w-64 scale-100 opacity-100"
-                  : "w-0 scale-95 opacity-0 pointer-events-none"
-                  }`}
-              >
-                <div className="relative flex flex-col">
-                  <div className="relative w-full rounded-xl overflow-hidden group transition-all duration-300">
-
-                    <div
-                      className={`absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br opacity-60 group-focus-within:opacity-80 transition-all duration-300 
-                        ${theme === "dark"
-                          ? "from-white/10 via-white/5 to-transparent"
-                          : "from-white/60 via-white/30 to-transparent"
-                        }`}
-                    />
-
-                    <input
-                      autoFocus
-                      ref={inputRef}
-                      type="text"
-                      placeholder="Search..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className={`w-full pl-8 pr-8 py-1.5 rounded-xl outline-none text-xs relative z-10 backdrop-blur-xl border transition-all duration-300
-                      ${theme === "dark"
-                          ? "bg-zinc-800/70 text-white placeholder:text-gray-500 border-white/10 hover:border-emerald-500/50 focus:border-emerald-400 focus:bg-zinc-800/90"
-                          : "bg-white/70 text-gray-900 placeholder:text-gray-400 border-gray-200/80 hover:border-emerald-500/50 focus:border-emerald-400 focus:bg-white/90"
-                        } shadow-[0_4px_15px_rgba(0,0,0,0.05)] focus:shadow-[0_6px_20px_rgba(0,255,150,0.2)]`}
-                    />
-
-                    <FiSearch
-                      className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 transition-all duration-300 ${theme === "dark"
-                        ? "text-gray-500 group-focus-within:text-emerald-400"
-                        : "text-gray-400 group-focus-within:text-emerald-500"
-                        }`}
-                    />
-
-                    <button
-                      onClick={() => {
-                        setIsSearchOpen(false);
-                        setIsChatSearchOpen(false);
-                        setSearchTerm("");
-                      }}
-                      title="Close search"
-                      className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-20 p-1 rounded-full transition-all duration-300 hover:scale-110 active:scale-95 ${theme === "dark"
-                        ? "text-gray-400 hover:text-emerald-400 hover:bg-white/10"
-                        : "text-gray-500 hover:text-emerald-500 hover:bg-black/5"
-                        }`}
-                    >
-                      <RxCross2 className="h-3.5 w-3.5 cursor-pointer" />
-                    </button>
-                  </div>
-
-                  {searchTerm.trim() !== "" && (
-                    <div className="flex items-center justify-end animate-in fade-in slide-in-from-top-1 duration-300 pt-2">
-                      {resultCount > 0 ? (
-                        <div className="flex items-center gap-1.5 px-1.5 py-1 rounded-full bg-white/60 dark:bg-zinc-900/60 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
-                          <span className="px-3 text-[11px] font-semibold tracking-tight text-gray-600 dark:text-zinc-300 tabular-nums">
-                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                              {currentIndex + 1}
-                            </span>
-                            <span className="mx-1 opacity-40">/</span>
-                            <span className="opacity-80">{resultCount}</span>
-                          </span>
-                          <div className="h-4 w-px bg-gradient-to-b from-transparent via-gray-300/40 to-transparent dark:via-zinc-700/40" />
-
-                          <div className="flex items-center gap-0.5">
-                            <button
-                              onClick={goPrev}
-                              aria-label="Previous"
-                              title="Previous match"
-                              className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-90 transition-all duration-200 cursor-pointer"
-                            >
-                              <svg
-                                className="w-3 h-3 group-hover:-translate-y-[1px] transition-transform"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2.5}
-                                  d="M5 15l7-7 7 7"
-                                />
-                              </svg>
-                            </button>
-
-                            <button
-                              onClick={goNext}
-                              aria-label="Next"
-                              title="Next match"
-                              className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-90 transition-all duration-200 cursor-pointer"
-                            >
-                              <svg
-                                className="w-3 h-3 group-hover:translate-y-[1px] transition-transform"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2.5}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-rose-500/10 to-transparent border border-rose-500/20 text-[11px] font-medium text-rose-500/90">
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-rose-500"></span>
-                          </span>
-                          No results found
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            <button
-              className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
-              onClick={handleVideoCall}
-              title={online ? "Start video call" : "user is offline"}
-            >
-              <FaVideo className="h-5 w-5 text-emerald-500 hover:text-emerald-600" />
-            </button>
-
-            <button
-              className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
-              onClick={handleAudioCall}
-              title={online ? "Start audio call" : "user is offline"}
-            >
-              <FaPhone className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />
-            </button>
-
-            <button
-              ref={headerMenuBtnRef}
-              onClick={(e) => {
-                e.stopPropagation();
-                const rect = e.currentTarget.getBoundingClientRect();
-                setHeaderMenuAnchor({
-                  x: rect.right,
-                  y: rect.bottom + 6,
-                  isContextMenu: false,
-                });
-                setShowHeaderMenu((prev) => !prev);
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setHeaderMenuAnchor({
-                  x: e.clientX,
-                  y: e.clientY,
-                  isContextMenu: true,
-                });
-                setShowHeaderMenu(true);
-              }}
-              title="Menu"
-              className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
-            >
-              <HiDotsVertical className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
+        <ChatHeader
+          handleChatContextMenu={handleChatContextMenu}
+          theme={theme}
+          selectedContact={selectedContact}
+          setSelectedContact={setSelectedContact}
+          setCurrentConversation={setCurrentConversation}
+          setShowContactInfo={setShowContactInfo}
+          online={online}
+          openContactInfoWithTab={openContactInfoWithTab}
+          disappearingDuration={disappearingDuration}
+          isTyping={isTyping}
+          lastSeen={lastSeen}
+          searchIconRef={searchIconRef}
+          isSearchOpen={isSearchOpen}
+          setIsSearchOpen={setIsSearchOpen}
+          setIsChatSearchOpen={setIsChatSearchOpen}
+          inputRef={inputRef}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          resultCount={resultCount}
+          currentIndex={currentIndex}
+          goPrev={goPrev}
+          goNext={goNext}
+          handleVideoCall={handleVideoCall}
+          handleAudioCall={handleAudioCall}
+          headerMenuBtnRef={headerMenuBtnRef}
+          setHeaderMenuAnchor={setHeaderMenuAnchor}
+          setShowHeaderMenu={setShowHeaderMenu}
+          onCloseChat={handleCloseChatWindow}
+        />
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-          {isBlocked && (
-            <div
-              className={`h-[42px] px-4 flex items-center justify-between border-b transition-colors duration-150 select-none z-20 shrink-0 relative group ${theme === "dark"
-                ? "bg-[#111b21] hover:bg-[#182229] border-[#222d34] text-[#e9edef]"
-                : "bg-[#f0f2f5] hover:bg-[#eaecef] border-[#e9edef] text-[#111b21]"
-                }`}
-            >
-              <div className="flex items-center gap-2.5 overflow-hidden min-w-0 pr-2">
-                <MdBlock size={15} className="shrink-0 text-red-400" />
-                <span
-                  className={`text-[13.5px] truncate font-medium ${theme === "dark" ? "text-[#d1d7db]" : "text-gray-800"
-                    }`}
-                >
-                  You blocked this contact.
-                </span>
-              </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleUnblockContact}
-                  className="px-2.5 py-1 text-[13px] font-semibold text-[#00a884] hover:text-[#06cf9c] hover:bg-[#00a884]/10 rounded-lg transition-all cursor-pointer"
-                >
-                  Unblock
-                </button>
-                <span className="text-[#8696a0]/40 text-xs">|</span>
-                <button
-                  type="button"
-                  onClick={() => setShowReportModal(true)}
-                  className="px-2.5 py-1 text-[13px] font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
-                >
-                  Report
-                </button>
-
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowBlockedMenu((prev) => !prev);
-                    }}
-                    className={`p-1 rounded-full text-[#8696a0] ${theme === "dark"
-                      ? "hover:text-white hover:bg-white/10"
-                      : "hover:text-black hover:bg-black/10"
-                      } transition-all cursor-pointer ${showBlockedMenu ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                      }`}
-                    title="Options"
-                  >
-                    {showBlockedMenu ? (
-                      <MdKeyboardArrowUp size={22} />
-                    ) : (
-                      <MdKeyboardArrowDown size={22} />
-                    )}
-                  </button>
-
-                  <AnimatePresence>
-                    {showBlockedMenu && (
-                      <motion.div
-                        ref={blockedMenuRef}
-                        initial={{ opacity: 0, scale: 0.95, y: -2 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -2 }}
-                        transition={{ duration: 0.12 }}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`absolute right-0 top-[38px] z-50 min-w-[170px] rounded-xl shadow-2xl py-1.5 border select-none ${theme === "dark"
-                          ? "bg-[#233138] border-white/10 text-[#d1d7db]"
-                          : "bg-white border-black/10 text-[#111b21]"
-                          }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowBlockedMenu(false);
-                            handleUnblockContact();
-                          }}
-                          className={`w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
-                            ? "hover:bg-[#182229] hover:text-white"
-                            : "hover:bg-[#f5f6f6] text-[#111b21]"
-                            }`}
-                        >
-                          <MdBlock size={18} className="text-[#00a884] shrink-0" />
-                          <span>Unblock</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowBlockedMenu(false);
-                            setShowReportModal(true);
-                          }}
-                          className={`w-full px-4 py-2.5 text-left text-[14px] flex items-center gap-3 transition-colors cursor-pointer ${theme === "dark"
-                            ? "hover:bg-[#182229] hover:text-red-400"
-                            : "hover:bg-[#f5f6f6] text-red-500"
-                            }`}
-                        >
-                          <MdThumbDown size={18} className="text-red-400 shrink-0" />
-                          <span>Report contact</span>
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </div>
-          )}
 
           {activePin && (
             <div
@@ -2158,7 +2193,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           <div
             ref={messagesContainerRef}
             onScroll={handleMessageScroll}
-            className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
+            className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto [overflow-anchor:none] custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"
               }`}
             style={{
               backgroundColor:
@@ -2182,17 +2217,20 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             }}
           >
             <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
-              <div className="flex justify-center my-2 select-none">
+              <div className="flex justify-center my-3 select-none px-4">
                 <button
                   type="button"
-                  onClick={() => openContactInfoWithTab("privacy")}
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs max-w-md text-center transition-all duration-200 cursor-pointer shadow-sm active:scale-98 ${theme === "dark"
-                    ? "bg-[#182229]/95 text-[#ffd279] border border-white/5 hover:bg-[#202c33]"
-                    : "bg-[#ffeecd]/95 text-[#54656f] border border-black/5 hover:bg-[#fedea8]"
+                  onClick={() => openContactInfoWithTab("security")}
+                  className={`inline-block py-1.5 px-3 sm:px-4 rounded-lg text-[12.5px] leading-[18px] max-w-[430px] text-center transition-all duration-150 cursor-pointer shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] active:scale-[0.99] border ${theme === "dark"
+                    ? "bg-[#182229] text-[#ffd279] border-white/5 hover:bg-[#202c33]"
+                    : "bg-[#ffeecd] text-[#54656f] border-black/5 hover:bg-[#fde6b8]"
                     }`}
-                  title="Click to verify end-to-end encryption"
+                  title="Messages and calls are end-to-end encrypted. Click to verify."
                 >
-                  <FaLock className="h-3 w-3 shrink-0 text-emerald-500" />
+                  <FaLock
+                    className={`inline-block w-2.5 h-2.5 mr-1.5 -translate-y-[1px] ${theme === "dark" ? "text-[#ffd279]" : "text-[#54656f]"
+                      }`}
+                  />
                   <span>
                     Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. Click to learn more.
                   </span>
@@ -2287,7 +2325,19 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                               isSelected={selectedMessageIds.includes(String(msg._id || msg.temp))}
                               onToggleSelect={handleToggleSelectMessage}
                               onEnterSelectMode={handleEnterSelectMode}
-                              disappearingDuration={disappearingDuration}
+                              disappearingDuration={(() => {
+                                if (msg.isDisappearing !== undefined) {
+                                  return (msg.isDisappearing && msg.disappearingDuration && msg.disappearingDuration !== "Off")
+                                    ? msg.disappearingDuration
+                                    : null;
+                                }
+                                if (!disappearingDuration || disappearingDuration === "Off") return null;
+                                const turnedOnTime = selectedContact?.conversation?.disappearingUpdatedAt
+                                  ? new Date(selectedContact.conversation.disappearingUpdatedAt).getTime()
+                                  : null;
+                                if (!turnedOnTime) return null;
+                                return new Date(msg.createdAt).getTime() >= turnedOnTime ? disappearingDuration : null;
+                              })()}
                               onOpenDisappearing={() => openContactInfoWithTab("disappearing")}
                               setRef={(el) => {
                                 if (isMatch && el) {
@@ -2357,10 +2407,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               <div className="flex items-center gap-6 select-none">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsSelectMode(false);
-                    setSelectedMessageIds([]);
-                  }}
+                  onClick={handleExitSelectMode}
                   className={`p-1.5 rounded-full border border-transparent transition-all cursor-pointer active:scale-95 ${theme === "dark"
                     ? "text-[#aebac1] hover:text-white hover:bg-white/10 hover:border-white/15"
                     : "text-gray-600 hover:text-gray-900 hover:bg-black/5 hover:border-black/10"
@@ -2451,18 +2498,31 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             </div>
           ) : isBlocked ? (
             <div
-              className={`p-3.5 sm:p-4 select-none flex items-center justify-center gap-2 text-center text-sm border-t transition-colors ${theme === "dark"
-                ? "bg-[#202c33] border-[#222d34] text-[#8696a0]"
-                : "bg-[#f0f2f5] border-gray-200 text-[#54656f]"
+              className={`p-3 sm:p-4 select-none flex items-center justify-center gap-3.5 sm:gap-4 border-t transition-colors ${theme === "dark"
+                ? "bg-[#202c33] border-[#222d34]"
+                : "bg-[#f0f2f5] border-gray-200"
                 }`}
             >
-              <span>You blocked this contact.</span>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2 rounded-full border border-gray-300 dark:border-white/15 hover:bg-red-500/10 active:scale-95 transition-all cursor-pointer select-none"
+              >
+                <RiDeleteBin6Line className="text-[17px] text-[#ea868f] shrink-0" />
+                <span className="text-[#ea868f] font-medium text-[14px] sm:text-[14.5px]">
+                  Delete chat
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleUnblockContact}
-                className="text-[#00a884] hover:underline font-semibold cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2 rounded-full border border-gray-300 dark:border-white/15 hover:bg-[#00a884]/10 active:scale-95 transition-all cursor-pointer select-none"
               >
-                Tap to unblock
+                <MdBlock className="text-[17px] text-[#00a884] shrink-0" />
+                <span className="text-[#00a884] font-medium text-[14px] sm:text-[14.5px]">
+                  Unblock
+                </span>
               </button>
             </div>
           ) : (
@@ -2905,8 +2965,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           isOpen={showForwardSelectedModal}
           onClose={() => {
             setShowForwardSelectedModal(false);
-            setIsSelectMode(false);
-            setSelectedMessageIds([]);
+            handleExitSelectMode();
           }}
           messages={selectedMsgsList}
           theme={theme}
@@ -3022,8 +3081,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         </div>
       )}
 
-      <VideoCallManager socket={socket} />
-
       {previewModalFile && (
         <FileViewerModal
           isOpen={Boolean(previewModalFile)}
@@ -3047,8 +3104,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         messages={messages}
         onSearchClick={() => setIsSearchOpen(true)}
         onSelectMessages={() => {
-          setIsSelectMode(true);
-          setSelectedMessageIds([]);
+          handleEnterSelectMode();
         }}
         onStartCall={(type) => {
           if (type === "video") handleVideoCall();
@@ -3057,6 +3113,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         onOpenContactInfo={() => setShowContactInfo(true)}
         onOpenDisappearingMessages={() => openContactInfoWithTab("disappearing")}
         onOpenChatTheme={() => openContactInfoWithTab("chatTheme")}
+        onCloseChat={handleCloseChatWindow}
       />
 
       <BlockModal
@@ -3074,6 +3131,53 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         contactName={selectedContact?.username || "contact"}
         theme={theme}
       />
+
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/65 backdrop-blur-[2px]"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 8 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-[360px] sm:max-w-[400px] rounded-2xl p-6 shadow-2xl border select-none ${theme === "dark"
+              ? "bg-[#233138] border-white/10 text-white"
+              : "bg-white border-black/10 text-gray-900"
+              }`}
+          >
+            <h3 className="text-lg font-semibold mb-2">Delete this chat?</h3>
+            <p
+              className={`text-sm mb-6 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                }`}
+            >
+              Messages will be deleted for you. This chat will be removed from your chats list.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer ${theme === "dark"
+                  ? "hover:bg-white/10 text-gray-300"
+                  : "hover:bg-black/5 text-gray-600"
+                  }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteDeleteChat}
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors cursor-pointer shadow-sm active:scale-95"
+              >
+                Delete chat
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </>
   );
 };

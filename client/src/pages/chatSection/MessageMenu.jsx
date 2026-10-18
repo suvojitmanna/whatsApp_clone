@@ -1,4 +1,3 @@
-import React from "react";
 import { toast } from "react-toastify";
 import { IoIosInformationCircleOutline } from "react-icons/io";
 import { LuReply, LuForward } from "react-icons/lu";
@@ -7,10 +6,11 @@ import { BsEmojiSmile } from "react-icons/bs";
 import { TbPin } from "react-icons/tb";
 import { SiMetaai } from "react-icons/si";
 import { RiEditLine, RiDeleteBin6Line } from "react-icons/ri";
-import { FiThumbsDown, FiCheckSquare } from "react-icons/fi";
+import { FiThumbsDown, FiCheckSquare, FiExternalLink } from "react-icons/fi";
 import { useChatStore } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
 import { WhatsAppUnpinIcon } from "./MessageBuble";
+import { copyImageToClipboard } from "../../utils/clipboardUtils";
 
 const MessageMenu = ({
     message,
@@ -77,9 +77,11 @@ const MessageMenu = ({
                 {onEnterSelectMode && (
                     <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             setShowOptions?.(false);
-                            onEnterSelectMode(message._id || message.temp);
+                            onEnterSelectMode(message._id?._id || message._id || message.temp);
                         }}
                         className={itemClass}
                     >
@@ -105,8 +107,28 @@ const MessageMenu = ({
         message?.imageOrVideoUrl
     );
 
+    const linkMatch = message?.content ? message.content.match(/(https?:\/\/[^\s]+)/) : null;
+    const detectedUrl = message?.url || (linkMatch ? linkMatch[0] : null);
+
     return (
         <>
+            {detectedUrl && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        window.open(detectedUrl, "_blank", "noopener,noreferrer");
+                    }}
+                    className={itemClass}
+                >
+                    <FiExternalLink
+                        size={17}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Open link in a new tab</span>
+                </button>
+            )}
+
             <button
                 type="button"
                 onClick={() => {
@@ -127,8 +149,28 @@ const MessageMenu = ({
             {hasCopyableText && (
                 <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                         setShowOptions?.(false);
+                        const isImg =
+                            message?.contentType === "image" ||
+                            Boolean(
+                                message?.imageOrVideoUrl &&
+                                !message?.imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i) &&
+                                message?.contentType !== "video"
+                            );
+
+                        if (isImg && message?.imageOrVideoUrl) {
+                            try {
+                                await copyImageToClipboard(message.imageOrVideoUrl);
+                                toast.success("Image copied to clipboard");
+                                return;
+                            } catch (e) {
+                                console.error("Failed to copy image:", e);
+                                toast.error("Failed to copy image to clipboard");
+                                return;
+                            }
+                        }
+
                         const textToCopy =
                             message?.contentType === "text"
                                 ? message?.content || ""
@@ -307,9 +349,11 @@ const MessageMenu = ({
 
             <button
                 type="button"
-                onClick={() => {
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setShowOptions?.(false);
-                    onEnterSelectMode?.(message._id);
+                    onEnterSelectMode?.(message._id?._id || message._id || message.temp);
                 }}
                 className={itemClass}
             >

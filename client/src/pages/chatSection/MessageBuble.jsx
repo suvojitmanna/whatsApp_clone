@@ -28,6 +28,7 @@ import { toast } from "react-toastify";
 import { useChatStore } from "../../store/chatStore";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
+import { getDisappearingDurationMs } from "../../utils/formatTime";
 import ReactionDetailsModal from "../../components/ReactionDetailsModal";
 import FileViewerModal from "../../components/FileViewerModal";
 import ForwardModal from "../../components/ForwardModal";
@@ -304,10 +305,29 @@ const MessageBuble = ({
   );
   const isDark = theme === "dark";
   const isSticker = message.contentType === "sticker";
+  const isDisappearingExpired = useMemo(() => {
+    if (!message || message.isKept || message.deletedForEveryone) return false;
+    if (message.isDisappearing) {
+      const expTime = message.disappearingExpiresAt
+        ? new Date(message.disappearingExpiresAt).getTime()
+        : null;
+      if (expTime) {
+        return Date.now() >= expTime;
+      }
+      const dur = message.disappearingDuration || disappearingDuration;
+      const durMs = getDisappearingDurationMs(dur);
+      if (durMs && message.createdAt) {
+        return Date.now() >= new Date(message.createdAt).getTime() + durMs;
+      }
+    }
+    return false;
+  }, [message, disappearingDuration]);
+
   const isDeletedForEveryone = Boolean(
-    message.deletedForEveryone ||
-    message.content === "This message was deleted" ||
-    message.content === "You deleted this message"
+    !isDisappearingExpired &&
+    (message.deletedForEveryone ||
+      message.content === "This message was deleted" ||
+      message.content === "You deleted this message")
   );
 
   const conversationId = currentConversation?._id || message?.conversationId || layoutSelectedContact?._id;
@@ -792,7 +812,7 @@ const MessageBuble = ({
           {format(new Date(message.createdAt || Date.now()), "HH:mm")}
         </span>
         {renderStatusIcon(false)}
-        {!isSelectMode && (
+        {!isSelectMode && message.contentType !== "poll" && (
           <button
             type="button"
             onClick={handleToggleOptions}
@@ -807,15 +827,23 @@ const MessageBuble = ({
     );
   };
 
-  if (!message) return null;
+  if (!message || isDisappearingExpired) return null;
   const msgDOMId = (message?._id?._id || message?._id || message?.temp)?.toString();
 
   return (
     <div
       id={msgDOMId ? `msg-${msgDOMId}` : undefined}
-      onClick={isSelectMode ? () => onToggleSelect?.(message._id || message.temp) : undefined}
+      onClick={
+        isSelectMode
+          ? (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleSelect?.(message._id?._id || message._id || message.temp);
+          }
+          : undefined
+      }
       className={`w-full relative flex items-center transition-colors duration-150 ${isSelectMode
-        ? `cursor-pointer select-none py-1.5 ${isSelected
+        ? `cursor-pointer select-none py-0.5 ${isSelected
           ? isDark
             ? "bg-[#111b21]/60"
             : "bg-black/[0.06]"
@@ -823,12 +851,19 @@ const MessageBuble = ({
             ? "hover:bg-[#111b21]/40"
             : "hover:bg-black/[0.03]"
         }`
-        : "!py-0"
+        : "py-0.5"
         } ${isActive ? "z-10" : ""} ${isFirstInSequence ? "mt-2" : "mt-[2.5px]"}`}
       data-match={dataMatch ? "true" : "false"}
     >
       {isSelectMode && (
-        <div className="shrink-0 pl-6 sm:pl-7 pr-3 flex items-center justify-center select-none">
+        <div
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleSelect?.(message._id?._id || message._id || message.temp);
+          }}
+          className="shrink-0 pl-6 sm:pl-7 pr-3 flex items-center justify-center select-none cursor-pointer"
+        >
           <div
             className={`w-[18px] h-[18px] rounded-[3px] border-[1.5px] flex items-center justify-center transition-all duration-150 ${isSelected
               ? "bg-[#00a884] border-[#00a884] text-white shadow-sm"
@@ -853,12 +888,8 @@ const MessageBuble = ({
 
       <div
         className={`flex-1 flex min-w-0 ${isUserMessage
-          ? isSelectMode
-            ? "justify-end pr-4 sm:pr-8 md:pr-10"
-            : "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
-          : isSelectMode
-            ? "justify-start pr-4 sm:pr-8 md:pr-10 pl-1 sm:pl-2"
-            : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
+          ? "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
+          : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
           }`}
       >
         <div
@@ -1253,19 +1284,88 @@ const MessageBuble = ({
                       className="relative group/img cursor-pointer overflow-hidden rounded-xl"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setViewerModalFile({
-                          url: message.imageOrVideoUrl,
-                          name: message.fileName || "image.jpg",
-                          type: "image",
-                          size: message.fileSize,
-                        });
+                        try {
+                          const allMsgs = useChatStore.getState()?.messages || [];
+                          const mediaMsgs = allMsgs
+                            .filter(
+                              (m) =>
+                                m &&
+                                m.imageOrVideoUrl &&
+                                (m.contentType === "image" ||
+                                  m.contentType === "video")
+                            )
+                            .map((m) => {
+                              const sId = (m.sender?._id || m.sender?.id || m.sender)?.toString();
+                              return {
+                                _id: m._id,
+                                messageId: m._id,
+                                url: m.imageOrVideoUrl,
+                                name:
+                                  m.fileName ||
+                                  (m.contentType === "video"
+                                    ? "video.mp4"
+                                    : "image.jpg"),
+                                type:
+                                  m.contentType === "video"
+                                    ? "video/mp4"
+                                    : "image/jpeg",
+                                size: m.fileSize,
+                                createdAt: m.createdAt,
+                                sender: m.sender,
+                                isUserMessage: Boolean(currentUserId && sId && sId === currentUserId),
+                              };
+                            });
+
+                          let idx = mediaMsgs.findIndex(
+                            (m) => String(m._id || m.messageId) === String(message._id)
+                          );
+                          if (idx === -1) {
+                            mediaMsgs.push({
+                              _id: message._id,
+                              messageId: message._id,
+                              url: message.imageOrVideoUrl,
+                              name: message.fileName || "image.jpg",
+                              type: "image/jpeg",
+                              size: message.fileSize,
+                              createdAt: message.createdAt,
+                              sender: message.sender,
+                              isUserMessage: isUserMessage,
+                            });
+                            idx = mediaMsgs.length - 1;
+                          }
+
+                          setViewerModalFile({
+                            url: message.imageOrVideoUrl,
+                            name: message.fileName || "image.jpg",
+                            type: "image",
+                            size: message.fileSize,
+                            sender: message.sender,
+                            createdAt: message.createdAt,
+                            messageId: message._id,
+                            isUserMessage: isUserMessage,
+                            items: mediaMsgs.length > 0 ? mediaMsgs : undefined,
+                            initialIndex: idx >= 0 ? idx : 0,
+                          });
+                        } catch (err) {
+                          console.error("Error opening image viewer modal:", err);
+                          setViewerModalFile({
+                            url: message.imageOrVideoUrl,
+                            name: message.fileName || "image.jpg",
+                            type: "image",
+                            size: message.fileSize,
+                            sender: message.sender,
+                            createdAt: message.createdAt,
+                            messageId: message._id,
+                            isUserMessage: isUserMessage,
+                          });
+                        }
                       }}
                       title="Click to view image"
                     >
                       <img
                         src={message.imageOrVideoUrl}
                         alt="img"
-                        className="rounded-xl w-full max-w-[280px] sm:max-w-xs md:max-w-sm object-cover ring-1 ring-black/[0.06] transition-transform hover:scale-[1.01]"
+                        className="rounded-xl w-50 max-w-[200px] sm:max-w-xs md:max-w-sm object-cover ring-1 ring-black/[0.06] transition-transform hover:scale-[1.01]"
                       />
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 rounded-xl flex items-center justify-center transition-opacity">
                         <span className="px-2.5 py-1 rounded-full bg-black/60 text-white text-xs font-medium flex items-center gap-1.5 shadow">
@@ -1291,12 +1391,89 @@ const MessageBuble = ({
 
                 {message.contentType === "video" && (
                   <div className="max-w-full">
-                    <div className="relative rounded-xl overflow-hidden">
+                    <div className="relative rounded-xl overflow-hidden group/vid">
                       <video
                         src={message.imageOrVideoUrl}
                         controls
                         className="rounded-xl w-full max-w-[280px] sm:max-w-xs md:max-w-sm ring-1 ring-black/[0.06]"
                       />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          try {
+                            const allMsgs = useChatStore.getState()?.messages || [];
+                            const mediaMsgs = allMsgs
+                              .filter(
+                                (m) =>
+                                  m &&
+                                  m.imageOrVideoUrl &&
+                                  (m.contentType === "image" ||
+                                    m.contentType === "video")
+                              )
+                              .map((m) => {
+                                const sId = (m.sender?._id || m.sender?.id || m.sender)?.toString();
+                                return {
+                                  _id: m._id,
+                                  messageId: m._id,
+                                  url: m.imageOrVideoUrl,
+                                  name: m.fileName || (m.contentType === "video" ? "video.mp4" : "image.jpg"),
+                                  type: m.contentType === "video" ? "video/mp4" : "image/jpeg",
+                                  size: m.fileSize,
+                                  createdAt: m.createdAt,
+                                  sender: m.sender,
+                                  isUserMessage: Boolean(currentUserId && sId && sId === currentUserId),
+                                };
+                              });
+
+                            let idx = mediaMsgs.findIndex(
+                              (m) => String(m._id || m.messageId) === String(message._id)
+                            );
+                            if (idx === -1) {
+                              mediaMsgs.push({
+                                _id: message._id,
+                                messageId: message._id,
+                                url: message.imageOrVideoUrl,
+                                name: message.fileName || "video.mp4",
+                                type: "video/mp4",
+                                size: message.fileSize,
+                                createdAt: message.createdAt,
+                                sender: message.sender,
+                                isUserMessage: isUserMessage,
+                              });
+                              idx = mediaMsgs.length - 1;
+                            }
+
+                            setViewerModalFile({
+                              url: message.imageOrVideoUrl,
+                              name: message.fileName || "video.mp4",
+                              type: "video",
+                              size: message.fileSize,
+                              sender: message.sender,
+                              createdAt: message.createdAt,
+                              messageId: message._id,
+                              isUserMessage: isUserMessage,
+                              items: mediaMsgs.length > 0 ? mediaMsgs : undefined,
+                              initialIndex: idx >= 0 ? idx : 0,
+                            });
+                          } catch (err) {
+                            setViewerModalFile({
+                              url: message.imageOrVideoUrl,
+                              name: message.fileName || "video.mp4",
+                              type: "video",
+                              size: message.fileSize,
+                              sender: message.sender,
+                              createdAt: message.createdAt,
+                              messageId: message._id,
+                              isUserMessage: isUserMessage,
+                            });
+                          }
+                        }}
+                        className="absolute top-2 left-2 z-10 px-2 py-1 rounded-full bg-black/60 hover:bg-black/80 text-white text-[11px] font-medium flex items-center gap-1 shadow opacity-0 group-hover/vid:opacity-100 transition-opacity cursor-pointer"
+                        title="Open video in full viewer"
+                      >
+                        <FaEye size={12} /> Full view
+                      </button>
                       {!message.content && (
                         <div className="absolute top-2 right-2 pointer-events-auto">
                           {renderTimestampAndStatus(true)}
@@ -1442,7 +1619,7 @@ const MessageBuble = ({
                             <img
                               src={avatar}
                               alt="Contact"
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-fill"
                             />
                           ) : (
                             <RiContactsFill size={24} />
@@ -1609,9 +1786,8 @@ const MessageBuble = ({
                       })}
                     </div>
 
-                    <div className={`flex justify-end text-[11px] mt-2 mb-0.5 ${isDark ? "text-[#8696a0]" : "text-[#667781]"
-                      }`}>
-                      <span>{format(new Date(message.createdAt), "HH:mm")}</span>
+                    <div className="flex items-center justify-end mt-2 mb-0.5 px-1 select-none">
+                      {renderTimestampAndStatus(false)}
                     </div>
                     <div className={`border-t -mx-3 -mb-2.5 mt-2 rounded-b-2xl overflow-hidden ${isDark ? "border-[#2a3942]" : "border-black/10"
                       }`}>
@@ -2211,6 +2387,8 @@ const MessageBuble = ({
               isOpen={Boolean(viewerModalFile)}
               onClose={() => setViewerModalFile(null)}
               file={viewerModalFile}
+              items={viewerModalFile.items}
+              initialIndex={viewerModalFile.initialIndex || 0}
               theme={theme}
             />
           )}
@@ -2226,7 +2404,20 @@ const MessageBuble = ({
             isOpen={showPinModal}
             onClose={() => setShowPinModal(false)}
             onPin={(duration) => {
-              pinMessage(conversationId, message, duration, secondaryConvId);
+              const recId =
+                (layoutSelectedContact?._id ||
+                  (message.sender?._id?.toString() === currentUserId
+                    ? message.receiver?._id || message.receiver
+                    : message.sender?._id || message.sender))?.toString();
+              pinMessage(
+                conversationId,
+                message,
+                duration,
+                secondaryConvId,
+                recId,
+                true,
+                currentUserId,
+              );
               toast.success(`Message pinned for ${duration}`);
             }}
             message={message}

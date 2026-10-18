@@ -3,6 +3,7 @@ import { getSocket, initializeSocket } from "../services/chatService";
 import axiosInstance from "../services/url.services";
 import useUserStore from "./useUserStore";
 import useLayoutStore from "./layoutStore";
+import { getDisappearingDurationMs } from "../utils/formatTime";
 import {
   getSharedAesKey,
   encryptText,
@@ -17,6 +18,44 @@ function syncMessagesCache(cache, convId, newMessages) {
 }
 
 const readStatusCache = new Set();
+
+if (typeof window !== "undefined") {
+  try {
+    sessionStorage.removeItem("whatsapp_chat_scroll_positions");
+    localStorage.removeItem("whatsapp_chat_scroll_positions");
+  } catch {}
+}
+
+export const getTargetUserId = (contact, currentUserId) => {
+  if (!contact) return null;
+  if (Array.isArray(contact.participants) && contact.participants.length > 0) {
+    const other = contact.participants.find(
+      (p) => String(p?._id || p) !== String(currentUserId),
+    );
+    if (other) return String(other?._id || other);
+  }
+  if (
+    Array.isArray(contact.conversation?.participants) &&
+    contact.conversation.participants.length > 0
+  ) {
+    const other = contact.conversation.participants.find(
+      (p) => String(p?._id || p) !== String(currentUserId),
+    );
+    if (other) return String(other?._id || other);
+  }
+  if (contact.user?._id) return String(contact.user._id);
+  if (
+    contact._id &&
+    contact.conversation &&
+    String(contact._id) !== String(contact.conversation?._id)
+  ) {
+    return String(contact._id);
+  }
+  if (contact.userId) return String(contact.userId);
+  if (contact._id) return String(contact._id);
+  if (contact.id) return String(contact.id);
+  return null;
+};
 
 export async function decryptSingleMessage(
   msg,
@@ -75,6 +114,29 @@ export async function decryptSingleMessage(
     const activeContact = useLayoutStore.getState()?.selectedContact;
     if (activeContact?._id?.toString() === peerId && activeContact?.publicKey) {
       peerPubKey = activeContact.publicKey;
+    }
+  }
+
+  if (
+    (!peerPubKey || !peerId) &&
+    msg.conversation?.participants &&
+    Array.isArray(msg.conversation.participants)
+  ) {
+    if (!peerId) {
+      const otherPart = msg.conversation.participants.find(
+        (p) => (p._id || p)?.toString() !== myId,
+      );
+      if (otherPart) {
+        peerId = (otherPart._id || otherPart)?.toString();
+        if (otherPart.publicKey) peerPubKey = otherPart.publicKey;
+      }
+    } else {
+      const part = msg.conversation.participants.find(
+        (p) => (p._id || p)?.toString() === peerId,
+      );
+      if (part?.publicKey) {
+        peerPubKey = part.publicKey;
+      }
     }
   }
 
@@ -144,7 +206,7 @@ export const useChatStore = create((set, get) => ({
   setUsers: (users) => set({ users }),
   conversations: { data: [] },
   currentConversation: null,
-  currentUser: null,
+  currentUser: useUserStore.getState()?.user || null,
   setCurrentConversation: (conversation) =>
     set({ currentConversation: conversation }),
   messages: [],
@@ -219,7 +281,21 @@ export const useChatStore = create((set, get) => ({
     return Boolean(get().starredMessages[messageId]);
   },
   blockedContacts: getStoredBlocked(),
-  blockContact: (targetId) => {
+  fetchBlockedUsers: async () => {
+    try {
+      const { data } = await axiosInstance.get("/chat/blocked-users");
+      const list = (data?.data?.blockedUsers || data?.blockedUsers || []).map(
+        String,
+      );
+      try {
+        localStorage.setItem("whatsapp_blocked_contacts", JSON.stringify(list));
+      } catch (e) {}
+      set({ blockedContacts: list });
+    } catch (error) {
+      console.error("fetchBlockedUsers error:", error);
+    }
+  },
+  blockContact: async (targetId) => {
     if (!targetId) return;
     const strId = (targetId?._id || targetId)?.toString();
     const current = get().blockedContacts || [];
@@ -230,21 +306,149 @@ export const useChatStore = create((set, get) => ({
       } catch (e) {}
       set({ blockedContacts: next });
     }
+    try {
+      await axiosInstance.post("/chat/block-user", { targetUserId: strId });
+    } catch (error) {
+      console.error("block-user error:", error);
+    }
   },
-  unblockContact: (targetId) => {
-    if (!targetId) return;
-    const strId = (targetId?._id || targetId)?.toString();
+  unblockContact: async (targetId, fallbackId = null) => {
+    if (!targetId && !fallbackId) return;
+    const strId = targetId ? (targetId?._id || targetId)?.toString() : null;
+    const strFallback = fallbackId
+      ? (fallbackId?._id || fallbackId)?.toString()
+      : null;
     const current = get().blockedContacts || [];
-    const next = current.filter((id) => id !== strId);
+    const next = current.filter((id) => id !== strId && id !== strFallback);
     try {
       localStorage.setItem("whatsapp_blocked_contacts", JSON.stringify(next));
     } catch (e) {}
     set({ blockedContacts: next });
+    try {
+      await axiosInstance.post("/chat/unblock-user", {
+        targetUserId: strId || strFallback,
+      });
+    } catch (error) {
+      console.error("unblock-user error:", error);
+    }
   },
   isContactBlocked: (targetId) => {
     if (!targetId) return false;
     const strId = (targetId?._id || targetId)?.toString();
     return Boolean(get().blockedContacts?.includes(strId));
+  },
+  clearChat: async (conversationId, targetUserId = null) => {
+    const state = get();
+    const currentConvId = conversationId || state.currentConversation?._id;
+    const targetId = targetUserId || state.selectedContact?._id;
+
+    const nextCache = new Map(state.messagesCache || new Map());
+    if (currentConvId) nextCache.set(String(currentConvId), []);
+    if (targetId) nextCache.set(String(targetId), []);
+
+    const nextConversationsData = state.conversations?.data?.map((conv) => {
+      const isMatch =
+        (currentConvId && String(conv._id) === String(currentConvId)) ||
+        (targetId &&
+          conv.participants?.some(
+            (p) => String(p?._id || p) === String(targetId),
+          ));
+      if (isMatch) {
+        return {
+          ...conv,
+          lastMessage: null,
+          unreadCount: 0,
+        };
+      }
+      return conv;
+    });
+
+    set({
+      messages: [],
+      messagesCache: nextCache,
+      conversations: state.conversations
+        ? { ...state.conversations, data: nextConversationsData }
+        : state.conversations,
+    });
+
+    try {
+      await axiosInstance.post("/chat/clear-chat", {
+        conversationId: currentConvId,
+        targetUserId: targetId,
+      });
+    } catch (error) {
+      console.error("clearChat error:", error);
+    }
+  },
+  deleteChat: async (conversationId, targetUserId = null) => {
+    const state = get();
+    const currentConvId = conversationId || state.currentConversation?._id;
+    const targetId = targetUserId || state.selectedContact?._id;
+
+    const nextCache = new Map(state.messagesCache || new Map());
+    if (currentConvId) nextCache.delete(String(currentConvId));
+    if (targetId) nextCache.delete(String(targetId));
+
+    const nextConversationsData = (state.conversations?.data || []).filter(
+      (conv) => {
+        const isMatch =
+          (currentConvId && String(conv._id) === String(currentConvId)) ||
+          (targetId &&
+            conv.participants?.some(
+              (p) => String(p?._id || p) === String(targetId),
+            ));
+        return !isMatch;
+      },
+    );
+
+    set({
+      messages: [],
+      messagesCache: nextCache,
+      currentConversation: null,
+      conversations: {
+        ...state.conversations,
+        data: nextConversationsData,
+      },
+    });
+
+    try {
+      useLayoutStore.getState().setSelectedContact(null);
+    } catch (e) {}
+
+    try {
+      await axiosInstance.post("/chat/delete-chat", {
+        conversationId: currentConvId,
+        targetUserId: targetId,
+      });
+    } catch (error) {
+      console.error("deleteChat error:", error);
+    }
+  },
+  updateConversationDisappearing: (targetIds, duration, setBy, updatedAt) => {
+    const idsSet = new Set((targetIds || []).map(String));
+    const effectiveTime = updatedAt || new Date().toISOString();
+    set((state) => {
+      const nextData = state.conversations?.data?.map((conv) => {
+        const cId = String(conv._id);
+        const matches =
+          idsSet.has(cId) ||
+          conv.participants?.some((p) => idsSet.has(String(p?._id || p)));
+        if (matches) {
+          return {
+            ...conv,
+            disappearingDuration: duration,
+            disappearingSetBy: setBy,
+            disappearingUpdatedAt: effectiveTime,
+          };
+        }
+        return conv;
+      });
+      return {
+        conversations: state.conversations
+          ? { ...state.conversations, data: nextData }
+          : state.conversations,
+      };
+    });
   },
   pinMessage: async (
     conversationId,
@@ -254,6 +458,8 @@ export const useChatStore = create((set, get) => ({
     receiverId = null,
     emitSocket = true,
     pinnedBy = null,
+    pinnedAtParam = null,
+    expiresAtParam = null,
   ) => {
     if (!conversationId && !secondaryId && !receiverId) return;
     if (!message) return;
@@ -270,18 +476,37 @@ export const useChatStore = create((set, get) => ({
       );
     }
 
-    const pinnedAt = Date.now();
+    const pinnedAt = pinnedAtParam
+      ? new Date(pinnedAtParam).getTime()
+      : Date.now();
     let durationMs = 7 * 24 * 60 * 60 * 1000;
     if (duration === "24 hours") durationMs = 24 * 60 * 60 * 1000;
     if (duration === "30 days") durationMs = 30 * 24 * 60 * 60 * 1000;
-    const expiresAt = pinnedAt + durationMs;
+    const expiresAt = expiresAtParam
+      ? new Date(expiresAtParam).getTime()
+      : pinnedAt + durationMs;
+
+    const user = useUserStore.getState()?.user;
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const effectivePinnedBy =
+      pinnedBy && typeof pinnedBy === "object"
+        ? pinnedBy
+        : pinnedBy && pinnedBy.toString() !== currentUserId
+          ? pinnedBy
+          : user
+            ? {
+                _id: currentUserId,
+                username: user.username,
+                profilePicture: user.profilePicture,
+              }
+            : currentUserId;
 
     const pinData = {
-      message: finalMessage,
+      message: finalMessage || message,
       duration,
       pinnedAt,
       expiresAt,
-      pinnedBy: pinnedBy || useUserStore.getState()?.user?._id,
+      pinnedBy: effectivePinnedBy,
     };
 
     const newPinned = {
@@ -294,14 +519,21 @@ export const useChatStore = create((set, get) => ({
       if (str) newPinned[str] = pinData;
     };
 
+    const senderId = (message?.sender?._id || message?.sender)?.toString();
+    const receiverIdStr = (
+      message?.receiver?._id || message?.receiver
+    )?.toString();
+    const otherUserId = senderId === currentUserId ? receiverIdStr : senderId;
+
     addKey(conversationId);
     addKey(secondaryId);
     addKey(receiverId);
-    addKey(pinnedBy);
+    addKey(otherUserId);
+    addKey(senderId);
+    addKey(receiverIdStr);
+    addKey(effectivePinnedBy);
     addKey(message?.conversationId);
     addKey(message?.conversation?._id || message?.conversation);
-    addKey(message?.sender?._id || message?.sender);
-    addKey(message?.receiver?._id || message?.receiver);
 
     try {
       localStorage.setItem(
@@ -321,23 +553,38 @@ export const useChatStore = create((set, get) => ({
                 conversationId?._id || conversationId
               )?.toString();
               const secTarget = (secondaryId?._id || secondaryId)?.toString();
+              const recTarget = (receiverId?._id || receiverId)?.toString();
               const msgConvId = (
                 message?.conversation?._id ||
                 message?.conversation ||
                 message?.conversationId
               )?.toString();
+
+              const matchesParticipant = conv.participants?.some((p) => {
+                const pid = (p?._id || p)?.toString();
+                return (
+                  pid === secTarget ||
+                  pid === recTarget ||
+                  pid === senderId ||
+                  pid === receiverIdStr
+                );
+              });
+
               if (
                 cId &&
-                (cId === convTarget || cId === secTarget || cId === msgConvId)
+                (cId === convTarget ||
+                  cId === secTarget ||
+                  cId === msgConvId ||
+                  matchesParticipant)
               ) {
                 return {
                   ...conv,
                   pinnedMessage: {
-                    message: message._id || message,
+                    message: finalMessage || message,
                     duration,
                     pinnedAt: new Date(pinnedAt),
                     expiresAt: new Date(expiresAt),
-                    pinnedBy: pinData.pinnedBy,
+                    pinnedBy: effectivePinnedBy,
                   },
                 };
               }
@@ -346,6 +593,33 @@ export const useChatStore = create((set, get) => ({
           }
         : state.conversations,
     }));
+
+    try {
+      const layout = useLayoutStore.getState();
+      const sel = layout.selectedContact;
+      if (sel) {
+        const selConvId = String(
+          sel.conversation?._id || sel.conversation || "",
+        );
+        const selUserId = String(sel._id || "");
+        const convTarget = (conversationId?._id || conversationId)?.toString();
+        const secTarget = (secondaryId?._id || secondaryId)?.toString();
+        const recTarget = (receiverId?._id || receiverId)?.toString();
+        if (
+          (convTarget && selConvId === convTarget) ||
+          (secTarget && selUserId === secTarget) ||
+          (recTarget && selUserId === recTarget) ||
+          (otherUserId && selUserId === otherUserId)
+        ) {
+          layout.updateSelectedContact({
+            conversation: {
+              ...(typeof sel.conversation === "object" ? sel.conversation : {}),
+              pinnedMessage: pinData,
+            },
+          });
+        }
+      }
+    } catch (e) {}
 
     if (emitSocket) {
       const socket = getSocket();
@@ -361,9 +635,15 @@ export const useChatStore = create((set, get) => ({
 
         socket.emit("pin_message", {
           conversationId: (conversationId?._id || conversationId)?.toString(),
-          message,
+          message: finalMessage || message,
           duration,
-          pinnedBy: currentUserId,
+          pinnedBy: user
+            ? {
+                _id: currentUserId,
+                username: user.username,
+                profilePicture: user.profilePicture,
+              }
+            : currentUserId,
           receiverId: (targetReceiverId?._id || targetReceiverId)?.toString(),
           secondaryId: (secondaryId?._id || secondaryId)?.toString(),
         });
@@ -447,6 +727,24 @@ export const useChatStore = create((set, get) => ({
         : state.conversations,
     }));
 
+    try {
+      const layout = useLayoutStore.getState();
+      const sel = layout.selectedContact;
+      if (sel) {
+        const selConvId = String(
+          sel.conversation?._id || sel.conversation || "",
+        );
+        const selUserId = String(sel._id || "");
+        if (keysToRemove.has(selConvId) || keysToRemove.has(selUserId)) {
+          const nextConv = {
+            ...(typeof sel.conversation === "object" ? sel.conversation : {}),
+          };
+          delete nextConv.pinnedMessage;
+          layout.updateSelectedContact({ conversation: nextConv });
+        }
+      }
+    } catch (e) {}
+
     if (emitSocket) {
       const socket = getSocket();
       if (socket) {
@@ -462,16 +760,20 @@ export const useChatStore = create((set, get) => ({
     }
   },
   scrollPositions: {},
-  saveScrollPosition: (id, pos) => {
-    if (!id || !pos) return;
-    const strId = (id?._id || id)?.toString();
-    if (!strId) return;
-    set((state) => ({
-      scrollPositions: {
-        ...state.scrollPositions,
-        [strId]: pos,
-      },
-    }));
+  saveScrollPosition: (idOrIds, pos) => {
+    if (!idOrIds || !pos) return;
+    const ids = (Array.isArray(idOrIds) ? idOrIds : [idOrIds])
+      .map((item) => (item?._id || item)?.toString())
+      .filter(Boolean);
+    if (ids.length === 0) return;
+
+    set((state) => {
+      const nextPositions = { ...state.scrollPositions };
+      for (const id of ids) {
+        nextPositions[id] = pos;
+      }
+      return { scrollPositions: nextPositions };
+    });
   },
 
   initSocketListener: () => {
@@ -491,6 +793,12 @@ export const useChatStore = create((set, get) => ({
     socket.off("message_status_update_bulk");
     socket.off("message_pinned");
     socket.off("message_unpinned");
+    socket.off("user_blocked");
+    socket.off("user_unblocked");
+    socket.off("chat_cleared");
+    socket.off("chat_deleted");
+
+    get().fetchBlockedUsers();
 
     socket.on("message_pinned", async (data) => {
       if (!data) return;
@@ -501,6 +809,8 @@ export const useChatStore = create((set, get) => ({
         secondaryId,
         receiverId,
         pinnedBy,
+        pinnedAt,
+        expiresAt,
       } = data;
       let decMsg = message;
       if (decMsg?.isEncrypted && !decMsg?._isDecrypted) {
@@ -517,6 +827,8 @@ export const useChatStore = create((set, get) => ({
         receiverId,
         false,
         pinnedBy,
+        pinnedAt,
+        expiresAt,
       );
     });
 
@@ -534,15 +846,112 @@ export const useChatStore = create((set, get) => ({
 
     socket.on("disappearing_update", (data) => {
       if (!data) return;
-      const { chatId, conversationId, duration, event } = data;
-      const id = chatId || conversationId;
-      if (id && event) {
-        useLayoutStore.getState().receiveDisappearingEvent(id, duration, event);
+      const {
+        chatId,
+        conversationId,
+        secondaryId,
+        receiverId,
+        duration,
+        event,
+        setBy,
+      } = data;
+      const layout = useLayoutStore.getState();
+
+      const allTargetIds = new Set(
+        [chatId, conversationId, secondaryId, receiverId]
+          .filter(Boolean)
+          .map(String),
+      );
+
+      allTargetIds.forEach((id) => {
+        if (event) {
+          layout.receiveDisappearingEvent(id, duration, event);
+        }
+      });
+
+      set((state) => {
+        const nextData = state.conversations?.data?.map((conv) => {
+          const cId = String(conv._id);
+          const matches =
+            allTargetIds.has(cId) ||
+            conv.participants?.some((p) =>
+              allTargetIds.has(String(p?._id || p)),
+            );
+          if (matches) {
+            return {
+              ...conv,
+              disappearingDuration: duration,
+              disappearingSetBy: setBy,
+              disappearingUpdatedAt:
+                event?.createdAt || new Date().toISOString(),
+            };
+          }
+          return conv;
+        });
+
+        return {
+          conversations: state.conversations
+            ? { ...state.conversations, data: nextData }
+            : state.conversations,
+        };
+      });
+
+      const sel = layout.selectedContact;
+      if (sel) {
+        const selConvId = String(
+          sel.conversation?._id || sel.conversation || "",
+        );
+        const selUserId = String(sel._id || "");
+        if (allTargetIds.has(selConvId) || allTargetIds.has(selUserId)) {
+          layout.updateSelectedContact({
+            conversation: {
+              ...(typeof sel.conversation === "object" ? sel.conversation : {}),
+              disappearingDuration: duration,
+              disappearingSetBy: setBy,
+              disappearingUpdatedAt:
+                event?.createdAt || new Date().toISOString(),
+            },
+          });
+        }
       }
     });
 
     socket.on("receive_message", (message) => {
       get().receiveMessage(message);
+    });
+
+    socket.on("user_blocked", ({ blockedUserId, blockedBy }) => {
+      const myId = useUserStore.getState().user?._id?.toString();
+      if (myId && String(blockedBy) === String(myId)) {
+        const strId = String(blockedUserId);
+        const current = get().blockedContacts || [];
+        if (!current.includes(strId)) {
+          const next = [...current, strId];
+          try {
+            localStorage.setItem(
+              "whatsapp_blocked_contacts",
+              JSON.stringify(next),
+            );
+          } catch (e) {}
+          set({ blockedContacts: next });
+        }
+      }
+    });
+
+    socket.on("user_unblocked", ({ unblockedUserId, unblockedBy }) => {
+      const myId = useUserStore.getState().user?._id?.toString();
+      if (myId && String(unblockedBy) === String(myId)) {
+        const strId = String(unblockedUserId);
+        const current = get().blockedContacts || [];
+        const next = current.filter((id) => id !== strId);
+        try {
+          localStorage.setItem(
+            "whatsapp_blocked_contacts",
+            JSON.stringify(next),
+          );
+        } catch (e) {}
+        set({ blockedContacts: next });
+      }
     });
 
     const handleStatusBulk = (ids, status, extraData = {}) => {
@@ -710,28 +1119,76 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
-    socket.on("poll_update", ({ messageId, pollData }) => {
-      set((state) => {
-        const nextMessages = state.messages.map((msg) =>
-          msg._id === messageId ? { ...msg, pollData } : msg,
-        );
-        const nextCache = state.currentConversation?._id
-          ? syncMessagesCache(
-              state.messagesCache,
-              state.currentConversation._id,
-              nextMessages,
-            )
-          : state.messagesCache;
-        return { messages: nextMessages, messagesCache: nextCache };
-      });
-    });
+    socket.on(
+      "poll_update",
+      ({ messageId, pollData, messageStatus, readAt, deliveredAt }) => {
+        set((state) => {
+          const nextMessages = state.messages.map((msg) =>
+            msg._id === messageId
+              ? {
+                  ...msg,
+                  pollData,
+                  ...(messageStatus
+                    ? { messageStatus, readAt, deliveredAt }
+                    : {}),
+                }
+              : msg,
+          );
+          const nextCache = state.currentConversation?._id
+            ? syncMessagesCache(
+                state.messagesCache,
+                state.currentConversation._id,
+                nextMessages,
+              )
+            : state.messagesCache;
+
+          let convsChanged = false;
+          const nextConversationsData = state.conversations?.data?.map(
+            (conv) => {
+              const lastMsgId = (
+                conv.lastMessage?._id || conv.lastMessage
+              )?.toString();
+              if (lastMsgId === messageId) {
+                convsChanged = true;
+                return {
+                  ...conv,
+                  lastMessage: {
+                    ...conv.lastMessage,
+                    pollData,
+                    ...(messageStatus
+                      ? { messageStatus, readAt, deliveredAt }
+                      : {}),
+                  },
+                };
+              }
+              return conv;
+            },
+          );
+
+          return {
+            messages: nextMessages,
+            messagesCache: nextCache,
+            conversations: convsChanged
+              ? { ...state.conversations, data: nextConversationsData }
+              : state.conversations,
+          };
+        });
+      },
+    );
 
     socket.on(
       "message_deleted",
-      async ({ deletedMessageId, conversationId, lastMessage }) => {
+      async ({
+        deletedMessageId,
+        conversationId,
+        lastMessage,
+        deletedForEveryone,
+        updatedMessage,
+        isDisappearingExpiry,
+      }) => {
         const currentUserId = (
           get().currentUser || useUserStore.getState().user
-        )?._id;
+        )?._id?.toString();
         const selectedContact = useLayoutStore.getState()?.selectedContact;
         let decryptedLast = lastMessage;
 
@@ -749,9 +1206,37 @@ export const useChatStore = create((set, get) => ({
         }
 
         set((state) => {
-          const updatedMessages = state.messages.filter(
-            (msg) => msg._id !== deletedMessageId,
-          );
+          let updatedMessages;
+          if (deletedForEveryone && !isDisappearingExpiry) {
+            updatedMessages = (state.messages || []).map((msg) => {
+              if (String(msg._id) === String(deletedMessageId)) {
+                const sId = String(msg.sender?._id || msg.sender || "");
+                const isMe = currentUserId && sId === currentUserId;
+                return {
+                  ...msg,
+                  ...(updatedMessage || {}),
+                  deletedForEveryone: true,
+                  content: isMe
+                    ? "You deleted this message"
+                    : "This message was deleted",
+                  isEncrypted: false,
+                  imageOrVideoUrl: null,
+                  fileName: null,
+                  fileSize: null,
+                  pollData: null,
+                  contactData: null,
+                  eventData: null,
+                  reactions: [],
+                  edited: false,
+                };
+              }
+              return msg;
+            });
+          } else {
+            updatedMessages = (state.messages || []).filter(
+              (msg) => String(msg._id) !== String(deletedMessageId),
+            );
+          }
 
           let finalLastMessage = decryptedLast;
           if (
@@ -766,10 +1251,36 @@ export const useChatStore = create((set, get) => ({
           if (conversationId) {
             const cached = cache.get(String(conversationId));
             if (cached) {
-              cache.set(
-                String(conversationId),
-                cached.filter((m) => m._id !== deletedMessageId),
-              );
+              const updatedCached =
+                deletedForEveryone && !isDisappearingExpiry
+                  ? cached.map((m) => {
+                      if (String(m._id) === String(deletedMessageId)) {
+                        const sId = String(m.sender?._id || m.sender || "");
+                        const isMe = currentUserId && sId === currentUserId;
+                        return {
+                          ...m,
+                          ...(updatedMessage || {}),
+                          deletedForEveryone: true,
+                          content: isMe
+                            ? "You deleted this message"
+                            : "This message was deleted",
+                          isEncrypted: false,
+                          imageOrVideoUrl: null,
+                          fileName: null,
+                          fileSize: null,
+                          pollData: null,
+                          contactData: null,
+                          eventData: null,
+                          reactions: [],
+                          edited: false,
+                        };
+                      }
+                      return m;
+                    })
+                  : cached.filter(
+                      (m) => String(m._id) !== String(deletedMessageId),
+                    );
+              cache.set(String(conversationId), updatedCached);
             }
           }
 
@@ -856,6 +1367,8 @@ export const useChatStore = create((set, get) => ({
         pinnedBy,
         secondaryId,
         receiverId,
+        pinnedAt,
+        expiresAt,
       }) => {
         get().pinMessage(
           conversationId,
@@ -865,6 +1378,8 @@ export const useChatStore = create((set, get) => ({
           receiverId,
           false,
           pinnedBy,
+          pinnedAt,
+          expiresAt,
         );
       },
     );
@@ -881,6 +1396,93 @@ export const useChatStore = create((set, get) => ({
         );
       },
     );
+
+    socket.on("chat_cleared", ({ conversationId, targetUserId }) => {
+      set((state) => {
+        const isCurrent =
+          (conversationId &&
+            String(state.currentConversation?._id) ===
+              String(conversationId)) ||
+          (targetUserId &&
+            state.currentConversation?.participants?.some(
+              (p) => String(p?._id || p) === String(targetUserId),
+            ));
+
+        const nextCache = new Map(state.messagesCache || new Map());
+        if (conversationId) nextCache.set(String(conversationId), []);
+        if (targetUserId) nextCache.set(String(targetUserId), []);
+
+        const nextConversationsData = state.conversations?.data?.map((conv) => {
+          const isMatch =
+            (conversationId && String(conv._id) === String(conversationId)) ||
+            (targetUserId &&
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(targetUserId),
+              ));
+          if (isMatch) {
+            return {
+              ...conv,
+              lastMessage: null,
+              unreadCount: 0,
+            };
+          }
+          return conv;
+        });
+
+        return {
+          messages: isCurrent ? [] : state.messages,
+          messagesCache: nextCache,
+          conversations: state.conversations
+            ? { ...state.conversations, data: nextConversationsData }
+            : state.conversations,
+        };
+      });
+    });
+
+    socket.on("chat_deleted", ({ conversationId, targetUserId }) => {
+      set((state) => {
+        const isCurrent =
+          (conversationId &&
+            String(state.currentConversation?._id) ===
+              String(conversationId)) ||
+          (targetUserId &&
+            state.currentConversation?.participants?.some(
+              (p) => String(p?._id || p) === String(targetUserId),
+            ));
+
+        const nextCache = new Map(state.messagesCache || new Map());
+        if (conversationId) nextCache.delete(String(conversationId));
+        if (targetUserId) nextCache.delete(String(targetUserId));
+
+        const nextConversationsData = (state.conversations?.data || []).filter(
+          (conv) => {
+            const isMatch =
+              (conversationId && String(conv._id) === String(conversationId)) ||
+              (targetUserId &&
+                conv.participants?.some(
+                  (p) => String(p?._id || p) === String(targetUserId),
+                ));
+            return !isMatch;
+          },
+        );
+
+        if (isCurrent) {
+          try {
+            useLayoutStore.getState().setSelectedContact(null);
+          } catch (e) {}
+        }
+
+        return {
+          messages: isCurrent ? [] : state.messages,
+          messagesCache: nextCache,
+          currentConversation: isCurrent ? null : state.currentConversation,
+          conversations: {
+            ...state.conversations,
+            data: nextConversationsData,
+          },
+        };
+      });
+    });
     const { conversations } = get();
 
     if (conversations?.data?.length > 0) {
@@ -965,8 +1567,16 @@ export const useChatStore = create((set, get) => ({
         convData = { ...data, data: decryptedList };
 
         const syncedPins = { ...get().pinnedMessages };
-        let hasNewPins = false;
+        const dbDisappearingDurations = {};
+        const dbDisappearingEvents = {};
+
         decryptedList.forEach((conv) => {
+          const cId = conv._id ? conv._id.toString() : null;
+          const peer = conv.participants?.find(
+            (p) => (p._id || p)?.toString() !== currentUserId?.toString(),
+          );
+          const peerId = (peer?._id || peer)?.toString();
+
           if (conv.pinnedMessage && conv.pinnedMessage.message) {
             const expires = conv.pinnedMessage.expiresAt
               ? new Date(conv.pinnedMessage.expiresAt).getTime()
@@ -981,24 +1591,62 @@ export const useChatStore = create((set, get) => ({
                 expiresAt: expires,
                 pinnedBy: conv.pinnedMessage.pinnedBy,
               };
-              if (conv._id) syncedPins[conv._id.toString()] = pinData;
+              if (cId) syncedPins[cId] = pinData;
+              if (peerId) syncedPins[peerId] = pinData;
               conv.participants?.forEach((p) => {
                 const pid = (p?._id || p)?.toString();
                 if (pid) syncedPins[pid] = pinData;
               });
-              hasNewPins = true;
+            } else {
+              if (cId) delete syncedPins[cId];
+              if (peerId) delete syncedPins[peerId];
             }
+          } else {
+            if (cId) delete syncedPins[cId];
+            if (peerId) delete syncedPins[peerId];
+          }
+
+          const duration = conv.disappearingDuration || "Off";
+          if (cId) dbDisappearingDurations[cId] = duration;
+          if (peerId) dbDisappearingDurations[peerId] = duration;
+
+          if (duration !== "Off") {
+            const initialEvent = {
+              _id: `disp_init_${cId || peerId}`,
+              isDisappearingSystemEvent: true,
+              action: "turned_on",
+              duration,
+              previousDuration: "Off",
+              setBy: conv.disappearingSetBy || null,
+              createdAt:
+                conv.disappearingUpdatedAt ||
+                conv.updatedAt ||
+                new Date().toISOString(),
+              timestamp: new Date(
+                conv.disappearingUpdatedAt || conv.updatedAt || Date.now(),
+              ).getTime(),
+            };
+            if (cId) dbDisappearingEvents[cId] = [initialEvent];
+            if (peerId) dbDisappearingEvents[peerId] = [initialEvent];
           }
         });
-        if (hasNewPins) {
-          try {
-            localStorage.setItem(
-              "whatsapp_pinned_messages",
-              JSON.stringify(syncedPins),
+
+        try {
+          useLayoutStore
+            .getState()
+            .syncDisappearingFromDb(
+              dbDisappearingDurations,
+              dbDisappearingEvents,
             );
-          } catch (e) {}
-          set({ pinnedMessages: syncedPins });
-        }
+        } catch (e) {}
+
+        try {
+          localStorage.setItem(
+            "whatsapp_pinned_messages",
+            JSON.stringify(syncedPins),
+          );
+        } catch (e) {}
+        set({ pinnedMessages: syncedPins });
       }
 
       set({ conversations: convData, loading: false });
@@ -1186,6 +1834,44 @@ export const useChatStore = create((set, get) => ({
       } catch (e) {}
     }
 
+    const layoutState = useLayoutStore.getState?.() || {};
+    const disappearingDurationsMap = layoutState.disappearingDurations || {};
+    const activeDisappearingDuration =
+      (selectedContact?.conversation?.disappearingDuration &&
+        selectedContact.conversation.disappearingDuration !== "Off" &&
+        selectedContact.conversation.disappearingDuration) ||
+      (conversationId &&
+        disappearingDurationsMap[conversationId] !== "Off" &&
+        disappearingDurationsMap[conversationId]) ||
+      (receiverId &&
+        disappearingDurationsMap[receiverId] !== "Off" &&
+        disappearingDurationsMap[receiverId]) ||
+      (layoutState.defaultMessageTimer &&
+        layoutState.defaultMessageTimer !== "Off" &&
+        layoutState.defaultMessageTimer);
+
+    let isDisappearing = false;
+    let disappearingDuration = null;
+    let disappearingExpiresAt = null;
+
+    if (activeDisappearingDuration && activeDisappearingDuration !== "Off") {
+      const durMs = getDisappearingDurationMs(activeDisappearingDuration);
+      if (durMs) {
+        isDisappearing = true;
+        disappearingDuration = activeDisappearingDuration;
+        disappearingExpiresAt = new Date(Date.now() + durMs).toISOString();
+      }
+    }
+
+    if (isDisappearing) {
+      formData.set("isDisappearing", "true");
+      formData.set("disappearingDuration", disappearingDuration);
+      formData.set("disappearingExpiresAt", disappearingExpiresAt);
+    } else {
+      formData.set("isDisappearing", "false");
+      formData.set("disappearingDuration", "Off");
+    }
+
     const optimisticMessage = {
       _id: tempId,
       sender: { _id: senderId },
@@ -1205,9 +1891,13 @@ export const useChatStore = create((set, get) => ({
             : "video"
           : "text"),
       createdAt: new Date().toISOString(),
-      messageStatus,
+      messageStatus: messageStatus || "send",
       replyTo: replyTo || null,
       replyMessage: parsedReplyMessage,
+      isDisappearing,
+      disappearingDuration,
+      disappearingExpiresAt,
+      isKept: false,
     };
 
     set((state) => {
@@ -1221,11 +1911,22 @@ export const useChatStore = create((set, get) => ({
         conversations: {
           ...state.conversations,
           data: state.conversations?.data?.map((conv) => {
-            const isTarget =
-              String(conv._id) === String(conversationId) ||
+            const targetConvId = conversationId ? String(conversationId) : null;
+            const hasSender = Boolean(
+              senderId &&
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(senderId),
+              ),
+            );
+            const hasReceiver = Boolean(
+              receiverId &&
               conv.participants?.some(
                 (p) => String(p?._id || p) === String(receiverId),
-              );
+              ),
+            );
+            const isTarget =
+              Boolean(targetConvId && String(conv._id) === targetConvId) ||
+              Boolean(hasSender && hasReceiver);
             return isTarget
               ? { ...conv, lastMessage: optimisticMessage, unreadCount: 0 }
               : conv;
@@ -1248,11 +1949,17 @@ export const useChatStore = create((set, get) => ({
         ...messageData,
         messageStatus: isAlreadyRead
           ? "read"
-          : messageData.messageStatus || "delivered",
+          : messageData.messageStatus || "send",
         content: rawContentToKeep,
         _isDecrypted: true,
         isEncrypted: messageData.isEncrypted ?? isEncrypted,
         iv: messageData.iv ?? iv,
+        isDisappearing: messageData.isDisappearing ?? isDisappearing,
+        disappearingDuration:
+          messageData.disappearingDuration ?? disappearingDuration,
+        disappearingExpiresAt:
+          messageData.disappearingExpiresAt ?? disappearingExpiresAt,
+        isKept: messageData.isKept ?? false,
       };
 
       const resolvedConvId =
@@ -1273,11 +1980,24 @@ export const useChatStore = create((set, get) => ({
           conversations: {
             ...state.conversations,
             data: state.conversations?.data?.map((conv) => {
-              const isTarget =
-                String(conv._id) === String(resolvedConvId) ||
+              const targetConvId = resolvedConvId
+                ? String(resolvedConvId)
+                : null;
+              const hasSender = Boolean(
+                senderId &&
+                conv.participants?.some(
+                  (p) => String(p?._id || p) === String(senderId),
+                ),
+              );
+              const hasReceiver = Boolean(
+                receiverId &&
                 conv.participants?.some(
                   (p) => String(p?._id || p) === String(receiverId),
-                );
+                ),
+              );
+              const isTarget =
+                Boolean(targetConvId && String(conv._id) === targetConvId) ||
+                Boolean(hasSender && hasReceiver);
               return isTarget
                 ? { ...conv, lastMessage: savedMessage, unreadCount: 0 }
                 : conv;
@@ -1342,7 +2062,8 @@ export const useChatStore = create((set, get) => ({
       ) ||
       Boolean(
         activeContactId &&
-        (senderId === activeContactId || receiverId === activeContactId),
+        ((senderId === activeContactId && receiverId === myId) ||
+          (senderId === myId && receiverId === activeContactId)),
       );
 
     const isForCurrentUser =
@@ -1392,42 +2113,61 @@ export const useChatStore = create((set, get) => ({
       }
     }
 
-    set((state) => ({
-      conversations: {
-        ...state.conversations,
-        data: state.conversations?.data?.map((conv) => {
-          const isTarget =
-            (conversationId && String(conv._id) === String(conversationId)) ||
-            conv.participants?.some(
-              (p) =>
-                String(p?._id || p) === String(senderId) ||
-                String(p?._id || p) === String(receiverId),
+    let foundTarget = false;
+    set((state) => {
+      const targetConvId = conversationId ? String(conversationId) : null;
+      return {
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) => {
+            const hasSender = Boolean(
+              senderId &&
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(senderId),
+              ),
+            );
+            const hasReceiver = Boolean(
+              receiverId &&
+              conv.participants?.some(
+                (p) => String(p?._id || p) === String(receiverId),
+              ),
             );
 
-          if (!isTarget) {
-            return conv;
-          }
+            const isTarget =
+              Boolean(targetConvId && String(conv._id) === targetConvId) ||
+              Boolean(hasSender && hasReceiver);
 
-          let nextUnread = conv.unreadCount || 0;
-          if (isCurrentConversation) {
-            nextUnread = 0;
-          } else if (isForCurrentUser) {
-            nextUnread =
-              typeof decryptedMessage.unreadCount === "number"
-                ? decryptedMessage.unreadCount
-                : (conv.unreadCount || 0) + 1;
-          } else if (isSentByCurrentUser) {
-            nextUnread = 0;
-          }
+            if (!isTarget) {
+              return conv;
+            }
 
-          return {
-            ...conv,
-            lastMessage: decryptedMessage,
-            unreadCount: nextUnread,
-          };
-        }),
-      },
-    }));
+            foundTarget = true;
+
+            let nextUnread = conv.unreadCount || 0;
+            if (isCurrentConversation) {
+              nextUnread = 0;
+            } else if (isForCurrentUser) {
+              nextUnread =
+                typeof decryptedMessage.unreadCount === "number"
+                  ? decryptedMessage.unreadCount
+                  : (conv.unreadCount || 0) + 1;
+            } else if (isSentByCurrentUser) {
+              nextUnread = 0;
+            }
+
+            return {
+              ...conv,
+              lastMessage: decryptedMessage,
+              unreadCount: nextUnread,
+            };
+          }),
+        },
+      };
+    });
+
+    if (!foundTarget) {
+      get().fetchConversations();
+    }
   },
 
   markMessageAsRead: async (explicitIds = null) => {
@@ -1451,6 +2191,7 @@ export const useChatStore = create((set, get) => ({
             const isMatch =
               (activeConvId && String(conv._id) === String(activeConvId)) ||
               (peerId &&
+                peerId !== myId &&
                 conv.participants?.some(
                   (p) => String(p?._id || p) === String(peerId),
                 ));
@@ -1519,6 +2260,7 @@ export const useChatStore = create((set, get) => ({
               const isMatch =
                 (convId && String(conv._id) === String(convId)) ||
                 (peerId &&
+                  peerId !== myId &&
                   conv.participants?.some(
                     (p) => String(p?._id || p) === String(peerId),
                   ));
@@ -1549,28 +2291,52 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  deleteMessage: async (messageId, deleteFor) => {
+  deleteMessage: async (messageId, deleteFor, options = {}) => {
     try {
       const { data } = await axiosInstance.delete(
         `/chat/messages/${messageId}`,
         {
-          data: { deleteFor },
+          data: { deleteFor, deleteMedia: true, ...options },
         },
       );
 
       const state = get();
       const currentConversationId = state.currentConversation?._id;
-      const remainingMessages = (state.messages || []).filter(
-        (msg) => msg?._id !== messageId,
-      );
+      const currentUserId = (
+        state.currentUser || useUserStore.getState().user
+      )?._id?.toString();
+
+      let nextMessages;
+      if (deleteFor === "everyone") {
+        nextMessages = (state.messages || []).map((msg) => {
+          if (String(msg?._id) === String(messageId)) {
+            return {
+              ...msg,
+              deletedForEveryone: true,
+              content: "You deleted this message",
+              isEncrypted: false,
+              imageOrVideoUrl: null,
+              fileName: null,
+              fileSize: null,
+              pollData: null,
+              contactData: null,
+              eventData: null,
+              reactions: [],
+              edited: false,
+            };
+          }
+          return msg;
+        });
+      } else {
+        nextMessages = (state.messages || []).filter(
+          (msg) => String(msg?._id) !== String(messageId),
+        );
+      }
+
       const previousMsg =
-        remainingMessages.length > 0
-          ? remainingMessages[remainingMessages.length - 1]
-          : null;
+        nextMessages.length > 0 ? nextMessages[nextMessages.length - 1] : null;
 
       const serverLastMsg = data?.data?.lastMessage || data?.lastMessage;
-      const currentUserId = (state.currentUser || useUserStore.getState().user)
-        ?._id;
       const selectedContact = useLayoutStore.getState()?.selectedContact;
 
       let decryptedServerLast = serverLastMsg;
@@ -1613,12 +2379,12 @@ export const useChatStore = create((set, get) => ({
           ? syncMessagesCache(
               currentState.messagesCache,
               currentConversationId,
-              remainingMessages,
+              nextMessages,
             )
           : currentState.messagesCache;
 
         return {
-          messages: remainingMessages,
+          messages: nextMessages,
           messagesCache: nextCache,
           conversations: currentState.conversations
             ? {
@@ -1903,5 +2669,14 @@ export const useChatStore = create((set, get) => ({
     });
   },
 }));
+
+if (typeof useUserStore?.subscribe === "function") {
+  useUserStore.subscribe((state) => {
+    const currentChatUser = useChatStore.getState().currentUser;
+    if (currentChatUser !== state.user) {
+      useChatStore.setState({ currentUser: state.user });
+    }
+  });
+}
 
 export default useChatStore;

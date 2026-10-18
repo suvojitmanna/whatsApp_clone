@@ -4,7 +4,10 @@ const otpGenerate = require("../utils/otpGenerator");
 const response = require("../utils/responseHandeler");
 const twilloService = require("../services/twilloService.js");
 const generateToken = require("../utils/generateToken.js");
-const { uploadFileToCloudinary } = require("../config/cloudinary.js");
+const {
+  uploadFileToCloudinary,
+  deleteFileFromCloudinary,
+} = require("../config/cloudinary.js");
 const Conversation = require("../models/ConverSation.js");
 const Message = require("../models/message.js");
 const mongoose = require("mongoose");
@@ -129,11 +132,30 @@ const updateProfile = async (req, res) => {
       return response(res, 404, "User not found");
     }
     const file = req.file;
+    const oldPic = user.profilePicture;
     if (file) {
       const uploadResult = await uploadFileToCloudinary(file);
       user.profilePicture = uploadResult.secure_url;
-    } else if (req.body.profilePicture) {
+      if (
+        oldPic &&
+        oldPic !== user.profilePicture &&
+        oldPic.includes("cloudinary.com")
+      ) {
+        deleteFileFromCloudinary(oldPic).catch((e) =>
+          console.error("Cloudinary old avatar delete error:", e),
+        );
+      }
+    } else if (req.body.profilePicture !== undefined) {
       user.profilePicture = req.body.profilePicture;
+      if (
+        oldPic &&
+        oldPic !== user.profilePicture &&
+        oldPic.includes("cloudinary.com")
+      ) {
+        deleteFileFromCloudinary(oldPic).catch((e) =>
+          console.error("Cloudinary old avatar delete error:", e),
+        );
+      }
     }
     if (username !== undefined) {
       user.username = username;
@@ -227,12 +249,22 @@ const getAllUsers = async (req, res) => {
 
     const conversations = await Conversation.find({
       participants: { $in: [loggedInUserId] },
+      deletedFor: { $ne: loggedInUserId },
     })
       .populate({
         path: "lastMessage",
         select:
-          "content sender receiver createdAt isEncrypted iv contentType imageOrVideoUrl fileName fileSize pollData contactData eventData edited editedAt",
+          "content sender receiver createdAt isEncrypted iv contentType imageOrVideoUrl fileName fileSize pollData contactData eventData edited editedAt deletedFor",
       })
+      .populate({
+        path: "pinnedMessage.message",
+        populate: {
+          path: "sender receiver",
+          select: "username profilePicture email phoneNumber publicKey",
+        },
+      })
+      .populate("pinnedMessage.pinnedBy", "username profilePicture")
+      .populate("disappearingSetBy", "username profilePicture")
       .lean();
     const conversationMap = {};
 
@@ -259,6 +291,15 @@ const getAllUsers = async (req, res) => {
 
     conversations.forEach((conv) => {
       conv.unreadCount = unreadMap.get(conv._id.toString()) || 0;
+      if (
+        conv.lastMessage &&
+        Array.isArray(conv.lastMessage.deletedFor) &&
+        conv.lastMessage.deletedFor.some(
+          (d) => d.toString() === loggedInUserId.toString(),
+        )
+      ) {
+        conv.lastMessage = null;
+      }
       const otherUserId = conv.participants.find(
         (id) => id.toString() !== loggedInUserId.toString(),
       );

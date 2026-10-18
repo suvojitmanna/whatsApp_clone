@@ -179,11 +179,29 @@ export const CHAT_THEMES = [
 
 export const CURATED_THEME_IDS = [
   "default",
+  "emerald_doodles",
   "midnight_blue",
-  "dark_slate",
   "hologram",
   "blush_floral",
   "amber_silk",
+  "cobalt_doodles",
+  "dark_slate",
+  "dark_cyan",
+  "amber_silk",
+  "nature_alpine_lake",
+  "nature_waterfall",
+  "indigo_doodles",
+  "plum_doodles",
+  "teal_doodles",
+  "forest_moss",
+  "nature_aurora",
+  "nature_misty_forest",
+  "terracotta_doodles",
+  "sky_doodles",
+  "dark_violet",
+  "crimson_velvet",
+  "midnight_gold",
+  "nature_starry_galaxy",
 ];
 
 export const NATURE_WALLPAPERS = [
@@ -708,43 +726,36 @@ export const getChatTheme = (themeId) => {
 };
 
 export const CHAT_BUBBLE_COLORS = [
-  // Row 1
   { id: "bubble_whatsapp_green", name: "WhatsApp Green", color: "#1c7b56" },
   { id: "bubble_deep_forest", name: "Deep Forest", color: "#144e37" },
   { id: "bubble_indigo_purple", name: "Indigo Purple", color: "#4336a5" },
   { id: "bubble_navy_slate", name: "Navy Slate", color: "#2a325d" },
 
-  // Row 2
   { id: "bubble_magenta_violet", name: "Magenta Violet", color: "#7d3184" },
   { id: "bubble_deep_plum", name: "Deep Plum", color: "#4b2354" },
   { id: "bubble_terracotta_rust", name: "Terracotta Rust", color: "#8d4224" },
   { id: "bubble_deep_brown", name: "Deep Brown", color: "#4c2c24" },
 
-  // Row 3
   { id: "bubble_teal", name: "Teal", color: "#0d7667" },
   { id: "bubble_dark_teal", name: "Dark Teal", color: "#164a45" },
   { id: "bubble_royal_blue", name: "Royal Blue", color: "#125db3" },
   { id: "bubble_deep_royal_blue", name: "Deep Royal Blue", color: "#153e66" },
 
-  // Row 4
   { id: "bubble_ocean_blue", name: "Ocean Blue", color: "#15639b" },
   { id: "bubble_deep_ocean", name: "Deep Ocean", color: "#10405c" },
   { id: "bubble_olive_green", name: "Olive Green", color: "#4b6146" },
   { id: "bubble_dark_olive", name: "Dark Olive", color: "#2d3a2a" },
 
-  // Row 5
   { id: "bubble_crimson_berry", name: "Crimson Berry", color: "#8d1a37" },
   { id: "bubble_deep_maroon", name: "Deep Maroon", color: "#531826" },
   { id: "bubble_slate_gray", name: "Slate Gray", color: "#575a5e" },
   { id: "bubble_dark_charcoal", name: "Dark Charcoal", color: "#383a3b" },
 
-  // Row 6
   { id: "bubble_cobalt_blue", name: "Cobalt Blue", color: "#14559f" },
   { id: "bubble_midnight_navy", name: "Midnight Navy", color: "#123659" },
   { id: "bubble_medium_gray", name: "Medium Gray", color: "#56595d" },
   { id: "bubble_dark_graphite", name: "Dark Graphite", color: "#373839" },
 
-  // Row 7
   { id: "bubble_peacock_cyan", name: "Peacock Cyan", color: "#0c6585" },
   { id: "bubble_deep_cyan", name: "Deep Cyan", color: "#103e4e" },
   { id: "bubble_warm_bronze", name: "Warm Bronze", color: "#6f482d" },

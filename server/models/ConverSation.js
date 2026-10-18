@@ -11,6 +11,23 @@ const conversationSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    deletedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    disappearingDuration: {
+      type: String,
+      default: "Off",
+    },
+    disappearingSetBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    disappearingUpdatedAt: {
+      type: Date,
+    },
     pinnedMessage: {
       message: {
         type: mongoose.Schema.Types.ObjectId,

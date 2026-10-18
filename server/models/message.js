@@ -27,9 +27,21 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    blockedDelivery: {
+      type: Boolean,
+      default: false,
+    },
 
     content: String,
     imageOrVideoUrl: String,
+    mediaPublicId: {
+      type: String,
+      default: null,
+    },
+    mediaResourceType: {
+      type: String,
+      default: null,
+    },
 
     contentType: {
       type: String,
@@ -131,12 +143,29 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
+    isDisappearing: {
+      type: Boolean,
+      default: false,
+    },
+    disappearingDuration: {
+      type: String,
+      default: null,
+    },
+    disappearingExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    isKept: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );
 
 messageSchema.index({ conversation: 1, createdAt: 1 });
 messageSchema.index({ conversation: 1, receiver: 1, messageStatus: 1 });
+messageSchema.index({ conversation: 1, disappearingExpiresAt: 1 });
 
 module.exports =
   mongoose.models.Message || mongoose.model("Message", messageSchema);

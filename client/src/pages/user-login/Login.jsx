@@ -24,6 +24,7 @@ import {
   verifyOtp,
 } from "../../services/url.services.js";
 import { checkUserAuth } from "../../services/user.services.js";
+import { avatars } from "../../assets/rawData.js";
 
 const loginValidationsSchema = yup
   .object()
@@ -65,17 +66,8 @@ const profileValidationSchema = yup.object().shape({
   agreed: yup.bool().oneOf([true], "you must agree to the terms"),
 });
 
-const avatars = [
-  "https://api.dicebear.com/6.x/avataaars/svg?seed=Felix",
-  "https://api.dicebear.com/6.x/avataaars/svg?seed=Aneka",
-  "https://api.dicebear.com/6.x/avataaars/svg?seed=Mimi",
-  "https://api.dicebear.com/6.x/avataaars/svg?seed=Jasper",
-  "https://api.dicebear.com/6.x/avataaars/svg?seed=Luna",
-  "https://api.dicebear.com/6.x/avataaars/svg?seed=Zoe",
-];
-
 const Login = () => {
-  const { step, setStep, userPhoneData, setUserPhoneData, resetLoginStates } =
+  const { step, setStep, userPhoneData, setUserPhoneData } =
     useLoginStore();
 
   const [phoneNumber, setPhoneNumber] = useState("");

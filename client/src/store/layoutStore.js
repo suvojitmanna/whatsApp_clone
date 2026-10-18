@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { getSocket } from "../services/chatService";
+import axiosInstance from "../services/url.services";
 
 if (typeof window !== "undefined") {
   try {
@@ -24,6 +26,21 @@ const useLayoutStore = create(
       selectedPollMessageId: null,
       isChatSearchOpen: false,
       setIsChatSearchOpen: (val) => set({ isChatSearchOpen: val }),
+
+      isMediaModalOpen: false,
+      mediaModalScope: "all",
+      mediaModalContact: null,
+      mediaModalChatId: null,
+      mediaModalInitialTab: "media",
+      openMediaModal: (options = {}) =>
+        set({
+          isMediaModalOpen: true,
+          mediaModalScope: options.scope || "all",
+          mediaModalContact: options.contact || null,
+          mediaModalChatId: options.chatId || null,
+          mediaModalInitialTab: options.initialTab || "media",
+        }),
+      closeMediaModal: () => set({ isMediaModalOpen: false }),
 
       selectedMessageInfo: null,
       setSelectedMessageInfo: (message) =>
@@ -142,6 +159,9 @@ const useLayoutStore = create(
             ...state.lastDisappearingActions,
             [chatId]: { duration, timestamp: Date.now() },
           };
+          const nextEvents = {
+            ...state.disappearingEvents,
+          };
 
           const prevEvents = state.disappearingEvents?.[chatId] || [];
           const baselineEvents =
@@ -181,10 +201,28 @@ const useLayoutStore = create(
             timestamp: Date.now(),
           };
 
-          const nextEvents = {
-            ...state.disappearingEvents,
-            [chatId]: [...baselineEvents, newEvent],
-          };
+          const selContact = state.selectedContact;
+          const convId = (
+            selContact?.conversation?._id ||
+            (typeof selContact?.conversation === "string"
+              ? selContact.conversation
+              : null)
+          )?.toString();
+          const receiverId = selContact?._id?.toString();
+
+          const allKeys = new Set(
+            [chatId, convId, receiverId].filter(Boolean).map(String),
+          );
+
+          allKeys.forEach((k) => {
+            nextDurations[k] = duration;
+            nextActions[k] = { duration, timestamp: Date.now() };
+            const existing = state.disappearingEvents?.[k] || [];
+            nextEvents[k] = [
+              ...existing.filter((e) => e._id !== newEvent._id),
+              newEvent,
+            ];
+          });
 
           try {
             localStorage.setItem(
@@ -202,12 +240,15 @@ const useLayoutStore = create(
           } catch {}
 
           try {
-            if (
-              typeof window !== "undefined" &&
-              window.__whatsapp_socket?.connected
-            ) {
-              window.__whatsapp_socket.emit("disappearing_update", {
+            const socket =
+              getSocket() ||
+              (typeof window !== "undefined" ? window.__whatsapp_socket : null);
+            if (socket?.connected) {
+              socket.emit("disappearing_update", {
                 chatId,
+                conversationId: convId,
+                receiverId,
+                secondaryId: receiverId,
                 duration,
                 event: newEvent,
                 setBy: setBy || null,
@@ -215,9 +256,94 @@ const useLayoutStore = create(
             }
           } catch {}
 
+          const targetConvId =
+            convId ||
+            (chatId && /^[0-9a-fA-F]{24}$/.test(chatId) ? chatId : null);
+          const targetReceiverId =
+            receiverId || (chatId !== targetConvId ? chatId : null);
+          if (targetConvId) {
+            axiosInstance
+              .put(`/chat/conversation/${targetConvId}/disappearing`, {
+                duration,
+                receiverId: targetReceiverId,
+              })
+              .catch(() => {});
+          } else if (targetReceiverId) {
+            axiosInstance
+              .post("/chat/disappearing-duration", {
+                duration,
+                receiverId: targetReceiverId,
+              })
+              .catch(() => {});
+          }
+
+          try {
+            import("./chatStore")
+              .then(({ useChatStore }) => {
+                useChatStore
+                  .getState()
+                  ?.updateConversationDisappearing?.(
+                    Array.from(allKeys),
+                    duration,
+                    setBy,
+                    newEvent.createdAt,
+                  );
+              })
+              .catch(() => {});
+          } catch (e) {}
+
+          let updatedSelectedContact = state.selectedContact;
+          if (updatedSelectedContact) {
+            const curConvId = String(
+              updatedSelectedContact.conversation?._id ||
+                updatedSelectedContact.conversation ||
+                "",
+            );
+            const curUserId = String(updatedSelectedContact._id || "");
+            if (allKeys.has(curConvId) || allKeys.has(curUserId)) {
+              updatedSelectedContact = {
+                ...updatedSelectedContact,
+                conversation: {
+                  ...(typeof updatedSelectedContact.conversation === "object"
+                    ? updatedSelectedContact.conversation
+                    : {}),
+                  disappearingDuration: duration,
+                  disappearingSetBy: setBy || null,
+                  disappearingUpdatedAt: newEvent.createdAt,
+                },
+              };
+            }
+          }
+
           return {
+            selectedContact: updatedSelectedContact,
             disappearingDurations: nextDurations,
             lastDisappearingActions: nextActions,
+            disappearingEvents: nextEvents,
+          };
+        }),
+      syncDisappearingFromDb: (durations, events) =>
+        set((state) => {
+          const nextDurations = {
+            ...state.disappearingDurations,
+            ...durations,
+          };
+          const nextEvents = {
+            ...state.disappearingEvents,
+            ...events,
+          };
+          try {
+            localStorage.setItem(
+              "whatsapp_disappearing_messages",
+              JSON.stringify(nextDurations),
+            );
+            localStorage.setItem(
+              "whatsapp_disappearing_events",
+              JSON.stringify(nextEvents),
+            );
+          } catch {}
+          return {
+            disappearingDurations: nextDurations,
             disappearingEvents: nextEvents,
           };
         }),

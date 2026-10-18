@@ -4,7 +4,7 @@ import useOutsideClick from "../hook/useOutsideClick";
 import useLayoutStore from "../store/layoutStore";
 import useThemeStore from "../store/themeStore";
 import useUserStore from "../store/useUserStore";
-import { useChatStore } from "../store/chatStore";
+import { useChatStore, getTargetUserId } from "../store/chatStore";
 import useVideoCallStore from "../store/videoCallStore";
 import { generateSafetyNumber } from "../utils/cryptoUtils";
 import QRCode from "qrcode";
@@ -29,6 +29,7 @@ import { FaArrowLeft } from "react-icons/fa6";
 import { IoMdRemoveCircleOutline } from "react-icons/io";
 import { IoTimerOutline, IoColorPaletteOutline } from "react-icons/io5";
 import {
+  MdChevronLeft,
   MdChevronRight,
   MdRefresh,
   MdOutlineChatBubbleOutline,
@@ -53,6 +54,11 @@ import {
   getChatTheme,
 } from "../utils/chatThemes";
 import { toast } from "react-toastify";
+import axiosInstance from "../services/url.services";
+import { WhatsAppMediaFolderIcon } from "./Media";
+import ContactMedia from "./ContactMedia";
+import FileViewerModal from "./FileViewerModal";
+import { FALLBACK_MEDIA } from "../assets/rawData";
 
 const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   <button
@@ -103,20 +109,13 @@ const ContactInfo = () => {
   } = useLayoutStore();
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const { isUserOnline, messages, starredMessages, toggleStarMessage, blockedContacts, blockContact, unblockContact } = useChatStore();
+  const { isUserOnline, messages, starredMessages, isMessageStarred, toggleStarMessage, blockedContacts, blockContact, unblockContact, clearChat } = useChatStore();
   const setIsChatSearchOpen = useLayoutStore((state) => state.setIsChatSearchOpen);
 
-  const handleExecuteClearChat = () => {
-    useChatStore.setState((state) => {
-      const nextCache = new Map(state.messagesCache || new Map());
-      if (chatId) nextCache.set(String(chatId), []);
-      return {
-        messages: [],
-        messagesCache: nextCache,
-      };
-    });
+  const handleExecuteClearChat = async () => {
+    const targetId = targetUserId || selectedContact?._id;
+    await clearChat(chatId, targetId);
     toast.success("Chat cleared");
-    setConfirmDialog(null);
     onClose();
   };
   const chatId = (
@@ -125,6 +124,11 @@ const ContactInfo = () => {
     selectedContact?._id ||
     ""
   )?.toString();
+
+  const targetUserId = useMemo(
+    () => getTargetUserId(selectedContact, user?._id),
+    [selectedContact, user?._id]
+  );
 
   const chatStarredMessages = useMemo(() => {
     if (!starredMessages) return [];
@@ -311,6 +315,190 @@ const ContactInfo = () => {
     } catch { }
   }, [chatId]);
 
+  const [chatMediaCount, setChatMediaCount] = useState(0);
+  const [chatMediaList, setChatMediaList] = useState([]);
+  const [previewModalFile, setPreviewModalFile] = useState(null);
+  const [previewModalIndex, setPreviewModalIndex] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCount = async () => {
+      if (!chatId) return;
+      try {
+        const { data } = await axiosInstance.get("/chat/media", {
+          params: { conversationId: chatId },
+        });
+        const total = data?.data?.counts?.total ?? data?.counts?.total ?? 0;
+        const media = data?.data?.media ?? data?.media ?? [];
+        if (isMounted) {
+          setChatMediaCount(total);
+          if (Array.isArray(media)) {
+            setChatMediaList(media);
+          }
+        }
+      } catch (err) {
+        if (Array.isArray(messages) && isMounted) {
+          const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+          const count = messages.filter((m) => {
+            if (!m || m.deletedForEveryone) return false;
+            return (
+              m.imageOrVideoUrl ||
+              m.fileUrl ||
+              m.fileName ||
+              (m.content && urlRegex.test(m.content))
+            );
+          }).length;
+          setChatMediaCount(count);
+        }
+      }
+    };
+    fetchCount();
+    return () => {
+      isMounted = false;
+    };
+  }, [chatId, messages?.length]);
+
+  const isItemStarred = useCallback(
+    (item) => {
+      if (!item) return false;
+      const itemId = (item._id || item.messageId || item.temp)?.toString();
+      if (itemId && starredMessages?.[itemId]) return true;
+      if (isMessageStarred && itemId && isMessageStarred(itemId)) return true;
+      if (
+        itemId &&
+        chatStarredMessages.some(
+          (sm) => (sm.messageId || sm.message?._id)?.toString() === itemId
+        )
+      ) {
+        return true;
+      }
+      return Boolean(item.isStarred || item.starred);
+    },
+    [starredMessages, isMessageStarred, chatStarredMessages]
+  );
+
+  const previewImages = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    const currentUserId = user?._id?.toString();
+
+    if (Array.isArray(messages)) {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i];
+        if (!m || m.deletedForEveryone) continue;
+        if (
+          currentUserId &&
+          m.deletedFor &&
+          Array.isArray(m.deletedFor) &&
+          m.deletedFor.some((id) => String(id) === currentUserId)
+        ) {
+          continue;
+        }
+
+        const isVideo =
+          m.contentType === "video" ||
+          Boolean(
+            (m.imageOrVideoUrl || m.url) &&
+            (m.imageOrVideoUrl || m.url).match(/\.(mp4|webm|mov|mkv)($|\?)/i)
+          );
+        const isImage =
+          m.contentType === "image" ||
+          Boolean((m.imageOrVideoUrl || m.url) && !isVideo);
+
+        if (isImage) {
+          const src = m.imageOrVideoUrl || m.url;
+          const id = String(m._id || m.temp || src);
+          if (src && !seen.has(id) && !seen.has(src)) {
+            seen.add(id);
+            seen.add(src);
+            list.push({
+              _id: m._id || m.temp,
+              messageId: m._id || m.temp,
+              url: src,
+              createdAt: m.createdAt,
+            });
+          }
+        }
+      }
+    }
+
+    if (Array.isArray(chatMediaList)) {
+      chatMediaList.forEach((m) => {
+        if (!m) return;
+        const isVideo =
+          m.mediaType === "video" ||
+          m.contentType === "video" ||
+          Boolean(
+            (m.url || m.imageOrVideoUrl) &&
+            (m.url || m.imageOrVideoUrl).match(/\.(mp4|webm|mov|mkv)($|\?)/i)
+          );
+        const isImage =
+          m.mediaType === "image" ||
+          m.contentType === "image" ||
+          Boolean((m.url || m.imageOrVideoUrl) && !isVideo);
+
+        if (isImage) {
+          const src = m.url || m.imageOrVideoUrl;
+          const id = String(m._id || m.messageId || src);
+          if (src && !seen.has(id) && !seen.has(src)) {
+            seen.add(id);
+            seen.add(src);
+            list.push({
+              ...m,
+              _id: m._id || m.messageId || id,
+              messageId: m._id || m.messageId || id,
+              url: src,
+            });
+          }
+        }
+      });
+    }
+
+    if (list.length === 0 && Array.isArray(FALLBACK_MEDIA)) {
+      return FALLBACK_MEDIA.filter((m) => m.mediaType === "image").slice(0, 4);
+    }
+
+    return list.slice(0, 4);
+  }, [messages, chatMediaList, user?._id]);
+
+  const handleOpenImagePreview = (item, idx, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const url = item.url || item.imageOrVideoUrl;
+    if (!url) return;
+
+    setPreviewModalIndex(idx);
+    setPreviewModalFile({
+      url,
+      name: item.fileName || "image.jpg",
+      type: "image",
+      fileType: "image",
+      size: item.fileSize,
+      sender: item.sender,
+      createdAt: item.createdAt,
+      messageId: item._id || item.messageId,
+      _id: item._id || item.messageId,
+      _rawItem: item,
+      isUserMessage: String(item.sender?._id || item.sender) === String(user?._id),
+      items: previewImages.map((img) => ({
+        url: img.url || img.imageOrVideoUrl,
+        name: img.fileName || "image.jpg",
+        type: "image",
+        fileType: "image",
+        size: img.fileSize,
+        sender: img.sender,
+        createdAt: img.createdAt,
+        messageId: img._id || img.messageId,
+        _id: img._id || img.messageId,
+        _rawItem: img,
+        isUserMessage: String(img.sender?._id || img.sender) === String(user?._id),
+      })),
+      initialIndex: idx,
+    });
+  };
+
   const [newListName, setNewListName] = useState("");
 
   const handleToggleContactList = (listName) => {
@@ -344,10 +532,30 @@ const ContactInfo = () => {
       } catch { }
     }
 
+    window.dispatchEvent(new Event("whatsapp_lists_changed"));
+
     toast.success(
       isMember ? `Removed from ${listName}` : `Added to ${listName}`
     );
   };
+
+  useEffect(() => {
+    const handleSyncLists = () => {
+      try {
+        const custom = JSON.parse(
+          localStorage.getItem("whatsapp_all_custom_lists") || "[]"
+        );
+        setCustomLists(custom);
+        const map = JSON.parse(
+          localStorage.getItem("whatsapp_contact_lists") || "{}"
+        );
+        if (chatId) setContactLists(map[chatId] || []);
+      } catch { }
+    };
+    window.addEventListener("whatsapp_lists_changed", handleSyncLists);
+    return () =>
+      window.removeEventListener("whatsapp_lists_changed", handleSyncLists);
+  }, [chatId]);
 
   const handleCreateNewList = (e) => {
     e?.preventDefault();
@@ -368,6 +576,7 @@ const ContactInfo = () => {
         JSON.stringify(updatedCustom)
       );
     } catch { }
+    window.dispatchEvent(new Event("whatsapp_lists_changed"));
     handleToggleContactList(trimmed);
     setNewListName("");
   };
@@ -433,6 +642,7 @@ const ContactInfo = () => {
   const isBlocked = useMemo(() => {
     if (!blockedContacts || blockedContacts.length === 0) return false;
     const candidates = [
+      targetUserId,
       chatId,
       selectedContact?._id,
       selectedContact?.id,
@@ -440,16 +650,16 @@ const ContactInfo = () => {
       selectedContact?.conversation,
     ].filter(Boolean).map(String);
     return candidates.some((id) => blockedContacts.includes(id));
-  }, [chatId, selectedContact, blockedContacts]);
+  }, [targetUserId, chatId, selectedContact, blockedContacts]);
 
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
   const handleToggleBlock = () => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (!targetId) return;
     if (isBlocked) {
-      unblockContact(targetId);
+      unblockContact(targetId, chatId);
       toast.success(`${selectedContact?.username || "Contact"} unblocked`);
     } else {
       setShowBlockModal(true);
@@ -457,7 +667,7 @@ const ContactInfo = () => {
   };
 
   const handleConfirmBlock = ({ report } = {}) => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (!targetId) return;
     blockContact(targetId);
     if (report) {
@@ -471,7 +681,7 @@ const ContactInfo = () => {
   };
 
   const handleConfirmReport = ({ block }) => {
-    const targetId = chatId || selectedContact?._id;
+    const targetId = targetUserId || selectedContact?._id || chatId;
     if (block && targetId) {
       blockContact(targetId);
       toast.success(
@@ -493,6 +703,14 @@ const ContactInfo = () => {
   const customBubbleColor = chatId && chatBubbleColors?.[chatId];
   const activeBubbleColor = customBubbleColor || activeChatTheme.bubbleColor;
   const doodlesEnabled = chatId ? chatDoodles?.[chatId] !== false : true;
+  const [themePageIndex, setThemePageIndex] = useState(0);
+
+  useEffect(() => {
+    const activeIdx = CURATED_THEME_IDS.indexOf(activeChatThemeId);
+    if (activeIdx !== -1) {
+      setThemePageIndex(Math.floor(activeIdx / 6));
+    }
+  }, [activeChatThemeId]);
 
   const handleSelectDisappearing = (duration) => {
     if (chatId) {
@@ -606,6 +824,7 @@ const ContactInfo = () => {
   }, []);
 
   useOutsideClick(contactInfoRef, () => {
+    if (showBlockModal || showReportModal) return;
     setShowContactInfo(false);
   });
 
@@ -951,147 +1170,146 @@ const ContactInfo = () => {
               : "bg-white border-gray-200 text-gray-800"
             } shadow-2xl`}
         >
-          <div
-            className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
-              }`}
-          >
-            <div className="flex items-center gap-3 min-w-0">
+          {contactInfoTab !== "media" && (
+            <div
+              className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark" ? "bg-[#111b21] border-[#222d34]" : "bg-[#f0f2f5] border-gray-200 text-gray-900"
+                }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                {contactInfoTab === "info" ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowContactInfo(false)}
+                    className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
+                    title="Close"
+                  >
+                    <RxCross2 size={22} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopCamera();
+                      setScanError(null);
+                      if (contactInfoTab === "allThemes") {
+                        setContactInfoTab("chatTheme");
+                      } else if (contactInfoTab === "chatBubble") {
+                        setContactInfoTab("chatTheme");
+                      } else if (contactInfoTab === "wallpaper") {
+                        setContactInfoTab("chatTheme");
+                      } else if (contactInfoTab === "solidColour") {
+                        setContactInfoTab("wallpaper");
+                      } else if (contactInfoTab === "chatTheme") {
+                        if (previousContactInfoTab === "info") {
+                          setContactInfoTab("info");
+                        } else {
+                          setShowContactInfo(false);
+                        }
+                      } else if (contactInfoTab === "defaultTimer") {
+                        setContactInfoTab("disappearing");
+                      } else if (contactInfoTab === "disappearing") {
+                        if (previousContactInfoTab === "info") {
+                          setContactInfoTab("info");
+                        } else {
+                          setShowContactInfo(false);
+                        }
+                      } else if (contactInfoTab === "privacy") {
+                        setContactInfoTab("security");
+                      } else {
+                        setContactInfoTab("info");
+                      }
+                    }}
+                    className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
+                    title="Back"
+                  >
+                    <FaArrowLeft size={18} />
+                  </button>
+                )}
+
+                {contactInfoTab === "security" ? (
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-semibold text-[16px] leading-tight truncate">
+                      Verify security code
+                    </span>
+                    <span className="text-[12px] text-[#8696a0] font-normal truncate">
+                      You, {selectedContact?.username || "Contact"}
+                    </span>
+                  </div>
+                ) : (
+                  <h2 className="font-semibold text-[17px] tracking-tight truncate">
+                    {contactInfoTab === "privacy"
+                      ? "Your chats and calls are private"
+                      : contactInfoTab === "media"
+                        ? "Media, links and docs"
+                        : contactInfoTab === "disappearing"
+                          ? "Disappearing messages"
+                          : contactInfoTab === "defaultTimer"
+                            ? "Default message timer"
+                            : contactInfoTab === "chatTheme"
+                              ? "Chat theme"
+                              : contactInfoTab === "chatBubble"
+                                ? "Chat bubble"
+                                : contactInfoTab === "allThemes"
+                                  ? "Themes"
+                                  : contactInfoTab === "wallpaper"
+                                    ? "Wallpaper"
+                                    : contactInfoTab === "solidColour"
+                                      ? "Solid colour"
+                                      : contactInfoTab === "starred"
+                                        ? "Starred messages"
+                                        : contactInfoTab === "kept"
+                                          ? "Kept messages"
+                                          : contactInfoTab === "advancedPrivacy"
+                                            ? "Advanced"
+                                            : contactInfoTab === "lists"
+                                              ? "Add to list"
+                                              : "Contact Info"}
+                  </h2>
+                )}
+              </div>
+
               {contactInfoTab === "info" ? (
-                <motion.button
-                  whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowContactInfo(false)}
-                  className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
-                  title="Close"
+                <button
+                  type="button"
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer flex items-center justify-center"
+                  title="Edit contact"
                 >
-                  <RxCross2 size={22} />
-                </motion.button>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                  whileTap={{ scale: 0.95 }}
+                  <FaPen className="h-4 w-4" />
+                </button>
+              ) : contactInfoTab === "chatTheme" || contactInfoTab === "wallpaper" ? (
+                <button
+                  type="button"
+                  onClick={handleResetTheme}
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
+                  title={contactInfoTab === "wallpaper" ? "Reset wallpaper" : "Reset theme"}
+                >
+                  <MdRefresh size={22} />
+                </button>
+              ) : contactInfoTab === "chatBubble" ? (
+                <button
+                  type="button"
+                  onClick={handleResetBubbleColor}
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
+                  title="Reset chat bubble"
+                >
+                  <MdRefresh size={22} />
+                </button>
+              ) : contactInfoTab === "allThemes" || contactInfoTab === "solidColour" ? null : (
+                <button
+                  type="button"
                   onClick={() => {
                     stopCamera();
                     setScanError(null);
-                    if (contactInfoTab === "allThemes") {
-                      setContactInfoTab("chatTheme");
-                    } else if (contactInfoTab === "chatBubble") {
-                      setContactInfoTab("chatTheme");
-                    } else if (contactInfoTab === "wallpaper") {
-                      setContactInfoTab("chatTheme");
-                    } else if (contactInfoTab === "solidColour") {
-                      setContactInfoTab("wallpaper");
-                    } else if (contactInfoTab === "chatTheme") {
-                      if (previousContactInfoTab === "info") {
-                        setContactInfoTab("info");
-                      } else {
-                        setShowContactInfo(false);
-                      }
-                    } else if (contactInfoTab === "defaultTimer") {
-                      setContactInfoTab("disappearing");
-                    } else if (contactInfoTab === "disappearing") {
-                      if (previousContactInfoTab === "info") {
-                        setContactInfoTab("info");
-                      } else {
-                        setShowContactInfo(false);
-                      }
-                    } else if (contactInfoTab === "privacy") {
-                      setContactInfoTab("security");
-                    } else {
-                      setContactInfoTab("info");
-                    }
+                    setShowContactInfo(false);
                   }}
-                  className="p-1 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
-                  title="Back"
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer"
+                  title="Close"
                 >
-                  <FaArrowLeft size={20} />
-                </motion.button>
-              )}
-
-              {contactInfoTab === "security" ? (
-                <div className="flex flex-col min-w-0">
-                  <span className="font-semibold text-[16px] leading-tight truncate">
-                    Verify security code
-                  </span>
-                  <span className="text-[12px] text-[#8696a0] font-normal truncate">
-                    You, {selectedContact?.username || "Contact"}
-                  </span>
-                </div>
-              ) : (
-                <h2 className="font-semibold text-[17px] tracking-tight truncate">
-                  {contactInfoTab === "privacy"
-                    ? "Your chats and calls are private"
-                    : contactInfoTab === "disappearing"
-                      ? "Disappearing messages"
-                      : contactInfoTab === "defaultTimer"
-                        ? "Default message timer"
-                        : contactInfoTab === "chatTheme"
-                          ? "Chat theme"
-                          : contactInfoTab === "chatBubble"
-                            ? "Chat bubble"
-                            : contactInfoTab === "allThemes"
-                              ? "Themes"
-                              : contactInfoTab === "wallpaper"
-                                ? "Wallpaper"
-                                : contactInfoTab === "solidColour"
-                                  ? "Solid colour"
-                                  : contactInfoTab === "starred"
-                                    ? "Starred messages"
-                                    : contactInfoTab === "kept"
-                                      ? "Kept messages"
-                                      : contactInfoTab === "advancedPrivacy"
-                                        ? "Advanced"
-                                        : contactInfoTab === "lists"
-                                          ? "Add to list"
-                                          : "Contact Info"}
-                </h2>
+                  <RxCross2 size={22} />
+                </button>
               )}
             </div>
-
-            {contactInfoTab === "info" ? (
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                className="p-2 rounded-full text-gray-500 dark:text-gray-400 transition-colors"
-                title="Edit contact"
-              >
-                <FaPen className="h-4 w-4 cursor-pointer" />
-              </motion.button>
-            ) : contactInfoTab === "chatTheme" || contactInfoTab === "wallpaper" ? (
-              <motion.button
-                whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleResetTheme}
-                className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
-                title={contactInfoTab === "wallpaper" ? "Reset wallpaper" : "Reset theme"}
-              >
-                <MdRefresh size={22} />
-              </motion.button>
-            ) : contactInfoTab === "chatBubble" ? (
-              <motion.button
-                whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleResetBubbleColor}
-                className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-400 hover:text-white cursor-pointer"
-                title="Reset chat bubble"
-              >
-                <MdRefresh size={22} />
-              </motion.button>
-            ) : contactInfoTab === "allThemes" || contactInfoTab === "solidColour" ? null : (
-              <motion.button
-                whileHover={{ scale: 1.1, backgroundColor: "rgba(255, 255, 255, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  stopCamera();
-                  setScanError(null);
-                  setShowContactInfo(false);
-                }}
-                className="p-2 rounded-full transition-colors flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-emerald-500 cursor-pointer"
-                title="Close"
-              >
-                <RxCross2 size={22} />
-              </motion.button>
-            )}
-          </div>
+          )}
           <AnimatePresence mode="wait">
             {contactInfoTab === "info" && (
               <motion.div
@@ -1213,6 +1431,95 @@ const ContactInfo = () => {
                         : ""}
                     </p>
                   </motion.div>
+
+                  <div className={`-my-0.10 border-t ${isDark ? "border-white/20" : "border-black/10"}`} />
+
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.42, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("media")}
+                    className={`relative -my-2 rounded-2xl transition-all duration-300 backdrop-blur-2xl`}
+                  >
+                    <div
+                      className={`flex items-center justify-between rounded-xl p-2.5 transition-all duration-200 cursor-pointer ${theme === "dark"
+                        ? "hover:bg-[#202c33] text-white"
+                        : "hover:bg-black/5 text-gray-900"
+                        }`}
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                          <WhatsAppMediaFolderIcon size={20} />
+                        </div>
+
+                        <span className="text-[15px] font-medium tracking-tight">
+                          Media, links and docs
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[#8696a0]">
+                        <span className="text-[14px] font-normal">
+                          {chatMediaCount}
+                        </span>
+
+                        {previewImages.length === 0 && <MdChevronRight size={18} />}
+                      </div>
+                    </div>
+
+
+                    {previewImages.length > 0 && (
+                      <div className="grid grid-cols-4 gap-2 mt-3.5">
+                        {previewImages.map((item, idx) => {
+                          const isStarred = isItemStarred(item);
+                          const src = item.url || item.imageOrVideoUrl;
+
+                          return (
+                            <div
+                              key={item._id || item.messageId || idx}
+                              onClick={(e) => handleOpenImagePreview(item, idx, e)}
+                              className="relative aspect-square rounded-xl overflow-hidden bg-black/20 group/thumb cursor-pointer transition-all duration-300 hover:ring-2 hover:ring-[#00a884]/60"
+                              title="Click to view image"
+                            >
+                              <img
+                                src={src}
+                                alt=""
+                                loading="lazy"
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                              />
+
+                              <div
+                                className="absolute inset-0 z-[5] pointer-events-none opacity-0 group-hover/thumb:opacity-100 bg-gradient-to-r from-transparent via-white/30 to-transparent backdrop-blur-[1px]"
+                                style={{
+                                  transform: "translateX(-100%)",
+                                  transition: "opacity 300ms ease",
+                                  animation: "none",
+                                }}
+                              />
+                              <div
+                                className="absolute inset-0 z-[5] pointer-events-none opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-transparent via-white/25 to-transparent backdrop-blur-[1px] -translate-x-full group-hover/thumb:translate-x-full transition-transform duration-700 ease-in-out"
+                              />
+
+                              <div
+                                className="absolute inset-0 z-[4] pointer-events-none opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-300 bg-white/[0.04] border border-white/20 rounded-xl"
+                              />
+
+                              {isStarred && (
+                                <div className="absolute bottom-1.5 right-1.5 z-10 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] pointer-events-none">
+                                  <FaStar
+                                    size={11}
+                                    className="text-white fill-white"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                  </motion.div>
+
+                  <div className={`mt-6 border-t ${isDark ? "border-white/20" : "border-black/10"}`} />
 
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
@@ -1392,40 +1699,6 @@ const ContactInfo = () => {
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.58, type: "spring", stiffness: 100 }}
-                    onClick={() => setContactInfoTab("security")}
-                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
-                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
-                      : " hover:bg-black/8 hover:border-black/10"
-                      }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                        <FaLock size={16} />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
-                          Encryption
-                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500">
-                            Active
-                          </span>
-                        </h4>
-                        <p
-                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                            }`}
-                        >
-                          Messages and calls are end-to-end encrypted. Tap to verify.
-                        </p>
-                      </div>
-
-                      <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
-                    </div>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.61, type: "spring", stiffness: 100 }}
                     onClick={handleToggleFavorite}
                     className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
@@ -1539,7 +1812,41 @@ const ContactInfo = () => {
                     </div>
                   </motion.div>
 
-                  <div className="my-1 border-t border-white/5" />
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.58, type: "spring", stiffness: 100 }}
+                    onClick={() => setContactInfoTab("security")}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-white/[0.05] hover:border-white/[0.10]"
+                      : " hover:bg-black/8 hover:border-black/10"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                        <FaLock size={16} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
+                          Encryption
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500">
+                            Active
+                          </span>
+                        </h4>
+                        <p
+                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                            }`}
+                        >
+                          Messages and calls are end-to-end encrypted. Tap to verify.
+                        </p>
+                      </div>
+
+                      <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                    </div>
+                  </motion.div>
+
+                  <div className="my-4 border-t border-white/10" />
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
@@ -2266,47 +2573,95 @@ const ContactInfo = () => {
                     The chat color and wallpaper will both change.
                   </p>
 
-                  <div className="grid grid-cols-3 gap-2.5">
-                    {CURATED_THEME_IDS.map((id) => {
-                      const themeItem = getChatTheme(id);
-                      const isSelected = activeChatThemeId === themeItem.id;
-                      return (
-                        <div
-                          key={themeItem.id}
-                          onClick={() => handleSelectTheme(themeItem.id)}
-                          onMouseEnter={(e) => updateCursorTooltip(e, themeItem.name)}
-                          onMouseMove={(e) => updateCursorTooltip(e, themeItem.name)}
-                          onMouseLeave={hideCursorTooltip}
-                          className={`relative h-[80px] rounded-[18px] overflow-hidden cursor-pointer transition-all duration-200 select-none ${isSelected
-                            ? "border-2 border-white scale-[1.01] shadow-xl"
-                            : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
-                            }`}
-                          style={{
-                            background: themeItem.gradient || themeItem.bgColor,
-                            backgroundColor: themeItem.bgColor || "#0b141a",
-                            backgroundImage:
-                              themeItem.hasDoodles && doodlesEnabled
-                                ? "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"
-                                : undefined,
-                            backgroundSize: "120px",
-                            backgroundBlendMode: "overlay",
-                          }}
-                        >
-                          <div className="absolute top-2.5 left-2.5 w-10 h-3.5 rounded-[4.5px] bg-[#2a3942]/90 shadow-sm pointer-events-none" />
+                  <div className="relative group">
+                    {themePageIndex > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          hideCursorTooltip();
+                          setThemePageIndex((prev) => Math.max(0, prev - 1));
+                        }}
+                        onMouseEnter={hideCursorTooltip}
+                        className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#182229]/90 hover:bg-[#202c33] active:bg-[#2a3942] text-white flex items-center justify-center shadow-xl border border-white/10 backdrop-blur-sm transition-all duration-200 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto cursor-pointer hover:scale-105 active:scale-95"
+                        title="Previous themes"
+                        aria-label="Previous themes"
+                      >
+                        <MdChevronLeft size={20} />
+                      </button>
+                    )}
+                    {themePageIndex < Math.ceil(CURATED_THEME_IDS.length / 6) - 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          hideCursorTooltip();
+                          setThemePageIndex((prev) =>
+                            Math.min(Math.ceil(CURATED_THEME_IDS.length / 6) - 1, prev + 1)
+                          );
+                        }}
+                        onMouseEnter={hideCursorTooltip}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-[#182229]/90 hover:bg-[#202c33] active:bg-[#2a3942] text-white flex items-center justify-center shadow-xl border border-white/10 backdrop-blur-sm transition-all duration-200 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto cursor-pointer hover:scale-105 active:scale-95"
+                        title="Next themes"
+                        aria-label="Next themes"
+                      >
+                        <MdChevronRight size={20} />
+                      </button>
+                    )}
 
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {CURATED_THEME_IDS.slice(themePageIndex * 6, (themePageIndex + 1) * 6).map((id) => {
+                        const themeItem = getChatTheme(id);
+                        const isSelected = activeChatThemeId === themeItem.id;
+                        return (
                           <div
-                            className="absolute top-5.5 right-2.5 w-11 h-3.5 rounded-[4.5px] shadow-sm pointer-events-none"
-                            style={{ backgroundColor: isSelected ? activeBubbleColor : themeItem.bubbleColor }}
-                          />
+                            key={themeItem.id}
+                            onClick={() => handleSelectTheme(themeItem.id)}
+                            onMouseEnter={(e) => updateCursorTooltip(e, themeItem.name)}
+                            onMouseMove={(e) => updateCursorTooltip(e, themeItem.name)}
+                            onMouseLeave={hideCursorTooltip}
+                            className={`relative h-[80px] rounded-[18px] overflow-hidden cursor-pointer transition-all duration-200 select-none ${isSelected
+                              ? "border-2 border-white scale-[1.01] shadow-xl"
+                              : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
+                              }`}
+                            style={{
+                              backgroundColor: themeItem.bgColor || "#0b141a",
+                              backgroundImage: themeItem.imageUrl
+                                ? `url('${themeItem.thumbnailUrl || themeItem.imageUrl}')`
+                                : themeItem.gradient || undefined,
+                              backgroundSize: "cover",
+                              backgroundPosition: "center",
+                              backgroundRepeat: "no-repeat",
+                            }}
+                          >
+                            {!themeItem.imageUrl && themeItem.hasDoodles && doodlesEnabled && (
+                              <div
+                                className="absolute inset-0 opacity-40 pointer-events-none"
+                                style={{
+                                  backgroundImage:
+                                    "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')",
+                                  backgroundSize: "120px",
+                                  backgroundBlendMode: "overlay",
+                                }}
+                              />
+                            )}
 
-                          {isSelected && (
-                            <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-5.5 h-5.5 rounded-full bg-white text-[#111b21] flex items-center justify-center shadow-lg pointer-events-none">
-                              <FaCheck size={9.5} className="stroke-[1.5]" />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                            <div className="absolute top-2.5 left-2.5 w-10 h-3.5 rounded-[4.5px] bg-[#2a3942]/90 shadow-sm pointer-events-none" />
+
+                            <div
+                              className="absolute top-5.5 right-2.5 w-11 h-3.5 rounded-[4.5px] shadow-sm pointer-events-none"
+                              style={{ backgroundColor: isSelected ? activeBubbleColor : themeItem.bubbleColor }}
+                            />
+
+                            {isSelected && (
+                              <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-5.5 h-5.5 rounded-full bg-white text-[#111b21] flex items-center justify-center shadow-lg pointer-events-none">
+                                <FaCheck size={9.5} className="stroke-[1.5]" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -2953,6 +3308,24 @@ const ContactInfo = () => {
                 </form>
               </motion.div>
             )}
+
+            {contactInfoTab === "media" && (
+              <motion.div
+                key="tab-media"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col flex-1 overflow-hidden select-none"
+              >
+                <ContactMedia
+                  contact={selectedContact}
+                  chatId={chatId}
+                  onClose={() => setContactInfoTab("info")}
+                  onCloseDrawer={() => setShowContactInfo(false)}
+                />
+              </motion.div>
+            )}
           </AnimatePresence>
           <AnimatePresence>
             {scanError && (
@@ -3021,6 +3394,17 @@ const ContactInfo = () => {
             onReport={handleConfirmReport}
             theme={theme}
           />
+
+          {previewModalFile && (
+            <FileViewerModal
+              isOpen={Boolean(previewModalFile)}
+              onClose={() => setPreviewModalFile(null)}
+              file={previewModalFile}
+              items={previewModalFile.items}
+              initialIndex={previewModalIndex}
+              theme={theme}
+            />
+          )}
           <div
             ref={cursorTooltipRef}
             className="fixed pointer-events-none z-[999999] px-2.5 py-1 rounded-md bg-[#1f2c34] text-white text-[12px] font-medium shadow-2xl border border-white/15 whitespace-nowrap backdrop-blur-md -translate-x-1/2 select-none"

@@ -3,60 +3,10 @@ import { motion } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
 import { MdAddReaction } from "react-icons/md";
 import { FaPlus } from "react-icons/fa";
+import { presetStickers } from '../assets/rawData';
 
 const StickerModal = ({ onClose, onSend, onUploadClick, theme }) => {
   const isDark = theme === "dark";
-
-  const presetStickers = [
-    {
-      name: "Thumbs Up",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.webp",
-    },
-    {
-      name: "Heart Fire",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/2764_fe0f/512.webp",
-    },
-    {
-      name: "Joy Tears",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp",
-    },
-    {
-      name: "Party Popper",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.webp",
-    },
-    {
-      name: "Fire",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp",
-    },
-    {
-      name: "Star Struck",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f929/512.webp",
-    },
-    {
-      name: "Clapping Hands",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f44f/512.webp",
-    },
-    {
-      name: "100",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f4af/512.webp",
-    },
-    {
-      name: "Mind Blown",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f92f/512.webp",
-    },
-    {
-      name: "Cool Sunglasses",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f60e/512.webp",
-    },
-    {
-      name: "Folded Hands",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f64f/512.webp",
-    },
-    {
-      name: "Rocket",
-      url: "https://fonts.gstatic.com/s/e/notoemoji/latest/1f680/512.webp",
-    },
-  ];
 
   return (
     <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 select-none">

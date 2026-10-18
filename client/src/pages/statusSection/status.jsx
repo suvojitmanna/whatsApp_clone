@@ -23,7 +23,6 @@ const status = () => {
   const [newStatus, setNewStatus] = useState("");
   const [filePreview, setFilePreview] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
-
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const modalRef = useRef(null);

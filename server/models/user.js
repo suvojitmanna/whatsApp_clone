@@ -44,6 +44,7 @@ const userSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     agreed: { type: Boolean, default: false },
     publicKey: { type: String, default: null },
+    blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true },
 );
