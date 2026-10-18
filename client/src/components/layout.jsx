@@ -11,6 +11,7 @@ import PollDetailsPanel from "../components/PollDetailsPanel";
 import MessageInfoPanel from "../components/MessageInfoPanel";
 import StatusPlaceholder from "./StatusPlaceholder";
 import MediaModal from "./MediaModal";
+import VideoCallManager from "../pages/videoCall/videoCallManager";
 
 const Layout = ({
   children,
@@ -129,6 +130,7 @@ const Layout = ({
           initialTab={mediaModalInitialTab}
           onClose={closeMediaModal}
         />
+        <VideoCallManager />
       </div>
 
       <AnimatePresence>

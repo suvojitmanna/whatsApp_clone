@@ -3085,8 +3085,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         </div>
       )}
 
-      <VideoCallManager socket={socket} />
-
       {previewModalFile && (
         <FileViewerModal
           isOpen={Boolean(previewModalFile)}
