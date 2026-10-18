@@ -180,8 +180,7 @@ export const TailOutIcon = ({
   width = 8,
   height = 13,
   className = "fill-current",
-  ...props
-}) => (
+  ...props }) => (
   <svg
     viewBox="0 0 8 13"
     height={height}
@@ -1086,5 +1085,216 @@ export const DisappearingMessagesIllustration = ({
     <circle cx="66" cy="64" r="6" fill="#b9f5d0" />
     <circle cx="162" cy="90" r="4.5" fill="#00a884" />
     <circle cx="170" cy="84" r="3" fill="#00a884" />
+  </svg>
+);
+
+export const FavouritesEmptyIllustration = () => (
+  <svg
+    viewBox="0 0 200 180"
+    className="w-48 h-44 mb-6 select-none"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect
+      x="66"
+      y="32"
+      width="82"
+      height="110"
+      rx="24"
+      fill="#00a884"
+      stroke="#111b21"
+      strokeWidth="3.5"
+      strokeLinejoin="round"
+    />
+
+    <path
+      d="M 148 68 C 145 59, 131 56, 123 66 C 114 77, 127 89, 148 103 C 169 89, 182 77, 173 66 C 165 56, 151 59, 148 68 Z"
+      fill="#00a884"
+      stroke="#111b21"
+      strokeWidth="3.5"
+      strokeLinejoin="round"
+    />
+    <rect
+      x="52"
+      y="24"
+      width="82"
+      height="110"
+      rx="24"
+      fill="#dcf8d6"
+      stroke="#111b21"
+      strokeWidth="3.5"
+      strokeLinejoin="round"
+    />
+    {[42, 64, 86, 108].map((y) => (
+      <rect
+        key={y}
+        x="43"
+        y={y}
+        width="16"
+        height="8"
+        rx="4"
+        fill="#ffffff"
+        stroke="#111b21"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+    ))}
+
+    <circle
+      cx="93"
+      cy="56"
+      r="17"
+      fill="none"
+      stroke="#111b21"
+      strokeWidth="3"
+    />
+    <circle
+      cx="93"
+      cy="51"
+      r="5.5"
+      fill="none"
+      stroke="#111b21"
+      strokeWidth="2.6"
+    />
+    <path
+      d="M 81 67 C 82 60, 104 60, 105 67"
+      fill="none"
+      stroke="#111b21"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+    />
+
+    <line
+      x1="76"
+      y1="85"
+      x2="110"
+      y2="85"
+      stroke="#111b21"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+    <line
+      x1="71"
+      y1="96"
+      x2="115"
+      y2="96"
+      stroke="#111b21"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+    <line
+      x1="85"
+      y1="107"
+      x2="101"
+      y2="107"
+      stroke="#111b21"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+
+    <path
+      d="M 142 63 C 139 54, 125 51, 117 61 C 108 72, 121 84, 142 98 C 163 84, 176 72, 167 61 C 159 51, 145 54, 142 63 Z"
+      fill="#9ae68e"
+      stroke="#111b21"
+      strokeWidth="3.5"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const CallLaptopIllustration = ({ className = "w-44 h-32" }) => (
+  <svg
+    viewBox="0 0 160 110"
+    className={`${className} select-none drop-shadow-md`}
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <ellipse cx="80" cy="98" rx="58" ry="4" fill="#000000" opacity="0.35" />
+
+    <rect
+      x="36"
+      y="18"
+      width="88"
+      height="66"
+      rx="10"
+      fill="#111b21"
+      stroke="#1f2c34"
+      strokeWidth="2.5"
+    />
+
+    <g clipPath="url(#laptopScreenClip)">
+      <rect x="40" y="22" width="40" height="58" fill="#00c57c" />
+      <line
+        x1="45"
+        y1="27"
+        x2="49"
+        y2="31"
+        stroke="#111b21"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <line
+        x1="49"
+        y1="27"
+        x2="45"
+        y2="31"
+        stroke="#111b21"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <line
+        x1="45"
+        y1="40"
+        x2="69"
+        y2="40"
+        stroke="#111b21"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <line
+        x1="45"
+        y1="48"
+        x2="69"
+        y2="48"
+        stroke="#111b21"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <line
+        x1="45"
+        y1="56"
+        x2="59"
+        y2="56"
+        stroke="#111b21"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+
+      <rect x="80" y="22" width="40" height="58" fill="#f8faf6" />
+      <g transform="translate(100, 51) rotate(-35) scale(0.95)">
+        <path
+          d="M -9 -14 C -11 -14, -14 -11, -14 -8 C -14 6, -5 15, 9 15 C 12 15, 15 12, 15 10 L 12 2 C 11 0, 9 -1, 7 0 L 4 2 C 0 0, -1 -1, -3 -5 L -1 -8 C 0 -10, 0 -12 -1 -13 L -8 -15 Z"
+          fill="#00a884"
+          stroke="#111b21"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+      </g>
+    </g>
+
+    <defs>
+      <clipPath id="laptopScreenClip">
+        <rect x="40" y="22" width="80" height="58" rx="7" />
+      </clipPath>
+    </defs>
+
+    <path
+      d="M 28 86 C 28 86, 31 83, 36 83 H 124 C 129 83, 132 86, 132 86 L 136 93 C 136 95, 133 96.5, 129 96.5 H 31 C 27 96.5, 24 95, 24 93 Z"
+      fill="#f4f6f3"
+      stroke="#111b21"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+    <rect x="73" y="86.5" width="14" height="2" rx="1" fill="#94a3b8" />
   </svg>
 );

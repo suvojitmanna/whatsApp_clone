@@ -25,8 +25,8 @@ export const DEFAULT_CALL_HISTORY = [
     direction: "missed",
     status: "missed",
     timeFormatted: "19:24",
-    dateFormatted: "06/10/2026",
-    timestamp: new Date("2026-10-06T19:24:00").toISOString(),
+    dateFormatted: "Yesterday",
+    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     duration: "Missed",
   },
   {
@@ -174,6 +174,69 @@ export const SEED_FAVOURITE_CANDIDATES = [
       "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&q=80",
     about: "+91 6295 055 881, +91 93331 28251, ...",
   },
+  {
+    _id: "cand-anurag-laha",
+    id: "cand-anurag-laha",
+    username: "Anurag Laha Da CSE iot",
+    name: "Anurag Laha Da CSE iot",
+    about: "Hey there! I am using WhatsApp",
+  },
+  {
+    _id: "cand-argha-bhukta",
+    id: "cand-argha-bhukta",
+    username: "Argha Bhukta",
+    name: "Argha Bhukta",
+    about: "Hey there! I am using WhatsApp",
+  },
+  {
+    _id: "cand-arghya-dam",
+    id: "cand-arghya-dam",
+    username: "Arghya Dam CSE(Core)",
+    name: "Arghya Dam CSE(Core)",
+    about: "Hey there! I am using WhatsApp",
+  },
+  {
+    _id: "cand-ankan-dewan",
+    id: "cand-ankan-dewan",
+    username: "Ankail Dewan Msit",
+    name: "Ankail Dewan Msit",
+    about: "Talwar se bijli kadke, laal lahu bahe dharti. Ye w...",
+  },
+  {
+    _id: "cand-arindam",
+    id: "cand-arindam",
+    username: "Arindam",
+    name: "Arindam",
+    about: "Busy",
+  },
+  {
+    _id: "cand-arindam-sir",
+    id: "cand-arindam-sir",
+    username: "Arindam Sir",
+    name: "Arindam Sir",
+    about: "Hey there! I am using WhatsApp",
+  },
+  {
+    _id: "cand-armanu",
+    id: "cand-armanu",
+    username: "Armanu Rahaman Da CSE 2nd",
+    name: "Armanu Rahaman Da CSE 2nd",
+    about: "Available",
+  },
+  {
+    _id: "cand-arnab",
+    id: "cand-arnab",
+    username: "Arnab🥰🥰",
+    name: "Arnab🥰🥰",
+    about: "Hey there! I am using WhatsApp",
+  },
+  {
+    _id: "cand-arpan",
+    id: "cand-arpan",
+    username: "arpan pattnayak Msit",
+    name: "arpan pattnayak Msit",
+    about: "Living the dream",
+  },
 ];
 
 const useCallStore = create(
@@ -195,11 +258,7 @@ const useCallStore = create(
           minute: "2-digit",
           hour12: false,
         });
-        const dateFormatted = now.toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        });
+        const dateFormatted = "Today";
 
         const newCall = {
           id: `call-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -303,6 +362,33 @@ const useCallStore = create(
     }),
     {
       name: "whatsapp-call-storage",
+      version: 2,
+      migrate: (persistedState, version) => {
+        if (!version || version < 2) {
+          const updatedHistory = (persistedState?.callHistory || []).map((c) => {
+            if (c.id === "call-seed-2") {
+              return {
+                ...c,
+                dateFormatted: "Yesterday",
+                timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+              };
+            }
+            if (c.id === "call-seed-1") {
+              return {
+                ...c,
+                dateFormatted: "Today",
+                timestamp: new Date().toISOString(),
+              };
+            }
+            return c;
+          });
+          return {
+            ...persistedState,
+            callHistory: updatedHistory,
+          };
+        }
+        return persistedState;
+      },
       partialize: (state) => ({
         callHistory: state.callHistory,
         favourites: state.favourites,

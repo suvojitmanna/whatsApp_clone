@@ -5,6 +5,7 @@ import useCallStore from "../../store/useCallStore";
 import useLayoutStore from "../../store/layoutStore";
 import { useChatStore } from "../../store/chatStore";
 import { ContactAvatar } from "./FaviouriteCall";
+import { formatCallDate } from "../../utils/formatTime";
 import {
   MdClose,
   MdOutlineCall,
@@ -223,10 +224,7 @@ export const CallInfo = ({
             {displayCalls.map((item, idx) => {
               const isMissed = item.direction === "missed";
               const isIncoming = item.direction === "incoming";
-              const dateLabel =
-                item.dateFormatted && item.dateFormatted !== "Today"
-                  ? item.dateFormatted
-                  : "Today";
+              const dateLabel = formatCallDate(item) || "Today";
               const timeLabel = item.timeFormatted || "04:07";
               const callTypeLabel = item.callType === "video" ? "video" : "voice";
               const directionWord = isMissed

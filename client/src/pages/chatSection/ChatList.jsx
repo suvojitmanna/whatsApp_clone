@@ -21,6 +21,7 @@ import { RxCross2 } from "react-icons/rx";
 import { HiDotsVertical } from "react-icons/hi";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
+import formatTimestamp, { getDisappearingDurationMs } from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
 import { WhatsAppPinIcon, WhatsAppDisappearingIcon } from "./MessageBuble";
 import {
