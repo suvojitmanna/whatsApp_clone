@@ -93,12 +93,6 @@ const extractCloudinaryInfo = (url) => {
   }
 };
 
-/**
- * Permanently delete any file (image, PDF, doc, video, audio) from Cloudinary.
- * Accepts either:
- * - url string (e.g. 'https://res.cloudinary.com/...')
- * - object { url, publicId, resourceType }
- */
 const deleteFileFromCloudinary = async (fileInfo) => {
   if (!fileInfo) return null;
 
@@ -180,9 +174,6 @@ const deleteFileFromCloudinary = async (fileInfo) => {
   }
 };
 
-/**
- * Delete multiple files from Cloudinary in parallel
- */
 const deleteMultipleFilesFromCloudinary = async (filesList) => {
   if (!Array.isArray(filesList) || filesList.length === 0) return [];
   return Promise.allSettled(

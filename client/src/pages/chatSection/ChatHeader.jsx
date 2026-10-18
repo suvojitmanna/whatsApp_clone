@@ -7,6 +7,7 @@ import { RxCross2 } from "react-icons/rx";
 import { HiDotsVertical } from "react-icons/hi";
 import formatTimestamp from "../../utils/formatTime";
 import { WhatsAppDisappearingIcon } from "./MessageBuble";
+import { ChevronUpIcon, ChevronDownIcon } from "../../components/common/Icons";
 
 const ChatHeader = ({
   handleChatContextMenu,
@@ -237,19 +238,7 @@ const ChatHeader = ({
                           title="Previous match"
                           className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-90 transition-all duration-200 cursor-pointer"
                         >
-                          <svg
-                            className="w-3 h-3 group-hover:-translate-y-[1px] transition-transform"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2.5}
-                              d="M5 15l7-7 7 7"
-                            />
-                          </svg>
+                          <ChevronUpIcon className="w-3 h-3 group-hover:-translate-y-[1px] transition-transform" />
                         </button>
 
                         <button
@@ -258,19 +247,7 @@ const ChatHeader = ({
                           title="Next match"
                           className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-90 transition-all duration-200 cursor-pointer"
                         >
-                          <svg
-                            className="w-3 h-3 group-hover:translate-y-[1px] transition-transform"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2.5}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
+                          <ChevronDownIcon className="w-3 h-3 group-hover:translate-y-[1px] transition-transform" />
                         </button>
                       </div>
                     </div>

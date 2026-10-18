@@ -1,5 +1,6 @@
 import React from "react";
 import useThemeStore from "../store/themeStore";
+import { StatusRingPlaceholderIcon } from "./common/Icons";
 
 const StatusPlaceholder = () => {
   const { theme } = useThemeStore();
@@ -13,24 +14,10 @@ const StatusPlaceholder = () => {
     >
       <div className="flex flex-col items-center justify-center max-w-md text-center">
         <div className="mb-7 flex items-center justify-center">
-          <svg
-            viewBox="0 0 48 48"
-            width="62"
-            height="62"
+          <StatusRingPlaceholderIcon
+            size={62}
             className={isDark ? "text-[#8696a0]/50" : "text-[#54656f]/40"}
-          >
-            <circle cx="24" cy="24" r="7.5" fill="currentColor" />
-            <circle
-              cx="24"
-              cy="24"
-              r="15"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.75"
-              strokeDasharray="20 5.13"
-              strokeLinecap="round"
-            />
-          </svg>
+          />
         </div>
 
         <h2

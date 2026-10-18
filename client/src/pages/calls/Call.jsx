@@ -35,7 +35,7 @@ const Call = () => {
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth < 768 : false
   );
-  const [activeSidebarView, setActiveSidebarView] = useState("calls"); // "calls" | "favourites"
+  const [activeSidebarView, setActiveSidebarView] = useState("calls");
   const [showNewCallModal, setShowNewCallModal] = useState(false);
   const [showFavouriteModal, setShowFavouriteModal] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
@@ -150,8 +150,8 @@ const Call = () => {
       ) : (
         <div
           className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 ${isDark
-              ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
-              : "bg-white border-gray-200 text-[#111b21]"
+            ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
+            : "bg-white border-gray-200 text-[#111b21]"
             }`}
         >
           <div className="h-16 px-4 flex items-center justify-between shrink-0">
@@ -170,8 +170,8 @@ const Call = () => {
 
               <span
                 className={`absolute -bottom-8 right-0 text-[11px] font-semibold px-2 py-0.5 rounded shadow-md pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-20 whitespace-nowrap ${isDark
-                    ? "bg-[#202c33] text-white"
-                    : "bg-white text-[#111b21] border border-gray-200"
+                  ? "bg-[#202c33] text-white"
+                  : "bg-white text-[#111b21] border border-gray-200"
                   }`}
               >
                 New call
@@ -201,8 +201,8 @@ const Call = () => {
                   type="button"
                   onClick={() => setSearchQuery("")}
                   className={`shrink-0 cursor-pointer ${isDark
-                      ? "text-[#8696a0] hover:text-[#e9edef]"
-                      : "text-[#54656f] hover:text-[#111b21]"
+                    ? "text-[#8696a0] hover:text-[#e9edef]"
+                    : "text-[#54656f] hover:text-[#111b21]"
                     }`}
                 >
                   <MdClear className="text-lg" />
@@ -214,14 +214,14 @@ const Call = () => {
           <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
             <div className="pt-2 pb-2">
               <div className="px-4 py-2 flex items-center justify-between">
-                <span className="text-[16px] font-bold">Favourites</span>
+                <span className="text-[17px] font-semibold">Favourites</span>
                 {favourites.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setActiveSidebarView("favourites")}
-                    className={`text-sm font-semibold transition-colors cursor-pointer ${isDark
-                        ? "text-[#00a884] hover:text-[#008f6f]"
-                        : "text-[#008069] hover:text-[#00a884]"
+                    className={`rounded-full border px-5 py-2 text-sm font-semibold transition-all duration-300 cursor-pointer ${isDark
+                      ? "border-white/[0.12] bg-transparent text-[#00c978] hover:border-[#00c978]/80 hover:bg-white/[0.05]"
+                      : "border-black/[0.12] bg-transparent text-[#008f5a] hover:border-[#008f5a]/80 hover:bg-black/[0.05]"
                       }`}
                   >
                     View all
@@ -232,8 +232,10 @@ const Call = () => {
               {favourites.length === 0 ? (
                 <div
                   onClick={() => setShowFavouriteModal(true)}
-                  className={`flex items-center gap-3.5 px-4 py-2.5 cursor-pointer transition-colors ${isDark ? "hover:bg-[#202c33]/70" : "hover:bg-[#f5f6f6]"
-                    }`}
+                  className={`mx-4 p-3.5 rounded-2xl flex items-center gap-3.5 transition-all cursor-pointer  ${isDark
+                          ? "hover:bg-[#1f2b33] hover:shadow-sm"
+                          : "hover:bg-[#e9edef] hover:shadow-sm"
+                          }`}
                 >
                   <div className="w-12 h-12 rounded-full bg-[#00a884] text-black flex items-center justify-center shrink-0">
                     <FaUserPlus className="text-lg" />
@@ -246,7 +248,6 @@ const Call = () => {
                   </div>
                 </div>
               ) : (
-                /* If favourites exist, display favourite cards (Matching Image 2) */
                 <div className="px-4 flex flex-col gap-2">
                   {filteredFavourites.map((fav) => {
                     const name = fav.username || fav.name;
@@ -266,9 +267,9 @@ const Call = () => {
                             duration: "Favourite",
                           })
                         }
-                        className={`p-3.5 rounded-2xl flex items-center gap-3.5 transition-all cursor-pointer shadow-xs ${isDark
-                            ? "bg-[#202c33] hover:bg-[#2a3942]"
-                            : "bg-[#f0f2f5] hover:bg-[#e9edef] border border-gray-200/80"
+                        className={`p-3.5 rounded-2xl flex items-center gap-3.5 transition-all cursor-pointer  ${isDark
+                          ? "hover:bg-[#1f2b33] hover:shadow-sm"
+                          : "hover:bg-[#e9edef] hover:shadow-sm"
                           }`}
                       >
                         <ContactAvatar contact={fav} size={48} />
@@ -312,12 +313,12 @@ const Call = () => {
                         key={call.id}
                         onClick={() => setSelectedCall(call)}
                         className={`flex items-center justify-between px-4 py-3 transition-colors cursor-pointer group ${isSelected
-                            ? isDark
-                              ? "bg-[#2a3942]"
-                              : "bg-[#f0f2f5]"
-                            : isDark
-                              ? "hover:bg-[#202c33]/70"
-                              : "hover:bg-[#f5f6f6]"
+                          ? isDark
+                            ? "bg-[#2a3942]"
+                            : "bg-[#f0f2f5]"
+                          : isDark
+                            ? "hover:bg-[#202c33]/70"
+                            : "hover:bg-[#f5f6f6]"
                           }`}
                       >
                         <div className="flex items-center gap-3.5 min-w-0 flex-1">
@@ -392,8 +393,8 @@ const Call = () => {
                               );
                             }}
                             className={`p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${isDark
-                                ? "text-[#00a884] hover:bg-[#00a884]/10"
-                                : "text-[#008069] hover:bg-[#008069]/10"
+                              ? "text-[#00a884] hover:bg-[#00a884]/10"
+                              : "text-[#008069] hover:bg-[#008069]/10"
                               }`}
                             title={
                               call.callType === "video" ? "Video call" : "Voice call"

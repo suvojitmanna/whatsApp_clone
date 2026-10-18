@@ -36,100 +36,17 @@ import PinDurationModal from "../../components/PinDurationModal";
 import ReportModal from "../../components/ReportModal";
 import MessageMenu from "./MessageMenu";
 
-export const WhatsAppPinIcon = ({
-  size = 12,
-  width,
-  height,
-  className = "shrink-0",
-  ...props
-}) => {
-  const w = width || Math.abs(size);
-  const h = height || Math.round(w * 1.25);
-  return (
-    <svg
-      width={w}
-      height={h}
-      viewBox="0 0 12 15"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      title="Pinned message"
-      {...props}
-    >
-      <path d="M2.5 1.5h7" />
-      <path d="M3.5 1.5v3.6l-1.8 3.2v1.5h8.6V8.3L8.5 5.1V1.5" />
-      <path d="M6 9.8v4.2" />
-    </svg>
-  );
-};
-
-export const WhatsAppUnpinIcon = ({
-  size = 16,
-  width,
-  height,
-  className = "shrink-0",
-  ...props
-}) => {
-  const w = width ?? size;
-  const h = height ?? size;
-
-  return (
-    <svg
-      width={w}
-      height={h}
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-label="Unpin message"
-      role="img"
-      {...props}
-    >
-      <g
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M7 3.5H13" />
-        <path d="M8 3.5V7L6 10V12H14V10L12 7V3.5" />
-        <path d="M10 12V16.5" />
-        <path d="M4 3.5L16 16.5" />
-      </g>
-    </svg>
-  );
-};
-
-export const WhatsAppDisappearingIcon = ({
-  size = 15,
-  width,
-  height,
-  className = "shrink-0",
-  ...props
-}) => {
-  const w = width || size;
-  const h = height || size;
-  return (
-    <svg
-      width={w}
-      height={h}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      {...props}
-    >
-      <circle cx="12" cy="12" r="9.5" strokeDasharray="3.2 2.2" />
-      <polyline points="12 6.8 12 12 15.6 14.2" strokeDasharray="none" />
-    </svg>
-  );
-};
+export {
+  WhatsAppPinIcon,
+  WhatsAppUnpinIcon,
+  WhatsAppDisappearingIcon,
+} from "../../components/common/Icons";
+import {
+  TailOutIcon,
+  TailInIcon,
+  ProhibitedIcon,
+  MessageCheckIcon,
+} from "../../components/common/Icons";
 
 const formatEventSchedule = (eventData) => {
   if (!eventData?.eventDate) return "Date TBD";
@@ -872,16 +789,7 @@ const MessageBuble = ({
                 : "border-[#8696a0] bg-transparent hover:border-[#54656f]"
               }`}
           >
-            {isSelected && (
-              <svg
-                viewBox="0 0 16 16"
-                className="w-3.5 h-3.5 stroke-white fill-none stroke-[2.5]"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M3.5 8.5l3 3 6-6" />
-              </svg>
-            )}
+            {isSelected && <MessageCheckIcon />}
           </div>
         </div>
       )}
@@ -920,10 +828,7 @@ const MessageBuble = ({
                 className={`absolute top-0 -right-[8px] pointer-events-none select-none ${chatBubbleColor ? "" : (isDark ? "text-[#005c4b]" : "text-[#d9fdd3]")
                   }`}
               >
-                <svg viewBox="0 0 8 13" height="13" width="8" className="fill-current">
-                  <path opacity="0.13" d="M5.188 1H0v11.193l6.467-8.625C7.526 2.156 6.958 1 5.188 1z" />
-                  <path d="M5.188 0H0v12.193l6.467-8.625C7.526 2.156 6.958 0 5.188 0z" />
-                </svg>
+                <TailOutIcon />
               </span>
             ) : (
               <span
@@ -931,29 +836,16 @@ const MessageBuble = ({
                 className={`absolute top-0 -left-[8px] pointer-events-none select-none ${isDark ? "text-[#202c33]" : "text-white"
                   }`}
               >
-                <svg viewBox="0 0 8 13" height="13" width="8" className="fill-current">
-                  <path opacity="0.13" d="M1.533 4.568 8 13.193V1H2.812C1.042 1 .474 3.156 1.533 4.568z" />
-                  <path d="M1.533 3.568 8 12.193V0H2.812C1.042 0 .474 2.156 1.533 3.568z" />
-                </svg>
+                <TailInIcon />
               </span>
             )
           )}
           {isDeletedForEveryone ? (
             <div className="flex items-center gap-2 select-none py-0.5 px-0.5 min-w-[200px]">
-              <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
+              <ProhibitedIcon
+                size={16}
                 className={`shrink-0 ${isDark ? "text-white/60" : "text-[#8696a0]"}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-              </svg>
+              />
               <span
                 className={`text-[14px] italic font-normal tracking-wide flex-1 min-w-0 select-none ${isDark ? "text-white/70" : "text-[#54656f]"
                   }`}

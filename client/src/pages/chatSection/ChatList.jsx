@@ -21,9 +21,14 @@ import { RxCross2 } from "react-icons/rx";
 import { HiDotsVertical } from "react-icons/hi";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
-import formatTimestamp, { getDisappearingDurationMs } from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
 import { WhatsAppPinIcon, WhatsAppDisappearingIcon } from "./MessageBuble";
+import {
+  ProhibitedIcon,
+  ArrowLeftIcon,
+  ArchivedBoxIcon,
+  MutedBellIcon,
+} from "../../components/common/Icons";
 import AddToListModal from "../../components/AddToListModal";
 import ListPanelOverChatList from "../../components/ListPanelOverChatList";
 import ChatlistMenu from "./ChatlistMenu";
@@ -334,20 +339,7 @@ const getLastMessagePreview = (lastMessage) => {
       String(lastMessage.sender?._id || lastMessage.sender) === String(currentUserId);
     return {
       icon: (
-        <svg
-          viewBox="0 0 24 24"
-          width="13"
-          height="13"
-          className="inline mr-1 text-[#8696a0] shrink-0"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-        </svg>
+        <ProhibitedIcon size={13} className="inline mr-1 text-[#8696a0] shrink-0" />
       ),
       text: isMe ? "You deleted this message" : "This message was deleted",
       isDeleted: true,
@@ -363,20 +355,7 @@ const getLastMessagePreview = (lastMessage) => {
   ) {
     return {
       icon: (
-        <svg
-          viewBox="0 0 24 24"
-          width="13"
-          height="13"
-          className="inline mr-1 text-[#8696a0] shrink-0"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-        </svg>
+        <ProhibitedIcon size={13} className="inline mr-1 text-[#8696a0] shrink-0" />
       ),
       text: "You deleted this message",
       isDeleted: true,
@@ -1258,22 +1237,11 @@ const ChatList = ({ contacts }) => {
             >
               <button
                 type="button"
+                onClick={() => setShowArchivedOnly(false)}
                 className="p-1 hover:bg-white/10 rounded-full cursor-pointer"
                 title="Back to all chats"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="19" y1="12" x2="5" y2="12"></line>
-                  <polyline points="12 19 5 12 12 5"></polyline>
-                </svg>
+                <ArrowLeftIcon size={18} />
               </button>
               <span className="font-semibold text-[15px]">
                 Archived ({archivedCount})
@@ -1288,22 +1256,7 @@ const ChatList = ({ contacts }) => {
                 }`}
             >
               <div className="flex items-center gap-3.5">
-                <svg
-                  viewBox="0 0 24 24"
-                  width="19"
-                  height="19"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-[#00a884] shrink-0"
-                >
-                  <rect x="3" y="4" width="18" height="4" rx="1"></rect>
-                  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path>
-                  <line x1="12" y1="12" x2="12" y2="16"></line>
-                  <polyline points="9 14 12 17 15 14"></polyline>
-                </svg>
+                <ArchivedBoxIcon size={19} className="text-[#00a884] shrink-0" />
                 <span className="font-medium text-[15px]">Archived</span>
               </div>
               <span className="text-xs text-[#00a884] font-semibold">{archivedCount}</span>
@@ -1700,24 +1653,11 @@ const ChatList = ({ contacts }) => {
                       )}
 
                       {isChatMuted(contact, mutedChats) && (
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="13"
-                          height="13"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                        <MutedBellIcon
+                          size={13}
                           className="text-[#8696a0] shrink-0"
                           title="Notifications muted"
-                        >
-                          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                          <path d="M18.63 13A17.89 17.89 0 0 1 18 8"></path>
-                          <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"></path>
-                          <path d="M18 8a6 6 0 0 0-9.33-5"></path>
-                          <line x1="1" y1="1" x2="23" y2="23"></line>
-                        </svg>
+                        />
                       )}
 
                       {(isChatPinned(contact, pinnedChats) || contactPin) && (

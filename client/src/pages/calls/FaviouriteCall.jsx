@@ -12,6 +12,7 @@ import {
   MdVerified,
 } from "react-icons/md";
 import { FaUser } from "react-icons/fa";
+import { AmazonSmileIcon, PrimeVideoWaveIcon } from "../../components/common/Icons";
 
 export const ContactAvatar = ({ contact, size = 48, className = "" }) => {
   const { theme } = useThemeStore();
@@ -28,17 +29,7 @@ export const ContactAvatar = ({ contact, size = 48, className = "" }) => {
         className={`rounded-full bg-[#d69e66] flex flex-col items-center justify-center relative overflow-hidden shrink-0 shadow-sm ${className}`}
       >
         <div className="w-5 h-2.5 bg-[#00a8e1] rounded-b-sm absolute top-0 shadow-xs" />
-        <svg
-          viewBox="0 0 36 20"
-          className="w-7 h-4 text-black mt-2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        >
-          <path d="M 4 12 Q 18 20 32 8" />
-          <path d="M 28 6 L 32 8 L 30 13" fill="currentColor" />
-        </svg>
+        <AmazonSmileIcon className="w-7 h-4 text-black mt-2" />
       </div>
     );
   }
@@ -75,16 +66,7 @@ export const ContactAvatar = ({ contact, size = 48, className = "" }) => {
         <span className="text-white font-semibold text-[8px] tracking-tight leading-none">
           video
         </span>
-        <svg
-          viewBox="0 0 20 6"
-          className="w-4 h-1.5 text-white mt-0.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        >
-          <path d="M 2 3 Q 10 7 18 2" />
-        </svg>
+        <PrimeVideoWaveIcon className="w-4 h-1.5 text-white mt-0.5" />
       </div>
     );
   }
@@ -558,9 +540,6 @@ export const FavouritesView = ({
   );
 };
 
-/* =========================================================================
-   3. EDIT FAVOURITES VIEW (MATCHES IMAGE 4)
-   ========================================================================= */
 export const EditFavouritesView = ({ onBack, onSave }) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
@@ -737,9 +716,6 @@ export const EditFavouritesView = ({ onBack, onSave }) => {
   );
 };
 
-/* =========================================================================
-   DEFAULT EXPORT (COMPATIBLE COMPONENT)
-   ========================================================================= */
 const FaviouriteCall = ({
   isOpen,
   onClose,

@@ -55,7 +55,11 @@ import {
 } from "../utils/chatThemes";
 import { toast } from "react-toastify";
 import axiosInstance from "../services/url.services";
-import { WhatsAppMediaFolderIcon } from "./Media";
+import {
+  WhatsAppMediaFolderIcon,
+  EndToEndEncryptionIllustration,
+  DisappearingMessagesIllustration,
+} from "./common/Icons";
 import ContactMedia from "./ContactMedia";
 import FileViewerModal from "./FileViewerModal";
 import { FALLBACK_MEDIA } from "../assets/rawData";
@@ -2161,72 +2165,11 @@ const ContactInfo = () => {
                 className="flex flex-col items-center py-5 px-5 overflow-y-auto flex-1 scrollbar-hide"
               >
                 <div className="flex justify-center mb-5 select-none">
-                  <svg
-                    width="150"
-                    height="115"
-                    viewBox="0 0 160 125"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="overflow-visible"
-                  >
-                    <g transform="translate(14, 20)">
-                      <circle
-                        cx="28"
-                        cy="28"
-                        r="23"
-                        fill={isDark ? "#182229" : "#222e35"}
-                        stroke="#ffffff"
-                        strokeWidth="5"
-                      />
-                      <line
-                        x1="12"
-                        y1="44"
-                        x2="44"
-                        y2="12"
-                        stroke="#ffffff"
-                        strokeWidth="5"
-                        strokeLinecap="round"
-                      />
-                    </g>
-                    <path
-                      d="M62 48V28C62 17.5 70 9 80 9C90 9 98 17.5 98 28V48"
-                      stroke="#dcf8c6"
-                      strokeWidth="11"
-                      strokeLinecap="round"
-                    />
-                    <rect
-                      x="54"
-                      y="44"
-                      width="52"
-                      height="46"
-                      rx="14"
-                      fill="#dcf8c6"
-                    />
-                    <circle cx="80" cy="62" r="5" fill="#111b21" />
-                    <path d="M77 62L75 76H85L83 62Z" fill="#111b21" />
-                    <g transform="translate(86, 20)">
-                      <circle cx="34" cy="34" r="28" fill="#00a884" />
-                      <circle cx="34" cy="34" r="23" fill="#111b21" />
-
-                      <circle cx="34" cy="16" r="1.5" fill="#ffffff" />
-                      <circle cx="44" cy="19" r="1.5" fill="#ffffff" />
-                      <circle cx="51" cy="26" r="1.5" fill="#ffffff" />
-                      <circle cx="52" cy="35" r="1.5" fill="#ffffff" />
-                      <circle cx="17" cy="26" r="1.5" fill="#ffffff" />
-                      <circle cx="24" cy="19" r="1.5" fill="#ffffff" />
-
-                      <line
-                        x1="34"
-                        y1="34"
-                        x2="25"
-                        y2="23"
-                        stroke="#ffffff"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="34" cy="34" r="3" fill="#ffffff" />
-                    </g>
-                  </svg>
+                  <EndToEndEncryptionIllustration
+                    isDark={isDark}
+                    width={150}
+                    height={115}
+                  />
                 </div>
 
                 <p className="text-center text-[13px] leading-relaxed text-[#8696a0] px-2 mb-6 max-w-sm">
@@ -2353,45 +2296,7 @@ const ContactInfo = () => {
                 className="flex flex-col py-2 overflow-y-auto flex-1 scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
               >
                 <div className="flex justify-center items-center py-6">
-                  <svg
-                    width="200"
-                    height="125"
-                    viewBox="0 0 220 140"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="drop-shadow-md select-none"
-                  >
-                    <path
-                      d="M175 35 C175 22 163 12 148 12 C133 12 121 22 121 35 C121 44 126 51 134 55 L130 68 L143 58 C145 58 146 58 148 58 C163 58 175 48 175 35 Z"
-                      fill="#fff9e6"
-                    />
-                    <circle cx="112" cy="70" r="44" fill="#00a884" />
-                    <circle cx="112" cy="70" r="37" fill="#25d366" />
-                    <circle cx="112" cy="70" r="30" fill="#00a884" />
-                    <circle cx="112" cy="37" r="2.2" fill="#ffffff" />
-                    <circle cx="128" cy="41" r="2.2" fill="#ffffff" />
-                    <circle cx="142" cy="54" r="2.2" fill="#ffffff" />
-                    <circle cx="147" cy="70" r="2.2" fill="#ffffff" />
-                    <circle cx="142" cy="86" r="2.2" fill="#ffffff" />
-                    <circle cx="128" cy="99" r="2.2" fill="#ffffff" />
-                    <circle cx="112" cy="103" r="2.2" fill="#ffffff" />
-                    <circle cx="96" cy="99" r="2.2" fill="#ffffff" />
-                    <circle cx="82" cy="86" r="2.2" fill="#ffffff" />
-                    <circle cx="77" cy="69" r="2.2" fill="#ffffff" />
-                    <circle cx="81" cy="52" r="2.2" fill="#ffffff" />
-                    <circle cx="95" cy="39" r="2.2" fill="#ffffff" />
-                    <path
-                      d="M110 70 L133 47 C134.5 45.5 136.5 47.5 135 49 L114 72 Z"
-                      fill="#111b21"
-                    />
-                    <circle cx="112" cy="70" r="4.5" fill="#111b21" />
-                    <circle cx="72" cy="84" r="19" fill="#b9f5d0" />
-                    <circle cx="93" cy="94" r="14" fill="#b9f5d0" />
-                    <circle cx="81" cy="98" r="11" fill="#b9f5d0" />
-                    <circle cx="66" cy="64" r="6" fill="#b9f5d0" />
-                    <circle cx="162" cy="90" r="4.5" fill="#00a884" />
-                    <circle cx="170" cy="84" r="3" fill="#00a884" />
-                  </svg>
+                  <DisappearingMessagesIllustration width={200} height={125} />
                 </div>
 
                 <div className="px-6 mb-6">
