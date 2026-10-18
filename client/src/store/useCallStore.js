@@ -19,7 +19,8 @@ export const DEFAULT_CALL_HISTORY = [
     id: "call-seed-2",
     contactId: "seed-ankan",
     contactName: "Ankan Dewan MSIT",
-    contactAvatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80",
+    contactAvatar:
+      "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80",
     callType: "video",
     direction: "missed",
     status: "missed",
@@ -32,7 +33,8 @@ export const DEFAULT_CALL_HISTORY = [
     id: "call-seed-3",
     contactId: "seed-arindam",
     contactName: "Arindam",
-    contactAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+    contactAvatar:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
     callType: "audio",
     direction: "outgoing",
     status: "completed",
@@ -45,7 +47,8 @@ export const DEFAULT_CALL_HISTORY = [
     id: "call-seed-4",
     contactId: "seed-sayak",
     contactName: "Sayak Chandra Hostel Room Met",
-    contactAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
+    contactAvatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
     callType: "audio",
     direction: "missed",
     status: "missed",
@@ -58,7 +61,8 @@ export const DEFAULT_CALL_HISTORY = [
     id: "call-seed-5",
     contactId: "seed-sayak",
     contactName: "Sayak Chandra Hostel Room Met",
-    contactAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
+    contactAvatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
     callType: "video",
     direction: "outgoing",
     status: "completed",
@@ -71,7 +75,8 @@ export const DEFAULT_CALL_HISTORY = [
     id: "call-seed-6",
     contactId: "seed-arindam",
     contactName: "Arindam",
-    contactAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+    contactAvatar:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
     callType: "audio",
     direction: "outgoing",
     status: "completed",
@@ -90,7 +95,8 @@ export const DEFAULT_FAVOURITES = [
     name: "Amazon",
     isVerified: true,
     avatarType: "amazon",
-    profilePicture: "https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.png",
+    profilePicture:
+      "https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.png",
     about: "Official Business Account",
   },
 ];
@@ -103,7 +109,8 @@ export const SEED_FAVOURITE_CANDIDATES = [
     name: "Amazon",
     isVerified: true,
     avatarType: "amazon",
-    profilePicture: "https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.png",
+    profilePicture:
+      "https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.png",
     about: "Official Business Account",
   },
   {
@@ -113,7 +120,8 @@ export const SEED_FAVOURITE_CANDIDATES = [
     name: "Flipkart Saathi",
     isVerified: true,
     avatarType: "flipkart",
-    profilePicture: "https://images.unsplash.com/photo-1572021335469-31706a17aaef?auto=format&fit=crop&w=150&q=80",
+    profilePicture:
+      "https://images.unsplash.com/photo-1572021335469-31706a17aaef?auto=format&fit=crop&w=150&q=80",
     about: "Official Business Account",
   },
   {
@@ -123,7 +131,8 @@ export const SEED_FAVOURITE_CANDIDATES = [
     name: "Prime Video India",
     isVerified: true,
     avatarType: "prime",
-    profilePicture: "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=150&q=80",
+    profilePicture:
+      "https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?auto=format&fit=crop&w=150&q=80",
     about: "Official Business Account",
   },
   {
@@ -132,7 +141,8 @@ export const SEED_FAVOURITE_CANDIDATES = [
     username: "H4 batch 2026-27",
     name: "H4 batch 2026-27",
     avatarType: "hostel",
-    profilePicture: "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=150&q=80",
+    profilePicture:
+      "https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=150&q=80",
     about: "Ankan, Anurag, Arghya, Arindam, Arm...",
   },
   {
@@ -150,7 +160,8 @@ export const SEED_FAVOURITE_CANDIDATES = [
     username: "LME 2024-28",
     name: "LME 2024-28",
     avatarType: "lme",
-    profilePicture: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=150&q=80",
+    profilePicture:
+      "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=150&q=80",
     about: "Ankan, Arindam, Priyanshu, Utsab...",
   },
   {
@@ -159,7 +170,8 @@ export const SEED_FAVOURITE_CANDIDATES = [
     username: "Get MAR Support Group",
     name: "Get MAR Support Group",
     avatarType: "mar",
-    profilePicture: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&q=80",
+    profilePicture:
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&q=80",
     about: "+91 6295 055 881, +91 93331 28251, ...",
   },
 ];
@@ -236,7 +248,9 @@ const useCallStore = create(
         const contactId = contact._id || contact.id || contact.contactId;
         if (!contactId) return;
 
-        if (favourites.some((f) => (f._id || f.id || f.contactId) === contactId)) {
+        if (
+          favourites.some((f) => (f._id || f.id || f.contactId) === contactId)
+        ) {
           return;
         }
 
@@ -245,7 +259,11 @@ const useCallStore = create(
           _id: contactId,
           username: contact.username || contact.name || contact.contactName,
           name: contact.username || contact.name || contact.contactName,
-          profilePicture: contact.profilePicture || contact.avatar || contact.contactAvatar || null,
+          profilePicture:
+            contact.profilePicture ||
+            contact.avatar ||
+            contact.contactAvatar ||
+            null,
           avatarType: contact.avatarType || null,
           isVerified: Boolean(contact.isVerified),
           about: contact.about || "Hey there! I am using WhatsApp",
@@ -258,7 +276,7 @@ const useCallStore = create(
       removeFavourite: (contactId) => {
         set((state) => ({
           favourites: state.favourites.filter(
-            (f) => (f._id || f.id || f.contactId) !== contactId
+            (f) => (f._id || f.id || f.contactId) !== contactId,
           ),
         }));
       },
@@ -267,7 +285,7 @@ const useCallStore = create(
         const { favourites, addFavourite, removeFavourite } = get();
         const contactId = contact._id || contact.id || contact.contactId;
         const exists = favourites.some(
-          (f) => (f._id || f.id || f.contactId) === contactId
+          (f) => (f._id || f.id || f.contactId) === contactId,
         );
         if (exists) {
           removeFavourite(contactId);
@@ -279,7 +297,7 @@ const useCallStore = create(
       isFavourite: (contactId) => {
         const { favourites } = get();
         return favourites.some(
-          (f) => (f._id || f.id || f.contactId) === contactId
+          (f) => (f._id || f.id || f.contactId) === contactId,
         );
       },
     }),
@@ -289,8 +307,8 @@ const useCallStore = create(
         callHistory: state.callHistory,
         favourites: state.favourites,
       }),
-    }
-  )
+    },
+  ),
 );
 
 export default useCallStore;

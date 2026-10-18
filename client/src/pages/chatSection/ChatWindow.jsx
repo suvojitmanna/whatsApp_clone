@@ -1243,8 +1243,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       restoredChatIdRef.current = contactId;
 
       if (!savedPos || savedPos.isAtBottom) {
-        // No saved position in this tab session (e.g. newly opened tab, or chat opened for the first time):
-        // Automatically scroll to the bottom, showing the LAST MESSAGE!
         isShowingLastMessageRef.current = true;
         currentChatScrollRef.current = {
           scrollTop: el.scrollHeight,
@@ -1271,8 +1269,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           clearTimeout(t4);
         };
       } else {
-        // Saved position exists in this tab:
-        // Closed at ANY intermediate position -> restore that exact position!
         isShowingLastMessageRef.current = false;
         currentChatScrollRef.current = savedPos;
 

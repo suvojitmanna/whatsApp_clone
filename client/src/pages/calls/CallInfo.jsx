@@ -43,7 +43,6 @@ export const CallInfo = ({
 
   if (!call) return null;
 
-  // Find if this contact corresponds to a real registered user
   const matchedUser = users.find(
     (u) =>
       u._id === call.contactId ||
@@ -58,14 +57,12 @@ export const CallInfo = ({
 
   const isFav = isFavourite(contactId);
 
-  // Filter all calls associated with this contact
   const relatedCalls = callHistory.filter(
     (c) =>
       c.contactName?.toLowerCase() === call.contactName?.toLowerCase() ||
       (c.contactId && c.contactId === call.contactId)
   );
 
-  // Ensure active call is at top if not empty
   const displayCalls = relatedCalls.length > 0 ? relatedCalls : [call];
 
   const handleOpenChat = () => {
@@ -105,37 +102,32 @@ export const CallInfo = ({
 
   return (
     <div
-      className={`h-full w-full flex flex-col overflow-y-auto transition-colors duration-200 select-none ${
-        isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-[#f0f2f5] text-[#111b21]"
-      }`}
-    >
-      {/* Top Header (Matching Screenshot: "Call info" on left, "✕" on right) */}
-      <div
-        className={`h-16 px-6 flex items-center justify-between shrink-0 sticky top-0 z-10 border-b ${
-          isDark
-            ? "bg-[#111b21] border-[#222e35]"
-            : "bg-[#f0f2f5] border-gray-200"
+      className={`h-full w-full flex flex-col overflow-y-auto transition-colors duration-200 select-none ${isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-[#f0f2f5] text-[#111b21]"
         }`}
+    >
+      <div
+        className={`h-16 px-6 flex items-center justify-between shrink-0 sticky top-0 z-10 border-b ${isDark
+          ? "bg-[#111b21] border-[#222e35]"
+          : "bg-[#f0f2f5] border-gray-200"
+          }`}
       >
         <div className="flex items-center gap-3">
           {isMobile && (
             <button
               type="button"
               onClick={onClose}
-              className={`p-1.5 rounded-full transition-colors cursor-pointer ${
-                isDark
-                  ? "hover:bg-[#202c33] text-gray-300"
-                  : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
-              }`}
+              className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark
+                ? "hover:bg-[#202c33] text-gray-300"
+                : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
+                }`}
               title="Back"
             >
               <MdArrowBack className="text-xl" />
             </button>
           )}
           <h2
-            className={`text-[18px] sm:text-[19px] font-semibold tracking-normal ${
-              isDark ? "text-white" : "text-[#111b21]"
-            }`}
+            className={`text-[18px] sm:text-[19px] font-semibold tracking-normal ${isDark ? "text-white" : "text-[#111b21]"
+              }`}
           >
             Call info
           </h2>
@@ -144,30 +136,24 @@ export const CallInfo = ({
         <button
           type="button"
           onClick={onClose}
-          className={`p-2 rounded-full transition-colors cursor-pointer ${
-            isDark
-              ? "hover:bg-[#202c33] text-[#8696a0] hover:text-white"
-              : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
-          }`}
+          className={`p-2 rounded-full transition-colors cursor-pointer ${isDark
+            ? "hover:bg-[#202c33] text-[#8696a0] hover:text-white"
+            : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
+            }`}
           title="Close"
         >
           <MdClose className="text-xl" />
         </button>
       </div>
 
-      {/* Main Container */}
       <div className="px-6 py-4 max-w-2xl w-full flex flex-col gap-4">
-        {/* Main WhatsApp Card (Matching Screenshot) */}
         <div
-          className={`rounded-2xl overflow-hidden border transition-colors shadow-xs ${
-            isDark
-              ? "bg-[#182229] border-[#222e35]/80"
-              : "bg-white border-gray-200 shadow-sm"
-          }`}
+          className={`rounded-2xl overflow-hidden border transition-colors shadow-xs ${isDark
+            ? "bg-[#182229] border-[#222e35]/80"
+            : "bg-white border-gray-200 shadow-sm"
+            }`}
         >
-          {/* Top Contact Row: Avatar + Name + Message / Video / Audio Icons */}
           <div className="p-4 sm:p-5 flex items-center justify-between">
-            {/* Left: Avatar + Contact Name */}
             <div className="flex items-center gap-4 min-w-0 flex-1 pr-2">
               <ContactAvatar
                 contact={{
@@ -177,21 +163,17 @@ export const CallInfo = ({
                 size={48}
               />
               <span
-                className={`text-[17px] font-medium truncate tracking-tight ${
-                  isDark ? "text-white" : "text-[#111b21]"
-                }`}
+                className={`text-[17px] font-medium truncate tracking-tight ${isDark ? "text-white" : "text-[#111b21]"
+                  }`}
               >
                 {contactName}
               </span>
             </div>
 
-            {/* Right: Action Icon Buttons in a row (Message, Video, Audio) */}
             <div
-              className={`flex items-center gap-5 sm:gap-6 shrink-0 ${
-                isDark ? "text-[#e9edef]" : "text-[#54656f]"
-              }`}
+              className={`flex items-center gap-5 sm:gap-6 shrink-0 ${isDark ? "text-[#e9edef]" : "text-[#54656f]"
+                }`}
             >
-              {/* Message button */}
               <button
                 type="button"
                 onClick={handleOpenChat}
@@ -202,7 +184,6 @@ export const CallInfo = ({
                 <MdOutlineChatBubbleOutline className="text-2xl" />
               </button>
 
-              {/* Video call button */}
               <button
                 type="button"
                 onClick={() =>
@@ -217,7 +198,6 @@ export const CallInfo = ({
                 <MdOutlineVideocam className="text-2xl" />
               </button>
 
-              {/* Voice call button */}
               <button
                 type="button"
                 onClick={() =>
@@ -234,14 +214,11 @@ export const CallInfo = ({
             </div>
           </div>
 
-          {/* Divider */}
           <div
-            className={`border-t ${
-              isDark ? "border-[#222e35]/70" : "border-gray-100"
-            }`}
+            className={`border-t ${isDark ? "border-[#222e35]/70" : "border-gray-100"
+              }`}
           />
 
-          {/* Bottom Call Activity Row (Matching Screenshot: Date + Direction + Duration/Unanswered) */}
           <div className="p-4 sm:p-5 flex flex-col gap-3">
             {displayCalls.map((item, idx) => {
               const isMissed = item.direction === "missed";
@@ -255,59 +232,49 @@ export const CallInfo = ({
               const directionWord = isMissed
                 ? "Missed"
                 : isIncoming
-                ? "Incoming"
-                : "Outgoing";
+                  ? "Incoming"
+                  : "Outgoing";
 
-              // Duration / Unanswered status on the right
               const statusText =
                 isMissed
                   ? "Unanswered"
                   : item.duration && item.duration !== "Connected"
-                  ? item.duration
-                  : "Unanswered";
+                    ? item.duration
+                    : "Unanswered";
 
               return (
                 <div key={item.id || idx} className="flex flex-col">
-                  {/* Date label: e.g. "Today" */}
                   <div
-                    className={`text-[13px] font-normal mb-2 ${
-                      isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                    }`}
+                    className={`text-[13px] font-normal mb-2 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                      }`}
                   >
                     {dateLabel}
                   </div>
 
-                  {/* Call activity line: Direction icon + "Outgoing voice call at 04:07" + "Unanswered" */}
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      {/* Direction Icon */}
                       {isMissed ? (
                         <MdCallMissed className="text-[#f15c6d] text-lg shrink-0 transform rotate-180" />
                       ) : isIncoming ? (
                         <MdCallReceived className="text-[#00a884] text-lg shrink-0" />
                       ) : (
                         <MdCallMade
-                          className={`text-lg shrink-0 ${
-                            isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                          }`}
+                          className={`text-lg shrink-0 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                            }`}
                         />
                       )}
 
-                      {/* Direction & Call details text */}
                       <span
-                        className={`text-[14px] truncate ${
-                          isDark ? "text-[#e9edef]" : "text-[#111b21]"
-                        }`}
+                        className={`text-[14px] truncate ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+                          }`}
                       >
                         {directionWord} {callTypeLabel} call at {timeLabel}
                       </span>
                     </div>
 
-                    {/* Right status (e.g. "Unanswered") */}
                     <span
-                      className={`text-[13px] shrink-0 font-normal ${
-                        isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                      }`}
+                      className={`text-[13px] shrink-0 font-normal ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                        }`}
                     >
                       {statusText}
                     </span>
@@ -318,28 +285,25 @@ export const CallInfo = ({
           </div>
         </div>
 
-        {/* Add / In Favourites Action Card */}
         <div
           onClick={handleToggleFav}
-          className={`p-4 rounded-2xl flex items-center justify-between cursor-pointer transition-all border shadow-xs ${
-            isFav
-              ? isDark
-                ? "bg-[#182229] border-emerald-500/40 text-[#e9edef]"
-                : "bg-[#e7fce3]/60 border-[#25d366]/40 text-[#111b21] shadow-xs"
-              : isDark
+          className={`p-4 rounded-2xl flex items-center justify-between cursor-pointer transition-all border shadow-xs ${isFav
+            ? isDark
+              ? "bg-[#182229] border-emerald-500/40 text-[#e9edef]"
+              : "bg-[#e7fce3]/60 border-[#25d366]/40 text-[#111b21] shadow-xs"
+            : isDark
               ? "bg-[#182229] border-[#222e35]/80 text-[#e9edef] hover:bg-[#202c33]"
               : "bg-white border-gray-200 text-[#111b21] hover:bg-[#f5f6f6] shadow-sm"
-          }`}
+            }`}
         >
           <div className="flex items-center gap-3.5">
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-                isFav
-                  ? "bg-emerald-500/20 text-yellow-500"
-                  : isDark
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isFav
+                ? "bg-emerald-500/20 text-yellow-500"
+                : isDark
                   ? "bg-[#202c33] text-gray-400"
                   : "bg-[#f0f2f5] text-[#54656f]"
-              }`}
+                }`}
             >
               {isFav ? (
                 <MdStar className="text-2xl text-yellow-500" />
@@ -350,16 +314,14 @@ export const CallInfo = ({
 
             <div>
               <div
-                className={`text-[15px] font-medium leading-tight ${
-                  isDark ? "text-white" : "text-[#111b21]"
-                }`}
+                className={`text-[15px] font-medium leading-tight ${isDark ? "text-white" : "text-[#111b21]"
+                  }`}
               >
                 {isFav ? "In Favourites" : "Add to favourites"}
               </div>
               <div
-                className={`text-xs mt-0.5 ${
-                  isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                }`}
+                className={`text-xs mt-0.5 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                  }`}
               >
                 {isFav
                   ? "This contact is in your favourites list"
@@ -370,26 +332,23 @@ export const CallInfo = ({
 
           <button
             type="button"
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer shadow-xs ${
-              isFav
-                ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20"
-                : "bg-[#00a884] text-black hover:bg-[#008f6f]"
-            }`}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer shadow-xs ${isFav
+              ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20"
+              : "bg-[#00a884] text-black hover:bg-[#008f6f]"
+              }`}
           >
             {isFav ? "Remove" : "Add"}
           </button>
         </div>
 
-        {/* Delete Call Log Button */}
         <div className="flex justify-center mt-2">
           <button
             type="button"
             onClick={handleDeleteAllCalls}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
-              isDark
-                ? "hover:bg-red-500/10 text-red-400 hover:text-red-300"
-                : "hover:bg-red-50 text-red-600 font-medium"
-            }`}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${isDark
+              ? "hover:bg-red-500/10 text-red-400 hover:text-red-300"
+              : "hover:bg-red-50 text-red-600 font-medium"
+              }`}
           >
             <MdDeleteOutline className="text-base" />
             <span>Delete call history with {contactName}</span>
