@@ -19,6 +19,8 @@ const VideoCallModel = ({ socket }) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const recordedCallIds = useRef(new Set());
+  const callAcceptedRef = useRef(false);
+  const callStartTimeRef = useRef(null);
   const [callTime, setCallTime] = React.useState(0);
   const [isScreenSharing, setIsScreenSharing] = React.useState(false);
   const [cameraStream, setCameraStream] = React.useState(null);
@@ -48,6 +50,8 @@ const VideoCallModel = ({ socket }) => {
     toggleVideo,
     toggleAudio,
     clearIncomingCall,
+    isInitiator,
+    setIsInitiator,
   } = useVideoCallStore();
 
   const { user } = useUserStore();
@@ -79,6 +83,10 @@ const VideoCallModel = ({ socket }) => {
   useEffect(() => {
     if (peerConnection && remoteStream) {
       console.log("both peer connection ");
+      callAcceptedRef.current = true;
+      if (!callStartTimeRef.current) {
+        callStartTimeRef.current = Date.now();
+      }
       setCallStatus("connected");
       setCallActive(true);
     }
@@ -221,7 +229,14 @@ const VideoCallModel = ({ socket }) => {
     pc.onconnectionstatechange = () => {
       console.log(`role: ${role} :connection state`, pc.connectionState);
 
-      if (["failed", "disconnected"].includes(pc.connectionState)) {
+      if (pc.connectionState === "connected") {
+        callAcceptedRef.current = true;
+        if (!callStartTimeRef.current) {
+          callStartTimeRef.current = Date.now();
+        }
+        setCallStatus("connected");
+        setCallActive(true);
+      } else if (["failed", "disconnected"].includes(pc.connectionState)) {
         setCallStatus("failed");
         setTimeout(handleEndCall, 2000);
       }
@@ -229,6 +244,14 @@ const VideoCallModel = ({ socket }) => {
 
     pc.oniceconnectionstatechange = () => {
       console.log(`role: ${role} :ICE state`, pc.iceConnectionState);
+      if (["connected", "completed"].includes(pc.iceConnectionState)) {
+        callAcceptedRef.current = true;
+        if (!callStartTimeRef.current) {
+          callStartTimeRef.current = Date.now();
+        }
+        setCallStatus("connected");
+        setCallActive(true);
+      }
     };
 
     pc.onsignalingstatechange = () => {
@@ -266,6 +289,10 @@ const VideoCallModel = ({ socket }) => {
   };
   const handleAnswerCall = async () => {
     try {
+      callAcceptedRef.current = true;
+      if (!callStartTimeRef.current) {
+        callStartTimeRef.current = Date.now();
+      }
       setCallStatus("connecting");
 
       const stream = await InitializeMedia(callType === "video");
@@ -287,7 +314,9 @@ const VideoCallModel = ({ socket }) => {
         participantId: incomingCall?.callerId,
         participantName: incomingCall?.callerName,
         participantAvatar: incomingCall?.callerAvatar,
+        isInitiator: false,
       });
+      setIsInitiator(false);
 
       clearIncomingCall();
     } catch (error) {
@@ -303,25 +332,43 @@ const VideoCallModel = ({ socket }) => {
     if (recordedCallIds.current.has(callId)) return;
     recordedCallIds.current.add(callId);
 
-    const isCaller = Boolean(currentCall && !incomingCall);
+    const isCaller = Boolean(
+      currentCall?.isInitiator === true ||
+      isInitiator === true
+    );
     const participantName =
       currentCall?.participantName || incomingCall?.callerName || "Contact";
     const participantAvatar =
       currentCall?.participantAvatar || incomingCall?.callerAvatar || "";
 
+    let effectiveSeconds = finalSeconds;
+    if (callStartTimeRef.current && effectiveSeconds <= 0) {
+      effectiveSeconds = Math.max(
+        1,
+        Math.round((Date.now() - callStartTimeRef.current) / 1000)
+      );
+    }
+
+    const wasAnswered = Boolean(
+      callAcceptedRef.current ||
+      callStatus === "connected" ||
+      effectiveSeconds > 0
+    );
+
     const isConnected =
-      (callStatus === "connected" || finalSeconds > 0) &&
-      explicitStatus !== "rejected";
+      wasAnswered &&
+      explicitStatus !== "rejected" &&
+      callStatus !== "rejected";
 
     let durationText = "";
     if (isConnected) {
-      if (finalSeconds <= 0) {
+      if (effectiveSeconds <= 0) {
         durationText = "1 second";
-      } else if (finalSeconds < 60) {
-        durationText = `${finalSeconds} second${finalSeconds === 1 ? "" : "s"}`;
+      } else if (effectiveSeconds < 60) {
+        durationText = `${effectiveSeconds} second${effectiveSeconds === 1 ? "" : "s"}`;
       } else {
-        const mins = Math.floor(finalSeconds / 60);
-        const secs = finalSeconds % 60;
+        const mins = Math.floor(effectiveSeconds / 60);
+        const secs = effectiveSeconds % 60;
         durationText = `${mins} min ${secs} sec`;
       }
     } else {
@@ -357,21 +404,23 @@ const VideoCallModel = ({ socket }) => {
       console.warn("Could not save to useCallStore:", e);
     }
 
-    try {
-      const activeContact = useLayoutStore.getState()?.selectedContact;
-      const conv = useChatStore.getState()?.currentConversation;
-      const conversationId = conv?._id || activeContact?.conversation?._id;
+    if (isCaller) {
+      try {
+        const activeContact = useLayoutStore.getState()?.selectedContact;
+        const conv = useChatStore.getState()?.currentConversation;
+        const conversationId = conv?._id || activeContact?.conversation?._id;
 
-      useChatStore.getState().sendCallMessage?.({
-        receiverId: participantId,
-        conversationId,
-        callType: callType === "video" ? "video" : "audio",
-        duration: durationText,
-        status: statusType,
-        direction,
-      });
-    } catch (e) {
-      console.warn("Could not save call message to useChatStore:", e);
+        useChatStore.getState().sendCallMessage?.({
+          receiverId: participantId,
+          conversationId,
+          callType: callType === "video" ? "video" : "audio",
+          duration: durationText,
+          status: statusType,
+          direction: "outgoing",
+        });
+      } catch (e) {
+        console.warn("Could not save call message to useChatStore:", e);
+      }
     }
   };
 
@@ -420,8 +469,8 @@ const VideoCallModel = ({ socket }) => {
     setCameraStream(null);
     setRemoteStream(null);
     setPeerConnection(null);
-    setCallType(null);
-
+    callAcceptedRef.current = false;
+    callStartTimeRef.current = null;
     endCall();
   };
   const handleEndCall = () => {
@@ -449,6 +498,11 @@ const VideoCallModel = ({ socket }) => {
     if (!socket) return;
 
     const handleCallAccepted = ({ receiverName }) => {
+      callAcceptedRef.current = true;
+      if (!callStartTimeRef.current) {
+        callStartTimeRef.current = Date.now();
+      }
+      setCallStatus("connecting");
       if (currentCall) {
         setTimeout(() => {
           initializeCallerCall();

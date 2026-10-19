@@ -18,6 +18,11 @@ const useVideoCallStore = create(
 
     isCallModalOpen: false,
     callStatus: "idle",
+    isInitiator: false,
+
+    setIsInitiator: (isInitiator) => {
+      set({ isInitiator: Boolean(isInitiator) });
+    },
 
     setCurrentCall: (call) => {
       set({ currentCall: call });
@@ -129,6 +134,7 @@ const useVideoCallStore = create(
         iceCandidatesQueue: [],
         isCallModalOpen: false,
         callStatus: "idle",
+        isInitiator: false,
       });
     },
 

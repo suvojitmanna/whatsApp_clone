@@ -12,6 +12,7 @@ const VideoCallManager = () => {
     setCallModalOpen,
     endCall,
     setCallStatus,
+    setIsInitiator,
   } = useVideoCallStore();
 
   const { user } = useUserStore();
@@ -27,11 +28,13 @@ const VideoCallManager = () => {
       callType,
       callId,
     }) => {
+      setIsInitiator(false);
       setIncomingCall({
         callerId,
         callerName,
         callerAvatar,
         callId,
+        isInitiator: false,
       });
 
       setCallType(callType);
@@ -53,7 +56,7 @@ const VideoCallManager = () => {
       socket.off("incoming_call", handleIncomingCall);
       socket.off("call_failed", handleCallEnded);
     };
-  }, [socket, setIncomingCall, setCallType, setCallStatus, setCallModalOpen, endCall]);
+  }, [socket, setIncomingCall, setCallType, setCallStatus, setCallModalOpen, endCall, setIsInitiator]);
 
   const initiateCall = useCallback(
     (receiverId, receiverName, receiverAvatar, callType = "video") => {
@@ -64,8 +67,10 @@ const VideoCallManager = () => {
         participantId: receiverId,
         participantName: receiverName,
         participantAvatar: receiverAvatar,
+        isInitiator: true,
       };
 
+      setIsInitiator(true);
       setCurrentCall(callData);
       setCallType(callType);
       setCallModalOpen(true);

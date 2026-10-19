@@ -170,7 +170,7 @@ export async function decryptSingleMessage(
         if (userObj) userObj.publicKey = peerPubKey;
       }
     } catch (e) {
-      // ignore
+      console.log(e)
     }
   }
 
@@ -185,7 +185,6 @@ export async function decryptSingleMessage(
       decrypted = await decryptText(msg.content, msg.iv, sharedKey);
     }
 
-    // Auto-retry with fresh key from server if initial decryption attempt failed
     if (decrypted === null) {
       clearSharedKeyCache(peerId);
       try {
@@ -850,6 +849,8 @@ export const useChatStore = create((set, get) => ({
     socket.off("chat_cleared");
     socket.off("chat_deleted");
     socket.off("user_public_key_updated");
+    socket.off("request_reencrypt_message");
+    socket.off("message_reencrypted");
 
     get().fetchBlockedUsers();
 
@@ -866,6 +867,126 @@ export const useChatStore = create((set, get) => ({
           String(u._id) === strId ? { ...u, publicKey } : u,
         ),
       }));
+    });
+
+    socket.on("request_reencrypt_message", async (data) => {
+      if (!data) return;
+      const { messageId, receiverId, receiverPublicKey, conversationId } = data;
+      const currentUserId = (
+        get().currentUser || useUserStore.getState().user
+      )?._id?.toString();
+      if (!currentUserId || !messageId) return;
+
+      let targetMsg = get().messages.find(
+        (m) => (m._id?._id || m._id)?.toString() === messageId.toString(),
+      );
+      if (!targetMsg) {
+        for (const cachedList of (get().messagesCache || new Map()).values()) {
+          const found = cachedList.find(
+            (m) => (m._id?._id || m._id)?.toString() === messageId.toString(),
+          );
+          if (found) {
+            targetMsg = found;
+            break;
+          }
+        }
+      }
+
+      if (
+        targetMsg &&
+        targetMsg.content &&
+        (targetMsg._isDecrypted ||
+          (targetMsg.sender?._id || targetMsg.sender)?.toString() ===
+            currentUserId)
+      ) {
+        try {
+          const plainText = targetMsg.content;
+          if (receiverId && receiverPublicKey) {
+            clearSharedKeyCache(receiverId);
+            const sharedKey = await getSharedAesKey(
+              receiverId,
+              receiverPublicKey,
+              currentUserId,
+            );
+            if (sharedKey) {
+              const enc = await encryptText(plainText, sharedKey);
+              if (enc) {
+                const sock = getSocket();
+                if (sock) {
+                  sock.emit("reencrypt_message_response", {
+                    messageId,
+                    conversationId,
+                    receiverId,
+                    content: enc.ciphertext,
+                    iv: enc.iv,
+                  });
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to handle re-encrypt request:", err);
+        }
+      }
+    });
+
+    socket.on("message_reencrypted", async (data) => {
+      if (!data) return;
+      const { messageId, content, iv, message, conversationId } = data;
+      const currentUserId = (
+        get().currentUser || useUserStore.getState().user
+      )?._id;
+      const selectedContact = useLayoutStore.getState()?.selectedContact;
+      const rawMsg = message || {
+        _id: messageId,
+        content,
+        iv,
+        isEncrypted: true,
+        conversation: conversationId,
+      };
+
+      const decrypted = await decryptSingleMessage(
+        rawMsg,
+        currentUserId,
+        selectedContact,
+        get,
+      );
+
+      const targetIdStr = messageId?.toString();
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if ((m._id?._id || m._id)?.toString() === targetIdStr) {
+            return {
+              ...m,
+              content: decrypted._isDecrypted ? decrypted.content : content,
+              iv: iv,
+              _isDecrypted: Boolean(decrypted._isDecrypted),
+            };
+          }
+          return m;
+        });
+
+        const nextCache = new Map(state.messagesCache || new Map());
+        for (const [cId, list] of nextCache.entries()) {
+          const updatedList = list.map((m) => {
+            if ((m._id?._id || m._id)?.toString() === targetIdStr) {
+              return {
+                ...m,
+                content: decrypted._isDecrypted ? decrypted.content : content,
+                iv: iv,
+                _isDecrypted: Boolean(decrypted._isDecrypted),
+              };
+            }
+            return m;
+          });
+          nextCache.set(cId, updatedList);
+        }
+
+        return {
+          messages: nextMessages,
+          messagesCache: nextCache,
+        };
+      });
     });
 
     socket.on("message_pinned", async (data) => {

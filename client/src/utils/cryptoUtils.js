@@ -283,7 +283,6 @@ export async function batchDecryptMessages(
     return [];
   }
 
-  // Pre-derive a shared key if peer info is provided
   let defaultSharedKey = null;
   if (peerUserId && peerPublicKeyStr && currentUserId) {
     try {
@@ -309,7 +308,6 @@ export async function batchDecryptMessages(
         return msg;
       }
 
-      // Try with default shared key first
       if (defaultSharedKey) {
         try {
           const decrypted = await decryptText(msg.content, msg.iv, defaultSharedKey);
@@ -320,10 +318,11 @@ export async function batchDecryptMessages(
               _isDecrypted: true,
             };
           }
-        } catch (e) {}
+        } catch (e) {
+          console.log("default shared key not working", e);
+        }
       }
 
-      // If default key wasn't available or failed, resolve keys per message
       const sId = (msg.sender?._id || msg.sender)?.toString();
       const rId = (msg.receiver?._id || msg.receiver)?.toString();
       const myId = currentUserId?.toString();

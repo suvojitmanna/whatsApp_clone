@@ -32,6 +32,8 @@ import useOutsideClick from "../../hook/useOutsideClick";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
 import { useChatStore, decryptSingleMessage } from "../../store/chatStore";
+import { getSocket } from "../../services/chatService";
+import { getOrCreateUserKeyPair } from "../../utils/cryptoUtils";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
 import useVideoCallStore from "../../store/videoCallStore";
@@ -271,11 +273,32 @@ const MessageBuble = ({
         currentUserId,
         activeContact,
         useChatStore.getState,
-      ).then((dec) => {
+      ).then(async (dec) => {
         if (isMounted && dec?._isDecrypted && dec?.content) {
           setDecryptedText(dec.content);
           message.content = dec.content;
           message._isDecrypted = true;
+        } else if (isMounted && (!dec?._isDecrypted || !dec?.content)) {
+          const socket = getSocket();
+          if (socket && currentUserId) {
+            try {
+              const myKeys = await getOrCreateUserKeyPair(currentUserId);
+              if (myKeys?.publicKeyStr) {
+                const sId = (message.sender?._id || message.sender)?.toString();
+                if (sId && sId !== currentUserId) {
+                  socket.emit("request_reencrypt_message", {
+                    messageId: (message._id?._id || message._id)?.toString(),
+                    conversationId: (
+                      message.conversation?._id || message.conversation
+                    )?.toString(),
+                    senderId: sId,
+                    receiverId: currentUserId,
+                    receiverPublicKey: myKeys.publicKeyStr,
+                  });
+                }
+              }
+            } catch (e) {}
+          }
         }
       });
     } else if (
@@ -1978,26 +2001,51 @@ const MessageBuble = ({
                     message.direction ||
                     (isUserMessage ? "outgoing" : "incoming");
 
-                  const isMissed = status === "missed" || direction === "missed";
-                  const isDeclined = status === "declined" || direction === "declined";
+                  const isMissed =
+                    !isUserMessage &&
+                    (status === "missed" ||
+                      direction === "missed" ||
+                      rawDuration.toLowerCase().includes("missed"));
 
-                  const title = isVideo ? "Video call" : "Voice call";
-                  const durationText = isMissed
-                    ? "Missed"
-                    : isDeclined
-                      ? "Declined"
-                      : rawDuration;
+                  const isCallerNoAnswer =
+                    isUserMessage &&
+                    (status === "missed" ||
+                      direction === "missed" ||
+                      rawDuration.toLowerCase().includes("missed"));
+
+                  const isDeclined =
+                    status === "declined" || direction === "declined";
+
+                  let title = isVideo ? "Video call" : "Voice call";
+                  if (isMissed) {
+                    title = isVideo ? "Missed video call" : "Missed voice call";
+                  }
+
+                  let durationText = rawDuration;
+                  if (isMissed) {
+                    durationText = "Missed";
+                  } else if (isCallerNoAnswer) {
+                    durationText = "No answer";
+                  } else if (isDeclined) {
+                    durationText = "Declined";
+                  }
+
+                  const peer = isUserMessage
+                    ? message.receiver || selectedContact
+                    : message.sender || selectedContact;
+                  const peerId = (peer?._id || peer?.id || peer)?.toString();
+                  const peerName = peer?.username || peer?.name || "Contact";
+                  const peerAvatar = peer?.profilePicture || peer?.avatar || "";
 
                   const handleCallBack = (e) => {
                     e.stopPropagation();
                     try {
-                      const contact = selectedContact;
                       const { initiateCall } = useVideoCallStore.getState();
-                      if (contact && typeof initiateCall === "function") {
+                      if (peerId && typeof initiateCall === "function") {
                         initiateCall(
-                          contact._id,
-                          contact.username,
-                          contact.profilePicture,
+                          peerId,
+                          peerName,
+                          peerAvatar,
                           isVideo ? "video" : "audio"
                         );
                       }
@@ -2010,23 +2058,35 @@ const MessageBuble = ({
                     <div className="flex flex-col min-w-[240px] xs:min-w-[260px] max-w-[310px] select-none">
                       <div
                         onClick={handleCallBack}
-                        className={`flex items-start justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer group/callcard ${isDark
-                          ? "bg-[#0d3b31]/40 hover:bg-[#0d3b31]/60"
-                          : "bg-black/[0.04] hover:bg-black/[0.07]"
-                          }`}
-                        title={`Click to call ${title.toLowerCase()}`}
+                        className={`flex items-start justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer group/callcard ${
+                          isUserMessage
+                            ? isDark
+                              ? "bg-black/15 hover:bg-black/25"
+                              : "bg-black/[0.04] hover:bg-black/[0.07]"
+                            : isDark
+                              ? "bg-white/[0.06] hover:bg-white/[0.09]"
+                              : "bg-black/[0.04] hover:bg-black/[0.07]"
+                        }`}
+                        title={`Click to call ${peerName || "contact"}`}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div
-                            className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover/callcard:scale-105 ${isDark ? "bg-[#182229]" : "bg-black/15"
-                              }`}
+                            className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover/callcard:scale-105 ${
+                              isMissed
+                                ? isDark
+                                  ? "bg-[#ea0038]/20"
+                                  : "bg-[#ea0038]/10"
+                                : isDark
+                                  ? "bg-[#182229]"
+                                  : "bg-black/10"
+                            }`}
                           >
                             {isVideo ? (
                               isMissed ? (
                                 <div className="relative flex items-center justify-center">
                                   <MdOutlineVideocam size={22} className="text-[#ea0038]" />
                                 </div>
-                              ) : (
+                              ) : isUserMessage ? (
                                 <div className="relative flex items-center justify-center">
                                   <svg
                                     width="22"
@@ -2056,12 +2116,42 @@ const MessageBuble = ({
                                     />
                                   </svg>
                                 </div>
+                              ) : (
+                                <div className="relative flex items-center justify-center">
+                                  <svg
+                                    width="22"
+                                    height="22"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path
+                                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"
+                                      fill={isDark ? "white" : "#111b21"}
+                                    />
+                                    <rect
+                                      x="3"
+                                      y="6"
+                                      width="12"
+                                      height="12"
+                                      rx="2"
+                                      fill={isDark ? "white" : "#111b21"}
+                                    />
+                                    <path
+                                      d="M9 21H3v-6m0 6l7-7"
+                                      stroke={isDark ? "white" : "#111b21"}
+                                      strokeWidth="2.2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                </div>
                               )
                             ) : isMissed ? (
                               <div className="relative flex items-center justify-center">
                                 <MdCallMissed size={22} className="text-[#ea0038]" />
                               </div>
-                            ) : direction === "incoming" ? (
+                            ) : !isUserMessage ? (
                               <div className="relative flex items-center justify-center">
                                 <MdCallReceived
                                   size={20}
@@ -2095,18 +2185,24 @@ const MessageBuble = ({
 
                           <div className="min-w-0 flex-1 pt-0.5">
                             <h4
-                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${isDark ? "text-white" : "text-[#111b21]"
-                                }`}
+                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${
+                                isMissed
+                                  ? "text-[#ea0038]"
+                                  : isDark
+                                    ? "text-white"
+                                    : "text-[#111b21]"
+                              }`}
                             >
                               {title}
                             </h4>
                             <p
-                              className={`text-[13px] font-normal mt-1 leading-tight truncate ${isMissed
-                                ? "text-[#ea0038] font-medium"
-                                : isDark
-                                  ? "text-[#8696a0]"
-                                  : "text-[#667781]"
-                                }`}
+                              className={`text-[13px] font-normal mt-1 leading-tight truncate ${
+                                isMissed
+                                  ? "text-[#ea0038] font-medium"
+                                  : isDark
+                                    ? "text-[#8696a0]"
+                                    : "text-[#667781]"
+                              }`}
                             >
                               {durationText}
                             </p>
