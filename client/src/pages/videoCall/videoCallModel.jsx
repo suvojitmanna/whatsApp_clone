@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useRef } from "react";
 import useVideoCallStore from "../../store/videoCallStore";
 import useUserStore from "../../store/useUserStore";
 import useThemeStore from "../../store/themeStore";
+import useCallStore from "../../store/useCallStore";
+import { useChatStore } from "../../store/chatStore";
+import useLayoutStore from "../../store/layoutStore";
 import { LuScreenShare, LuScreenShareOff } from "react-icons/lu";
 import {
   FaMicrophone,
@@ -15,6 +18,7 @@ import {
 const VideoCallModel = ({ socket }) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const recordedCallIds = useRef(new Set());
   const [callTime, setCallTime] = React.useState(0);
   const [isScreenSharing, setIsScreenSharing] = React.useState(false);
   const [cameraStream, setCameraStream] = React.useState(null);
@@ -291,7 +295,88 @@ const VideoCallModel = ({ socket }) => {
       handleEndCall();
     }
   };
+  const recordCallEvent = (finalSeconds = callTime, explicitStatus = null) => {
+    const participantId = currentCall?.participantId || incomingCall?.callerId;
+    const callId = currentCall?.callId || incomingCall?.callId;
+    if (!participantId || !callId) return;
+
+    if (recordedCallIds.current.has(callId)) return;
+    recordedCallIds.current.add(callId);
+
+    const isCaller = Boolean(currentCall && !incomingCall);
+    const participantName =
+      currentCall?.participantName || incomingCall?.callerName || "Contact";
+    const participantAvatar =
+      currentCall?.participantAvatar || incomingCall?.callerAvatar || "";
+
+    const isConnected =
+      (callStatus === "connected" || finalSeconds > 0) &&
+      explicitStatus !== "rejected";
+
+    let durationText = "";
+    if (isConnected) {
+      if (finalSeconds <= 0) {
+        durationText = "1 second";
+      } else if (finalSeconds < 60) {
+        durationText = `${finalSeconds} second${finalSeconds === 1 ? "" : "s"}`;
+      } else {
+        const mins = Math.floor(finalSeconds / 60);
+        const secs = finalSeconds % 60;
+        durationText = `${mins} min ${secs} sec`;
+      }
+    } else {
+      durationText =
+        explicitStatus === "rejected" || callStatus === "rejected"
+          ? "Declined"
+          : "Missed";
+    }
+
+    const direction = isCaller
+      ? "outgoing"
+      : isConnected
+        ? "incoming"
+        : "missed";
+
+    const statusType = isConnected
+      ? "completed"
+      : explicitStatus === "rejected" || callStatus === "rejected"
+        ? "declined"
+        : "missed";
+
+    try {
+      useCallStore.getState().addCall({
+        contactId: participantId,
+        contactName: participantName,
+        contactAvatar: participantAvatar,
+        callType: callType === "video" ? "video" : "audio",
+        direction,
+        duration: durationText,
+        status: statusType,
+      });
+    } catch (e) {
+      console.warn("Could not save to useCallStore:", e);
+    }
+
+    try {
+      const activeContact = useLayoutStore.getState()?.selectedContact;
+      const conv = useChatStore.getState()?.currentConversation;
+      const conversationId = conv?._id || activeContact?.conversation?._id;
+
+      useChatStore.getState().sendCallMessage?.({
+        receiverId: participantId,
+        conversationId,
+        callType: callType === "video" ? "video" : "audio",
+        duration: durationText,
+        status: statusType,
+        direction,
+      });
+    } catch (e) {
+      console.warn("Could not save call message to useChatStore:", e);
+    }
+  };
+
   const handleRejectCall = () => {
+    recordCallEvent(0, "rejected");
     if (incomingCall) {
       socket.emit("reject_call", {
         callerId: incomingCall?.callerId,
@@ -302,6 +387,11 @@ const VideoCallModel = ({ socket }) => {
   };
 
   const cleanupCall = () => {
+    const callId = currentCall?.callId || incomingCall?.callId;
+    if (callId && !recordedCallIds.current.has(callId)) {
+      recordCallEvent(callTime);
+    }
+
     if (peerConnection) {
       peerConnection.getSenders().forEach((s) => {
         if (s.track) s.track.stop();
@@ -335,6 +425,8 @@ const VideoCallModel = ({ socket }) => {
     endCall();
   };
   const handleEndCall = () => {
+    const elapsed = callTime;
+    recordCallEvent(elapsed);
     setCallTime(0);
     const participantId = currentCall?.participantId || incomingCall?.callerId;
     const callId = currentCall?.callId || incomingCall?.callId;
@@ -365,11 +457,13 @@ const VideoCallModel = ({ socket }) => {
     };
 
     const handleCallRejected = () => {
+      recordCallEvent(0, "rejected");
       setCallStatus("rejected");
       setTimeout(endCall, 2000);
     };
 
     const handleCallEnded = () => {
+      recordCallEvent(callTime);
       cleanupCall();
     };
 

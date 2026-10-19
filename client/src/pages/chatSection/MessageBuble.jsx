@@ -12,6 +12,7 @@ import {
   FaFileAlt,
   FaStar,
   FaEye,
+  FaLock,
 } from "react-icons/fa";
 import { RiDeleteBin6Line, RiContactsFill } from "react-icons/ri";
 import { FiCheck, FiChevronDown } from "react-icons/fi";
@@ -19,15 +20,21 @@ import {
   MdEventNote,
   MdLocationOn,
   MdAccessTime,
+  MdCallMade,
+  MdCallReceived,
+  MdCallMissed,
+  MdOutlineVideocam,
+  MdOutlineCall,
 } from "react-icons/md";
 import { BsEmojiSmile } from "react-icons/bs";
 import { RxCross2 } from "react-icons/rx";
 import useOutsideClick from "../../hook/useOutsideClick";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
-import { useChatStore } from "../../store/chatStore";
+import { useChatStore, decryptSingleMessage } from "../../store/chatStore";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
+import useVideoCallStore from "../../store/videoCallStore";
 import { getDisappearingDurationMs } from "../../utils/formatTime";
 import ReactionDetailsModal from "../../components/ReactionDetailsModal";
 import FileViewerModal from "../../components/FileViewerModal";
@@ -36,17 +43,21 @@ import PinDurationModal from "../../components/PinDurationModal";
 import ReportModal from "../../components/ReportModal";
 import MessageMenu from "./MessageMenu";
 
-export {
+import {
   WhatsAppPinIcon,
   WhatsAppUnpinIcon,
   WhatsAppDisappearingIcon,
-} from "../../components/common/Icons";
-import {
   TailOutIcon,
   TailInIcon,
   ProhibitedIcon,
   MessageCheckIcon,
 } from "../../components/common/Icons";
+
+export {
+  WhatsAppPinIcon,
+  WhatsAppUnpinIcon,
+  WhatsAppDisappearingIcon,
+};
 
 const formatEventSchedule = (eventData) => {
   if (!eventData?.eventDate) return "Date TBD";
@@ -247,6 +258,65 @@ const MessageBuble = ({
       message.content === "You deleted this message")
   );
 
+  const [decryptedText, setDecryptedText] = useState(
+    message?._isDecrypted ? message.content : null,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    if (message?.isEncrypted && !message?._isDecrypted && !decryptedText) {
+      const activeContact = selectedContact || layoutSelectedContact;
+      decryptSingleMessage(
+        message,
+        currentUserId,
+        activeContact,
+        useChatStore.getState,
+      ).then((dec) => {
+        if (isMounted && dec?._isDecrypted && dec?.content) {
+          setDecryptedText(dec.content);
+          message.content = dec.content;
+          message._isDecrypted = true;
+        }
+      });
+    } else if (
+      message?._isDecrypted &&
+      message?.content &&
+      message.content !== decryptedText
+    ) {
+      setDecryptedText(message.content);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    message?._id,
+    message?.content,
+    message?.isEncrypted,
+    message?._isDecrypted,
+    currentUserId,
+    selectedContact,
+    layoutSelectedContact,
+  ]);
+
+  const isWaitingDecryption = Boolean(
+    message?.isEncrypted && !message?._isDecrypted && !decryptedText,
+  );
+
+  const displayContent = useMemo(() => {
+    if (isWaitingDecryption) {
+      return null;
+    }
+    return decryptedText !== null && decryptedText !== undefined
+      ? decryptedText
+      : message?.content || "";
+  }, [isWaitingDecryption, decryptedText, message?.content]);
+
+  useEffect(() => {
+    if (!isEditing && displayContent) {
+      setEditText(displayContent);
+    }
+  }, [displayContent, isEditing]);
+
   const conversationId = currentConversation?._id || message?.conversationId || layoutSelectedContact?._id;
   const secondaryConvId = layoutSelectedContact?._id;
 
@@ -399,7 +469,7 @@ const MessageBuble = ({
   useOutsideClick(editRef, () => {
     if (isEditing) {
       setIsEditing(false);
-      setEditText(message.content || "");
+      setEditText(displayContent || message.content || "");
     }
   });
 
@@ -729,7 +799,7 @@ const MessageBuble = ({
           {format(new Date(message.createdAt || Date.now()), "HH:mm")}
         </span>
         {renderStatusIcon(false)}
-        {!isSelectMode && message.contentType !== "poll" && (
+        {!isSelectMode && message.contentType !== "poll" && message.contentType !== "call" && !message.callData && (
           <button
             type="button"
             onClick={handleToggleOptions}
@@ -947,6 +1017,9 @@ const MessageBuble = ({
                   replyPreviewText = `👤 ${replyMsg.contactData?.name || "Contact"}`;
                 } else if (replyMsg.contentType === "sticker") {
                   replyPreviewText = "💟 Sticker";
+                } else if (replyMsg.contentType === "call") {
+                  const isVid = replyMsg.callData?.callType === "video" || replyMsg.callType === "video";
+                  replyPreviewText = isVid ? "📹 Video call" : "📞 Voice call";
                 }
 
                 return (
@@ -1101,7 +1174,7 @@ const MessageBuble = ({
               )}
 
               <div className="flex flex-col gap-1">
-                {message.contentType === "text" && (
+                {(message.contentType === "text" || !message.contentType) && !message.callData && (
                   <>
                     {isEditing ? (
                       <div
@@ -1125,7 +1198,7 @@ const MessageBuble = ({
                             type="button"
                             onClick={() => {
                               setIsEditing(false);
-                              setEditText(message.content || "");
+                              setEditText(displayContent || message.content || "");
                             }}
                             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${isDark
                               ? "text-gray-300 hover:bg-white/10"
@@ -1157,11 +1230,18 @@ const MessageBuble = ({
                       </div>
                     ) : (
                       <div className="text-[14.2px] leading-[19px] select-text">
-                        <span className="break-words whitespace-pre-wrap">
-                          {searchTerm
-                            ? safeHighlight(message.content || "", searchTerm)
-                            : message.content}
-                        </span>
+                        {isWaitingDecryption ? (
+                          <span className="inline-flex items-center gap-1.5 text-[13px] opacity-75 italic select-none py-0.5">
+                            <FaLock className="shrink-0 text-xs opacity-70" />
+                            <span>Waiting for this message. This may take a while.</span>
+                          </span>
+                        ) : (
+                          <span className="break-words whitespace-pre-wrap">
+                            {searchTerm
+                              ? safeHighlight(displayContent, searchTerm)
+                              : displayContent}
+                          </span>
+                        )}
                         <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
                           {renderTimestampAndStatus(false)}
                         </span>
@@ -1268,11 +1348,18 @@ const MessageBuble = ({
                     </div>
                     {message.content && (
                       <div className="mt-1.5 text-[14.2px] leading-[19px] select-text">
-                        <span className="break-words whitespace-pre-wrap">
-                          {searchTerm
-                            ? safeHighlight(message.content || "", searchTerm)
-                            : message.content}
-                        </span>
+                        {isWaitingDecryption ? (
+                          <span className="inline-flex items-center gap-1.5 text-[13px] opacity-75 italic select-none py-0.5">
+                            <FaLock className="shrink-0 text-xs opacity-70" />
+                            <span>Waiting for this message. This may take a while.</span>
+                          </span>
+                        ) : (
+                          <span className="break-words whitespace-pre-wrap">
+                            {searchTerm
+                              ? safeHighlight(displayContent || "", searchTerm)
+                              : displayContent}
+                          </span>
+                        )}
                         <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
                           {renderTimestampAndStatus(false)}
                         </span>
@@ -1374,9 +1461,16 @@ const MessageBuble = ({
                     </div>
                     {message.content && (
                       <div className="mt-1.5 text-[14.2px] leading-[19px] select-text">
-                        <span className="break-words whitespace-pre-wrap">
-                          {message.content}
-                        </span>
+                        {isWaitingDecryption ? (
+                          <span className="inline-flex items-center gap-1.5 text-[13px] opacity-75 italic select-none py-0.5">
+                            <FaLock className="shrink-0 text-xs opacity-70" />
+                            <span>Waiting for this message. This may take a while.</span>
+                          </span>
+                        ) : (
+                          <span className="break-words whitespace-pre-wrap">
+                            {displayContent}
+                          </span>
+                        )}
                         <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
                           {renderTimestampAndStatus(false)}
                         </span>
@@ -1845,6 +1939,196 @@ const MessageBuble = ({
                     </div>
                   </div>
                 )}
+
+                {(message.contentType === "call" || Boolean(message.callData)) && (() => {
+                  const callData =
+                    typeof message.callData === "string"
+                      ? (() => {
+                        try {
+                          return JSON.parse(message.callData);
+                        } catch (e) {
+                          return {};
+                        }
+                      })()
+                      : message.callData || {};
+
+                  const callType =
+                    callData?.callType ||
+                    message.callType ||
+                    (message.content?.toLowerCase()?.includes("video") ? "video" : "audio");
+                  const isVideo = callType === "video";
+
+                  const rawDuration =
+                    callData?.duration ||
+                    message.duration ||
+                    (message.content?.match(/(\d+\s*(seconds?|minutes?|secs?|mins?))/i)?.[0]) ||
+                    "28 seconds";
+
+                  const status =
+                    callData?.status ||
+                    message.status ||
+                    (rawDuration.toLowerCase().includes("missed")
+                      ? "missed"
+                      : rawDuration.toLowerCase().includes("declined")
+                        ? "declined"
+                        : "completed");
+
+                  const direction =
+                    callData?.direction ||
+                    message.direction ||
+                    (isUserMessage ? "outgoing" : "incoming");
+
+                  const isMissed = status === "missed" || direction === "missed";
+                  const isDeclined = status === "declined" || direction === "declined";
+
+                  const title = isVideo ? "Video call" : "Voice call";
+                  const durationText = isMissed
+                    ? "Missed"
+                    : isDeclined
+                      ? "Declined"
+                      : rawDuration;
+
+                  const handleCallBack = (e) => {
+                    e.stopPropagation();
+                    try {
+                      const contact = selectedContact;
+                      const { initiateCall } = useVideoCallStore.getState();
+                      if (contact && typeof initiateCall === "function") {
+                        initiateCall(
+                          contact._id,
+                          contact.username,
+                          contact.profilePicture,
+                          isVideo ? "video" : "audio"
+                        );
+                      }
+                    } catch (err) {
+                      console.warn("Failed to initiate redial:", err);
+                    }
+                  };
+
+                  return (
+                    <div className="flex flex-col min-w-[240px] xs:min-w-[260px] max-w-[310px] select-none">
+                      <div
+                        onClick={handleCallBack}
+                        className={`flex items-start justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer group/callcard ${isDark
+                          ? "bg-[#0d3b31]/40 hover:bg-[#0d3b31]/60"
+                          : "bg-black/[0.04] hover:bg-black/[0.07]"
+                          }`}
+                        title={`Click to call ${title.toLowerCase()}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div
+                            className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover/callcard:scale-105 ${isDark ? "bg-[#182229]" : "bg-black/15"
+                              }`}
+                          >
+                            {isVideo ? (
+                              isMissed ? (
+                                <div className="relative flex items-center justify-center">
+                                  <MdOutlineVideocam size={22} className="text-[#ea0038]" />
+                                </div>
+                              ) : (
+                                <div className="relative flex items-center justify-center">
+                                  <svg
+                                    width="22"
+                                    height="22"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path
+                                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"
+                                      fill={isDark ? "white" : "#111b21"}
+                                    />
+                                    <rect
+                                      x="3"
+                                      y="6"
+                                      width="12"
+                                      height="12"
+                                      rx="2"
+                                      fill={isDark ? "white" : "#111b21"}
+                                    />
+                                    <path
+                                      d="M15 3h6v6m0-6l-7 7"
+                                      stroke={isDark ? "white" : "#111b21"}
+                                      strokeWidth="2.2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                </div>
+                              )
+                            ) : isMissed ? (
+                              <div className="relative flex items-center justify-center">
+                                <MdCallMissed size={22} className="text-[#ea0038]" />
+                              </div>
+                            ) : direction === "incoming" ? (
+                              <div className="relative flex items-center justify-center">
+                                <MdCallReceived
+                                  size={20}
+                                  className={isDark ? "text-white" : "text-[#111b21]"}
+                                />
+                              </div>
+                            ) : (
+                              <div className="relative flex items-center justify-center">
+                                <svg
+                                  width="22"
+                                  height="22"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M19.23 15.26l-2.54-.29a1.99 1.99 0 0 0-1.64.57l-1.84 1.84a15.05 15.05 0 0 1-6.59-6.59l1.85-1.85c.43-.43.64-1.03.57-1.64l-.29-2.52a2 2 0 0 0-1.99-1.77H4.41c-1.13 0-2.07.94-2 2.07.53 8.54 7.44 15.45 15.98 15.98 1.13.07 2.07-.87 2.07-2v-2.38c0-1.05-.82-1.93-1.87-1.98z"
+                                    fill={isDark ? "white" : "#111b21"}
+                                  />
+                                  <path
+                                    d="M15 3h6v6m0-6l-7 7"
+                                    stroke={isDark ? "white" : "#111b21"}
+                                    strokeWidth="2.2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1 pt-0.5">
+                            <h4
+                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${isDark ? "text-white" : "text-[#111b21]"
+                                }`}
+                            >
+                              {title}
+                            </h4>
+                            <p
+                              className={`text-[13px] font-normal mt-1 leading-tight truncate ${isMissed
+                                ? "text-[#ea0038] font-medium"
+                                : isDark
+                                  ? "text-[#8696a0]"
+                                  : "text-[#667781]"
+                                }`}
+                            >
+                              {durationText}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleToggleOptions}
+                          className="p-1 -mr-1 -mt-0.5 text-[#8696a0] hover:text-white dark:hover:text-white transition-colors cursor-pointer shrink-0 opacity-80 hover:opacity-100"
+                          title="Message options"
+                        >
+                          <FiChevronDown size={17} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-end mt-1 px-1 select-none pointer-events-auto">
+                        {renderTimestampAndStatus(false)}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

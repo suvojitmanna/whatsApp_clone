@@ -13,141 +13,51 @@ import {
   MdOutlineVideocam,
 } from "react-icons/md";
 import { FaUser } from "react-icons/fa";
-import { AmazonSmileIcon, FavouritesEmptyIllustration, PrimeVideoWaveIcon } from "../../components/common/Icons";
+import { FavouritesEmptyIllustration } from "../../components/common/Icons";
+import { getAvatarBg, getAvatarInitial } from "../chatSection/ChatList";
 
 export const ContactAvatar = ({ contact, size = 48, className = "" }) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
 
   const username = contact?.username || contact?.name || "";
-  const avatarType = contact?.avatarType;
   const profilePicture = contact?.profilePicture || contact?.avatar;
 
-  if (avatarType === "amazon" || username.toLowerCase() === "amazon") {
+  if (profilePicture && profilePicture !== "/default-avatar.png") {
     return (
       <div
         style={{ width: size, height: size }}
-        className={`rounded-full bg-[#d69e66] flex flex-col items-center justify-center relative overflow-hidden shrink-0 shadow-sm ${className}`}
+        className={`rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-xs ${
+          isDark ? "bg-[#374248]" : "bg-[#dfe5e7]"
+        } ${className}`}
       >
-        <div className="w-5 h-2.5 bg-[#00a8e1] rounded-b-sm absolute top-0 shadow-xs" />
-        <AmazonSmileIcon className="w-7 h-4 text-black mt-2" />
-      </div>
-    );
-  }
-
-  if (
-    avatarType === "flipkart" ||
-    username.toLowerCase().includes("flipkart")
-  ) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-[#fed700] flex items-center justify-center relative overflow-hidden shrink-0 shadow-sm ${className}`}
-      >
-        <div className="w-6 h-7 bg-[#2874f0] rounded-sm flex flex-col items-center justify-center relative shadow-xs">
-          <div className="w-2.5 h-1.5 border-t-2 border-l-2 border-r-2 border-[#fed700] -mt-1 rounded-t-sm" />
-          <span className="text-[#fed700] text-xs font-black italic">f</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (
-    avatarType === "prime" ||
-    username.toLowerCase().includes("prime video")
-  ) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-[#00a8e1] flex flex-col items-center justify-center relative overflow-hidden shrink-0 shadow-sm ${className}`}
-      >
-        <span className="text-white font-bold text-[9px] tracking-tight leading-none">
-          prime
-        </span>
-        <span className="text-white font-semibold text-[8px] tracking-tight leading-none">
-          video
-        </span>
-        <PrimeVideoWaveIcon className="w-4 h-1.5 text-white mt-0.5" />
-      </div>
-    );
-  }
-
-  if (avatarType === "hostel" || username.toLowerCase().includes("h4 batch")) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-[#a06859] flex items-center justify-center relative overflow-hidden shrink-0 border border-amber-900/40 shadow-sm ${className}`}
-      >
-        <div className="bg-[#e4cfb7] px-1 py-0.5 rounded text-[8px] font-black tracking-widest text-[#5a2e1d] uppercase border border-[#bfa286]">
-          HOSTEL
-        </div>
-      </div>
-    );
-  }
-
-  if (avatarType === "lme" || username.toLowerCase().includes("lme 2024")) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-white flex flex-col items-center justify-center relative overflow-hidden shrink-0 border border-gray-300 shadow-sm ${className}`}
-      >
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-80">
-          <div className="h-0.5 bg-red-500 w-full" />
-          <div className="h-0.5 bg-yellow-400 w-full" />
-          <div className="h-0.5 bg-green-500 w-full" />
-          <div className="h-0.5 bg-blue-500 w-full" />
-        </div>
-        <span className="text-[#111b21] font-black text-xs relative z-10 bg-white/70 px-1 rounded">
-          LME
-        </span>
-      </div>
-    );
-  }
-
-  if (avatarType === "mar" || username.toLowerCase().includes("mar support")) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-white flex flex-col items-center justify-center relative overflow-hidden shrink-0 border border-gray-200 shadow-sm ${className}`}
-      >
-        <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-red-500 flex items-center justify-center font-black text-[9px] text-blue-600">
-          R
-        </div>
-        <span className="text-[6px] font-bold text-gray-700 leading-none mt-0.5">
-          Get MAR
-        </span>
-      </div>
-    );
-  }
-
-  if (username.toLowerCase().includes("baba") || !profilePicture) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full flex items-center justify-center shrink-0 shadow-xs ${isDark ? "bg-[#374248]" : "bg-[#dfe5e7]"
-          } ${className}`}
-      >
-        <FaUser
-          className={`text-xl ${isDark ? "text-[#f3a847]" : "text-[#54656f]"}`}
+        <img
+          src={profilePicture}
+          alt={username}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
         />
       </div>
     );
   }
 
+  const bg = getAvatarBg(username);
+  const initial = getAvatarInitial(username);
+
   return (
     <div
-      style={{ width: size, height: size }}
-      className={`rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-xs ${isDark ? "bg-[#374248]" : "bg-[#dfe5e7]"
-        } ${className}`}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: bg,
+      }}
+      className={`rounded-full flex items-center justify-center shrink-0 shadow-xs text-white font-semibold select-none ${className}`}
     >
-      <img
-        src={profilePicture}
-        alt={username}
-        className="w-full h-full object-cover"
-        onError={(e) => {
-          e.currentTarget.style.display = "none";
-        }}
-      />
+      <span style={{ fontSize: Math.max(12, Math.round(size * 0.42)) }}>
+        {initial}
+      </span>
     </div>
   );
 };

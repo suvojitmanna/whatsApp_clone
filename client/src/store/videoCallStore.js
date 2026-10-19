@@ -3,7 +3,6 @@ import { subscribeWithSelector } from "zustand/middleware";
 
 const useVideoCallStore = create(
   subscribeWithSelector((set, get) => ({
-
     currentCall: null,
     incomingCall: null,
     isCallActive: false,

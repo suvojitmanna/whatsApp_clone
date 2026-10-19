@@ -48,7 +48,6 @@ export const isDummyFavourite = (fav) => {
   );
 };
 
-// Immediately purge legacy dummy seed items from localStorage in browser environment
 if (typeof window !== "undefined" && window.localStorage) {
   try {
     const raw = window.localStorage.getItem("whatsapp-call-storage");

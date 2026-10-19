@@ -55,6 +55,7 @@ const messageSchema = new mongoose.Schema(
         "poll",
         "event",
         "sticker",
+        "call",
       ],
       default: "text",
     },
@@ -95,6 +96,10 @@ const messageSchema = new mongoose.Schema(
     eventData: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
+    },
+    callData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
     edited: {
       type: Boolean,

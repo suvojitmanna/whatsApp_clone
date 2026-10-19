@@ -1909,7 +1909,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   };
 
   const handleVideoCall = () => {
-    if (selectedContact && online) {
+    if (selectedContact) {
       const { initiateCall } = useVideoCallStore.getState();
       const avatar = selectedContact?.profilePicture;
       initiateCall(
@@ -1918,13 +1918,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         avatar,
         "video",
       );
-    } else {
-      alert("User is offline. Cannot initiate the call");
     }
   };
 
   const handleAudioCall = () => {
-    if (selectedContact && online) {
+    if (selectedContact) {
       const { initiateCall } = useVideoCallStore.getState();
       const avatar = selectedContact?.profilePicture;
       initiateCall(
@@ -1933,8 +1931,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         avatar,
         "audio",
       );
-    } else {
-      alert("User is offline. Cannot initiate the call");
     }
   };
 

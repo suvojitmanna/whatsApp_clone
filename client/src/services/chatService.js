@@ -36,8 +36,7 @@ export const initializeSocket = () => {
         profilePicture: data.profilePicture,
       });
     }
-    const selectedContact =
-      useLayoutStore.getState().selectedContact;
+    const selectedContact = useLayoutStore.getState().selectedContact;
 
     if (selectedContact?._id === data.userId) {
       useLayoutStore.getState().updateSelectedContact({

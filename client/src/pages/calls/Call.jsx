@@ -12,6 +12,7 @@ import { formatCallDate } from "../../utils/formatTime";
 import NewCallModal, { NewCallView } from "./NewCallModal";
 import PhoneNumberView from "./PhoneNumberView";
 import NewCallLinkModal from "./NewCallLinkModal";
+import EndToEndEncryption from "../../components/EndToEndEncryption";
 import {
   AddFavouritesModal,
   FavouritesView,
@@ -30,6 +31,7 @@ import {
   MdOutlineCall,
   MdOutlineVideocam,
   MdDelete,
+  MdLockOutline,
 } from "react-icons/md";
 import { FaUserPlus } from "react-icons/fa";
 import { IoIosArrowDown } from "react-icons/io";
@@ -47,6 +49,7 @@ const Call = () => {
   const [showNewCallModal, setShowNewCallModal] = useState(false);
   const [showCallLinkModal, setShowCallLinkModal] = useState(false);
   const [showFavouriteModal, setShowFavouriteModal] = useState(false);
+  const [showEncryption, setShowEncryption] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [activeMenuCallId, setActiveMenuCallId] = useState(null);
 
@@ -359,7 +362,7 @@ const Call = () => {
               )}
             </div>
 
-            <div className="pb-6">
+            <div className="pb-6 md:pb-3">
               <div className="px-4 py-2 pb-5 text-[16px] font-bold">Recent</div>
 
               {filteredCalls.length === 0 ? (
@@ -370,195 +373,261 @@ const Call = () => {
                   {searchQuery ? "No matching calls found" : "No recent calls"}
                 </div>
               ) : (
-                <div className="flex flex-col space-y-1.5">
-                  {filteredCalls.map((call) => {
-                    const isSelected = selectedCall?.id === call.id;
-                    const isMissed = call.direction === "missed";
-                    const isIncoming = call.direction === "incoming";
+                <div>
+                  <div className="flex flex-col space-y-1.5">
+                    {filteredCalls.map((call) => {
+                      const isSelected = selectedCall?.id === call.id;
+                      const isMissed = call.direction === "missed";
+                      const isIncoming = call.direction === "incoming";
 
-                    return (
-                      <div
-                        key={call.id}
-                        onClick={() => setSelectedCall(call)}
-                        className={`mx-3 p-3.5 rounded-2xl flex items-center justify-between gap-3.5 transition-all cursor-pointer group ${isSelected
-                          ? isDark
-                            ? "bg-[#2a3942] text-white shadow-sm"
-                            : "bg-[#e9edef] shadow-sm"
-                          : isDark
-                            ? "hover:bg-[#1f2b33] hover:shadow-sm"
-                            : "hover:bg-[#e9edef] hover:shadow-sm"
-                          }`}
-                      >
-                        <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                          <ContactAvatar
-                            contact={{
-                              username: call.contactName,
-                              profilePicture: call.contactAvatar,
-                            }}
-                            size={48}
-                          />
-
-                          <div className="min-w-0 flex-1">
-                            <div
-                              className={`font-medium text-[16px] truncate leading-tight ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
-                                }`}
-                            >
-                              {call.contactName}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 mt-1 text-[13px]">
-                              {isMissed ? (
-                                <MdCallMissed className="text-[#ea0038] text-base shrink-0 transform rotate-180" />
-                              ) : isIncoming ? (
-                                <MdCallReceived className="text-[#00a884] text-base shrink-0" />
-                              ) : (
-                                <MdCallMade
-                                  className={`text-base shrink-0 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                                    }`}
-                                />
-                              )}
-
-                              <span
-                                className={
-                                  isMissed
-                                    ? "text-[#ea0038] font-medium"
-                                    : isDark
-                                      ? "text-[#8696a0]"
-                                      : "text-[#54656f]"
-                                }
-                              >
-                                {isMissed
-                                  ? "Missed"
-                                  : isIncoming
-                                    ? "Incoming"
-                                    : "Outgoing"}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0 pl-2">
-                          <span
-                            className={`text-xs ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                              }`}
-                          >
-                            {formatCallDate(call)}
-                          </span>
-
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveMenuCallId((prev) =>
-                                  prev === call.id ? null : call.id
-                                );
+                      return (
+                        <div
+                          key={call.id}
+                          onClick={() => setSelectedCall(call)}
+                          className={`mx-3 p-3.5 rounded-2xl flex items-center justify-between gap-3.5 transition-all cursor-pointer group ${isSelected
+                            ? isDark
+                              ? "bg-[#2a3942] text-white shadow-sm"
+                              : "bg-[#e9edef] shadow-sm"
+                            : isDark
+                              ? "hover:bg-[#1f2b33] hover:shadow-sm"
+                              : "hover:bg-[#e9edef] hover:shadow-sm"
+                            }`}
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                            <ContactAvatar
+                              contact={{
+                                username: call.contactName,
+                                profilePicture: call.contactAvatar,
                               }}
-                              className={`p-1.5 rounded-full transition-all cursor-pointer ${activeMenuCallId === call.id
-                                ? isDark
-                                  ? "opacity-100 bg-[#2a3942] text-white shadow-sm"
-                                  : "opacity-100 bg-[#d9dde0] text-[#111b21] shadow-sm"
-                                : isDark
-                                  ? "opacity-0 group-hover:opacity-100 text-[#8696a0] hover:text-[#e9edef] hover:bg-[#111b21]/60"
-                                  : "opacity-0 group-hover:opacity-100 text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
-                                }`}
-                              title="Call options"
-                            >
-                              <IoIosArrowDown
-                                className={`text-base transition-transform duration-200 ${activeMenuCallId === call.id
-                                  ? "rotate-180"
-                                  : ""
-                                  }`}
-                              />
-                            </button>
+                              size={48}
+                            />
 
-                            {activeMenuCallId === call.id && (
+                            <div className="min-w-0 flex-1">
                               <div
-                                onClick={(e) => e.stopPropagation()}
-                                className={`absolute right-0 top-full mt-1.5 w-44 rounded-2xl shadow-xl border py-1.5 z-30 backdrop-blur-xl transition-all duration-200 ${isDark
-                                  ? "bg-[#233138]/95 border-white/[0.10] text-[#e9edef] shadow-black/50"
-                                  : "bg-white/95 border-black/[0.08] text-[#111b21] shadow-black/10"
+                                className={`font-medium text-[16px] truncate leading-tight ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
                                   }`}
                               >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveMenuCallId(null);
-                                    handleStartCall(
-                                      {
-                                        _id: call.contactId,
-                                        username: call.contactName,
-                                        profilePicture: call.contactAvatar,
-                                      },
-                                      "audio"
-                                    );
-                                  }}
-                                  className={`w-[calc(100%-12px)] mx-1.5 px-3.5 py-2.5 flex items-center gap-3 text-[14px] font-medium rounded-xl transition-all duration-200 cursor-pointer ${isDark
-                                    ? "hover:bg-white/[0.06] text-[#e9edef]"
-                                    : "hover:bg-black/[0.04] text-[#111b21]"
-                                    }`}
-                                >
-                                  <MdCall className="text-lg text-[#00a884] shrink-0" />
-                                  <span>Voice call</span>
-                                </button>
+                                {call.contactName}
+                              </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveMenuCallId(null);
-                                    handleStartCall(
-                                      {
-                                        _id: call.contactId,
-                                        username: call.contactName,
-                                        profilePicture: call.contactAvatar,
-                                      },
-                                      "video"
-                                    );
-                                  }}
-                                  className={`w-[calc(100%-12px)] mx-1.5 px-3.5 py-2.5 flex items-center gap-3 text-[14px] font-medium rounded-xl transition-all duration-200 cursor-pointer ${isDark
-                                    ? "hover:bg-white/[0.06] text-[#e9edef]"
-                                    : "hover:bg-black/[0.04] text-[#111b21]"
-                                    }`}
-                                >
-                                  <MdVideocam className="text-lg text-[#00a884] shrink-0" />
-                                  <span>Video call</span>
-                                </button>
-
-                                <div
-                                  className={`my-1 mx-3 border-t ${isDark ? "border-white/10" : "border-black/10"
-                                    }`}
-                                />
-
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveMenuCallId(null);
-
-                                    if (removeCall) {
-                                      removeCall(call.id);
-                                    }
-                                  }}
-                                  className={`w-[calc(100%-12px)] mx-1.5 px-3.5 py-2.5 flex items-center gap-3 text-[14px] font-medium rounded-xl transition-all duration-200 cursor-pointer group ${isDark
-                                    ? "text-[#e9edef] hover:bg-red-500/15 hover:text-red-400"
-                                    : "text-[#111b21] hover:bg-red-50 hover:text-red-600"
-                                    }`}
-                                >
-                                  <RiDeleteBin5Fill
-                                    className={`text-lg shrink-0 transition-colors ${isDark
-                                      ? "text-red-400 group-hover:text-red-500"
-                                      : "text-red-500 group-hover:text-red-600"
+                              <div className="flex items-center gap-1.5 mt-1 text-[13px]">
+                                {isMissed ? (
+                                  <MdCallMissed className="text-[#ea0038] text-base shrink-0 transform rotate-180" />
+                                ) : isIncoming ? (
+                                  <MdCallReceived className="text-[#00a884] text-base shrink-0" />
+                                ) : (
+                                  <MdCallMade
+                                    className={`text-base shrink-0 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
                                       }`}
                                   />
-                                  <span>Delete</span>
-                                </button>
+                                )}
+
+                                <span
+                                  className={
+                                    isMissed
+                                      ? "text-[#ea0038] font-medium"
+                                      : isDark
+                                        ? "text-[#8696a0]"
+                                        : "text-[#54656f]"
+                                  }
+                                >
+                                  {isMissed
+                                    ? "Missed"
+                                    : isIncoming
+                                      ? "Incoming"
+                                      : "Outgoing"}
+                                </span>
+
+                                {call.callType === "video" && (
+                                  <MdOutlineVideocam
+                                    className={`text-[15px] shrink-0 ml-0.5 ${isMissed
+                                      ? "text-[#ea0038]"
+                                      : isDark
+                                        ? "text-[#8696a0]"
+                                        : "text-[#54656f]"
+                                      }`}
+                                    title="Video call"
+                                  />
+                                )}
                               </div>
-                            )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 pl-2">
+                            <span
+                              className={`text-xs ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                                }`}
+                            >
+                              {formatCallDate(call)}
+                            </span>
+
+                            <button
+                              type="button"
+                              title={call.callType === "video" ? "Start video call" : "Start voice call"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartCall(
+                                  {
+                                    _id: call.contactId,
+                                    username: call.contactName,
+                                    profilePicture: call.contactAvatar,
+                                  },
+                                  call.callType === "video" ? "video" : "audio"
+                                );
+                              }}
+                              className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark
+                                ? "text-[#8696a0] hover:text-[#00a884] hover:bg-white/10"
+                                : "text-[#54656f] hover:text-[#008069] hover:bg-black/5"
+                                }`}
+                            >
+                              {call.callType === "video" ? (
+                                <MdOutlineVideocam size={18} />
+                              ) : (
+                                <MdOutlineCall size={17} />
+                              )}
+                            </button>
+
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveMenuCallId((prev) =>
+                                    prev === call.id ? null : call.id
+                                  );
+                                }}
+                                className={`p-1.5 rounded-full transition-all cursor-pointer ${activeMenuCallId === call.id
+                                  ? isDark
+                                    ? "opacity-100 bg-[#2a3942] text-white shadow-sm"
+                                    : "opacity-100 bg-[#d9dde0] text-[#111b21] shadow-sm"
+                                  : isDark
+                                    ? "opacity-0 group-hover:opacity-100 text-[#8696a0] hover:text-[#e9edef] hover:bg-[#111b21]/60"
+                                    : "opacity-0 group-hover:opacity-100 text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
+                                  }`}
+                                title="Call options"
+                              >
+                                <IoIosArrowDown
+                                  className={`text-base transition-transform duration-200 ${activeMenuCallId === call.id
+                                    ? "rotate-180"
+                                    : ""
+                                    }`}
+                                />
+                              </button>
+
+                              {activeMenuCallId === call.id && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`absolute right-0 top-full mt-1.5 w-44 rounded-2xl shadow-xl border py-1.5 z-30 backdrop-blur-xl transition-all duration-200 ${isDark
+                                    ? "bg-[#233138]/95 border-white/[0.10] text-[#e9edef] shadow-black/50"
+                                    : "bg-white/95 border-black/[0.08] text-[#111b21] shadow-black/10"
+                                    }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuCallId(null);
+                                      handleStartCall(
+                                        {
+                                          _id: call.contactId,
+                                          username: call.contactName,
+                                          profilePicture: call.contactAvatar,
+                                        },
+                                        "audio"
+                                      );
+                                    }}
+                                    className={`w-[calc(100%-12px)] mx-1.5 px-3.5 py-2.5 flex items-center gap-3 text-[14px] font-medium rounded-xl transition-all duration-200 cursor-pointer ${isDark
+                                      ? "hover:bg-white/[0.06] text-[#e9edef]"
+                                      : "hover:bg-black/[0.04] text-[#111b21]"
+                                      }`}
+                                  >
+                                    <MdCall className="text-lg text-[#00a884] shrink-0" />
+                                    <span>Voice call</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveMenuCallId(null);
+                                      handleStartCall(
+                                        {
+                                          _id: call.contactId,
+                                          username: call.contactName,
+                                          profilePicture: call.contactAvatar,
+                                        },
+                                        "video"
+                                      );
+                                    }}
+                                    className={`w-[calc(100%-12px)] mx-1.5 px-3.5 py-2.5 flex items-center gap-3 text-[14px] font-medium rounded-xl transition-all duration-200 cursor-pointer ${isDark
+                                      ? "hover:bg-white/[0.06] text-[#e9edef]"
+                                      : "hover:bg-black/[0.04] text-[#111b21]"
+                                      }`}
+                                  >
+                                    <MdVideocam className="text-lg text-[#00a884] shrink-0" />
+                                    <span>Video call</span>
+                                  </button>
+
+                                  <div
+                                    className={`my-1 mx-3 border-t ${isDark ? "border-white/10" : "border-black/10"
+                                      }`}
+                                  />
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuCallId(null);
+
+                                      if (removeCall) {
+                                        removeCall(call.id);
+                                      }
+                                    }}
+                                    className={`w-[calc(100%-12px)] mx-1.5 px-3.5 py-2.5 flex items-center gap-3 text-[14px] font-medium rounded-xl transition-all duration-200 cursor-pointer group ${isDark
+                                      ? "text-[#e9edef] hover:bg-red-500/15 hover:text-red-400"
+                                      : "text-[#111b21] hover:bg-red-50 hover:text-red-600"
+                                      }`}
+                                  >
+                                    <RiDeleteBin5Fill
+                                      className={`text-lg shrink-0 transition-colors ${isDark
+                                        ? "text-red-400 group-hover:text-red-500"
+                                        : "text-red-500 group-hover:text-red-600"
+                                        }`}
+                                    />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+
+                  </div>
+                  <div
+                    className={`mx-3 border ${isDark ? "border-white/10" : "border-black/10"
+                      }`}
+                  />
+                  <div
+                    className={`pt-1 md:pt-2 ${isDark ? "text-white/60" : "text-black/60"
+                      } text-xs flex items-center justify-center gap-2`}
+                  >
+                    <MdLockOutline />
+                    Your personal calls are{" "}
+                    <button
+                      type="button"
+                      onClick={() => setShowEncryption(true)}
+                      className="font-medium text-green-500 hover:underline cursor-pointer"
+                    >
+                      end-to-end encrypted
+                    </button>
+                  </div>
+
+                  {showEncryption && (
+                    <EndToEndEncryption
+                      isDark={isDark}
+                      onClose={() => setShowEncryption(false)}
+                    />
+                  )}
                 </div>
               )}
             </div>

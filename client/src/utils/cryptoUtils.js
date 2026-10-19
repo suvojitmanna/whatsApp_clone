@@ -113,7 +113,12 @@ export async function getSharedAesKey(peerUserId, peerPublicKeyStr, myUserId) {
     return null;
   }
 
-  const cacheKey = `${myUserId}_${peerUserId}_${peerPublicKeyStr.slice(0, 32)}`;
+  const peerKeyStr =
+    typeof peerPublicKeyStr === "string"
+      ? peerPublicKeyStr
+      : JSON.stringify(peerPublicKeyStr);
+
+  const cacheKey = `${myUserId}_${peerUserId}_${peerKeyStr}`;
   if (derivedKeyCache.has(cacheKey)) {
     return derivedKeyCache.get(cacheKey);
   }
@@ -123,9 +128,9 @@ export async function getSharedAesKey(peerUserId, peerPublicKeyStr, myUserId) {
     if (!myKeys?.privateKey) return null;
 
     const peerJwk =
-      typeof peerPublicKeyStr === "string"
-        ? JSON.parse(peerPublicKeyStr)
-        : peerPublicKeyStr;
+      typeof peerPublicKeyStr === "object" && peerPublicKeyStr !== null
+        ? peerPublicKeyStr
+        : JSON.parse(peerKeyStr);
 
     const importedPeerPublicKey = await window.crypto.subtle.importKey(
       "jwk",
@@ -180,6 +185,19 @@ export async function encryptText(plainText, sharedAesKey) {
   }
 }
 
+export function clearSharedKeyCache(userId = null) {
+  if (!userId) {
+    derivedKeyCache.clear();
+    return;
+  }
+  const strId = String(userId);
+  for (const key of derivedKeyCache.keys()) {
+    if (key.includes(strId)) {
+      derivedKeyCache.delete(key);
+    }
+  }
+}
+
 export async function decryptText(ciphertextBase64, ivBase64, sharedAesKey) {
   if (!isCryptoSupported() || !sharedAesKey || !ciphertextBase64 || !ivBase64) {
     return null;
@@ -197,6 +215,7 @@ export async function decryptText(ciphertextBase64, ivBase64, sharedAesKey) {
 
     return new TextDecoder().decode(decryptedBuffer);
   } catch (error) {
+    console.warn("AES-GCM decryption failed (key or IV mismatch):", error);
     return null;
   }
 }
@@ -244,12 +263,10 @@ export async function ensureUserKeysSynced(user, axiosInstance) {
     const keys = await getOrCreateUserKeyPair(user._id);
     if (!keys?.publicKeyStr) return;
 
-    if (!user.publicKey || user.publicKey !== keys.publicKeyStr) {
-      await axiosInstance.put("/auth/update-public-key", {
-        publicKey: keys.publicKeyStr,
-      });
-      user.publicKey = keys.publicKeyStr;
-    }
+    await axiosInstance.put("/auth/update-public-key", {
+      publicKey: keys.publicKeyStr,
+    });
+    user.publicKey = keys.publicKeyStr;
   } catch (error) {
     console.warn("Failed to sync E2EE public key with server:", error);
   }
@@ -260,15 +277,17 @@ export async function batchDecryptMessages(
   currentUserId,
   peerUserId,
   peerPublicKeyStr,
+  getStore = null,
 ) {
   if (!Array.isArray(messages) || messages.length === 0) {
     return [];
   }
 
-  let sharedKey = null;
+  // Pre-derive a shared key if peer info is provided
+  let defaultSharedKey = null;
   if (peerUserId && peerPublicKeyStr && currentUserId) {
     try {
-      sharedKey = await getSharedAesKey(
+      defaultSharedKey = await getSharedAesKey(
         peerUserId,
         peerPublicKeyStr,
         currentUserId,
@@ -290,9 +309,10 @@ export async function batchDecryptMessages(
         return msg;
       }
 
-      if (sharedKey) {
+      // Try with default shared key first
+      if (defaultSharedKey) {
         try {
-          const decrypted = await decryptText(msg.content, msg.iv, sharedKey);
+          const decrypted = await decryptText(msg.content, msg.iv, defaultSharedKey);
           if (decrypted !== null) {
             return {
               ...msg,
@@ -301,6 +321,47 @@ export async function batchDecryptMessages(
             };
           }
         } catch (e) {}
+      }
+
+      // If default key wasn't available or failed, resolve keys per message
+      const sId = (msg.sender?._id || msg.sender)?.toString();
+      const rId = (msg.receiver?._id || msg.receiver)?.toString();
+      const myId = currentUserId?.toString();
+      const isSentByMe = sId === myId;
+
+      const targetPeerId = isSentByMe ? rId : sId || peerUserId;
+      let targetPubKey = isSentByMe
+        ? msg.receiver?.publicKey || peerPublicKeyStr
+        : msg.sender?.publicKey || peerPublicKeyStr;
+
+      if (!targetPubKey && targetPeerId && getStore) {
+        const userList = getStore()?.users || [];
+        const found = userList.find((u) => u._id?.toString() === targetPeerId);
+        if (found?.publicKey) {
+          targetPubKey = found.publicKey;
+        }
+      }
+
+      if (targetPeerId && targetPubKey && myId) {
+        try {
+          const perMsgKey = await getSharedAesKey(
+            targetPeerId,
+            targetPubKey,
+            myId,
+          );
+          if (perMsgKey) {
+            const decrypted = await decryptText(msg.content, msg.iv, perMsgKey);
+            if (decrypted !== null) {
+              return {
+                ...msg,
+                content: decrypted,
+                _isDecrypted: true,
+              };
+            }
+          }
+        } catch (e) {
+          console.warn("Failed per-message batch decryption:", e);
+        }
       }
 
       return msg;

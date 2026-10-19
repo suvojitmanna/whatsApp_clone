@@ -53,7 +53,7 @@ const VideoCallManager = () => {
       socket.off("incoming_call", handleIncomingCall);
       socket.off("call_failed", handleCallEnded);
     };
-  },[socket,setIncomingCall, setCallType, setCallStatus, setCallModalOpen, endCall]);
+  }, [socket, setIncomingCall, setCallType, setCallStatus, setCallModalOpen, endCall]);
 
   const initiateCall = useCallback(
     (receiverId, receiverName, receiverAvatar, callType = "video") => {
@@ -81,7 +81,7 @@ const VideoCallManager = () => {
         },
       });
     },
-    [user,socket, setCurrentCall, setCallType, setCallModalOpen, setCallStatus],
+    [user, socket, setCurrentCall, setCallType, setCallModalOpen, setCallStatus],
   );
 
   useEffect(() => {

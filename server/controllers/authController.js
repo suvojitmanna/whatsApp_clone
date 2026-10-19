@@ -340,6 +340,13 @@ const updatePublicKey = async (req, res) => {
       { new: true },
     );
 
+    if (req.io) {
+      req.io.emit("user_public_key_updated", {
+        userId: updatedUser._id.toString(),
+        publicKey: updatedUser.publicKey,
+      });
+    }
+
     return response(res, 200, "Public key updated successfully", {
       publicKey: updatedUser.publicKey,
     });

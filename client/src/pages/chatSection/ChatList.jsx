@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import useThemeStore from "../../store/themeStore";
 import useLayoutStore from "../../store/layoutStore";
 import useUserStore from "../../store/useUserStore";
@@ -14,7 +15,7 @@ import {
   FaCaretDown,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
-import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit } from "react-icons/md";
+import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam } from "react-icons/md";
 import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill, RiDeleteBin6Line } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
@@ -33,6 +34,7 @@ import {
 import AddToListModal from "../../components/AddToListModal";
 import ListPanelOverChatList from "../../components/ListPanelOverChatList";
 import ChatlistMenu from "./ChatlistMenu";
+import ChatHoverPreview from "./ChatHoverPreview";
 import {
   getAllLists,
   isContactInList,
@@ -170,6 +172,10 @@ export const getPinnedItemTypeAndLabel = (msg) => {
   }
   if (contentType === "location" || msg.locationData || content.startsWith("Location:")) {
     return { type: "location", target: "a location" };
+  }
+  if (contentType === "call") {
+    const isVid = msg.callData?.callType === "video" || msg.callType === "video";
+    return { type: isVid ? "video call" : "voice call", target: isVid ? "a video call" : "a voice call" };
   }
 
   return { type: "message", target: "a message" };
@@ -484,6 +490,21 @@ const getLastMessagePreview = (lastMessage) => {
     };
   }
 
+  if (contentType === "call") {
+    const isVideo = lastMessage.callData?.callType === "video" || lastMessage.callType === "video";
+    const duration = lastMessage.callData?.duration || lastMessage.duration || "Voice call";
+    const isMissed = lastMessage.callData?.direction === "missed" || lastMessage.callData?.status === "missed" || lastMessage.status === "missed";
+    return {
+      icon: isVideo ? (
+        <MdOutlineVideocam className={`inline mr-1 shrink-0 ${isMissed ? "text-red-500" : "text-emerald-500"}`} size={14} />
+      ) : (
+        <MdOutlineCall className={`inline mr-1 shrink-0 ${isMissed ? "text-red-500" : "text-emerald-500"}`} size={14} />
+      ),
+      text: isVideo ? `Video call (${duration})` : `Voice call (${duration})`,
+      isEncrypted: false,
+    };
+  }
+
   if (imageOrVideoUrl) {
     const isVid = imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i);
     const isAud = imageOrVideoUrl.match(/\.(mp3|wav|ogg|m4a|aac)($|\?)/i);
@@ -554,6 +575,58 @@ const getLastMessagePreview = (lastMessage) => {
   }
 
   return null;
+};
+
+export const getFullMessageTooltip = (lastMsg) => {
+  if (!lastMsg) return "";
+  if (lastMsg.deletedForEveryone) return "This message was deleted";
+  if (lastMsg.contentType === "poll" || lastMsg.pollData) {
+    let pData = lastMsg.pollData;
+    if (typeof pData === "string") {
+      try {
+        pData = JSON.parse(pData);
+      } catch { }
+    }
+    const q = pData?.question || lastMsg.content || "Poll";
+    const opts =
+      pData?.options
+        ?.map(
+          (o, idx) =>
+            `${idx + 1}. ${typeof o === "string" ? o : o?.text || ""}`
+        )
+        .join("\n") || "";
+    return opts ? `Poll: ${q}\n${opts}` : `Poll: ${q}`;
+  }
+  if (lastMsg.contentType === "image" || lastMsg.contentType === "photo") {
+    const caption =
+      lastMsg.content && lastMsg.content !== "Photo"
+        ? `Photo: ${lastMsg.content}`
+        : "Photo";
+    return caption;
+  }
+  if (lastMsg.contentType === "video") {
+    const caption =
+      lastMsg.content && lastMsg.content !== "Video"
+        ? `Video: ${lastMsg.content}`
+        : "Video";
+    return caption;
+  }
+  if (lastMsg.contentType === "document" || lastMsg.fileName) {
+    return `Document: ${lastMsg.fileName || lastMsg.content || "File"}`;
+  }
+  if (lastMsg.contentType === "audio") {
+    return "Voice message";
+  }
+  if (lastMsg.contentType === "sticker") {
+    return "Sticker";
+  }
+  if (lastMsg.contentType === "contact") {
+    return `Contact: ${lastMsg.contactData?.name || lastMsg.content || ""}`;
+  }
+  if (lastMsg.contentType === "event") {
+    return `Event: ${lastMsg.eventData?.title || lastMsg.content || ""}`;
+  }
+  return typeof lastMsg.content === "string" ? lastMsg.content : "";
 };
 
 export const isChatPinned = (contact, pinnedList) => {
@@ -677,6 +750,49 @@ const ChatList = ({ contacts }) => {
     }
   });
   const [showArchivedOnly, setShowArchivedOnly] = useState(false);
+
+  const [hoveredPreviewData, setHoveredPreviewData] = useState(null);
+  const hoverTimerRef = useRef(null);
+
+  const handleChatMouseEnter = (contact, lastMsg, e) => {
+    if (!lastMsg) return;
+    const el = e.currentTarget;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+    }
+
+    hoverTimerRef.current = setTimeout(() => {
+      const tooltipMaxWidth = 580;
+      const padding = 12;
+      let left = rect.left + 64;
+      let top = rect.top + 26;
+
+      if (left + tooltipMaxWidth > window.innerWidth - padding) {
+        left = Math.max(padding, window.innerWidth - tooltipMaxWidth - padding);
+      }
+
+      if (top + 260 > window.innerHeight - padding) {
+        top = Math.max(padding, window.innerHeight - 280);
+      }
+
+      setHoveredPreviewData({
+        contact,
+        lastMsg,
+        coords: { left, top },
+      });
+    }, 180);
+  };
+
+  const handleChatMouseLeave = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoveredPreviewData(null);
+  };
 
   useEffect(() => {
     const handlePinnedChanged = () => {
@@ -969,32 +1085,37 @@ const ChatList = ({ contacts }) => {
 
       <div className="px-3 pt-1 pb-2">
         <div
-          className={`flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 group border border-transparent focus-within:border-[#00a884] ring-1 ring-[#00a884]/40 focus-within:ring-2 focus-within:ring-[#00a884] ${theme === "dark"
-            ? "bg-[#202c33] text-[#e9edef]"
-            : "bg-[#f0f2f5] text-[#111b21]"
+          className={`flex items-center gap-3 px-5 py-2.5 rounded-full border-2 transition-all duration-200 ${theme === "dark"
+            ? "bg-[#161a1d] text-[#e9edef] border-[#00c878]"
+            : "bg-[#f0f2f5] text-[#111b21] border-[#00a884]"
             }`}
         >
           <FaSearch
-            className={`shrink-0 transition-colors group-focus-within:text-[#00a884] ${theme === "dark" ? "text-[#8696a0]" : "text-[#54656f]"
+            className={`shrink-0 ${theme === "dark" ? "text-[#aebac1]" : "text-[#54656f]"
               }`}
-            size={13}
+            size={17}
           />
+
           <input
             ref={searchInputRef}
             type="text"
             placeholder="Search or start a new chat"
             className={`w-full bg-transparent text-[14px] outline-none border-none ${theme === "dark"
-              ? "text-[#e9edef] placeholder-[#8696a0]"
-              : "text-[#111b21] placeholder-[#54656f]"
+              ? "text-[#e9edef] placeholder:text-[#aebac1]"
+              : "text-[#111b21] placeholder:text-[#54656f]"
               }`}
             value={searchTerms}
             onChange={(e) => setSearchTerms(e.target.value)}
           />
+
           {searchTerms && (
             <button
               type="button"
               onClick={() => setSearchTerms("")}
-              className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-[#8696a0] hover:text-[#e9edef] transition-all cursor-pointer"
+              className={`p-1 rounded-full transition-colors cursor-pointer ${theme === "dark"
+                ? "text-[#8696a0] hover:bg-white/10 hover:text-white"
+                : "text-[#54656f] hover:bg-black/10 hover:text-[#111b21]"
+                }`}
               title="Clear search"
             >
               <RxCross2 className="w-3.5 h-3.5" />
@@ -1224,7 +1345,14 @@ const ChatList = ({ contacts }) => {
 
       <div
         ref={listContainerRef}
-        onScroll={(e) => setChatListScrollTop(e.target.scrollTop)}
+        onScroll={(e) => {
+          setChatListScrollTop(e.target.scrollTop);
+          if (hoverTimerRef.current) {
+            clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = null;
+          }
+          if (hoveredPreviewData) setHoveredPreviewData(null);
+        }}
         className="overflow-y-auto flex-1 custom-scrollbar"
       >
         {archivedCount > 0 && !searchTerms && activeListFilter === "All" && (
@@ -1355,7 +1483,8 @@ const ChatList = ({ contacts }) => {
               <motion.div
                 key={contact._id}
                 data-contact-id={contact._id}
-                title={`Chat with ${contact?.username || "user"}`}
+                onMouseEnter={(e) => handleChatMouseEnter(contact, lastMsg, e)}
+                onMouseLeave={handleChatMouseLeave}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setChatlistMenu({
@@ -1418,7 +1547,10 @@ const ChatList = ({ contacts }) => {
 
                 <div className="ml-3 flex-1 min-w-0">
                   <div className="flex justify-between items-baseline gap-2">
-                    <h2 className={`font-medium text-[16px] truncate ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"}`}>
+                    <h2
+                      title={`Chat with ${contact?.username || "user"}`}
+                      className={`font-medium text-[16px] truncate ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"}`}
+                    >
                       {contact?.username}
                     </h2>
                     {(contact?.conversation || contactPin || hasDisappearing) && (
@@ -1555,7 +1687,9 @@ const ChatList = ({ contacts }) => {
                                 );
                               })()}
                               {preview.icon}
-                              <span className={`truncate ${preview.isDeleted ? "italic opacity-80" : ""}`}>
+                              <span
+                                className={`truncate ${preview.isDeleted ? "italic opacity-80" : ""}`}
+                              >
                                 {preview.text}
                               </span>
                               {lastMsg?.edited && (
@@ -1805,6 +1939,19 @@ const ChatList = ({ contacts }) => {
           </div>
         )}
       </AnimatePresence>
+
+      {hoveredPreviewData && typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          <ChatHoverPreview
+            contact={hoveredPreviewData.contact}
+            lastMsg={hoveredPreviewData.lastMsg}
+            coords={hoveredPreviewData.coords}
+            theme={theme}
+            currentUserId={user?._id || user?.id}
+          />
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

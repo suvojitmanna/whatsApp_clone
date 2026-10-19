@@ -1329,3 +1329,126 @@ export const WhatsAppChatsIcon = ({
   );
 };
 
+export const EncryptionLogo = () => (
+  <svg
+    viewBox="0 0 240 155"
+    className="w-56 h-auto sm:w-64 overflow-visible"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    role="img"
+    aria-label="Animated encryption lock illustration"
+  >
+    <circle
+      cx="55"
+      cy="76"
+      r="35"
+      stroke="#F7F4ED"
+      strokeWidth="9"
+      className="enc-ring"
+    />
+    <path
+      d="M31 56 L79 91"
+      stroke="#F7F4ED"
+      strokeWidth="9"
+      strokeLinecap="round"
+      className="enc-slash"
+    />
+    <path
+      d="M105 48 V32 A18 18 0 0 1 141 32 V48"
+      stroke="#D9FFD5"
+      strokeWidth="13"
+      strokeLinecap="round"
+      className="enc-shackle"
+    />
+    <rect
+      x="77"
+      y="45"
+      width="91"
+      height="76"
+      rx="23"
+      fill="#D9FFD5"
+      stroke="#17231D"
+      strokeWidth="2"
+      className="enc-lock"
+    />
+    <path
+      d="M121 61 A10 10 0 0 0 115 79 L108 102 H134 L127 79 A10 10 0 0 0 121 61Z"
+      stroke="#17231D"
+      strokeWidth="2"
+      strokeLinejoin="round"
+      fill="#D9FFD5"
+      className="enc-keyhole"
+    />
+    <circle
+      cx="174"
+      cy="80"
+      r="39"
+      fill="#16CF70"
+      stroke="#17231D"
+      strokeWidth="2"
+      className="enc-dial"
+    />
+    <circle
+      cx="174"
+      cy="80"
+      r="32"
+      stroke="#17231D"
+      strokeWidth="1.7"
+      className="enc-dial-inner"
+    />
+
+    <g className="enc-hand">
+      <path
+        d="M174 80 L190 65"
+        stroke="#17231D"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M174 80 L187 67"
+        stroke="#E2FFE4"
+        strokeWidth="5"
+        strokeLinecap="round"
+      />
+    </g>
+
+    <g className="enc-dots" fill="#D9FFD5" stroke="#17231D">
+      <circle cx="174" cy="49" r="2.5" />
+      <circle cx="197" cy="63" r="2" />
+      <circle cx="201" cy="88" r="2.5" />
+      <circle cx="191" cy="107" r="2" />
+      <circle cx="159" cy="108" r="2" />
+    </g>
+    <rect
+      x="139"
+      y="115"
+      width="81"
+      height="16"
+      rx="8"
+      fill="#FFFFFF"
+      stroke="#17231D"
+      strokeWidth="2"
+    />
+    <rect
+      x="139"
+      y="115"
+      width="43"
+      height="16"
+      rx="8"
+      fill="#16CF70"
+      stroke="#17231D"
+      strokeWidth="2"
+      className="enc-progress"
+    />
+    <circle
+      cx="173"
+      cy="123"
+      r="12"
+      fill="#16CF70"
+      stroke="#17231D"
+      strokeWidth="2"
+      className="enc-orb"
+    />
+  </svg>
+);
+

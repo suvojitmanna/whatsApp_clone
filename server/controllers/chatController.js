@@ -99,6 +99,13 @@ exports.sendMessage = async (req, res) => {
       } catch (e) {}
     }
 
+    let parsedCall = req.body.callData;
+    if (typeof req.body.callData === "string") {
+      try {
+        parsedCall = JSON.parse(req.body.callData);
+      } catch (e) {}
+    }
+
     let mediaPublicId = null;
     let mediaResourceType = null;
 
@@ -123,7 +130,9 @@ exports.sendMessage = async (req, res) => {
       }
     } else if (
       customContentType &&
-      ["poll", "contact", "event", "sticker"].includes(customContentType)
+      ["poll", "contact", "event", "sticker", "call"].includes(
+        customContentType,
+      )
     ) {
       contentType = customContentType;
       if (req.body.imageOrVideoUrl) {
@@ -240,6 +249,7 @@ exports.sendMessage = async (req, res) => {
       pollData: parsedPoll,
       contactData: parsedContact,
       eventData: parsedEvent,
+      callData: parsedCall,
       messageStatus: finalStatus,
       deliveredAt: initialDeliveredAt,
       blockedDelivery: isSenderBlockedByReceiver,
