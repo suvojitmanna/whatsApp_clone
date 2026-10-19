@@ -2075,10 +2075,14 @@ const MessageBuble = ({
                               isMissed
                                 ? isDark
                                   ? "bg-[#ea0038]/20"
-                                  : "bg-[#ea0038]/10"
-                                : isDark
-                                  ? "bg-[#182229]"
-                                  : "bg-black/10"
+                                  : "bg-[#fde8ec]"
+                                : isUserMessage
+                                  ? isDark
+                                    ? "bg-white/10"
+                                    : "bg-[#c2ecc3]"
+                                  : isDark
+                                    ? "bg-[#182229]"
+                                    : "bg-black/10"
                             }`}
                           >
                             {isVideo ? (
