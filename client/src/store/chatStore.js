@@ -2424,6 +2424,148 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  sendCallLinkMessage: async ({
+    receiverId,
+    conversationId,
+    callType = "video",
+    linkCode,
+    url,
+  }) => {
+    const currentUserId = (get().currentUser || useUserStore.getState().user)
+      ?._id;
+    const selectedContact = useLayoutStore.getState()?.selectedContact;
+    const effectiveReceiverId = receiverId || selectedContact?._id;
+    if (!effectiveReceiverId || !currentUserId) return;
+
+    const resolvedConvId =
+      conversationId ||
+      get().currentConversation?._id ||
+      selectedContact?.conversation?._id;
+
+    const generatedLinkCode =
+      linkCode ||
+      (url
+        ? url.split("/").pop()
+        : `SUH50${Math.random().toString(36).substring(2, 7).toUpperCase()}`);
+    const callUrl =
+      url || `https://call.whatsapp.com/${callType}/${generatedLinkCode}`;
+
+    const linkPayload = {
+      callType: callType === "video" ? "video" : "voice",
+      linkCode: generatedLinkCode,
+      url: callUrl,
+      title: `WhatsApp ${callType === "video" ? "Video" : "Voice"} Call Link`,
+      description: `Use this link to join my WhatsApp ${callType === "video" ? "video" : "voice"} call.`,
+    };
+
+    const tempId = `call-link-msg-${Date.now()}`;
+    const optimisticCallLinkMsg = {
+      _id: tempId,
+      temp: tempId,
+      conversation: resolvedConvId,
+      conversationId: resolvedConvId,
+      sender: {
+        _id: currentUserId,
+        username: useUserStore.getState().user?.username,
+        profilePicture: useUserStore.getState().user?.profilePicture,
+      },
+      receiver: {
+        _id: effectiveReceiverId,
+        username: selectedContact?.username,
+        profilePicture: selectedContact?.profilePicture,
+      },
+      contentType: "call_link",
+      callLinkData: linkPayload,
+      content: callUrl,
+      messageStatus: "send",
+      createdAt: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
+      _isDecrypted: true,
+    };
+
+    set((state) => {
+      const nextMessages = [...state.messages, optimisticCallLinkMsg];
+      const nextCache = resolvedConvId
+        ? syncMessagesCache(state.messagesCache, resolvedConvId, nextMessages)
+        : state.messagesCache;
+      return {
+        messages: nextMessages,
+        messagesCache: nextCache,
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) => {
+            const isTarget =
+              resolvedConvId && String(conv._id) === String(resolvedConvId);
+            return isTarget
+              ? { ...conv, lastMessage: optimisticCallLinkMsg, unreadCount: 0 }
+              : conv;
+          }),
+        },
+      };
+    });
+
+    try {
+      const formData = new FormData();
+      formData.append("senderId", currentUserId);
+      formData.append("receiverId", effectiveReceiverId);
+      if (resolvedConvId) {
+        formData.append("conversationId", resolvedConvId);
+      }
+      formData.append("contentType", "call_link");
+      formData.append("content", callUrl);
+      formData.append("callLinkData", JSON.stringify(linkPayload));
+      formData.append("messageStatus", "send");
+
+      const { data } = await axiosInstance.post(
+        "/chat/send-message",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+
+      const messageData = data.data || data;
+      const savedMsg = {
+        ...messageData,
+        contentType: "call_link",
+        callLinkData: linkPayload,
+        content: callUrl,
+        _isDecrypted: true,
+      };
+
+      set((state) => {
+        const nextMessages = state.messages.map((m) =>
+          m._id === tempId || m.temp === tempId ? savedMsg : m,
+        );
+        const nextCache = resolvedConvId
+          ? syncMessagesCache(state.messagesCache, resolvedConvId, nextMessages)
+          : state.messagesCache;
+        return {
+          messages: nextMessages,
+          messagesCache: nextCache,
+          conversations: {
+            ...state.conversations,
+            data: state.conversations?.data?.map((conv) => {
+              const isTarget =
+                resolvedConvId && String(conv._id) === String(resolvedConvId);
+              return isTarget
+                ? { ...conv, lastMessage: savedMsg, unreadCount: 0 }
+                : conv;
+            }),
+          },
+        };
+      });
+
+      return savedMsg;
+    } catch (err) {
+      console.warn(
+        "sendCallLinkMessage backend log failed, kept optimistic message:",
+        err,
+      );
+      return optimisticCallLinkMsg;
+    }
+  },
+
   receiveMessage: async (message) => {
     if (!message) return;
 

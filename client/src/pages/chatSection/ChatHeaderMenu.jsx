@@ -46,6 +46,7 @@ const ChatHeaderMenu = ({
   onOpenContactInfo,
   onOpenDisappearingMessages,
   onOpenChatTheme,
+  onOpenCallLink,
   onCloseChat,
 }) => {
   const isDark = theme === "dark";
@@ -499,6 +500,21 @@ const ChatHeaderMenu = ({
                 <WhatsAppMediaFolderIcon size={18} className="text-[#8696a0] shrink-0" />
                 <span>Media, links and docs</span>
               </button>
+
+              {onOpenCallLink && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenCallLink();
+                  }}
+                  className={itemClass}
+                  title="Create a shareable link for this call"
+                >
+                  <FiLink size={18} className="text-[#8696a0] shrink-0" />
+                  <span>Create call link</span>
+                </button>
+              )}
 
               <button
                 type="button"

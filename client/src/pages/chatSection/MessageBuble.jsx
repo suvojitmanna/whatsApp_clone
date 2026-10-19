@@ -25,6 +25,10 @@ import {
   MdCallMissed,
   MdOutlineVideocam,
   MdOutlineCall,
+  MdLink,
+  MdContentCopy,
+  MdVideocam,
+  MdCall,
 } from "react-icons/md";
 import { BsEmojiSmile } from "react-icons/bs";
 import { RxCross2 } from "react-icons/rx";
@@ -1962,6 +1966,154 @@ const MessageBuble = ({
                     </div>
                   </div>
                 )}
+
+                {(message.contentType === "call_link" ||
+                  Boolean(message.callLinkData) ||
+                  (typeof message.content === "string" &&
+                    message.content.includes("call.whatsapp.com"))) &&
+                  (() => {
+                    const linkData =
+                      typeof message.callLinkData === "string"
+                        ? (() => {
+                            try {
+                              return JSON.parse(message.callLinkData);
+                            } catch (e) {
+                              return {};
+                            }
+                          })()
+                        : message.callLinkData || {};
+
+                    const rawUrl =
+                      linkData?.url ||
+                      (typeof message.content === "string" &&
+                      message.content.includes("call.whatsapp.com")
+                        ? message.content.match(
+                            /https?:\/\/call\.whatsapp\.com\/[^\s]+/i
+                          )?.[0] || message.content
+                        : "") ||
+                      `https://call.whatsapp.com/video/SUH50LINK`;
+
+                    const isVideo =
+                      linkData?.callType === "video" ||
+                      rawUrl.includes("/video/");
+                    const callType = isVideo ? "video" : "voice";
+
+                    const peer = isUserMessage
+                      ? message.receiver || selectedContact
+                      : message.sender || selectedContact;
+                    const peerId = (peer?._id || peer?.id || peer)?.toString();
+                    const peerName = peer?.username || peer?.name || "Contact";
+                    const peerAvatar =
+                      peer?.profilePicture || peer?.avatar || "";
+
+                    const handleCopyCallUrl = (e) => {
+                      e.stopPropagation();
+                      navigator.clipboard?.writeText(rawUrl);
+                      toast.success("Call link copied to clipboard");
+                    };
+
+                    const handleJoinCallLink = (e) => {
+                      e.stopPropagation();
+                      try {
+                        const { initiateCall } = useVideoCallStore.getState();
+                        if (typeof initiateCall === "function") {
+                          initiateCall(
+                            peerId || `link-${Date.now()}`,
+                            peerName,
+                            peerAvatar,
+                            callType === "video" ? "video" : "audio"
+                          );
+                        } else {
+                          toast.success("Connecting to WhatsApp call link...");
+                        }
+                      } catch (err) {
+                        console.warn("Failed to join call link:", err);
+                        toast.error("Could not join call");
+                      }
+                    };
+
+                    return (
+                      <div className="flex flex-col min-w-[260px] xs:min-w-[280px] max-w-[340px] select-none">
+                        <div className="flex items-start gap-3 p-1">
+                          <div className="w-11 h-11 rounded-full bg-[#00a884] text-white flex items-center justify-center shrink-0 shadow-md">
+                            <MdLink className="text-2xl transform -rotate-45" />
+                          </div>
+
+                          <div className="min-w-0 flex-1 pt-0.5">
+                            <h4
+                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${
+                                isDark ? "text-white" : "text-[#111b21]"
+                              }`}
+                            >
+                              {isVideo
+                                ? "WhatsApp Video Call Link"
+                                : "WhatsApp Voice Call Link"}
+                            </h4>
+                            <p
+                              className={`text-[12.5px] leading-snug mt-1 ${
+                                isDark ? "text-[#8696a0]" : "text-[#667781]"
+                              }`}
+                            >
+                              Use this link to join my WhatsApp{" "}
+                              {isVideo ? "video" : "voice"} call.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          onClick={handleCopyCallUrl}
+                          className={`mt-2 px-3 py-2 rounded-xl flex items-center justify-between gap-2 border transition-all cursor-pointer group ${
+                            isUserMessage
+                              ? isDark
+                                ? "bg-black/20 hover:bg-black/30 border-white/5"
+                                : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
+                              : isDark
+                              ? "bg-white/[0.06] hover:bg-white/[0.09] border-white/5"
+                              : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
+                          }`}
+                          title="Click to copy link"
+                        >
+                          <span className="text-[13px] font-mono text-[#00a884] dark:text-[#25d366] font-medium truncate select-all">
+                            {rawUrl}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCopyCallUrl}
+                            className="p-1 rounded-md text-[#8696a0] group-hover:text-[#00a884] transition-colors shrink-0 cursor-pointer"
+                            title="Copy link"
+                          >
+                            <MdContentCopy size={15} />
+                          </button>
+                        </div>
+
+                        <div className="mt-2.5">
+                          <button
+                            type="button"
+                            onClick={handleJoinCallLink}
+                            className="w-full py-2.5 px-4 rounded-xl bg-[#00a884] hover:bg-[#029676] active:scale-[0.99] text-white font-semibold text-[14px] flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                            title={`Join ${isVideo ? "video" : "voice"} call now`}
+                          >
+                            {isVideo ? (
+                              <MdVideocam className="text-lg" />
+                            ) : (
+                              <MdCall className="text-base" />
+                            )}
+                            <span>Join call</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2 pt-1 border-t border-black/5 dark:border-white/5 px-0.5">
+                          <div className="flex items-center gap-1 text-[11px] text-[#8696a0]">
+                            <FaLock size={9} className="opacity-75" />
+                            <span>End-to-end encrypted</span>
+                          </div>
+                          <div className="flex items-center select-none pointer-events-auto">
+                            {renderTimestampAndStatus(false)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                 {(message.contentType === "call" || Boolean(message.callData)) && (() => {
                   const callData =

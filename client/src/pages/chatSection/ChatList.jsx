@@ -15,7 +15,7 @@ import {
   FaCaretDown,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
-import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam } from "react-icons/md";
+import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam, MdLink } from "react-icons/md";
 import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill, RiDeleteBin6Line } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
@@ -505,6 +505,28 @@ const getLastMessagePreview = (lastMessage) => {
     };
   }
 
+  if (
+    contentType === "call_link" ||
+    Boolean(lastMessage.callLinkData) ||
+    (typeof lastMessage.content === "string" &&
+      lastMessage.content.includes("call.whatsapp.com"))
+  ) {
+    const isVideo =
+      lastMessage.callLinkData?.callType === "video" ||
+      (typeof lastMessage.content === "string" &&
+        lastMessage.content.includes("/video/"));
+    return {
+      icon: (
+        <MdLink
+          className="inline mr-1 text-[#00a884] shrink-0 transform -rotate-45"
+          size={14}
+        />
+      ),
+      text: isVideo ? "WhatsApp Video call link" : "WhatsApp Voice call link",
+      isEncrypted: false,
+    };
+  }
+
   if (imageOrVideoUrl) {
     const isVid = imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i);
     const isAud = imageOrVideoUrl.match(/\.(mp3|wav|ogg|m4a|aac)($|\?)/i);
@@ -625,6 +647,14 @@ export const getFullMessageTooltip = (lastMsg) => {
   }
   if (lastMsg.contentType === "event") {
     return `Event: ${lastMsg.eventData?.title || lastMsg.content || ""}`;
+  }
+  if (
+    lastMsg.contentType === "call_link" ||
+    Boolean(lastMsg.callLinkData) ||
+    (typeof lastMsg.content === "string" &&
+      lastMsg.content.includes("call.whatsapp.com"))
+  ) {
+    return lastMsg.content || "WhatsApp call link";
   }
   return typeof lastMsg.content === "string" ? lastMsg.content : "";
 };

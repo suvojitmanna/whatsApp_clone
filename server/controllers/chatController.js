@@ -106,6 +106,13 @@ exports.sendMessage = async (req, res) => {
       } catch (e) {}
     }
 
+    let parsedCallLink = req.body.callLinkData;
+    if (typeof req.body.callLinkData === "string") {
+      try {
+        parsedCallLink = JSON.parse(req.body.callLinkData);
+      } catch (e) {}
+    }
+
     let mediaPublicId = null;
     let mediaResourceType = null;
 
@@ -130,7 +137,7 @@ exports.sendMessage = async (req, res) => {
       }
     } else if (
       customContentType &&
-      ["poll", "contact", "event", "sticker", "call"].includes(
+      ["poll", "contact", "event", "sticker", "call", "call_link"].includes(
         customContentType,
       )
     ) {
@@ -250,6 +257,7 @@ exports.sendMessage = async (req, res) => {
       contactData: parsedContact,
       eventData: parsedEvent,
       callData: parsedCall,
+      callLinkData: parsedCallLink,
       messageStatus: finalStatus,
       deliveredAt: initialDeliveredAt,
       blockedDelivery: isSenderBlockedByReceiver,

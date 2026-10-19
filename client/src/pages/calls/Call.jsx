@@ -32,6 +32,7 @@ import {
   MdOutlineVideocam,
   MdDelete,
   MdLockOutline,
+  MdLink,
 } from "react-icons/md";
 import { FaUserPlus } from "react-icons/fa";
 import { IoIosArrowDown } from "react-icons/io";
@@ -252,7 +253,36 @@ const Call = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
-            <div className="pt-2 pb-2">
+            {!searchQuery && (
+              <div
+                onClick={() => setShowCallLinkModal(true)}
+                className={`mx-2.5 mt-2.5 mb-1.5 p-3 rounded-2xl flex items-center gap-3.5 transition-all cursor-pointer group ${isDark
+                  ? "hover:bg-[#1f2b33] hover:shadow-sm"
+                  : "hover:bg-[#e9edef] hover:shadow-sm"
+                  }`}
+                title="Create a link for your WhatsApp call"
+              >
+                <div className="w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                  <MdLink className="text-2xl transform -rotate-45" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div
+                    className={`font-semibold text-[16px] leading-tight ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+                      }`}
+                  >
+                    Create call link
+                  </div>
+                  <div
+                    className={`text-[13px] truncate mt-0.5 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                      }`}
+                  >
+                    Share a link for your WhatsApp call
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-1 pb-2">
               <div className="px-4 py-2 flex items-center justify-between">
                 <span className="text-[17px] font-semibold">Favourites</span>
                 {favourites.length > 0 && (
@@ -664,6 +694,10 @@ const Call = () => {
         onClose={() => setShowNewCallModal(false)}
         contacts={availableContacts}
         onStartCall={handleStartCall}
+        onOpenCallLink={() => {
+          setShowNewCallModal(false);
+          setShowCallLinkModal(true);
+        }}
       />
 
       <AddFavouritesModal
@@ -677,6 +711,18 @@ const Call = () => {
         onClose={() => setShowCallLinkModal(false)}
         contacts={availableContacts}
         onStartCall={handleStartCall}
+        onSendToChat={(contact, url, type, code) => {
+          const receiverId = contact._id || contact.id || contact.contactId;
+          if (receiverId) {
+            useChatStore.getState().sendCallLinkMessage({
+              receiverId,
+              callType: type || "video",
+              linkCode: code,
+              url,
+            });
+            useLayoutStore.getState().setSelectedContact(contact);
+          }
+        }}
       />
     </div>
   );
@@ -705,6 +751,18 @@ const Call = () => {
       onOpenDialpad={() => setActiveSidebarView("phonenumber")}
       onStartCall={handleStartCall}
       contacts={availableContacts}
+      onSendToChat={(contact, url, type, code) => {
+        const receiverId = contact._id || contact.id || contact.contactId;
+        if (receiverId) {
+          useChatStore.getState().sendCallLinkMessage({
+            receiverId,
+            callType: type || "video",
+            linkCode: code,
+            url,
+          });
+          useLayoutStore.getState().setSelectedContact(contact);
+        }
+      }}
     />
   );
 

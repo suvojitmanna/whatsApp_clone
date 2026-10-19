@@ -18,7 +18,7 @@ import { IoSend } from "react-icons/io5";
 import { getChatTheme } from "../../utils/chatThemes";
 import { TiArrowRight } from "react-icons/ti";
 import { FaSquarePollHorizontal } from "react-icons/fa6";
-import { MdEventNote, MdKeyboardArrowUp, MdKeyboardArrowDown, MdBlock, MdThumbDown } from "react-icons/md";
+import { MdEventNote, MdKeyboardArrowUp, MdKeyboardArrowDown, MdBlock, MdThumbDown, MdLink } from "react-icons/md";
 import { TfiClip } from "react-icons/tfi";
 import { MdAddReaction } from "react-icons/md";
 import MessageBuble, {
@@ -51,6 +51,7 @@ import ChatHeaderMenu from "./ChatHeaderMenu";
 import ChatHeader from "./ChatHeader";
 import BlockModal from "../../components/BlockModal";
 import ReportModal from "../../components/ReportModal";
+import NewCallLinkModal from "../calls/NewCallLinkModal";
 import { getPinActorAndLabel } from "./ChatList";
 
 function getDisappearingDurationMs(duration) {
@@ -98,6 +99,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingEventMessage, setEditingEventMessage] = useState(null);
   const [showStickerModal, setShowStickerModal] = useState(false);
+  const [showCallLinkModal, setShowCallLinkModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
   const [showPinnedMenu, setShowPinnedMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -136,6 +138,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     isMessagesLoading,
     clearMessages,
     sendMessage,
+    sendCallLinkMessage,
+    users,
     fetchMessages,
     fetchConversations,
     conversations,
@@ -2805,6 +2809,24 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             New sticker
                           </span>
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            setShowCallLinkModal(true);
+                          }}
+                          title="Share call link"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#00a884] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <MdLink className="text-white text-[19px] transform -rotate-45" />
+                          </div>
+
+                          <span className="text-[14px] font-medium tracking-tight">
+                            Call link
+                          </span>
+                        </button>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -3109,7 +3131,37 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         onOpenContactInfo={() => setShowContactInfo(true)}
         onOpenDisappearingMessages={() => openContactInfoWithTab("disappearing")}
         onOpenChatTheme={() => openContactInfoWithTab("chatTheme")}
+        onOpenCallLink={() => setShowCallLinkModal(true)}
         onCloseChat={handleCloseChatWindow}
+      />
+
+      <NewCallLinkModal
+        isOpen={showCallLinkModal}
+        onClose={() => setShowCallLinkModal(false)}
+        contacts={users}
+        activeContact={selectedContact}
+        onStartCall={(contact, type) => {
+          const { initiateCall } = useVideoCallStore.getState();
+          if (typeof initiateCall === "function") {
+            const peer = selectedContact || contact;
+            const pId = (peer?._id || peer?.id || peer)?.toString();
+            const pName = peer?.username || peer?.name || "Contact";
+            const pAvatar = peer?.profilePicture || peer?.avatar || "";
+            initiateCall(pId, pName, pAvatar, type);
+          }
+        }}
+        onSendToChat={(contact, url, type, code) => {
+          const receiverId = (contact?._id || contact?.id || selectedContact?._id)?.toString();
+          if (receiverId) {
+            sendCallLinkMessage({
+              receiverId,
+              conversationId: currentConversation?._id || selectedContact?.conversation?._id,
+              callType: type || "video",
+              linkCode: code,
+              url,
+            });
+          }
+        }}
       />
 
       <BlockModal

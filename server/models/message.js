@@ -56,6 +56,7 @@ const messageSchema = new mongoose.Schema(
         "event",
         "sticker",
         "call",
+        "call_link",
       ],
       default: "text",
     },
@@ -98,6 +99,10 @@ const messageSchema = new mongoose.Schema(
       default: {},
     },
     callData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    callLinkData: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },

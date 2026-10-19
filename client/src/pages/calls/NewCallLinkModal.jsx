@@ -17,6 +17,7 @@ const NewCallLinkModal = ({
   onStartCall,
   contacts = [],
   onSendToChat,
+  activeContact = null,
 }) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
@@ -70,14 +71,12 @@ const NewCallLinkModal = ({
 
   const handleJoinCall = () => {
     if (onStartCall) {
-      onStartCall(
-        {
-          _id: `link-${linkCode}`,
-          username: `${callType === "video" ? "Video" : "Voice"} Call Link`,
-          name: `${callType === "video" ? "Video" : "Voice"} Call Link`,
-        },
-        callType
-      );
+      const target = activeContact || {
+        _id: `link-${linkCode}`,
+        username: `${callType === "video" ? "Video" : "Voice"} Call Link`,
+        name: `${callType === "video" ? "Video" : "Voice"} Call Link`,
+      };
+      onStartCall(target, callType);
     } else {
       toast.success("Joining call link room...");
     }
@@ -87,6 +86,14 @@ const NewCallLinkModal = ({
   const handleSendViaWhatsApp = () => {
     navigator.clipboard?.writeText(callUrl);
     toast.success("Call link copied to clipboard");
+    if (activeContact && onSendToChat) {
+      onSendToChat(activeContact, callUrl, callType, linkCode);
+      toast.success(
+        `Link shared with ${activeContact.username || activeContact.name || "chat"}`
+      );
+      onClose();
+      return;
+    }
     if (contacts && contacts.length > 0) {
       setShowContactPicker(true);
     }
@@ -94,7 +101,7 @@ const NewCallLinkModal = ({
 
   const handleSelectContactToSend = (contact) => {
     if (onSendToChat) {
-      onSendToChat(contact, callUrl);
+      onSendToChat(contact, callUrl, callType, linkCode);
     }
     toast.success(
       `Link shared with ${contact.username || contact.name || "contact"}`
