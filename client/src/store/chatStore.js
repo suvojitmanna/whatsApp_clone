@@ -9,6 +9,7 @@ import {
   encryptText,
   decryptText,
   batchDecryptMessages,
+  clearSharedKeyCache,
 } from "../utils/cryptoUtils";
 function syncMessagesCache(cache, convId, newMessages) {
   if (!cache || !convId) return cache;
@@ -23,7 +24,9 @@ if (typeof window !== "undefined") {
   try {
     sessionStorage.removeItem("whatsapp_chat_scroll_positions");
     localStorage.removeItem("whatsapp_chat_scroll_positions");
-  } catch {}
+  } catch (e) {
+    console.log(e);
+  }
 }
 
 export const getTargetUserId = (contact, currentUserId) => {
@@ -70,23 +73,42 @@ export async function decryptSingleMessage(
     return msg;
   }
 
+  const myId = (
+    currentUserId ||
+    useUserStore.getState()?.user?._id ||
+    useUserStore.getState()?.user?.id
+  )?.toString();
   const senderId = (msg.sender?._id || msg.sender)?.toString();
   const receiverId = (msg.receiver?._id || msg.receiver)?.toString();
-  const myId = currentUserId?.toString();
 
   let peerId = null;
   let peerPubKey = null;
 
-  if (senderId === myId) {
+  if (senderId && myId && senderId === myId) {
     peerId = receiverId;
     peerPubKey = msg.receiver?.publicKey || fallbackPeer?.publicKey;
-  } else {
+  } else if (senderId && myId && senderId !== myId) {
     peerId = senderId;
     peerPubKey = msg.sender?.publicKey || fallbackPeer?.publicKey;
   }
 
   if (!peerId && fallbackPeer) {
     peerId = (fallbackPeer._id || fallbackPeer.id || fallbackPeer)?.toString();
+    if (!peerPubKey) peerPubKey = fallbackPeer.publicKey;
+  }
+
+  if (
+    !peerId &&
+    msg.conversation?.participants &&
+    Array.isArray(msg.conversation.participants)
+  ) {
+    const otherPart = msg.conversation.participants.find(
+      (p) => (p._id || p)?.toString() !== myId,
+    );
+    if (otherPart) {
+      peerId = (otherPart._id || otherPart)?.toString();
+      if (!peerPubKey && otherPart.publicKey) peerPubKey = otherPart.publicKey;
+    }
   }
 
   if (!peerPubKey && peerId && getStore) {
@@ -140,15 +162,46 @@ export async function decryptSingleMessage(
     }
   }
 
+  if (!peerPubKey && peerId) {
+    try {
+      const resp = await axiosInstance.get(`/auth/public-key/${peerId}`);
+      peerPubKey = resp.data?.data?.publicKey || resp.data?.publicKey;
+      if (peerPubKey && getStore) {
+        const users = getStore()?.users || [];
+        const userObj = users.find((u) => u._id?.toString() === peerId);
+        if (userObj) userObj.publicKey = peerPubKey;
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
   if (!peerPubKey || !peerId || !myId) {
     return msg;
   }
 
   try {
-    const sharedKey = await getSharedAesKey(peerId, peerPubKey, myId);
-    if (!sharedKey) return msg;
+    let sharedKey = await getSharedAesKey(peerId, peerPubKey, myId);
+    let decrypted = null;
+    if (sharedKey) {
+      decrypted = await decryptText(msg.content, msg.iv, sharedKey);
+    }
 
-    const decrypted = await decryptText(msg.content, msg.iv, sharedKey);
+    if (decrypted === null) {
+      clearSharedKeyCache(peerId);
+      try {
+        const resp = await axiosInstance.get(`/auth/public-key/${peerId}`);
+        const freshKey = resp.data?.data?.publicKey || resp.data?.publicKey;
+        if (freshKey) {
+          peerPubKey = freshKey;
+          sharedKey = await getSharedAesKey(peerId, peerPubKey, myId);
+          if (sharedKey) {
+            decrypted = await decryptText(msg.content, msg.iv, sharedKey);
+          }
+        }
+      } catch (retryErr) {}
+    }
+
     if (decrypted !== null) {
       return {
         ...msg,
@@ -797,8 +850,148 @@ export const useChatStore = create((set, get) => ({
     socket.off("user_unblocked");
     socket.off("chat_cleared");
     socket.off("chat_deleted");
+    socket.off("user_public_key_updated");
+    socket.off("request_reencrypt_message");
+    socket.off("message_reencrypted");
 
     get().fetchBlockedUsers();
+
+    socket.on("user_public_key_updated", ({ userId, publicKey }) => {
+      if (!userId || !publicKey) return;
+      const strId = String(userId);
+      clearSharedKeyCache(strId);
+      const layout = useLayoutStore.getState();
+      if (
+        layout?.selectedContact &&
+        String(layout.selectedContact._id) === strId
+      ) {
+        layout.updateSelectedContact({ publicKey });
+      }
+      set((state) => ({
+        users: (state.users || []).map((u) =>
+          String(u._id) === strId ? { ...u, publicKey } : u,
+        ),
+      }));
+    });
+
+    socket.on("request_reencrypt_message", async (data) => {
+      if (!data) return;
+      const { messageId, receiverId, receiverPublicKey, conversationId } = data;
+      const currentUserId = (
+        get().currentUser || useUserStore.getState().user
+      )?._id?.toString();
+      if (!currentUserId || !messageId) return;
+
+      let targetMsg = get().messages.find(
+        (m) => (m._id?._id || m._id)?.toString() === messageId.toString(),
+      );
+      if (!targetMsg) {
+        for (const cachedList of (get().messagesCache || new Map()).values()) {
+          const found = cachedList.find(
+            (m) => (m._id?._id || m._id)?.toString() === messageId.toString(),
+          );
+          if (found) {
+            targetMsg = found;
+            break;
+          }
+        }
+      }
+
+      if (
+        targetMsg &&
+        targetMsg.content &&
+        (targetMsg._isDecrypted ||
+          (targetMsg.sender?._id || targetMsg.sender)?.toString() ===
+            currentUserId)
+      ) {
+        try {
+          const plainText = targetMsg.content;
+          if (receiverId && receiverPublicKey) {
+            clearSharedKeyCache(receiverId);
+            const sharedKey = await getSharedAesKey(
+              receiverId,
+              receiverPublicKey,
+              currentUserId,
+            );
+            if (sharedKey) {
+              const enc = await encryptText(plainText, sharedKey);
+              if (enc) {
+                const sock = getSocket();
+                if (sock) {
+                  sock.emit("reencrypt_message_response", {
+                    messageId,
+                    conversationId,
+                    receiverId,
+                    content: enc.ciphertext,
+                    iv: enc.iv,
+                  });
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to handle re-encrypt request:", err);
+        }
+      }
+    });
+
+    socket.on("message_reencrypted", async (data) => {
+      if (!data) return;
+      const { messageId, content, iv, message, conversationId } = data;
+      const currentUserId = (get().currentUser || useUserStore.getState().user)
+        ?._id;
+      const selectedContact = useLayoutStore.getState()?.selectedContact;
+      const rawMsg = message || {
+        _id: messageId,
+        content,
+        iv,
+        isEncrypted: true,
+        conversation: conversationId,
+      };
+
+      const decrypted = await decryptSingleMessage(
+        rawMsg,
+        currentUserId,
+        selectedContact,
+        get,
+      );
+
+      const targetIdStr = messageId?.toString();
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if ((m._id?._id || m._id)?.toString() === targetIdStr) {
+            return {
+              ...m,
+              content: decrypted._isDecrypted ? decrypted.content : content,
+              iv: iv,
+              _isDecrypted: Boolean(decrypted._isDecrypted),
+            };
+          }
+          return m;
+        });
+
+        const nextCache = new Map(state.messagesCache || new Map());
+        for (const [cId, list] of nextCache.entries()) {
+          const updatedList = list.map((m) => {
+            if ((m._id?._id || m._id)?.toString() === targetIdStr) {
+              return {
+                ...m,
+                content: decrypted._isDecrypted ? decrypted.content : content,
+                iv: iv,
+                _isDecrypted: Boolean(decrypted._isDecrypted),
+              };
+            }
+            return m;
+          });
+          nextCache.set(cId, updatedList);
+        }
+
+        return {
+          messages: nextMessages,
+          messagesCache: nextCache,
+        };
+      });
+    });
 
     socket.on("message_pinned", async (data) => {
       if (!data) return;
@@ -1686,6 +1879,37 @@ export const useChatStore = create((set, get) => ({
         },
       }));
       get().markMessageAsRead();
+
+      const hasUndecrypted = cachedMessages.some(
+        (m) => m && m.isEncrypted && !m._isDecrypted,
+      );
+      if (hasUndecrypted) {
+        const currentUserId = (
+          get().currentUser || useUserStore.getState().user
+        )?._id;
+        const selectedContact = useLayoutStore.getState()?.selectedContact;
+        const peerId = selectedContact?._id?.toString();
+        let peerPubKey = selectedContact?.publicKey;
+        if (!peerPubKey && peerId) {
+          const foundUser = (get().users || []).find(
+            (u) => u._id?.toString() === peerId,
+          );
+          peerPubKey = foundUser?.publicKey;
+        }
+        batchDecryptMessages(
+          cachedMessages,
+          currentUserId,
+          peerId,
+          peerPubKey,
+          get,
+        ).then((reDecrypted) => {
+          if (reDecrypted && reDecrypted.length > 0) {
+            const cache = get().messagesCache || new Map();
+            cache.set(convIdStr, reDecrypted);
+            set({ messages: reDecrypted, messagesCache: cache });
+          }
+        });
+      }
     } else {
       set({
         loading: true,
@@ -1706,6 +1930,23 @@ export const useChatStore = create((set, get) => ({
 
       const peerId = selectedContact?._id?.toString();
       let peerPubKey = selectedContact?.publicKey;
+
+      if (peerId) {
+        try {
+          const resp = await axiosInstance.get(`/auth/public-key/${peerId}`);
+          const freshKey = resp.data?.data?.publicKey || resp.data?.publicKey;
+          if (freshKey) {
+            if (peerPubKey && peerPubKey !== freshKey) {
+              clearSharedKeyCache(peerId);
+            }
+            peerPubKey = freshKey;
+            if (selectedContact) {
+              selectedContact.publicKey = freshKey;
+            }
+          }
+        } catch (e) {}
+      }
+
       if (!peerPubKey && peerId) {
         const foundUser = (get().users || []).find(
           (u) => u._id?.toString() === peerId,
@@ -1718,6 +1959,7 @@ export const useChatStore = create((set, get) => ({
         currentUserId,
         peerId,
         peerPubKey,
+        get,
       );
 
       const cache = get().messagesCache || new Map();
@@ -1780,10 +2022,20 @@ export const useChatStore = create((set, get) => ({
     }
 
     const selectedContact = useLayoutStore.getState()?.selectedContact;
-    let peerPubKey =
-      selectedContact?._id?.toString() === receiverId?.toString()
-        ? selectedContact?.publicKey
-        : null;
+    let peerPubKey = null;
+    if (receiverId) {
+      try {
+        const resp = await axiosInstance.get(`/auth/public-key/${receiverId}`);
+        peerPubKey = resp.data?.data?.publicKey || resp.data?.publicKey;
+      } catch (e) {}
+    }
+
+    if (!peerPubKey) {
+      peerPubKey =
+        selectedContact?._id?.toString() === receiverId?.toString()
+          ? selectedContact?.publicKey
+          : null;
+    }
 
     if (!peerPubKey) {
       const allUsers = get().users || [];
@@ -1793,11 +2045,31 @@ export const useChatStore = create((set, get) => ({
       peerPubKey = foundPeer?.publicKey;
     }
 
+    if (peerPubKey) {
+      const layout = useLayoutStore.getState();
+      if (
+        layout?.selectedContact &&
+        layout.selectedContact._id?.toString() === receiverId?.toString()
+      ) {
+        if (layout.selectedContact.publicKey !== peerPubKey) {
+          clearSharedKeyCache(receiverId);
+          layout.updateSelectedContact({ publicKey: peerPubKey });
+        }
+      }
+    }
+
     let isEncrypted = false;
     let iv = null;
     let rawContentToKeep = content;
 
+    const isTargetingMetaAi = Boolean(
+      receiverId?.toString() === "66f000000000000000000001" ||
+      selectedContact?.isAI ||
+      (typeof content === "string" && /@meta\s*ai/i.test(content)),
+    );
+
     if (
+      !isTargetingMetaAi &&
       peerPubKey &&
       content &&
       typeof content === "string" &&
@@ -2020,6 +2292,291 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  sendCallMessage: async ({
+    receiverId,
+    conversationId,
+    callType = "audio",
+    duration = "28 seconds",
+    status = "completed",
+    direction = "outgoing",
+  }) => {
+    const currentUserId = (get().currentUser || useUserStore.getState().user)
+      ?._id;
+    const selectedContact = useLayoutStore.getState()?.selectedContact;
+    const effectiveReceiverId = receiverId || selectedContact?._id;
+    if (!effectiveReceiverId || !currentUserId) return;
+
+    const resolvedConvId =
+      conversationId ||
+      get().currentConversation?._id ||
+      selectedContact?.conversation?._id;
+
+    const isVideo = callType === "video";
+    const title = isVideo ? "Video call" : "Voice call";
+
+    const callPayload = {
+      callType: isVideo ? "video" : "audio",
+      callTitle: title,
+      duration: duration || "28 seconds",
+      status: status || "completed",
+      direction: direction || "outgoing",
+    };
+
+    const tempId = `call-msg-${Date.now()}`;
+    const optimisticCallMsg = {
+      _id: tempId,
+      temp: tempId,
+      conversation: resolvedConvId,
+      conversationId: resolvedConvId,
+      sender: {
+        _id: currentUserId,
+        username: useUserStore.getState().user?.username,
+        profilePicture: useUserStore.getState().user?.profilePicture,
+      },
+      receiver: {
+        _id: effectiveReceiverId,
+        username: selectedContact?.username,
+        profilePicture: selectedContact?.profilePicture,
+      },
+      contentType: "call",
+      content: `${title} • ${duration}`,
+      callData: callPayload,
+      callType: isVideo ? "video" : "audio",
+      duration: duration || "28 seconds",
+      status: status || "completed",
+      direction: direction || "outgoing",
+      messageStatus: "send",
+      createdAt: new Date().toISOString(),
+    };
+
+    set((state) => {
+      const nextMessages = [...state.messages, optimisticCallMsg];
+      const nextCache = resolvedConvId
+        ? syncMessagesCache(state.messagesCache, resolvedConvId, nextMessages)
+        : state.messagesCache;
+      return {
+        messages: nextMessages,
+        messagesCache: nextCache,
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) => {
+            const isTarget =
+              resolvedConvId && String(conv._id) === String(resolvedConvId);
+            return isTarget
+              ? { ...conv, lastMessage: optimisticCallMsg, unreadCount: 0 }
+              : conv;
+          }),
+        },
+      };
+    });
+
+    try {
+      const formData = new FormData();
+      formData.append("senderId", currentUserId);
+      formData.append("receiverId", effectiveReceiverId);
+      if (resolvedConvId) {
+        formData.append("conversationId", resolvedConvId);
+      }
+      formData.append("contentType", "call");
+      formData.append("content", `${title} • ${duration}`);
+      formData.append("callData", JSON.stringify(callPayload));
+      formData.append("messageStatus", "send");
+
+      const { data } = await axiosInstance.post(
+        "/chat/send-message",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+
+      const messageData = data.data || data;
+      const savedMsg = {
+        ...messageData,
+        contentType: "call",
+        callData: callPayload,
+        callType: isVideo ? "video" : "audio",
+        duration: duration || "28 seconds",
+        status: status || "completed",
+        direction: direction || "outgoing",
+        _isDecrypted: true,
+      };
+
+      set((state) => {
+        const nextMessages = state.messages.map((m) =>
+          m._id === tempId || m.temp === tempId ? savedMsg : m,
+        );
+        const nextCache = resolvedConvId
+          ? syncMessagesCache(state.messagesCache, resolvedConvId, nextMessages)
+          : state.messagesCache;
+        return {
+          messages: nextMessages,
+          messagesCache: nextCache,
+          conversations: {
+            ...state.conversations,
+            data: state.conversations?.data?.map((conv) => {
+              const isTarget =
+                resolvedConvId && String(conv._id) === String(resolvedConvId);
+              return isTarget
+                ? { ...conv, lastMessage: savedMsg, unreadCount: 0 }
+                : conv;
+            }),
+          },
+        };
+      });
+
+      return savedMsg;
+    } catch (err) {
+      console.warn(
+        "sendCallMessage backend log failed, kept optimistic message:",
+        err,
+      );
+      return optimisticCallMsg;
+    }
+  },
+
+  sendCallLinkMessage: async ({
+    receiverId,
+    conversationId,
+    callType = "video",
+    linkCode,
+    url,
+  }) => {
+    const currentUserId = (get().currentUser || useUserStore.getState().user)
+      ?._id;
+    const selectedContact = useLayoutStore.getState()?.selectedContact;
+    const effectiveReceiverId = receiverId || selectedContact?._id;
+    if (!effectiveReceiverId || !currentUserId) return;
+
+    const resolvedConvId =
+      conversationId ||
+      get().currentConversation?._id ||
+      selectedContact?.conversation?._id;
+
+    const generatedLinkCode =
+      linkCode ||
+      (url
+        ? url.split("/").pop()
+        : `SUH50${Math.random().toString(36).substring(2, 7).toUpperCase()}`);
+    const callUrl =
+      url || `https://call.whatsapp.com/${callType}/${generatedLinkCode}`;
+
+    const linkPayload = {
+      callType: callType === "video" ? "video" : "voice",
+      linkCode: generatedLinkCode,
+      url: callUrl,
+      title: `WhatsApp ${callType === "video" ? "Video" : "Voice"} Call Link`,
+      description: `Use this link to join my WhatsApp ${callType === "video" ? "video" : "voice"} call.`,
+    };
+
+    const tempId = `call-link-msg-${Date.now()}`;
+    const optimisticCallLinkMsg = {
+      _id: tempId,
+      temp: tempId,
+      conversation: resolvedConvId,
+      conversationId: resolvedConvId,
+      sender: {
+        _id: currentUserId,
+        username: useUserStore.getState().user?.username,
+        profilePicture: useUserStore.getState().user?.profilePicture,
+      },
+      receiver: {
+        _id: effectiveReceiverId,
+        username: selectedContact?.username,
+        profilePicture: selectedContact?.profilePicture,
+      },
+      contentType: "call_link",
+      callLinkData: linkPayload,
+      content: callUrl,
+      messageStatus: "send",
+      createdAt: new Date().toISOString(),
+      timestamp: new Date().toISOString(),
+      _isDecrypted: true,
+    };
+
+    set((state) => {
+      const nextMessages = [...state.messages, optimisticCallLinkMsg];
+      const nextCache = resolvedConvId
+        ? syncMessagesCache(state.messagesCache, resolvedConvId, nextMessages)
+        : state.messagesCache;
+      return {
+        messages: nextMessages,
+        messagesCache: nextCache,
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) => {
+            const isTarget =
+              resolvedConvId && String(conv._id) === String(resolvedConvId);
+            return isTarget
+              ? { ...conv, lastMessage: optimisticCallLinkMsg, unreadCount: 0 }
+              : conv;
+          }),
+        },
+      };
+    });
+
+    try {
+      const formData = new FormData();
+      formData.append("senderId", currentUserId);
+      formData.append("receiverId", effectiveReceiverId);
+      if (resolvedConvId) {
+        formData.append("conversationId", resolvedConvId);
+      }
+      formData.append("contentType", "call_link");
+      formData.append("content", callUrl);
+      formData.append("callLinkData", JSON.stringify(linkPayload));
+      formData.append("messageStatus", "send");
+
+      const { data } = await axiosInstance.post(
+        "/chat/send-message",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+
+      const messageData = data.data || data;
+      const savedMsg = {
+        ...messageData,
+        contentType: "call_link",
+        callLinkData: linkPayload,
+        content: callUrl,
+        _isDecrypted: true,
+      };
+
+      set((state) => {
+        const nextMessages = state.messages.map((m) =>
+          m._id === tempId || m.temp === tempId ? savedMsg : m,
+        );
+        const nextCache = resolvedConvId
+          ? syncMessagesCache(state.messagesCache, resolvedConvId, nextMessages)
+          : state.messagesCache;
+        return {
+          messages: nextMessages,
+          messagesCache: nextCache,
+          conversations: {
+            ...state.conversations,
+            data: state.conversations?.data?.map((conv) => {
+              const isTarget =
+                resolvedConvId && String(conv._id) === String(resolvedConvId);
+              return isTarget
+                ? { ...conv, lastMessage: savedMsg, unreadCount: 0 }
+                : conv;
+            }),
+          },
+        };
+      });
+
+      return savedMsg;
+    } catch (err) {
+      console.warn(
+        "sendCallLinkMessage backend log failed, kept optimistic message:",
+        err,
+      );
+      return optimisticCallLinkMsg;
+    }
+  },
+
   receiveMessage: async (message) => {
     if (!message) return;
 
@@ -2053,22 +2610,32 @@ export const useChatStore = create((set, get) => ({
     const activeConvId = (
       currentConversation?._id || selectedContact?.conversation?._id
     )?.toString();
-    const activeContactId = selectedContact?._id?.toString();
+    const activeContactId = (
+      selectedContact?._id || selectedContact?.id
+    )?.toString();
     const isCurrentConversation =
       Boolean(
         conversationId &&
         activeConvId &&
         String(conversationId) === String(activeConvId),
       ) ||
+      Boolean(activeContactId && senderId && senderId === activeContactId) ||
       Boolean(
         activeContactId &&
-        ((senderId === activeContactId && receiverId === myId) ||
-          (senderId === myId && receiverId === activeContactId)),
+        receiverId &&
+        receiverId === activeContactId &&
+        senderId === myId,
+      ) ||
+      Boolean(
+        currentConversation?.participants?.some(
+          (p) => String(p?._id || p?.id || p) === String(senderId),
+        ),
       );
 
     const isForCurrentUser =
       Boolean(myId && receiverId && receiverId === myId) ||
-      Boolean(myId && senderId && senderId !== myId);
+      Boolean(myId && senderId && senderId !== myId) ||
+      Boolean(!senderId || (myId && senderId !== myId));
     const isSentByCurrentUser = Boolean(myId && senderId && senderId === myId);
 
     if (isCurrentConversation) {
@@ -2419,7 +2986,20 @@ export const useChatStore = create((set, get) => ({
 
       if (isEncrypted && content && typeof content === "string") {
         const peerId = selectedContact?._id?.toString();
-        const peerPubKey = selectedContact?.publicKey;
+        let peerPubKey = selectedContact?.publicKey;
+
+        if (peerId) {
+          try {
+            const resp = await axiosInstance.get(`/auth/public-key/${peerId}`);
+            const freshKey = resp.data?.data?.publicKey || resp.data?.publicKey;
+            if (freshKey) {
+              if (peerPubKey && peerPubKey !== freshKey) {
+                clearSharedKeyCache(peerId);
+              }
+              peerPubKey = freshKey;
+            }
+          } catch (e) {}
+        }
 
         if (peerId && peerPubKey && currentUserId) {
           try {

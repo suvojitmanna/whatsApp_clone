@@ -5,6 +5,14 @@ import QRCode from "qrcode";
 import { generateSafetyNumber } from "../utils/cryptoUtils";
 import useThemeStore from "../store/themeStore";
 import useUserStore from "../store/useUserStore";
+import {
+  EndToEndEncryptionIllustration,
+  MessageSquareIcon,
+  PhoneCallIcon,
+  PhotoDocumentIcon,
+  MapPinIcon,
+  StatusDashedIcon,
+} from "./common/Icons";
 
 const SecurityVerifyModal = ({
   isOpen,
@@ -262,91 +270,7 @@ const SecurityVerifyModal = ({
           ) : (
             <div className="p-7 sm:p-8 flex flex-col items-center">
               <div className="flex justify-center mb-6 select-none">
-                <svg
-                  width="160"
-                  height="125"
-                  viewBox="0 0 160 125"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="overflow-visible"
-                >
-                  <g transform="translate(14, 20)">
-                    <circle
-                      cx="28"
-                      cy="28"
-                      r="23"
-                      fill={isDark ? "#182229" : "#222e35"}
-                      stroke="#ffffff"
-                      strokeWidth="5"
-                    />
-                    <line
-                      x1="12"
-                      y1="44"
-                      x2="44"
-                      y2="12"
-                      stroke="#ffffff"
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                    />
-                  </g>
-
-                  <path
-                    d="M62 48V28C62 17.5 70 9 80 9C90 9 98 17.5 98 28V48"
-                    stroke="#dcf8c6"
-                    strokeWidth="11"
-                    strokeLinecap="round"
-                  />
-
-                  <rect
-                    x="54"
-                    y="44"
-                    width="52"
-                    height="46"
-                    rx="14"
-                    fill="#dcf8c6"
-                  />
-                  <circle cx="80" cy="62" r="5" fill="#111b21" />
-                  <path d="M77 62L75 76H85L83 62Z" fill="#111b21" />
-                  <g transform="translate(86, 20)">
-                    <circle cx="34" cy="34" r="28" fill="#00a884" />
-                    <circle cx="34" cy="34" r="23" fill="#111b21" />
-                    <circle cx="34" cy="16" r="1.5" fill="#ffffff" />
-                    <circle cx="44" cy="19" r="1.5" fill="#ffffff" />
-                    <circle cx="51" cy="26" r="1.5" fill="#ffffff" />
-                    <circle cx="52" cy="35" r="1.5" fill="#ffffff" />
-                    <circle cx="17" cy="26" r="1.5" fill="#ffffff" />
-                    <circle cx="24" cy="19" r="1.5" fill="#ffffff" />
-                    <line
-                      x1="34"
-                      y1="34"
-                      x2="25"
-                      y2="23"
-                      stroke="#ffffff"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                    />
-                    <circle cx="34" cy="34" r="3" fill="#ffffff" />
-                  </g>
-                  <g transform="translate(74, 82)">
-                    <rect
-                      x="0"
-                      y="0"
-                      width="30"
-                      height="13"
-                      rx="6.5"
-                      fill="#25d366"
-                    />
-                    <circle cx="6.5" cy="6.5" r="6.5" fill="#00a884" />
-                    <rect
-                      x="15"
-                      y="4"
-                      width="36"
-                      height="5"
-                      rx="2.5"
-                      fill="#ffffff"
-                    />
-                  </g>
-                </svg>
+                <EndToEndEncryptionIllustration isDark={isDark} showBadge={true} />
               </div>
               <h2
                 className={`text-xl sm:text-[22px] font-semibold text-center mb-3 tracking-normal ${isDark ? "text-white" : "text-gray-900"
@@ -365,102 +289,32 @@ const SecurityVerifyModal = ({
               </p>
               <div className="w-full space-y-4 mb-9 pl-3 sm:pl-5">
                 <div className="flex items-center gap-3.5 text-[14.5px]">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="21"
-                    height="21"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="shrink-0 text-[#8696a0]"
-                  >
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    <line x1="8" y1="9" x2="16" y2="9"></line>
-                    <line x1="8" y1="13" x2="13" y2="13"></line>
-                  </svg>
+                  <MessageSquareIcon size={21} className="shrink-0 text-[#8696a0]" />
                   <span className={isDark ? "text-white" : "text-gray-900"}>
                     Text and voice messages
                   </span>
                 </div>
                 <div className="flex items-center gap-3.5 text-[14.5px]">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="21"
-                    height="21"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="shrink-0 text-[#8696a0]"
-                  >
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                  </svg>
+                  <PhoneCallIcon size={21} className="shrink-0 text-[#8696a0]" />
                   <span className={isDark ? "text-white" : "text-gray-900"}>
                     Audio and video calls
                   </span>
                 </div>
                 <div className="flex items-center gap-3.5 text-[14.5px]">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="21"
-                    height="21"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="shrink-0 text-[#8696a0]"
-                  >
-                    <rect x="3" y="3" width="18" height="18" rx="3" ry="3"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                    <polyline points="21 15 16 10 5 21"></polyline>
-                  </svg>
+                  <PhotoDocumentIcon size={21} className="shrink-0 text-[#8696a0]" />
                   <span className={isDark ? "text-white" : "text-gray-900"}>
                     Photos, videos and documents
                   </span>
                 </div>
 
                 <div className="flex items-center gap-3.5 text-[14.5px]">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="21"
-                    height="21"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="shrink-0 text-[#8696a0]"
-                  >
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                    <circle cx="12" cy="10" r="3"></circle>
-                  </svg>
+                  <MapPinIcon size={21} className="shrink-0 text-[#8696a0]" />
                   <span className={isDark ? "text-white" : "text-gray-900"}>
                     Location sharing
                   </span>
                 </div>
                 <div className="flex items-center gap-3.5 text-[14.5px]">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="21"
-                    height="21"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    className="shrink-0 text-[#8696a0]"
-                  >
-                    <circle
-                      cx="12"
-                      cy="12"
-                      r="9"
-                      strokeDasharray="5 3.5"
-                    ></circle>
-                    <circle cx="12" cy="12" r="3.5" fill="none"></circle>
-                  </svg>
+                  <StatusDashedIcon size={21} className="shrink-0 text-[#8696a0]" />
                   <span className={isDark ? "text-white" : "text-gray-900"}>
                     Statuses
                   </span>

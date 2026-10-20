@@ -20,5 +20,6 @@ router.post("/delete-chat", authMiddleware, chatController.deleteChat);
 router.get("/media", authMiddleware, chatController.getChatMedia);
 router.put("/conversation/:conversationId/disappearing", authMiddleware, chatController.setDisappearingDuration);
 router.post("/disappearing-duration", authMiddleware, chatController.setDisappearingDuration);
+router.post("/meta-ai", authMiddleware, chatController.askMetaAi);
 
 module.exports = router;

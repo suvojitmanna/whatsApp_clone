@@ -42,24 +42,7 @@ import MediaMenu from "./MediaMenu";
 import { copyImageToClipboard } from "../utils/clipboardUtils";
 import { FALLBACK_DOCS, FALLBACK_LINKS, FALLBACK_MEDIA } from "../assets/rawData";
 
-export const WhatsAppMediaFolderIcon = ({ size = 20, className = "" }) => (
-  <svg
-    viewBox="0 0 24 24"
-    width={size}
-    height={size}
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <rect x="2" y="5" width="16" height="13" rx="2.5" opacity="0.6" />
-    <rect x="6" y="8" width="16" height="13" rx="2.5" />
-    <circle cx="11" cy="13" r="1.5" />
-    <path d="m22 17-4.5-4.5-4 4" />
-  </svg>
-);
+export { WhatsAppMediaFolderIcon } from "./common/Icons";
 
 const formatDocSize = (bytes) => {
   if (!bytes) return "";

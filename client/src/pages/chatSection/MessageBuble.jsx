@@ -12,6 +12,7 @@ import {
   FaFileAlt,
   FaStar,
   FaEye,
+  FaLock,
 } from "react-icons/fa";
 import { RiDeleteBin6Line, RiContactsFill } from "react-icons/ri";
 import { FiCheck, FiChevronDown } from "react-icons/fi";
@@ -19,15 +20,27 @@ import {
   MdEventNote,
   MdLocationOn,
   MdAccessTime,
+  MdCallMade,
+  MdCallReceived,
+  MdCallMissed,
+  MdOutlineVideocam,
+  MdOutlineCall,
+  MdLink,
+  MdContentCopy,
+  MdVideocam,
+  MdCall,
 } from "react-icons/md";
 import { BsEmojiSmile } from "react-icons/bs";
 import { RxCross2 } from "react-icons/rx";
 import useOutsideClick from "../../hook/useOutsideClick";
 import EmojiPicker from "emoji-picker-react";
 import { toast } from "react-toastify";
-import { useChatStore } from "../../store/chatStore";
+import { useChatStore, decryptSingleMessage } from "../../store/chatStore";
+import { getSocket } from "../../services/chatService";
+import { getOrCreateUserKeyPair } from "../../utils/cryptoUtils";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
+import useVideoCallStore from "../../store/videoCallStore";
 import { getDisappearingDurationMs } from "../../utils/formatTime";
 import ReactionDetailsModal from "../../components/ReactionDetailsModal";
 import FileViewerModal from "../../components/FileViewerModal";
@@ -35,100 +48,26 @@ import ForwardModal from "../../components/ForwardModal";
 import PinDurationModal from "../../components/PinDurationModal";
 import ReportModal from "../../components/ReportModal";
 import MessageMenu from "./MessageMenu";
+import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
+import { MetaAiMarkdown, MetaAiImageCard, MetaAiFeedbackBar } from "../../components/common/MetaAiContent";
 
-export const WhatsAppPinIcon = ({
-  size = 12,
-  width,
-  height,
-  className = "shrink-0",
-  ...props
-}) => {
-  const w = width || Math.abs(size);
-  const h = height || Math.round(w * 1.25);
-  return (
-    <svg
-      width={w}
-      height={h}
-      viewBox="0 0 12 15"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.25"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      title="Pinned message"
-      {...props}
-    >
-      <path d="M2.5 1.5h7" />
-      <path d="M3.5 1.5v3.6l-1.8 3.2v1.5h8.6V8.3L8.5 5.1V1.5" />
-      <path d="M6 9.8v4.2" />
-    </svg>
-  );
-};
+import {
+  WhatsAppPinIcon,
+  WhatsAppUnpinIcon,
+  WhatsAppDisappearingIcon,
+  TailOutIcon,
+  TailInIcon,
+  ProhibitedIcon,
+  MessageCheckIcon,
+  VideoCallOutgoingIcon,
+  VideoCallIncomingIcon,
+  CallOutgoingIcon,
+} from "../../components/common/Icons";
 
-export const WhatsAppUnpinIcon = ({
-  size = 16,
-  width,
-  height,
-  className = "shrink-0",
-  ...props
-}) => {
-  const w = width ?? size;
-  const h = height ?? size;
-
-  return (
-    <svg
-      width={w}
-      height={h}
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-label="Unpin message"
-      role="img"
-      {...props}
-    >
-      <g
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M7 3.5H13" />
-        <path d="M8 3.5V7L6 10V12H14V10L12 7V3.5" />
-        <path d="M10 12V16.5" />
-        <path d="M4 3.5L16 16.5" />
-      </g>
-    </svg>
-  );
-};
-
-export const WhatsAppDisappearingIcon = ({
-  size = 15,
-  width,
-  height,
-  className = "shrink-0",
-  ...props
-}) => {
-  const w = width || size;
-  const h = height || size;
-  return (
-    <svg
-      width={w}
-      height={h}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      {...props}
-    >
-      <circle cx="12" cy="12" r="9.5" strokeDasharray="3.2 2.2" />
-      <polyline points="12 6.8 12 12 15.6 14.2" strokeDasharray="none" />
-    </svg>
-  );
+export {
+  WhatsAppPinIcon,
+  WhatsAppUnpinIcon,
+  WhatsAppDisappearingIcon,
 };
 
 const formatEventSchedule = (eventData) => {
@@ -303,6 +242,12 @@ const MessageBuble = ({
   const isUserMessage = Boolean(
     currentUserId && senderId && currentUserId === senderId
   );
+  const isMetaAiMessage = Boolean(
+    message?.isMetaAi ||
+    senderId === META_AI_USER_ID ||
+    message?.sender?.isAI ||
+    message?.sender?.username === "Meta AI"
+  );
   const isDark = theme === "dark";
   const isSticker = message.contentType === "sticker";
   const isDisappearingExpired = useMemo(() => {
@@ -329,6 +274,86 @@ const MessageBuble = ({
       message.content === "This message was deleted" ||
       message.content === "You deleted this message")
   );
+
+  const [decryptedText, setDecryptedText] = useState(
+    message?._isDecrypted ? message.content : null,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    if (message?.isEncrypted && !message?._isDecrypted && !decryptedText) {
+      const activeContact = selectedContact || layoutSelectedContact;
+      decryptSingleMessage(
+        message,
+        currentUserId,
+        activeContact,
+        useChatStore.getState,
+      ).then(async (dec) => {
+        if (isMounted && dec?._isDecrypted && dec?.content) {
+          setDecryptedText(dec.content);
+          message.content = dec.content;
+          message._isDecrypted = true;
+        } else if (isMounted && (!dec?._isDecrypted || !dec?.content)) {
+          const socket = getSocket();
+          if (socket && currentUserId) {
+            try {
+              const myKeys = await getOrCreateUserKeyPair(currentUserId);
+              if (myKeys?.publicKeyStr) {
+                const sId = (message.sender?._id || message.sender)?.toString();
+                if (sId && sId !== currentUserId) {
+                  socket.emit("request_reencrypt_message", {
+                    messageId: (message._id?._id || message._id)?.toString(),
+                    conversationId: (
+                      message.conversation?._id || message.conversation
+                    )?.toString(),
+                    senderId: sId,
+                    receiverId: currentUserId,
+                    receiverPublicKey: myKeys.publicKeyStr,
+                  });
+                }
+              }
+            } catch (e) {}
+          }
+        }
+      });
+    } else if (
+      message?._isDecrypted &&
+      message?.content &&
+      message.content !== decryptedText
+    ) {
+      setDecryptedText(message.content);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    message?._id,
+    message?.content,
+    message?.isEncrypted,
+    message?._isDecrypted,
+    currentUserId,
+    selectedContact,
+    layoutSelectedContact,
+  ]);
+
+  const isWaitingDecryption = Boolean(
+    message?.isEncrypted && !message?._isDecrypted && !decryptedText,
+  );
+
+  const displayContent = useMemo(() => {
+    if (isWaitingDecryption) {
+      return null;
+    }
+    return decryptedText !== null && decryptedText !== undefined
+      ? decryptedText
+      : message?.content || "";
+  }, [isWaitingDecryption, decryptedText, message?.content]);
+
+  useEffect(() => {
+    if (!isEditing && displayContent) {
+      setEditText(displayContent);
+    }
+  }, [displayContent, isEditing]);
 
   const conversationId = currentConversation?._id || message?.conversationId || layoutSelectedContact?._id;
   const secondaryConvId = layoutSelectedContact?._id;
@@ -482,7 +507,7 @@ const MessageBuble = ({
   useOutsideClick(editRef, () => {
     if (isEditing) {
       setIsEditing(false);
-      setEditText(message.content || "");
+      setEditText(displayContent || message.content || "");
     }
   });
 
@@ -812,7 +837,7 @@ const MessageBuble = ({
           {format(new Date(message.createdAt || Date.now()), "HH:mm")}
         </span>
         {renderStatusIcon(false)}
-        {!isSelectMode && message.contentType !== "poll" && (
+        {!isSelectMode && message.contentType !== "poll" && message.contentType !== "call" && !message.callData && (
           <button
             type="button"
             onClick={handleToggleOptions}
@@ -872,16 +897,7 @@ const MessageBuble = ({
                 : "border-[#8696a0] bg-transparent hover:border-[#54656f]"
               }`}
           >
-            {isSelected && (
-              <svg
-                viewBox="0 0 16 16"
-                className="w-3.5 h-3.5 stroke-white fill-none stroke-[2.5]"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M3.5 8.5l3 3 6-6" />
-              </svg>
-            )}
+            {isSelected && <MessageCheckIcon />}
           </div>
         </div>
       )}
@@ -920,10 +936,7 @@ const MessageBuble = ({
                 className={`absolute top-0 -right-[8px] pointer-events-none select-none ${chatBubbleColor ? "" : (isDark ? "text-[#005c4b]" : "text-[#d9fdd3]")
                   }`}
               >
-                <svg viewBox="0 0 8 13" height="13" width="8" className="fill-current">
-                  <path opacity="0.13" d="M5.188 1H0v11.193l6.467-8.625C7.526 2.156 6.958 1 5.188 1z" />
-                  <path d="M5.188 0H0v12.193l6.467-8.625C7.526 2.156 6.958 0 5.188 0z" />
-                </svg>
+                <TailOutIcon />
               </span>
             ) : (
               <span
@@ -931,29 +944,16 @@ const MessageBuble = ({
                 className={`absolute top-0 -left-[8px] pointer-events-none select-none ${isDark ? "text-[#202c33]" : "text-white"
                   }`}
               >
-                <svg viewBox="0 0 8 13" height="13" width="8" className="fill-current">
-                  <path opacity="0.13" d="M1.533 4.568 8 13.193V1H2.812C1.042 1 .474 3.156 1.533 4.568z" />
-                  <path d="M1.533 3.568 8 12.193V0H2.812C1.042 0 .474 2.156 1.533 3.568z" />
-                </svg>
+                <TailInIcon />
               </span>
             )
           )}
           {isDeletedForEveryone ? (
             <div className="flex items-center gap-2 select-none py-0.5 px-0.5 min-w-[200px]">
-              <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
+              <ProhibitedIcon
+                size={16}
                 className={`shrink-0 ${isDark ? "text-white/60" : "text-[#8696a0]"}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-              </svg>
+              />
               <span
                 className={`text-[14px] italic font-normal tracking-wide flex-1 min-w-0 select-none ${isDark ? "text-white/70" : "text-[#54656f]"
                   }`}
@@ -985,6 +985,14 @@ const MessageBuble = ({
               onClick={() => setShowReactions((prev) => !prev)}
               className="relative"
             >
+              {isMetaAiMessage && !isUserMessage && (
+                <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-black/5 dark:border-white/5 select-none">
+                  <MetaAiRing size={15} showInnerIcon={false} />
+                  <span className="font-semibold text-xs bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                    Meta AI
+                  </span>
+                </div>
+              )}
               {(() => {
                 let rawReply =
                   message.replyMessage ||
@@ -1055,6 +1063,9 @@ const MessageBuble = ({
                   replyPreviewText = `👤 ${replyMsg.contactData?.name || "Contact"}`;
                 } else if (replyMsg.contentType === "sticker") {
                   replyPreviewText = "💟 Sticker";
+                } else if (replyMsg.contentType === "call") {
+                  const isVid = replyMsg.callData?.callType === "video" || replyMsg.callType === "video";
+                  replyPreviewText = isVid ? "📹 Video call" : "📞 Voice call";
                 }
 
                 return (
@@ -1209,7 +1220,7 @@ const MessageBuble = ({
               )}
 
               <div className="flex flex-col gap-1">
-                {message.contentType === "text" && (
+                {(message.contentType === "text" || !message.contentType) && !message.callData && (
                   <>
                     {isEditing ? (
                       <div
@@ -1233,7 +1244,7 @@ const MessageBuble = ({
                             type="button"
                             onClick={() => {
                               setIsEditing(false);
-                              setEditText(message.content || "");
+                              setEditText(displayContent || message.content || "");
                             }}
                             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${isDark
                               ? "text-gray-300 hover:bg-white/10"
@@ -1265,11 +1276,23 @@ const MessageBuble = ({
                       </div>
                     ) : (
                       <div className="text-[14.2px] leading-[19px] select-text">
-                        <span className="break-words whitespace-pre-wrap">
-                          {searchTerm
-                            ? safeHighlight(message.content || "", searchTerm)
-                            : message.content}
-                        </span>
+                        {isWaitingDecryption ? (
+                          <span className="inline-flex items-center gap-1.5 text-[13px] opacity-75 italic select-none py-0.5">
+                            <FaLock className="shrink-0 text-xs opacity-70" />
+                            <span>Waiting for this message. This may take a while.</span>
+                          </span>
+                        ) : isMetaAiMessage ? (
+                          <div className="space-y-1">
+                            <MetaAiMarkdown content={displayContent} theme={theme} />
+                            <MetaAiFeedbackBar content={displayContent} theme={theme} />
+                          </div>
+                        ) : (
+                          <span className="break-words whitespace-pre-wrap">
+                            {searchTerm
+                              ? safeHighlight(displayContent, searchTerm)
+                              : displayContent}
+                          </span>
+                        )}
                         <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
                           {renderTimestampAndStatus(false)}
                         </span>
@@ -1278,7 +1301,32 @@ const MessageBuble = ({
                   </>
                 )}
 
-                {message.contentType === "image" && (
+                {(message.contentType === "ai_image" || (isMetaAiMessage && message.imageOrVideoUrl)) && (
+                  <div className="max-w-full">
+                    <MetaAiImageCard
+                      imageUrl={message.imageOrVideoUrl}
+                      prompt={message.metaAiPrompt || message.content}
+                      theme={theme}
+                      onOpenViewer={(url) => {
+                        setViewerModalFile({
+                          url,
+                          name: "meta-ai-image.jpg",
+                          type: "image",
+                          size: message.fileSize,
+                          sender: message.sender,
+                          createdAt: message.createdAt,
+                          messageId: message._id,
+                          isUserMessage: false,
+                        });
+                      }}
+                    />
+                    <div className="flex justify-end mt-1 select-none">
+                      {renderTimestampAndStatus(false)}
+                    </div>
+                  </div>
+                )}
+
+                {message.contentType === "image" && !isMetaAiMessage && message.contentType !== "ai_image" && (
                   <div className="max-w-full">
                     <div
                       className="relative group/img cursor-pointer overflow-hidden rounded-xl"
@@ -1376,11 +1424,18 @@ const MessageBuble = ({
                     </div>
                     {message.content && (
                       <div className="mt-1.5 text-[14.2px] leading-[19px] select-text">
-                        <span className="break-words whitespace-pre-wrap">
-                          {searchTerm
-                            ? safeHighlight(message.content || "", searchTerm)
-                            : message.content}
-                        </span>
+                        {isWaitingDecryption ? (
+                          <span className="inline-flex items-center gap-1.5 text-[13px] opacity-75 italic select-none py-0.5">
+                            <FaLock className="shrink-0 text-xs opacity-70" />
+                            <span>Waiting for this message. This may take a while.</span>
+                          </span>
+                        ) : (
+                          <span className="break-words whitespace-pre-wrap">
+                            {searchTerm
+                              ? safeHighlight(displayContent || "", searchTerm)
+                              : displayContent}
+                          </span>
+                        )}
                         <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
                           {renderTimestampAndStatus(false)}
                         </span>
@@ -1482,9 +1537,16 @@ const MessageBuble = ({
                     </div>
                     {message.content && (
                       <div className="mt-1.5 text-[14.2px] leading-[19px] select-text">
-                        <span className="break-words whitespace-pre-wrap">
-                          {message.content}
-                        </span>
+                        {isWaitingDecryption ? (
+                          <span className="inline-flex items-center gap-1.5 text-[13px] opacity-75 italic select-none py-0.5">
+                            <FaLock className="shrink-0 text-xs opacity-70" />
+                            <span>Waiting for this message. This may take a while.</span>
+                          </span>
+                        ) : (
+                          <span className="break-words whitespace-pre-wrap">
+                            {displayContent}
+                          </span>
+                        )}
                         <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
                           {renderTimestampAndStatus(false)}
                         </span>
@@ -1953,6 +2015,360 @@ const MessageBuble = ({
                     </div>
                   </div>
                 )}
+
+                {(message.contentType === "call_link" ||
+                  Boolean(message.callLinkData) ||
+                  (typeof message.content === "string" &&
+                    message.content.includes("call.whatsapp.com"))) &&
+                  (() => {
+                    const linkData =
+                      typeof message.callLinkData === "string"
+                        ? (() => {
+                            try {
+                              return JSON.parse(message.callLinkData);
+                            } catch (e) {
+                              return {};
+                            }
+                          })()
+                        : message.callLinkData || {};
+
+                    const rawUrl =
+                      linkData?.url ||
+                      (typeof message.content === "string" &&
+                      message.content.includes("call.whatsapp.com")
+                        ? message.content.match(
+                            /https?:\/\/call\.whatsapp\.com\/[^\s]+/i
+                          )?.[0] || message.content
+                        : "") ||
+                      `https://call.whatsapp.com/video/SUH50LINK`;
+
+                    const isVideo =
+                      linkData?.callType === "video" ||
+                      rawUrl.includes("/video/");
+                    const callType = isVideo ? "video" : "voice";
+
+                    const peer = isUserMessage
+                      ? message.receiver || selectedContact
+                      : message.sender || selectedContact;
+                    const peerId = (peer?._id || peer?.id || peer)?.toString();
+                    const peerName = peer?.username || peer?.name || "Contact";
+                    const peerAvatar =
+                      peer?.profilePicture || peer?.avatar || "";
+
+                    const handleCopyCallUrl = (e) => {
+                      e.stopPropagation();
+                      navigator.clipboard?.writeText(rawUrl);
+                      toast.success("Call link copied to clipboard");
+                    };
+
+                    const handleJoinCallLink = (e) => {
+                      e.stopPropagation();
+                      try {
+                        const { initiateCall } = useVideoCallStore.getState();
+                        if (typeof initiateCall === "function") {
+                          initiateCall(
+                            peerId || `link-${Date.now()}`,
+                            peerName,
+                            peerAvatar,
+                            callType === "video" ? "video" : "audio"
+                          );
+                        } else {
+                          toast.success("Connecting to WhatsApp call link...");
+                        }
+                      } catch (err) {
+                        console.warn("Failed to join call link:", err);
+                        toast.error("Could not join call");
+                      }
+                    };
+
+                    return (
+                      <div className="flex flex-col min-w-[260px] xs:min-w-[280px] max-w-[340px] select-none">
+                        <div className="flex items-start gap-3 p-1">
+                          <div className="w-11 h-11 rounded-full bg-[#00a884] text-white flex items-center justify-center shrink-0 shadow-md">
+                            <MdLink className="text-2xl transform -rotate-45" />
+                          </div>
+
+                          <div className="min-w-0 flex-1 pt-0.5">
+                            <h4
+                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${
+                                isDark ? "text-white" : "text-[#111b21]"
+                              }`}
+                            >
+                              {isVideo
+                                ? "WhatsApp Video Call Link"
+                                : "WhatsApp Voice Call Link"}
+                            </h4>
+                            <p
+                              className={`text-[12.5px] leading-snug mt-1 ${
+                                isDark ? "text-[#8696a0]" : "text-[#667781]"
+                              }`}
+                            >
+                              Use this link to join my WhatsApp{" "}
+                              {isVideo ? "video" : "voice"} call.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          onClick={handleCopyCallUrl}
+                          className={`mt-2 px-3 py-2 rounded-xl flex items-center justify-between gap-2 border transition-all cursor-pointer group ${
+                            isUserMessage
+                              ? isDark
+                                ? "bg-black/20 hover:bg-black/30 border-white/5"
+                                : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
+                              : isDark
+                              ? "bg-white/[0.06] hover:bg-white/[0.09] border-white/5"
+                              : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
+                          }`}
+                          title="Click to copy link"
+                        >
+                          <span className="text-[13px] font-mono text-[#00a884] dark:text-[#25d366] font-medium truncate select-all">
+                            {rawUrl}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleCopyCallUrl}
+                            className="p-1 rounded-md text-[#8696a0] group-hover:text-[#00a884] transition-colors shrink-0 cursor-pointer"
+                            title="Copy link"
+                          >
+                            <MdContentCopy size={15} />
+                          </button>
+                        </div>
+
+                        <div className="mt-2.5">
+                          <button
+                            type="button"
+                            onClick={handleJoinCallLink}
+                            className="w-full py-2.5 px-4 rounded-xl bg-[#00a884] hover:bg-[#029676] active:scale-[0.99] text-white font-semibold text-[14px] flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                            title={`Join ${isVideo ? "video" : "voice"} call now`}
+                          >
+                            {isVideo ? (
+                              <MdVideocam className="text-lg" />
+                            ) : (
+                              <MdCall className="text-base" />
+                            )}
+                            <span>Join call</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2 pt-1 border-t border-black/5 dark:border-white/5 px-0.5">
+                          <div className="flex items-center gap-1 text-[11px] text-[#8696a0]">
+                            <FaLock size={9} className="opacity-75" />
+                            <span>End-to-end encrypted</span>
+                          </div>
+                          <div className="flex items-center select-none pointer-events-auto">
+                            {renderTimestampAndStatus(false)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                {(message.contentType === "call" || Boolean(message.callData)) && (() => {
+                  const callData =
+                    typeof message.callData === "string"
+                      ? (() => {
+                        try {
+                          return JSON.parse(message.callData);
+                        } catch (e) {
+                          return {};
+                        }
+                      })()
+                      : message.callData || {};
+
+                  const callType =
+                    callData?.callType ||
+                    message.callType ||
+                    (message.content?.toLowerCase()?.includes("video") ? "video" : "audio");
+                  const isVideo = callType === "video";
+
+                  const rawDuration =
+                    callData?.duration ||
+                    message.duration ||
+                    (message.content?.match(/(\d+\s*(seconds?|minutes?|secs?|mins?))/i)?.[0]) ||
+                    "28 seconds";
+
+                  const status =
+                    callData?.status ||
+                    message.status ||
+                    (rawDuration.toLowerCase().includes("missed")
+                      ? "missed"
+                      : rawDuration.toLowerCase().includes("declined")
+                        ? "declined"
+                        : "completed");
+
+                  const direction =
+                    callData?.direction ||
+                    message.direction ||
+                    (isUserMessage ? "outgoing" : "incoming");
+
+                  const isMissed =
+                    !isUserMessage &&
+                    (status === "missed" ||
+                      direction === "missed" ||
+                      rawDuration.toLowerCase().includes("missed"));
+
+                  const isCallerNoAnswer =
+                    isUserMessage &&
+                    (status === "missed" ||
+                      direction === "missed" ||
+                      rawDuration.toLowerCase().includes("missed"));
+
+                  const isDeclined =
+                    status === "declined" || direction === "declined";
+
+                  let title = isVideo ? "Video call" : "Voice call";
+                  if (isMissed) {
+                    title = isVideo ? "Missed video call" : "Missed voice call";
+                  }
+
+                  let durationText = rawDuration;
+                  if (isMissed) {
+                    durationText = "Missed";
+                  } else if (isCallerNoAnswer) {
+                    durationText = "No answer";
+                  } else if (isDeclined) {
+                    durationText = "Declined";
+                  }
+
+                  const peer = isUserMessage
+                    ? message.receiver || selectedContact
+                    : message.sender || selectedContact;
+                  const peerId = (peer?._id || peer?.id || peer)?.toString();
+                  const peerName = peer?.username || peer?.name || "Contact";
+                  const peerAvatar = peer?.profilePicture || peer?.avatar || "";
+
+                  const handleCallBack = (e) => {
+                    e.stopPropagation();
+                    try {
+                      const { initiateCall } = useVideoCallStore.getState();
+                      if (peerId && typeof initiateCall === "function") {
+                        initiateCall(
+                          peerId,
+                          peerName,
+                          peerAvatar,
+                          isVideo ? "video" : "audio"
+                        );
+                      }
+                    } catch (err) {
+                      console.warn("Failed to initiate redial:", err);
+                    }
+                  };
+
+                  return (
+                    <div className="flex flex-col min-w-[240px] xs:min-w-[260px] max-w-[310px] select-none">
+                      <div
+                        onClick={handleCallBack}
+                        className={`flex items-start justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer group/callcard ${
+                          isUserMessage
+                            ? isDark
+                              ? "bg-black/15 hover:bg-black/25"
+                              : "bg-black/[0.04] hover:bg-black/[0.07]"
+                            : isDark
+                              ? "bg-white/[0.06] hover:bg-white/[0.09]"
+                              : "bg-black/[0.04] hover:bg-black/[0.07]"
+                        }`}
+                        title={`Click to call ${peerName || "contact"}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div
+                            className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover/callcard:scale-105 ${
+                              isMissed
+                                ? isDark
+                                  ? "bg-[#ea0038]/20"
+                                  : "bg-[#fde8ec]"
+                                : isUserMessage
+                                  ? isDark
+                                    ? "bg-white/10"
+                                    : "bg-[#c2ecc3]"
+                                  : isDark
+                                    ? "bg-[#182229]"
+                                    : "bg-black/10"
+                            }`}
+                          >
+                            {isVideo ? (
+                              isMissed ? (
+                                <div className="relative flex items-center justify-center">
+                                  <MdOutlineVideocam size={22} className="text-[#ea0038]" />
+                                </div>
+                              ) : isUserMessage ? (
+                                <div className="relative flex items-center justify-center">
+                                  <VideoCallOutgoingIcon
+                                    size={22}
+                                    color={isDark ? "white" : "#111b21"}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="relative flex items-center justify-center">
+                                  <VideoCallIncomingIcon
+                                    size={22}
+                                    color={isDark ? "white" : "#111b21"}
+                                  />
+                                </div>
+                              )
+                            ) : isMissed ? (
+                              <div className="relative flex items-center justify-center">
+                                <MdCallMissed size={22} className="text-[#ea0038]" />
+                              </div>
+                            ) : !isUserMessage ? (
+                              <div className="relative flex items-center justify-center">
+                                <MdCallReceived
+                                  size={20}
+                                  className={isDark ? "text-white" : "text-[#111b21]"}
+                                />
+                              </div>
+                            ) : (
+                              <div className="relative flex items-center justify-center">
+                                <CallOutgoingIcon
+                                  size={22}
+                                  color={isDark ? "white" : "#111b21"}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1 pt-0.5">
+                            <h4
+                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${
+                                isMissed
+                                  ? "text-[#ea0038]"
+                                  : isDark
+                                    ? "text-white"
+                                    : "text-[#111b21]"
+                              }`}
+                            >
+                              {title}
+                            </h4>
+                            <p
+                              className={`text-[13px] font-normal mt-1 leading-tight truncate ${
+                                isMissed
+                                  ? "text-[#ea0038] font-medium"
+                                  : isDark
+                                    ? "text-[#8696a0]"
+                                    : "text-[#667781]"
+                              }`}
+                            >
+                              {durationText}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleToggleOptions}
+                          className="p-1 -mr-1 -mt-0.5 text-[#8696a0] hover:text-white dark:hover:text-white transition-colors cursor-pointer shrink-0 opacity-80 hover:opacity-100"
+                          title="Message options"
+                        >
+                          <FiChevronDown size={17} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-end mt-1 px-1 select-none pointer-events-auto">
+                        {renderTimestampAndStatus(false)}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

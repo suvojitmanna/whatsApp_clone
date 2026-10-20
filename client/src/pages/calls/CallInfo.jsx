@@ -5,6 +5,8 @@ import useCallStore from "../../store/useCallStore";
 import useLayoutStore from "../../store/layoutStore";
 import { useChatStore } from "../../store/chatStore";
 import { ContactAvatar } from "./FaviouriteCall";
+import { formatCallDate } from "../../utils/formatTime";
+import { toast } from "react-toastify";
 import {
   MdClose,
   MdOutlineCall,
@@ -17,7 +19,10 @@ import {
   MdStar,
   MdStarBorder,
   MdArrowBack,
+  MdOutlineEmail,
+  MdOutlineContentCopy,
 } from "react-icons/md";
+import { WhatsAppChatsIcon } from "../../components/common/Icons";
 
 export const CallInfo = ({
   call,
@@ -51,7 +56,12 @@ export const CallInfo = ({
 
   const contactName = matchedUser?.username || call.contactName || "Unknown";
   const contactAvatar = matchedUser?.profilePicture || call.contactAvatar;
-  const contactPhone = matchedUser?.phoneNumber || "+91 98765 43210";
+  const contactPhone = matchedUser?.phoneNumber || call.phoneNumber || null;
+  const contactEmail =
+    matchedUser?.email ||
+    call.contactEmail ||
+    call.email ||
+    null;
   const contactAbout = matchedUser?.about || "Hey there! I am using WhatsApp";
   const contactId = matchedUser?._id || call.contactId || call.id;
 
@@ -106,9 +116,9 @@ export const CallInfo = ({
         }`}
     >
       <div
-        className={`h-16 px-6 flex items-center justify-between shrink-0 sticky top-0 z-10 border-b ${isDark
-          ? "bg-[#111b21] border-[#222e35]"
-          : "bg-[#f0f2f5] border-gray-200"
+        className={`h-16 px-6 flex items-center justify-between shrink-0 sticky top-0 z-10 ${isDark
+          ? "bg-[#111b21]"
+          : "bg-[#f0f2f5]"
           }`}
       >
         <div className="flex items-center gap-3">
@@ -146,11 +156,11 @@ export const CallInfo = ({
         </button>
       </div>
 
-      <div className="px-6 py-4 max-w-2xl w-full flex flex-col gap-4">
+      <div className="px-6 py-2 max-w-6xl w-full flex flex-col gap-4">
         <div
           className={`rounded-2xl overflow-hidden border transition-colors shadow-xs ${isDark
-            ? "bg-[#182229] border-[#222e35]/80"
-            : "bg-white border-gray-200 shadow-sm"
+            ? "border-[#222e35]/80"
+            : "border-gray-200 shadow-sm"
             }`}
         >
           <div className="p-4 sm:p-5 flex items-center justify-between">
@@ -181,7 +191,7 @@ export const CallInfo = ({
                 title="Message"
                 aria-label="Message contact"
               >
-                <MdOutlineChatBubbleOutline className="text-2xl" />
+                <WhatsAppChatsIcon className="text-2xl" />
               </button>
 
               <button
@@ -195,7 +205,7 @@ export const CallInfo = ({
                 title="Video call"
                 aria-label="Video call contact"
               >
-                <MdOutlineVideocam className="text-2xl" />
+                <MdOutlineVideocam className="text-3xl" />
               </button>
 
               <button
@@ -214,6 +224,112 @@ export const CallInfo = ({
             </div>
           </div>
 
+          {(contactPhone || contactEmail) && (
+            <div
+              className={`border-t px-4 py-3.5 sm:px-5 flex flex-col gap-3 ${
+                isDark ? "border-[#222e35]/70 bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"
+              }`}
+            >
+              {contactPhone && (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        isDark ? "bg-[#202c33] text-[#00c878]" : "bg-[#e7fce3] text-[#008f5a]"
+                      }`}
+                    >
+                      <MdOutlineCall className="text-base" />
+                    </div>
+                    <div className="min-w-0">
+                      <div
+                        className={`text-[11px] font-medium uppercase tracking-wider ${
+                          isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                        }`}
+                      >
+                        Phone number
+                      </div>
+                      <div
+                        className={`text-[14px] font-medium truncate ${
+                          isDark ? "text-[#e9edef]" : "text-[#111b21]"
+                        }`}
+                      >
+                        {contactPhone}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(contactPhone);
+                        toast.success("Phone number copied to clipboard");
+                      }}
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        isDark
+                          ? "hover:bg-white/10 text-[#8696a0] hover:text-white"
+                          : "hover:bg-black/5 text-[#54656f] hover:text-black"
+                      }`}
+                      title="Copy phone number"
+                      aria-label="Copy phone number"
+                    >
+                      <MdOutlineContentCopy className="text-base" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {contactEmail && (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                        isDark ? "bg-[#202c33] text-[#00c878]" : "bg-[#e7fce3] text-[#008f5a]"
+                      }`}
+                    >
+                      <MdOutlineEmail className="text-base" />
+                    </div>
+                    <div className="min-w-0">
+                      <div
+                        className={`text-[11px] font-medium uppercase tracking-wider ${
+                          isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                        }`}
+                      >
+                        Email address
+                      </div>
+                      <div
+                        className={`text-[14px] font-medium truncate ${
+                          isDark ? "text-[#e9edef]" : "text-[#111b21]"
+                        }`}
+                      >
+                        {contactEmail}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(contactEmail);
+                        toast.success("Email copied to clipboard");
+                      }}
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                        isDark
+                          ? "hover:bg-white/10 text-[#8696a0] hover:text-white"
+                          : "hover:bg-black/5 text-[#54656f] hover:text-black"
+                      }`}
+                      title="Copy email"
+                      aria-label="Copy email"
+                    >
+                      <MdOutlineContentCopy className="text-base" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div
             className={`border-t ${isDark ? "border-[#222e35]/70" : "border-gray-100"
               }`}
@@ -223,10 +339,7 @@ export const CallInfo = ({
             {displayCalls.map((item, idx) => {
               const isMissed = item.direction === "missed";
               const isIncoming = item.direction === "incoming";
-              const dateLabel =
-                item.dateFormatted && item.dateFormatted !== "Today"
-                  ? item.dateFormatted
-                  : "Today";
+              const dateLabel = formatCallDate(item) || "Today";
               const timeLabel = item.timeFormatted || "04:07";
               const callTypeLabel = item.callType === "video" ? "video" : "voice";
               const directionWord = isMissed

@@ -18,7 +18,7 @@ import { IoSend } from "react-icons/io5";
 import { getChatTheme } from "../../utils/chatThemes";
 import { TiArrowRight } from "react-icons/ti";
 import { FaSquarePollHorizontal } from "react-icons/fa6";
-import { MdEventNote, MdKeyboardArrowUp, MdKeyboardArrowDown, MdBlock, MdThumbDown } from "react-icons/md";
+import { MdEventNote, MdKeyboardArrowUp, MdKeyboardArrowDown, MdBlock, MdLink } from "react-icons/md";
 import { TfiClip } from "react-icons/tfi";
 import { MdAddReaction } from "react-icons/md";
 import MessageBuble, {
@@ -29,7 +29,6 @@ import MessageBuble, {
 import MessageSkeletonLoader from "./MessageSkeletonLoader";
 import EmojiPicker from "emoji-picker-react";
 import useOutsideClick from "../../hook/useOutsideClick";
-import VideoCallManager from "../videoCall/videoCallManager";
 import { getSocket } from "../../services/chatService";
 import useVideoCallStore from "../../store/videoCallStore";
 import useLayoutStore from "../../store/layoutStore";
@@ -51,7 +50,9 @@ import ChatHeaderMenu from "./ChatHeaderMenu";
 import ChatHeader from "./ChatHeader";
 import BlockModal from "../../components/BlockModal";
 import ReportModal from "../../components/ReportModal";
+import NewCallLinkModal from "../calls/NewCallLinkModal";
 import { getPinActorAndLabel } from "./ChatList";
+import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 
 function getDisappearingDurationMs(duration) {
   if (!duration || duration === "Off") return null;
@@ -98,6 +99,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showEventModal, setShowEventModal] = useState(false);
   const [editingEventMessage, setEditingEventMessage] = useState(null);
   const [showStickerModal, setShowStickerModal] = useState(false);
+  const [showCallLinkModal, setShowCallLinkModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
   const [showPinnedMenu, setShowPinnedMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -130,12 +132,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const socket = getSocket();
   const {
     messages,
     isMessagesLoading,
     clearMessages,
     sendMessage,
+    sendCallLinkMessage,
+    users,
     fetchMessages,
     fetchConversations,
     conversations,
@@ -158,7 +161,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     blockContact,
     unblockContact,
     deleteChat,
-    clearChat,
   } = useChatStore();
 
   const messagesContainerRef = useRef(null);
@@ -167,7 +169,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const restoredChatIdRef = useRef(null);
   const previousChatRef = useRef({ contactId: null, convId: null });
   const currentChatScrollRef = useRef(null);
-  const scrollDebounceTimerRef = useRef(null);
   const hasUserScrolledSinceSwitchRef = useRef(false);
   const isUserInteractingRef = useRef(false);
   const isShowingLastMessageRef = useRef(false);
@@ -176,8 +177,66 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const online = isUserOnline(selectedContact?._id);
   const lastSeen = getUserLastSeen(selectedContact?._id);
-  const conversationId = selectedContact?.conversation?._id;
+  const conversationId = (
+    selectedContact?.conversation?._id ||
+    selectedContact?.conversation ||
+    currentConversation?._id
+  )?.toString();
   const isTyping = isUserTyping(conversationId, selectedContact?._id);
+
+  const isMetaAiChat = Boolean(
+    selectedContact?.isAI ||
+    String(selectedContact?._id) === META_AI_USER_ID ||
+    String(selectedContact?.id) === META_AI_USER_ID ||
+    selectedContact?.username === "Meta AI"
+  );
+  const [metaAiOptimisticThinking, setMetaAiOptimisticThinking] = useState(false);
+
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      const last = messages[messages.length - 1];
+      if (
+        last?.isMetaAi ||
+        last?.sender?.isAI ||
+        String(last?.sender?._id || last?.sender) === META_AI_USER_ID
+      ) {
+        setMetaAiOptimisticThinking(false);
+      }
+    }
+  }, [messages]);
+
+  const isMetaAiTyping = Boolean(
+    metaAiOptimisticThinking ||
+    (isMetaAiChat && isTyping) ||
+    (conversationId && isUserTyping(conversationId, META_AI_USER_ID)) ||
+    isUserTyping(META_AI_USER_ID)
+  );
+
+  const [showMentionPopover, setShowMentionPopover] = useState(false);
+
+  useEffect(() => {
+    const handlePrefill = (e) => {
+      if (e.detail) {
+        setMessage(e.detail);
+        if (messageInputRef.current) {
+          messageInputRef.current.focus();
+        }
+      }
+    };
+    window.addEventListener("meta_ai_prefill", handlePrefill);
+    return () => window.removeEventListener("meta_ai_prefill", handlePrefill);
+  }, []);
+
+  const handleSelectMention = () => {
+    const words = message.split(/\s/);
+    words.pop();
+    words.push("@Meta AI ");
+    setMessage(words.join(" "));
+    setShowMentionPopover(false);
+    if (messageInputRef.current) {
+      messageInputRef.current.focus();
+    }
+  };
 
   const chatId = useMemo(() => {
     return (
@@ -1532,6 +1591,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           formData.append("replyMessage", JSON.stringify(replyData));
         }
         await sendMessage(formData);
+        if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
+          setMetaAiOptimisticThinking(true);
+          setTimeout(() => setMetaAiOptimisticThinking(false), 20000);
+        }
       }
 
       setMessage("");
@@ -1909,7 +1972,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   };
 
   const handleVideoCall = () => {
-    if (selectedContact && online) {
+    if (selectedContact) {
       const { initiateCall } = useVideoCallStore.getState();
       const avatar = selectedContact?.profilePicture;
       initiateCall(
@@ -1918,13 +1981,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         avatar,
         "video",
       );
-    } else {
-      alert("User is offline. Cannot initiate the call");
     }
   };
 
   const handleAudioCall = () => {
-    if (selectedContact && online) {
+    if (selectedContact) {
       const { initiateCall } = useVideoCallStore.getState();
       const avatar = selectedContact?.profilePicture;
       initiateCall(
@@ -1933,8 +1994,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         avatar,
         "audio",
       );
-    } else {
-      alert("User is offline. Cannot initiate the call");
     }
   };
 
@@ -2218,43 +2277,98 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           >
             <div className="w-full max-w-[1400px] mx-auto flex flex-col space-y-1.5">
               <div className="flex justify-center my-3 select-none px-4">
-                <button
-                  type="button"
-                  onClick={() => openContactInfoWithTab("security")}
-                  className={`inline-block py-1.5 px-3 sm:px-4 rounded-lg text-[12.5px] leading-[18px] max-w-[430px] text-center transition-all duration-150 cursor-pointer shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] active:scale-[0.99] border ${theme === "dark"
-                    ? "bg-[#182229] text-[#ffd279] border-white/5 hover:bg-[#202c33]"
-                    : "bg-[#ffeecd] text-[#54656f] border-black/5 hover:bg-[#fde6b8]"
-                    }`}
-                  title="Messages and calls are end-to-end encrypted. Click to verify."
-                >
-                  <FaLock
-                    className={`inline-block w-2.5 h-2.5 mr-1.5 -translate-y-[1px] ${theme === "dark" ? "text-[#ffd279]" : "text-[#54656f]"
+                {isMetaAiChat ? (
+                  <div
+                    className={`inline-flex items-center gap-2 py-1.5 px-3 sm:px-4 rounded-xl text-[12.5px] leading-[18px] max-w-[480px] text-center shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] border ${theme === "dark"
+                      ? "bg-[#182229] text-[#8696a0] border-white/5"
+                      : "bg-white text-[#54656f] border-black/5"
                       }`}
-                  />
-                  <span>
-                    Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. Click to learn more.
-                  </span>
-                </button>
+                  >
+                    <MetaAiRing size={16} showInnerIcon={false} />
+                    <span>
+                      Messages are generated by AI. Some messages may be inaccurate.{" "}
+                      <span className="text-[#00a884] dark:text-[#25d366] font-medium cursor-pointer hover:underline">
+                        Learn more
+                      </span>
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openContactInfoWithTab("security")}
+                    className={`inline-block py-1.5 px-3 sm:px-4 rounded-lg text-[12.5px] leading-[18px] max-w-[430px] text-center transition-all duration-150 cursor-pointer shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] active:scale-[0.99] border ${theme === "dark"
+                      ? "bg-[#182229] text-[#ffd279] border-white/5 hover:bg-[#202c33]"
+                      : "bg-[#ffeecd] text-[#54656f] border-black/5 hover:bg-[#fde6b8]"
+                      }`}
+                    title="Messages and calls are end-to-end encrypted. Click to verify."
+                  >
+                    <FaLock
+                      className={`inline-block w-2.5 h-2.5 mr-1.5 -translate-y-[1px] ${theme === "dark" ? "text-[#ffd279]" : "text-[#54656f]"
+                        }`}
+                    />
+                    <span>
+                      Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them. Click to learn more.
+                    </span>
+                  </button>
+                )}
               </div>
 
               {isMessagesLoading ? (
                 <MessageSkeletonLoader theme={theme} />
               ) : allDateEntries.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 select-none gap-2 text-center">
-                  <span
-                    className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm ${theme === "dark"
-                      ? "bg-[#182229] text-[#8696a0]"
-                      : "bg-white text-[#54656f] border border-black/5"
-                      }`}
-                  >
-                    Today
-                  </span>
-                  <p className="text-xs sm:text-sm font-medium opacity-70 mt-4">
-                    {searchTerm
-                      ? `No messages found matching "${searchTerm}"`
-                      : "No messages yet. Send a message to start chatting!"}
-                  </p>
-                </div>
+                isMetaAiChat ? (
+                  <div className="flex flex-col items-center justify-center py-8 px-4 select-none max-w-[540px] mx-auto text-center animate-fade-in">
+                    <MetaAiRing size={68} animate />
+                    <div className="flex items-center gap-1.5 mt-3 mb-1">
+                      <h2 className="text-xl font-bold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                        Meta AI
+                      </h2>
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-[400px]">
+                      Ask anything, generate stunning images with <span className="font-mono text-emerald-500">/imagine</span>, or get help with brainstorming and planning.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
+                      {[
+                        { icon: "🎨", text: "/imagine a futuristic cyberpunk neon city in 4k" },
+                        { icon: "💡", text: "Explain how quantum computers work simply" },
+                        { icon: "✈️", text: "Plan a 3-day weekend itinerary for Tokyo" },
+                        { icon: "✍️", text: "Write a polite follow-up email after an interview" },
+                      ].map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setMessage(chip.text);
+                            if (messageInputRef.current) messageInputRef.current.focus();
+                          }}
+                          className={`p-3 rounded-xl text-left text-xs transition-all flex items-start gap-2.5 border cursor-pointer hover:scale-[1.02] active:scale-98 shadow-sm ${theme === "dark"
+                            ? "bg-[#202c33] hover:bg-[#2a3942] text-gray-200 border-white/5"
+                            : "bg-white hover:bg-gray-50 text-gray-800 border-black/5"
+                            }`}
+                        >
+                          <span className="text-base select-none">{chip.icon}</span>
+                          <span className="flex-1 font-medium line-clamp-2">{chip.text}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 select-none gap-2 text-center">
+                    <span
+                      className={`px-3 py-1 text-xs font-normal rounded-lg shadow-sm ${theme === "dark"
+                        ? "bg-[#182229] text-[#8696a0]"
+                        : "bg-white text-[#54656f] border border-black/5"
+                        }`}
+                    >
+                      Today
+                    </span>
+                    <p className="text-xs sm:text-sm font-medium opacity-70 mt-4">
+                      {searchTerm
+                        ? `No messages found matching "${searchTerm}"`
+                        : "No messages yet. Send a message to start chatting!"}
+                    </p>
+                  </div>
+                )
               ) : (
                 (() => {
                   let pinAlreadyRendered = false;
@@ -2378,6 +2492,21 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                     >
                       Report
                     </button>
+                  </div>
+                </div>
+              )}
+              {isMetaAiTyping && (
+                <div className="flex items-center gap-2 py-1 px-4 justify-start animate-fade-in select-none">
+                  <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-white dark:bg-[#202c33] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] border border-black/5 dark:border-white/5">
+                    <MetaAiRing size={18} animate />
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-300">
+                      <span>Meta AI is thinking</span>
+                      <span className="flex gap-1 ml-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce [animation-delay:-0.3s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-bounce [animation-delay:-0.15s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-bounce" />
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2809,6 +2938,24 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             New sticker
                           </span>
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFileMenu(false);
+                            setShowCallLinkModal(true);
+                          }}
+                          title="Share call link"
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-[#00a884] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                            <MdLink className="text-white text-[19px] transform -rotate-45" />
+                          </div>
+
+                          <span className="text-[14px] font-medium tracking-tight">
+                            Call link
+                          </span>
+                        </button>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -2854,20 +3001,71 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                   )}
                 </div>
 
+                {showMentionPopover && (
+                  <div
+                    className={`absolute left-4 bottom-full mb-3 w-72 rounded-2xl shadow-2xl border overflow-hidden z-50 animate-fade-in ${theme === "dark"
+                      ? "bg-[#202c33] border-white/10 text-white"
+                      : "bg-white border-black/10 text-gray-900"
+                      }`}
+                  >
+                    <div className="px-3.5 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 border-b border-black/5 dark:border-white/5 select-none flex items-center justify-between">
+                      <span>Mention</span>
+                      <span className="text-[10px] text-gray-400 normal-case">Tab to insert</span>
+                    </div>
+                    <div
+                      onClick={handleSelectMention}
+                      className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/10" : "hover:bg-black/5"
+                        }`}
+                    >
+                      <MetaAiRing size={32} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-sm">Meta AI</span>
+                        </div>
+                        <p className="text-xs text-gray-400 truncate">
+                          with Llama • Ask anything or type /imagine
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <input
                   ref={messageInputRef}
                   type="text"
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMessage(val);
+                    const lastWord = val.split(/\s/).pop();
+                    if (lastWord && lastWord.startsWith("@") && !isMetaAiChat) {
+                      setShowMentionPopover(true);
+                    } else {
+                      setShowMentionPopover(false);
+                    }
+                  }}
                   onKeyDown={(e) => {
+                    if (showMentionPopover && (e.key === "Tab" || e.key === "Enter")) {
+                      e.preventDefault();
+                      handleSelectMention();
+                      return;
+                    }
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSendMessage();
-                    } else if (e.key === "Escape" && replyingTo) {
-                      setReplyingTo(null);
+                    } else if (e.key === "Escape") {
+                      if (showMentionPopover) {
+                        setShowMentionPopover(false);
+                      } else if (replyingTo) {
+                        setReplyingTo(null);
+                      }
                     }
                   }}
-                  placeholder="Type a message"
+                  placeholder={
+                    isMetaAiChat
+                      ? "Ask Meta AI or type /imagine..."
+                      : "Type a message or @Meta AI"
+                  }
                   className={`flex-1 min-w-0 w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm sm:text-base transition-colors ${theme === "dark"
                     ? "text-white placeholder-gray-400 hover:placeholder-gray-300"
                     : "text-black placeholder-gray-500 hover:placeholder-gray-400"
@@ -3113,7 +3311,37 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         onOpenContactInfo={() => setShowContactInfo(true)}
         onOpenDisappearingMessages={() => openContactInfoWithTab("disappearing")}
         onOpenChatTheme={() => openContactInfoWithTab("chatTheme")}
+        onOpenCallLink={() => setShowCallLinkModal(true)}
         onCloseChat={handleCloseChatWindow}
+      />
+
+      <NewCallLinkModal
+        isOpen={showCallLinkModal}
+        onClose={() => setShowCallLinkModal(false)}
+        contacts={users}
+        activeContact={selectedContact}
+        onStartCall={(contact, type) => {
+          const { initiateCall } = useVideoCallStore.getState();
+          if (typeof initiateCall === "function") {
+            const peer = selectedContact || contact;
+            const pId = (peer?._id || peer?.id || peer)?.toString();
+            const pName = peer?.username || peer?.name || "Contact";
+            const pAvatar = peer?.profilePicture || peer?.avatar || "";
+            initiateCall(pId, pName, pAvatar, type);
+          }
+        }}
+        onSendToChat={(contact, url, type, code) => {
+          const receiverId = (contact?._id || contact?.id || selectedContact?._id)?.toString();
+          if (receiverId) {
+            sendCallLinkMessage({
+              receiverId,
+              conversationId: currentConversation?._id || selectedContact?.conversation?._id,
+              callType: type || "video",
+              linkCode: code,
+              url,
+            });
+          }
+        }}
       />
 
       <BlockModal

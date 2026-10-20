@@ -55,10 +55,15 @@ import {
 } from "../utils/chatThemes";
 import { toast } from "react-toastify";
 import axiosInstance from "../services/url.services";
-import { WhatsAppMediaFolderIcon } from "./Media";
+import {
+  WhatsAppMediaFolderIcon,
+  EndToEndEncryptionIllustration,
+  DisappearingMessagesIllustration,
+} from "./common/Icons";
 import ContactMedia from "./ContactMedia";
 import FileViewerModal from "./FileViewerModal";
 import { FALLBACK_MEDIA } from "../assets/rawData";
+import { MetaAiRing, META_AI_USER_ID, MetaAiBadge } from "./common/MetaAiIcon";
 
 const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   <button
@@ -128,6 +133,28 @@ const ContactInfo = () => {
   const targetUserId = useMemo(
     () => getTargetUserId(selectedContact, user?._id),
     [selectedContact, user?._id]
+  );
+
+  const isMetaAi = Boolean(
+    selectedContact?.isAI ||
+    selectedContact?.username === "Meta AI" ||
+    String(selectedContact?._id) === META_AI_USER_ID ||
+    String(selectedContact?.id) === META_AI_USER_ID ||
+    String(targetUserId) === META_AI_USER_ID ||
+    (Array.isArray(selectedContact?.participants) &&
+      selectedContact.participants.some(
+        (p) =>
+          p?.isAI ||
+          p?.username === "Meta AI" ||
+          String(p?._id || p) === META_AI_USER_ID
+      )) ||
+    (Array.isArray(selectedContact?.conversation?.participants) &&
+      selectedContact.conversation.participants.some(
+        (p) =>
+          p?.isAI ||
+          p?.username === "Meta AI" ||
+          String(p?._id || p) === META_AI_USER_ID
+      ))
   );
 
   const chatStarredMessages = useMemo(() => {
@@ -1262,19 +1289,30 @@ const ContactInfo = () => {
                                           : contactInfoTab === "advancedPrivacy"
                                             ? "Advanced"
                                             : contactInfoTab === "lists"
-                                              ? "Add to list"
-                                              : "Contact Info"}
+                                               ? "Add to list"
+                                               : isMetaAi
+                                                 ? "Meta AI Info"
+                                                 : "Contact Info"}
                   </h2>
                 )}
               </div>
 
-              {contactInfoTab === "info" ? (
+              {contactInfoTab === "info" && !isMetaAi ? (
                 <button
                   type="button"
                   className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer flex items-center justify-center"
                   title="Edit contact"
                 >
                   <FaPen className="h-4 w-4" />
+                </button>
+              ) : contactInfoTab === "info" && isMetaAi ? (
+                <button
+                  type="button"
+                  onClick={() => setShowContactInfo(false)}
+                  className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer flex items-center justify-center"
+                  title="Close"
+                >
+                  <RxCross2 size={22} />
                 </button>
               ) : contactInfoTab === "chatTheme" || contactInfoTab === "wallpaper" ? (
                 <button
@@ -1325,44 +1363,75 @@ const ContactInfo = () => {
                   animate={{ scale: 1, opacity: 1 }}
                   whileHover={{ scale: 1.05 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  className="relative"
+                  className="relative flex items-center justify-center"
                 >
-                  <img
-                    src={selectedContact?.profilePicture || "/default-avatar.png"}
-                    alt={selectedContact?.username}
-                    onClick={() => setShowProfilePicture(true)}
-                    className="w-40 h-40 rounded-full object-cover border-4 border-white/10 shadow-[0_20px_50px_rgba(16,185,129,0.3)] cursor-pointer"
-                  />
-                  {online && (
+                  {isMetaAi ? (
+                    <div
+                      onClick={() => setShowProfilePicture(true)}
+                      className="w-40 h-40 rounded-full flex items-center justify-center p-2 cursor-pointer relative group transition-transform duration-300"
+                      title="Click to view Meta AI"
+                    >
+                      <div className="absolute inset-3 rounded-full bg-gradient-to-tr from-blue-500/15 via-purple-500/15 to-pink-500/15 blur-2xl group-hover:blur-3xl transition-all" />
+                      <MetaAiRing
+                        size={146}
+                        animate
+                        className="relative z-10 drop-shadow-[0_12px_30px_rgba(59,130,246,0.35)]"
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={selectedContact?.profilePicture || "/default-avatar.png"}
+                      alt={selectedContact?.username}
+                      onClick={() => setShowProfilePicture(true)}
+                      className="w-40 h-40 rounded-full object-cover border-4 border-white/10 shadow-[0_20px_50px_rgba(16,185,129,0.3)] cursor-pointer"
+                    />
+                  )}
+                  {online && !isMetaAi && (
                     <span className="absolute bottom-3 right-3 w-5 h-5 bg-emerald-500 border-4 border-[#111b21] rounded-full shadow-lg"></span>
                   )}
                 </motion.div>
 
                 <div className="text-center mb-6">
                   <h2
-                    className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300 ${theme === "dark" ? "text-white/95" : "text-gray-900"
+                    className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300 flex items-center justify-center gap-2 ${theme === "dark" ? "text-white/95" : "text-gray-900"
                       }`}
                   >
-                    {selectedContact?.username}
+                    <span>{selectedContact?.username || (isMetaAi ? "Meta AI" : "Contact")}</span>
+                    {isMetaAi && (
+                      <span
+                        title="Verified Meta AI Assistant"
+                        className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-[10px] font-bold shadow-sm"
+                      >
+                        ✓
+                      </span>
+                    )}
                   </h2>
 
                   <div className="flex flex-col items-center gap-1">
-                    {selectedContact?.email && (
-                      <p
-                        className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                          }`}
-                      >
-                        {selectedContact.email}
+                    {isMetaAi ? (
+                      <p className="text-[13px] font-semibold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                        Official AI Assistant • Meta
                       </p>
-                    )}
+                    ) : (
+                      <>
+                        {selectedContact?.email && (
+                          <p
+                            className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                              }`}
+                          >
+                            {selectedContact.email}
+                          </p>
+                        )}
 
-                    {selectedContact?.phoneNumber && (
-                      <p
-                        className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-emerald-500/80" : "text-emerald-600"
-                          }`}
-                      >
-                        {selectedContact.phoneNumber}
-                      </p>
+                        {selectedContact?.phoneNumber && (
+                          <p
+                            className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-emerald-500/80" : "text-emerald-600"
+                              }`}
+                          >
+                            {selectedContact.phoneNumber}
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -1371,24 +1440,38 @@ const ContactInfo = () => {
                   <ActionButton
                     icon={<FaSearch size={18} />}
                     label="Search"
+                    onClick={() => {
+                      setIsChatSearchOpen(true);
+                    }}
                     theme={theme}
                   />
 
-                  <ActionButton
-                    icon={<FaPhone size={18} />}
-                    label="Audio"
-                    onClick={handleAudioCall}
-                    disabled={!selectedContact?.isOnline}
-                    theme={theme}
-                  />
+                  {isMetaAi ? (
+                    <ActionButton
+                      icon={<FaStar size={18} />}
+                      label="Starred"
+                      onClick={() => setContactInfoTab("starred")}
+                      theme={theme}
+                    />
+                  ) : (
+                    <>
+                      <ActionButton
+                        icon={<FaPhone size={18} />}
+                        label="Audio"
+                        onClick={handleAudioCall}
+                        disabled={!selectedContact?.isOnline}
+                        theme={theme}
+                      />
 
-                  <ActionButton
-                    icon={<FaVideo size={18} />}
-                    label="Video"
-                    onClick={handleVideoCall}
-                    disabled={!selectedContact?.isOnline}
-                    theme={theme}
-                  />
+                      <ActionButton
+                        icon={<FaVideo size={18} />}
+                        label="Video"
+                        onClick={handleVideoCall}
+                        disabled={!selectedContact?.isOnline}
+                        theme={theme}
+                      />
+                    </>
+                  )}
                 </div>
 
                 <div className="w-full space-y-4 pt-4">
@@ -1404,9 +1487,9 @@ const ContactInfo = () => {
                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
 
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="w-1.5 h-1.5  bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-                      <p className="text-[11px] text-emerald-500 font-bold uppercase tracking-[0.15em]">
-                        About
+                      <div className={`w-1.5 h-1.5 ${isMetaAi ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"}`} />
+                      <p className={`text-[11px] font-bold uppercase tracking-[0.15em] ${isMetaAi ? "text-blue-500" : "text-emerald-500"}`}>
+                        {isMetaAi ? "About Meta AI" : "About"}
                       </p>
                     </div>
 
@@ -1414,22 +1497,26 @@ const ContactInfo = () => {
                       className={`text-[15px] leading-relaxed relative z-10 ${theme === "dark" ? "text-gray-200" : "text-gray-700"
                         }`}
                     >
-                      {selectedContact?.about || "Hey there! I am using WhatsApp."}
+                      {isMetaAi
+                        ? (selectedContact?.about || "Always here to help you answer questions, brainstorm ideas, imagine images, learn new things, and get things done with AI.")
+                        : (selectedContact?.about || "Hey there! I am using WhatsApp.")}
                     </p>
 
-                    <p
-                      className={`text-[10px] mt-1 ${theme === "dark" ? "text-gray-500" : "text-gray-400"
-                        }`}
-                    >
-                      {selectedContact?.aboutUpdatedAt
-                        ? `Updated ${new Date(
-                          selectedContact.aboutUpdatedAt,
-                        ).toLocaleString([], {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}`
-                        : ""}
-                    </p>
+                    {!isMetaAi && (
+                      <p
+                        className={`text-[10px] mt-1 ${theme === "dark" ? "text-gray-500" : "text-gray-400"
+                          }`}
+                      >
+                        {selectedContact?.aboutUpdatedAt
+                          ? `Updated ${new Date(
+                            selectedContact.aboutUpdatedAt,
+                          ).toLocaleString([], {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}`
+                          : ""}
+                      </p>
+                    )}
                   </motion.div>
 
                   <div className={`-my-0.10 border-t ${isDark ? "border-white/20" : "border-black/10"}`} />
@@ -1823,22 +1910,32 @@ const ContactInfo = () => {
                       }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                        <FaLock size={16} />
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
+                        isMetaAi
+                          ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                          : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                      }`}>
+                        {isMetaAi ? <MdShield size={19} /> : <FaLock size={16} />}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
-                          Encryption
-                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500">
-                            Active
+                          {isMetaAi ? "AI Privacy & Security" : "Encryption"}
+                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
+                            isMetaAi
+                              ? "bg-blue-500/20 text-blue-400"
+                              : "bg-emerald-500/20 text-emerald-500"
+                          }`}>
+                            {isMetaAi ? "Meta AI" : "Active"}
                           </span>
                         </h4>
                         <p
                           className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
                             }`}
                         >
-                          Messages and calls are end-to-end encrypted. Tap to verify.
+                          {isMetaAi
+                            ? "Messages with Meta AI are processed securely. Tap to view AI terms."
+                            : "Messages and calls are end-to-end encrypted. Tap to verify."}
                         </p>
                       </div>
 
@@ -1870,38 +1967,40 @@ const ContactInfo = () => {
                       </div>
                     </div>
                   </motion.div>
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.7, type: "spring", stiffness: 100 }}
-                    onClick={handleToggleBlock}
-                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
-                      ? " hover:bg-red-500/10 hover:border-red-500/20"
-                      : " hover:bg-red-50 hover:border-red-100"
-                      }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
-                        <MdBlock size={19} />
-                      </div>
+                  {!isMetaAi && (
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.7, type: "spring", stiffness: 100 }}
+                      onClick={handleToggleBlock}
+                      className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                        ? " hover:bg-red-500/10 hover:border-red-500/20"
+                        : " hover:bg-red-50 hover:border-red-100"
+                        }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
+                          <MdBlock size={19} />
+                        </div>
 
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-[14px] font-semibold text-red-500 truncate">
-                          {isBlocked
-                            ? `Unblock ${selectedContact?.username || "contact"}`
-                            : `Block ${selectedContact?.username || "contact"}`}
-                        </h4>
-                        <p
-                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                            }`}
-                        >
-                          {isBlocked
-                            ? "Allow calls and messages from this contact"
-                            : "Calls and messages will be blocked"}
-                        </p>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-[14px] font-semibold text-red-500 truncate">
+                            {isBlocked
+                              ? `Unblock ${selectedContact?.username || "contact"}`
+                              : `Block ${selectedContact?.username || "contact"}`}
+                          </h4>
+                          <p
+                            className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                              }`}
+                          >
+                            {isBlocked
+                              ? "Allow calls and messages from this contact"
+                              : "Calls and messages will be blocked"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
+                    </motion.div>
+                  )}
 
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
@@ -1935,7 +2034,73 @@ const ContactInfo = () => {
               </motion.div>
             )}
 
-            {contactInfoTab === "security" && (
+            {contactInfoTab === "security" && isMetaAi ? (
+              <motion.div
+                key="tab-security-ai"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col items-center py-6 px-6 overflow-y-auto flex-1 scrollbar-hide text-center"
+              >
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-2xl" />
+                  <MetaAiRing size={110} animate className="relative z-10 drop-shadow-[0_10px_25px_rgba(59,130,246,0.35)]" />
+                </div>
+
+                <h3 className={`text-xl font-bold mb-2 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                  Meta AI & Your Privacy
+                </h3>
+
+                <p className={`text-sm leading-relaxed max-w-sm mb-6 ${theme === "dark" ? "text-gray-300" : "text-gray-600"}`}>
+                  Your personal messages and calls with friends and family remain <span className="text-emerald-500 font-semibold">end-to-end encrypted</span>. No one else, not even WhatsApp or Meta, can read or listen to them.
+                </p>
+
+                <div className={`w-full p-4 rounded-2xl border text-left mb-4 ${
+                  theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 mt-0.5">
+                      <MdShield size={18} />
+                    </div>
+                    <div>
+                      <h4 className={`text-sm font-semibold mb-1 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                        How Meta AI works
+                      </h4>
+                      <p className={`text-xs leading-relaxed ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                        When you chat with Meta AI, your prompts are processed securely using AI models to provide helpful answers and generate images.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`w-full p-4 rounded-2xl border text-left mb-6 ${
+                  theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                      <FaLock size={14} />
+                    </div>
+                    <div>
+                      <h4 className={`text-sm font-semibold mb-1 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+                        Personal chats stay private
+                      </h4>
+                      <p className={`text-xs leading-relaxed ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                        Meta AI cannot access messages in your other 1-on-1 or group chats unless you explicitly invoke @Meta AI in that chat.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setContactInfoTab("info")}
+                  className="px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white font-medium text-sm shadow-md hover:opacity-95 active:scale-95 transition-all cursor-pointer"
+                >
+                  Done
+                </button>
+              </motion.div>
+            ) : contactInfoTab === "security" && (
               <motion.div
                 key="tab-security"
                 initial={{ opacity: 0, x: 10 }}
@@ -2161,72 +2326,11 @@ const ContactInfo = () => {
                 className="flex flex-col items-center py-5 px-5 overflow-y-auto flex-1 scrollbar-hide"
               >
                 <div className="flex justify-center mb-5 select-none">
-                  <svg
-                    width="150"
-                    height="115"
-                    viewBox="0 0 160 125"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="overflow-visible"
-                  >
-                    <g transform="translate(14, 20)">
-                      <circle
-                        cx="28"
-                        cy="28"
-                        r="23"
-                        fill={isDark ? "#182229" : "#222e35"}
-                        stroke="#ffffff"
-                        strokeWidth="5"
-                      />
-                      <line
-                        x1="12"
-                        y1="44"
-                        x2="44"
-                        y2="12"
-                        stroke="#ffffff"
-                        strokeWidth="5"
-                        strokeLinecap="round"
-                      />
-                    </g>
-                    <path
-                      d="M62 48V28C62 17.5 70 9 80 9C90 9 98 17.5 98 28V48"
-                      stroke="#dcf8c6"
-                      strokeWidth="11"
-                      strokeLinecap="round"
-                    />
-                    <rect
-                      x="54"
-                      y="44"
-                      width="52"
-                      height="46"
-                      rx="14"
-                      fill="#dcf8c6"
-                    />
-                    <circle cx="80" cy="62" r="5" fill="#111b21" />
-                    <path d="M77 62L75 76H85L83 62Z" fill="#111b21" />
-                    <g transform="translate(86, 20)">
-                      <circle cx="34" cy="34" r="28" fill="#00a884" />
-                      <circle cx="34" cy="34" r="23" fill="#111b21" />
-
-                      <circle cx="34" cy="16" r="1.5" fill="#ffffff" />
-                      <circle cx="44" cy="19" r="1.5" fill="#ffffff" />
-                      <circle cx="51" cy="26" r="1.5" fill="#ffffff" />
-                      <circle cx="52" cy="35" r="1.5" fill="#ffffff" />
-                      <circle cx="17" cy="26" r="1.5" fill="#ffffff" />
-                      <circle cx="24" cy="19" r="1.5" fill="#ffffff" />
-
-                      <line
-                        x1="34"
-                        y1="34"
-                        x2="25"
-                        y2="23"
-                        stroke="#ffffff"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="34" cy="34" r="3" fill="#ffffff" />
-                    </g>
-                  </svg>
+                  <EndToEndEncryptionIllustration
+                    isDark={isDark}
+                    width={150}
+                    height={115}
+                  />
                 </div>
 
                 <p className="text-center text-[13px] leading-relaxed text-[#8696a0] px-2 mb-6 max-w-sm">
@@ -2353,45 +2457,7 @@ const ContactInfo = () => {
                 className="flex flex-col py-2 overflow-y-auto flex-1 scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden select-none"
               >
                 <div className="flex justify-center items-center py-6">
-                  <svg
-                    width="200"
-                    height="125"
-                    viewBox="0 0 220 140"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="drop-shadow-md select-none"
-                  >
-                    <path
-                      d="M175 35 C175 22 163 12 148 12 C133 12 121 22 121 35 C121 44 126 51 134 55 L130 68 L143 58 C145 58 146 58 148 58 C163 58 175 48 175 35 Z"
-                      fill="#fff9e6"
-                    />
-                    <circle cx="112" cy="70" r="44" fill="#00a884" />
-                    <circle cx="112" cy="70" r="37" fill="#25d366" />
-                    <circle cx="112" cy="70" r="30" fill="#00a884" />
-                    <circle cx="112" cy="37" r="2.2" fill="#ffffff" />
-                    <circle cx="128" cy="41" r="2.2" fill="#ffffff" />
-                    <circle cx="142" cy="54" r="2.2" fill="#ffffff" />
-                    <circle cx="147" cy="70" r="2.2" fill="#ffffff" />
-                    <circle cx="142" cy="86" r="2.2" fill="#ffffff" />
-                    <circle cx="128" cy="99" r="2.2" fill="#ffffff" />
-                    <circle cx="112" cy="103" r="2.2" fill="#ffffff" />
-                    <circle cx="96" cy="99" r="2.2" fill="#ffffff" />
-                    <circle cx="82" cy="86" r="2.2" fill="#ffffff" />
-                    <circle cx="77" cy="69" r="2.2" fill="#ffffff" />
-                    <circle cx="81" cy="52" r="2.2" fill="#ffffff" />
-                    <circle cx="95" cy="39" r="2.2" fill="#ffffff" />
-                    <path
-                      d="M110 70 L133 47 C134.5 45.5 136.5 47.5 135 49 L114 72 Z"
-                      fill="#111b21"
-                    />
-                    <circle cx="112" cy="70" r="4.5" fill="#111b21" />
-                    <circle cx="72" cy="84" r="19" fill="#b9f5d0" />
-                    <circle cx="93" cy="94" r="14" fill="#b9f5d0" />
-                    <circle cx="81" cy="98" r="11" fill="#b9f5d0" />
-                    <circle cx="66" cy="64" r="6" fill="#b9f5d0" />
-                    <circle cx="162" cy="90" r="4.5" fill="#00a884" />
-                    <circle cx="170" cy="84" r="3" fill="#00a884" />
-                  </svg>
+                  <DisappearingMessagesIllustration width={200} height={125} />
                 </div>
 
                 <div className="px-6 mb-6">

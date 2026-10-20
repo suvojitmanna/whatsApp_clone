@@ -2,6 +2,17 @@ import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiExternalLink } from "react-icons/fi";
+import {
+  SelectCheckboxIcon,
+  GoToMessageIcon,
+  ReplyArrowIcon,
+  ReplyPrivatelyIcon,
+  DownloadIcon,
+  CopyIcon,
+  ForwardDoubleArrowIcon,
+  StarIcon,
+  TrashBinIcon,
+} from "./common/Icons";
 
 const MediaMenu = ({
   isOpen,
@@ -132,19 +143,7 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="9 11 12 14 22 4" />
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-              </svg>
+              <SelectCheckboxIcon />
             </span>
             <span className="leading-tight">Select</span>
           </button>
@@ -193,20 +192,7 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                <line x1="8" y1="9" x2="16" y2="9" />
-                <line x1="8" y1="13" x2="14" y2="13" />
-              </svg>
+              <GoToMessageIcon />
             </span>
             <span className="leading-tight">Go to message</span>
           </button>
@@ -223,19 +209,7 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="9 14 4 9 9 4" />
-                <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
-              </svg>
+              <ReplyArrowIcon />
             </span>
             <span className="leading-tight">Reply</span>
           </button>
@@ -253,21 +227,7 @@ const MediaMenu = ({
                 className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                   }`}
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="15" cy="7" r="3.5" />
-                  <path d="M19.5 19v-1a4 4 0 0 0-4-4h-2.5" />
-                  <polyline points="7 14 3 18 7 22" />
-                  <path d="M3 18h7a3 3 0 0 0 3-3v-1" />
-                </svg>
+                <ReplyPrivatelyIcon />
               </span>
               <span className="leading-tight">Reply privately</span>
             </button>
@@ -286,20 +246,7 @@ const MediaMenu = ({
                 className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                   }`}
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
+                <DownloadIcon />
               </span>
               <span className="leading-tight">Download</span>
             </button>
@@ -317,19 +264,7 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg>
+              <CopyIcon />
             </span>
             <span className="leading-tight">{isLinkItem ? "Copy link" : "Copy"}</span>
           </button>
@@ -346,20 +281,7 @@ const MediaMenu = ({
               className={`shrink-0 transition-colors ${isDark ? "text-[#8696a0] group-hover:text-white" : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="15 7 20 12 15 17" />
-                <path d="M4 18v-2a4 4 0 0 1 4-4h12" />
-                <polyline points="10 7 15 12 10 17" />
-              </svg>
+              <ForwardDoubleArrowIcon />
             </span>
             <span className="leading-tight">Forward</span>
           </button>
@@ -380,18 +302,7 @@ const MediaMenu = ({
                   : "text-[#54656f] group-hover:text-[#111b21]"
                 }`}
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill={isStarred ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
+              <StarIcon filled={isStarred} />
             </span>
             <span className="leading-tight">
               {isStarred ? "Unstar" : "Star"}
@@ -412,21 +323,7 @@ const MediaMenu = ({
               }`}
           >
             <span className="shrink-0 text-[#ea868f] transition-transform group-hover:scale-105">
-              <svg
-                viewBox="0 0 24 24"
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                <line x1="10" y1="11" x2="10" y2="17" />
-                <line x1="14" y1="11" x2="14" y2="17" />
-              </svg>
+              <TrashBinIcon />
             </span>
             <span className="leading-tight text-[#ea868f] font-medium">
               Delete

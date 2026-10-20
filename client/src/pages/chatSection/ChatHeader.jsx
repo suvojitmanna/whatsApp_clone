@@ -7,6 +7,8 @@ import { RxCross2 } from "react-icons/rx";
 import { HiDotsVertical } from "react-icons/hi";
 import formatTimestamp from "../../utils/formatTime";
 import { WhatsAppDisappearingIcon } from "./MessageBuble";
+import { ChevronUpIcon, ChevronDownIcon } from "../../components/common/Icons";
+import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 
 const ChatHeader = ({
   handleChatContextMenu,
@@ -38,6 +40,11 @@ const ChatHeader = ({
   setShowHeaderMenu,
   onCloseChat,
 }) => {
+  const isMetaAi =
+    selectedContact?.isAI ||
+    selectedContact?.username === "Meta AI" ||
+    String(selectedContact?._id) === META_AI_USER_ID;
+
   return (
     <div
       onContextMenu={handleChatContextMenu}
@@ -62,19 +69,32 @@ const ChatHeader = ({
       </button>
 
       <div className="relative ml-1 sm:ml-2">
-        <motion.img
-          layoutId="profile-image"
-          src={selectedContact?.profilePicture || "/default-avatar.png"}
-          alt={selectedContact?.username}
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowContactInfo(true);
-          }}
-          title="View contact info"
-          className="w-10 h-10 rounded-full cursor-pointer object-cover hover:opacity-90 active:scale-95 transition-all shadow-sm"
-        />
+        {isMetaAi ? (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowContactInfo(true);
+            }}
+            title="View Meta AI info"
+            className="cursor-pointer active:scale-95 transition-transform"
+          >
+            <MetaAiRing size={40} className="shadow-sm" />
+          </div>
+        ) : (
+          <motion.img
+            layoutId="profile-image"
+            src={selectedContact?.profilePicture || "/default-avatar.png"}
+            alt={selectedContact?.username}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowContactInfo(true);
+            }}
+            title="View contact info"
+            className="w-10 h-10 rounded-full cursor-pointer object-cover hover:opacity-90 active:scale-95 transition-all shadow-sm"
+          />
+        )}
 
-        {online && (
+        {online && !isMetaAi && (
           <span
             className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#202c33]" : "border-white"
               } bg-emerald-500 shadow-sm`}
@@ -105,18 +125,22 @@ const ChatHeader = ({
           >
             {selectedContact?.username}
           </h2>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              openContactInfoWithTab("security");
-            }}
-            title="End-to-end encrypted chat. Click to verify."
-            className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer"
-          >
-            <FaLock className="w-2.5 h-2.5" />
-            <span className="font-medium hidden sm:inline">Encrypted</span>
-          </button>
+          {isMetaAi ? (
+            <div className=""></div>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                openContactInfoWithTab("security");
+              }}
+              title="End-to-end encrypted chat. Click to verify."
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+            >
+              <FaLock className="w-2.5 h-2.5" />
+              <span className="font-medium hidden sm:inline">Encrypted</span>
+            </button>
+          )}
 
           {disappearingDuration !== "Off" && (
             <button
@@ -135,7 +159,11 @@ const ChatHeader = ({
         </div>
 
         {isTyping ? (
-          <div className="text-xs sm:text-sm text-emerald-500 font-medium">Typing...</div>
+          <div className="text-xs sm:text-sm text-emerald-500 font-medium">
+            {isMetaAi ? "thinking..." : "Typing..."}
+          </div>
+        ) : isMetaAi ? (
+          <div></div>
         ) : (
           <p
             className={`text-xs sm:text-sm truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
@@ -237,19 +265,7 @@ const ChatHeader = ({
                           title="Previous match"
                           className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-90 transition-all duration-200 cursor-pointer"
                         >
-                          <svg
-                            className="w-3 h-3 group-hover:-translate-y-[1px] transition-transform"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2.5}
-                              d="M5 15l7-7 7 7"
-                            />
-                          </svg>
+                          <ChevronUpIcon className="w-3 h-3 group-hover:-translate-y-[1px] transition-transform" />
                         </button>
 
                         <button
@@ -258,19 +274,7 @@ const ChatHeader = ({
                           title="Next match"
                           className="group p-1.5 rounded-full text-gray-500 dark:text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-500/10 active:scale-90 transition-all duration-200 cursor-pointer"
                         >
-                          <svg
-                            className="w-3 h-3 group-hover:translate-y-[1px] transition-transform"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2.5}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
+                          <ChevronDownIcon className="w-3 h-3 group-hover:translate-y-[1px] transition-transform" />
                         </button>
                       </div>
                     </div>
@@ -291,21 +295,25 @@ const ChatHeader = ({
       </div>
 
       <div className="flex items-center space-x-2 sm:space-x-3">
-        <button
-          className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
-          onClick={handleVideoCall}
-          title={online ? "Start video call" : "user is offline"}
-        >
-          <FaVideo className="h-5 w-5 text-emerald-500 hover:text-emerald-600" />
-        </button>
+        {!isMetaAi && (
+          <>
+            <button
+              className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
+              onClick={handleVideoCall}
+              title={online ? "Start video call" : "user is offline"}
+            >
+              <FaVideo className="h-5 w-5 text-emerald-500 hover:text-emerald-600" />
+            </button>
 
-        <button
-          className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
-          onClick={handleAudioCall}
-          title={online ? "Start audio call" : "user is offline"}
-        >
-          <FaPhone className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />
-        </button>
+            <button
+              className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
+              onClick={handleAudioCall}
+              title={online ? "Start audio call" : "user is offline"}
+            >
+              <FaPhone className="h-4 w-4 text-emerald-500 hover:text-emerald-600" />
+            </button>
+          </>
+        )}
 
         <button
           ref={headerMenuBtnRef}

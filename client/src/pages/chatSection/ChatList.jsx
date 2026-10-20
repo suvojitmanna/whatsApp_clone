@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import useThemeStore from "../../store/themeStore";
 import useLayoutStore from "../../store/layoutStore";
 import useUserStore from "../../store/useUserStore";
@@ -14,7 +15,7 @@ import {
   FaCaretDown,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
-import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit } from "react-icons/md";
+import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam, MdLink } from "react-icons/md";
 import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill, RiDeleteBin6Line } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
@@ -24,9 +25,16 @@ import { toast } from "react-toastify";
 import formatTimestamp, { getDisappearingDurationMs } from "../../utils/formatTime";
 import { useChatStore } from "../../store/chatStore";
 import { WhatsAppPinIcon, WhatsAppDisappearingIcon } from "./MessageBuble";
+import {
+  ProhibitedIcon,
+  ArrowLeftIcon,
+  ArchivedBoxIcon,
+  MutedBellIcon,
+} from "../../components/common/Icons";
 import AddToListModal from "../../components/AddToListModal";
 import ListPanelOverChatList from "../../components/ListPanelOverChatList";
 import ChatlistMenu from "./ChatlistMenu";
+import ChatHoverPreview from "./ChatHoverPreview";
 import {
   getAllLists,
   isContactInList,
@@ -34,6 +42,7 @@ import {
   deleteCustomList,
 } from "../../utils/chatListsUtil";
 import { AVATAR_BG_COLORS } from "../../assets/rawData";
+import { MetaAiRing, META_AI_USER_ID, META_AI_AVATAR } from "../../components/common/MetaAiIcon";
 
 export const getAvatarBg = (name) => {
   if (!name) return AVATAR_BG_COLORS[0];
@@ -60,6 +69,10 @@ const ContactAvatar = ({ contact }) => {
   const [hasError, setHasError] = useState(false);
   const pic = contact?.profilePicture;
   const username = contact?.username || "User";
+
+  if (contact?.isAI || username === "Meta AI" || String(contact?._id) === META_AI_USER_ID) {
+    return <MetaAiRing size={48} className="shadow-xs" />;
+  }
 
   const showLetter = !pic || pic === "/default-avatar.png" || hasError;
 
@@ -164,6 +177,10 @@ export const getPinnedItemTypeAndLabel = (msg) => {
   }
   if (contentType === "location" || msg.locationData || content.startsWith("Location:")) {
     return { type: "location", target: "a location" };
+  }
+  if (contentType === "call") {
+    const isVid = msg.callData?.callType === "video" || msg.callType === "video";
+    return { type: isVid ? "video call" : "voice call", target: isVid ? "a video call" : "a voice call" };
   }
 
   return { type: "message", target: "a message" };
@@ -334,20 +351,7 @@ const getLastMessagePreview = (lastMessage) => {
       String(lastMessage.sender?._id || lastMessage.sender) === String(currentUserId);
     return {
       icon: (
-        <svg
-          viewBox="0 0 24 24"
-          width="13"
-          height="13"
-          className="inline mr-1 text-[#8696a0] shrink-0"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-        </svg>
+        <ProhibitedIcon size={13} className="inline mr-1 text-[#8696a0] shrink-0" />
       ),
       text: isMe ? "You deleted this message" : "This message was deleted",
       isDeleted: true,
@@ -363,20 +367,7 @@ const getLastMessagePreview = (lastMessage) => {
   ) {
     return {
       icon: (
-        <svg
-          viewBox="0 0 24 24"
-          width="13"
-          height="13"
-          className="inline mr-1 text-[#8696a0] shrink-0"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-        </svg>
+        <ProhibitedIcon size={13} className="inline mr-1 text-[#8696a0] shrink-0" />
       ),
       text: "You deleted this message",
       isDeleted: true,
@@ -504,6 +495,43 @@ const getLastMessagePreview = (lastMessage) => {
     };
   }
 
+  if (contentType === "call") {
+    const isVideo = lastMessage.callData?.callType === "video" || lastMessage.callType === "video";
+    const duration = lastMessage.callData?.duration || lastMessage.duration || "Voice call";
+    const isMissed = lastMessage.callData?.direction === "missed" || lastMessage.callData?.status === "missed" || lastMessage.status === "missed";
+    return {
+      icon: isVideo ? (
+        <MdOutlineVideocam className={`inline mr-1 shrink-0 ${isMissed ? "text-red-500" : "text-emerald-500"}`} size={14} />
+      ) : (
+        <MdOutlineCall className={`inline mr-1 shrink-0 ${isMissed ? "text-red-500" : "text-emerald-500"}`} size={14} />
+      ),
+      text: isVideo ? `Video call (${duration})` : `Voice call (${duration})`,
+      isEncrypted: false,
+    };
+  }
+
+  if (
+    contentType === "call_link" ||
+    Boolean(lastMessage.callLinkData) ||
+    (typeof lastMessage.content === "string" &&
+      lastMessage.content.includes("call.whatsapp.com"))
+  ) {
+    const isVideo =
+      lastMessage.callLinkData?.callType === "video" ||
+      (typeof lastMessage.content === "string" &&
+        lastMessage.content.includes("/video/"));
+    return {
+      icon: (
+        <MdLink
+          className="inline mr-1 text-[#00a884] shrink-0 transform -rotate-45"
+          size={14}
+        />
+      ),
+      text: isVideo ? "WhatsApp Video call link" : "WhatsApp Voice call link",
+      isEncrypted: false,
+    };
+  }
+
   if (imageOrVideoUrl) {
     const isVid = imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i);
     const isAud = imageOrVideoUrl.match(/\.(mp3|wav|ogg|m4a|aac)($|\?)/i);
@@ -574,6 +602,66 @@ const getLastMessagePreview = (lastMessage) => {
   }
 
   return null;
+};
+
+export const getFullMessageTooltip = (lastMsg) => {
+  if (!lastMsg) return "";
+  if (lastMsg.deletedForEveryone) return "This message was deleted";
+  if (lastMsg.contentType === "poll" || lastMsg.pollData) {
+    let pData = lastMsg.pollData;
+    if (typeof pData === "string") {
+      try {
+        pData = JSON.parse(pData);
+      } catch { }
+    }
+    const q = pData?.question || lastMsg.content || "Poll";
+    const opts =
+      pData?.options
+        ?.map(
+          (o, idx) =>
+            `${idx + 1}. ${typeof o === "string" ? o : o?.text || ""}`
+        )
+        .join("\n") || "";
+    return opts ? `Poll: ${q}\n${opts}` : `Poll: ${q}`;
+  }
+  if (lastMsg.contentType === "image" || lastMsg.contentType === "photo") {
+    const caption =
+      lastMsg.content && lastMsg.content !== "Photo"
+        ? `Photo: ${lastMsg.content}`
+        : "Photo";
+    return caption;
+  }
+  if (lastMsg.contentType === "video") {
+    const caption =
+      lastMsg.content && lastMsg.content !== "Video"
+        ? `Video: ${lastMsg.content}`
+        : "Video";
+    return caption;
+  }
+  if (lastMsg.contentType === "document" || lastMsg.fileName) {
+    return `Document: ${lastMsg.fileName || lastMsg.content || "File"}`;
+  }
+  if (lastMsg.contentType === "audio") {
+    return "Voice message";
+  }
+  if (lastMsg.contentType === "sticker") {
+    return "Sticker";
+  }
+  if (lastMsg.contentType === "contact") {
+    return `Contact: ${lastMsg.contactData?.name || lastMsg.content || ""}`;
+  }
+  if (lastMsg.contentType === "event") {
+    return `Event: ${lastMsg.eventData?.title || lastMsg.content || ""}`;
+  }
+  if (
+    lastMsg.contentType === "call_link" ||
+    Boolean(lastMsg.callLinkData) ||
+    (typeof lastMsg.content === "string" &&
+      lastMsg.content.includes("call.whatsapp.com"))
+  ) {
+    return lastMsg.content || "WhatsApp call link";
+  }
+  return typeof lastMsg.content === "string" ? lastMsg.content : "";
 };
 
 export const isChatPinned = (contact, pinnedList) => {
@@ -663,6 +751,33 @@ const ChatList = ({ contacts }) => {
     setListPanel((prev) => ({ ...prev, isOpen: false }));
   };
 
+  const handleSelectMetaAi = (initialPrompt = "") => {
+    let metaAiUser = contacts?.find(
+      (c) => c?.isAI || c?.username === "Meta AI" || String(c?._id) === META_AI_USER_ID
+    );
+    if (!metaAiUser) {
+      metaAiUser = {
+        _id: META_AI_USER_ID,
+        username: "Meta AI",
+        about: "Ask me anything, imagine images, and explore new ideas. Powered by AI.",
+        isVerified: true,
+        isAI: true,
+        isOnline: true,
+        profilePicture: META_AI_AVATAR,
+      };
+    }
+    setSelectedContact(metaAiUser);
+    if (initialPrompt && initialPrompt.trim()) {
+      setTimeout(() => {
+        useChatStore.getState().sendMessage({
+          receiverId: metaAiUser._id,
+          content: initialPrompt.trim(),
+        });
+      }, 150);
+    }
+    setSearchTerms("");
+  };
+
   const [showListsDropdown, setShowListsDropdown] = useState(false);
   const [listToDelete, setListToDelete] = useState(null);
   const listsDropdownRef = useRef(null);
@@ -697,6 +812,49 @@ const ChatList = ({ contacts }) => {
     }
   });
   const [showArchivedOnly, setShowArchivedOnly] = useState(false);
+
+  const [hoveredPreviewData, setHoveredPreviewData] = useState(null);
+  const hoverTimerRef = useRef(null);
+
+  const handleChatMouseEnter = (contact, lastMsg, e) => {
+    if (!lastMsg) return;
+    const el = e.currentTarget;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+    }
+
+    hoverTimerRef.current = setTimeout(() => {
+      const tooltipMaxWidth = 580;
+      const padding = 12;
+      let left = rect.left + 64;
+      let top = rect.top + 26;
+
+      if (left + tooltipMaxWidth > window.innerWidth - padding) {
+        left = Math.max(padding, window.innerWidth - tooltipMaxWidth - padding);
+      }
+
+      if (top + 260 > window.innerHeight - padding) {
+        top = Math.max(padding, window.innerHeight - 280);
+      }
+
+      setHoveredPreviewData({
+        contact,
+        lastMsg,
+        coords: { left, top },
+      });
+    }, 180);
+  };
+
+  const handleChatMouseLeave = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoveredPreviewData(null);
+  };
 
   useEffect(() => {
     const handlePinnedChanged = () => {
@@ -964,6 +1122,17 @@ const ChatList = ({ contacts }) => {
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={() => handleSelectMetaAi()}
+            title="Meta AI"
+            className={`p-2 rounded-full transition-all cursor-pointer hover:scale-110 active:scale-95 ${theme === "dark"
+              ? "hover:bg-white/10"
+              : "hover:bg-black/5"
+              }`}
+          >
+            <MetaAiRing size={20} />
+          </button>
+          <button
+            type="button"
             onClick={() => searchInputRef.current?.focus()}
             title="New chat"
             className={`p-2 rounded-full transition-colors cursor-pointer ${theme === "dark"
@@ -987,40 +1156,104 @@ const ChatList = ({ contacts }) => {
         </div>
       </div>
 
-      <div className="px-3 pt-1 pb-2">
+      <div className="px-3 pt-1 pb-2 relative z-30">
         <div
-          className={`flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all duration-200 group border border-transparent focus-within:border-[#00a884] ring-1 ring-[#00a884]/40 focus-within:ring-2 focus-within:ring-[#00a884] ${theme === "dark"
-            ? "bg-[#202c33] text-[#e9edef]"
-            : "bg-[#f0f2f5] text-[#111b21]"
+          className={`flex items-center gap-3 px-4 py-2 rounded-full border-2 transition-all duration-200 ${theme === "dark"
+            ? "bg-[#161a1d] text-[#e9edef] border-[#00c878]"
+            : "bg-[#f0f2f5] text-[#111b21] border-[#00a884]"
             }`}
         >
           <FaSearch
-            className={`shrink-0 transition-colors group-focus-within:text-[#00a884] ${theme === "dark" ? "text-[#8696a0]" : "text-[#54656f]"
+            className={`shrink-0 ${theme === "dark" ? "text-[#aebac1]" : "text-[#54656f]"
               }`}
-            size={13}
+            size={16}
           />
+
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Search or start a new chat"
+            placeholder="Ask Meta AI or Search"
             className={`w-full bg-transparent text-[14px] outline-none border-none ${theme === "dark"
-              ? "text-[#e9edef] placeholder-[#8696a0]"
-              : "text-[#111b21] placeholder-[#54656f]"
+              ? "text-[#e9edef] placeholder:text-[#aebac1]"
+              : "text-[#111b21] placeholder:text-[#54656f]"
               }`}
             value={searchTerms}
             onChange={(e) => setSearchTerms(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && searchTerms.trim()) {
+                e.preventDefault();
+                handleSelectMetaAi(searchTerms);
+              }
+            }}
           />
-          {searchTerms && (
+
+          {searchTerms ? (
             <button
               type="button"
               onClick={() => setSearchTerms("")}
-              className="p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 text-[#8696a0] hover:text-[#e9edef] transition-all cursor-pointer"
+              className={`p-1 rounded-full transition-colors cursor-pointer ${theme === "dark"
+                ? "text-[#8696a0] hover:bg-white/10 hover:text-white"
+                : "text-[#54656f] hover:bg-black/10 hover:text-[#111b21]"
+                }`}
               title="Clear search"
             >
               <RxCross2 className="w-3.5 h-3.5" />
             </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleSelectMetaAi()}
+              title="Ask Meta AI"
+              className="p-1 rounded-full hover:scale-110 active:scale-95 transition-transform cursor-pointer shrink-0"
+            >
+              <MetaAiRing size={19} />
+            </button>
           )}
         </div>
+
+        {searchTerms.trim() && (
+          <div
+            className={`absolute left-3 right-3 top-[48px] rounded-2xl shadow-2xl border p-2 z-50 flex flex-col gap-1 backdrop-blur-md animate-in fade-in duration-150 ${
+              theme === "dark"
+                ? "bg-[#202c33]/98 border-gray-700/80 text-white"
+                : "bg-white/98 border-gray-200 text-gray-900"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => handleSelectMetaAi(searchTerms)}
+              className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <MetaAiRing size={22} />
+              <div className="flex-1 min-w-0">
+                <span className="text-[13px] font-semibold text-[#00a884] dark:text-[#25d366] block">
+                  Ask Meta AI
+                </span>
+                <span className="text-[12px] opacity-80 truncate block">
+                  "{searchTerms}"
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectMetaAi(`/imagine ${searchTerms}`)}
+              className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <div className="w-5.5 h-5.5 rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-indigo-500 flex items-center justify-center text-white text-[12px] font-bold shadow-xs">
+                🎨
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[13px] font-semibold text-purple-400 block">
+                  Imagine with Meta AI
+                </span>
+                <span className="text-[12px] opacity-80 truncate block">
+                  "/imagine {searchTerms}"
+                </span>
+              </div>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="px-3 pb-2 pt-0.5 flex items-center justify-between gap-1.5 select-none border-b border-black/[0.06] dark:border-white/5 relative z-20">
@@ -1244,7 +1477,14 @@ const ChatList = ({ contacts }) => {
 
       <div
         ref={listContainerRef}
-        onScroll={(e) => setChatListScrollTop(e.target.scrollTop)}
+        onScroll={(e) => {
+          setChatListScrollTop(e.target.scrollTop);
+          if (hoverTimerRef.current) {
+            clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = null;
+          }
+          if (hoveredPreviewData) setHoveredPreviewData(null);
+        }}
         className="overflow-y-auto flex-1 custom-scrollbar"
       >
         {archivedCount > 0 && !searchTerms && activeListFilter === "All" && (
@@ -1258,22 +1498,11 @@ const ChatList = ({ contacts }) => {
             >
               <button
                 type="button"
+                onClick={() => setShowArchivedOnly(false)}
                 className="p-1 hover:bg-white/10 rounded-full cursor-pointer"
                 title="Back to all chats"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="18"
-                  height="18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="19" y1="12" x2="5" y2="12"></line>
-                  <polyline points="12 19 5 12 12 5"></polyline>
-                </svg>
+                <ArrowLeftIcon size={18} />
               </button>
               <span className="font-semibold text-[15px]">
                 Archived ({archivedCount})
@@ -1288,22 +1517,7 @@ const ChatList = ({ contacts }) => {
                 }`}
             >
               <div className="flex items-center gap-3.5">
-                <svg
-                  viewBox="0 0 24 24"
-                  width="19"
-                  height="19"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-[#00a884] shrink-0"
-                >
-                  <rect x="3" y="4" width="18" height="4" rx="1"></rect>
-                  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path>
-                  <line x1="12" y1="12" x2="12" y2="16"></line>
-                  <polyline points="9 14 12 17 15 14"></polyline>
-                </svg>
+                <ArchivedBoxIcon size={19} className="text-[#00a884] shrink-0" />
                 <span className="font-medium text-[15px]">Archived</span>
               </div>
               <span className="text-xs text-[#00a884] font-semibold">{archivedCount}</span>
@@ -1401,7 +1615,8 @@ const ChatList = ({ contacts }) => {
               <motion.div
                 key={contact._id}
                 data-contact-id={contact._id}
-                title={`Chat with ${contact?.username || "user"}`}
+                onMouseEnter={(e) => handleChatMouseEnter(contact, lastMsg, e)}
+                onMouseLeave={handleChatMouseLeave}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setChatlistMenu({
@@ -1464,9 +1679,14 @@ const ChatList = ({ contacts }) => {
 
                 <div className="ml-3 flex-1 min-w-0">
                   <div className="flex justify-between items-baseline gap-2">
-                    <h2 className={`font-medium text-[16px] truncate ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"}`}>
-                      {contact?.username}
-                    </h2>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h2
+                        title={`Chat with ${contact?.username || "user"}`}
+                        className={`font-medium text-[16px] truncate ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"}`}
+                      >
+                        {contact?.username}
+                      </h2>
+                    </div>
                     {(contact?.conversation || contactPin || hasDisappearing) && (
                       <span
                         className={`text-[12px] shrink-0 ${theme === "dark" ? "text-[#8696a0]" : "text-[#667781]"}`}
@@ -1484,9 +1704,18 @@ const ChatList = ({ contacts }) => {
                     >
                       {(() => {
                         if (isTyping) {
+                          const isAi = contact?.isAI || contact?.username === "Meta AI" || String(contact?._id) === META_AI_USER_ID;
                           return (
                             <span className="font-medium text-emerald-500 flex-shrink-0">
-                              typing...
+                              {isAi ? "Meta AI is thinking..." : "typing..."}
+                            </span>
+                          );
+                        }
+
+                        if (!lastMsg && (contact?.isAI || contact?.username === "Meta AI" || String(contact?._id) === META_AI_USER_ID)) {
+                          return (
+                            <span className="text-[13px] opacity-75 truncate">
+                              Ask me anything, imagine images...
                             </span>
                           );
                         }
@@ -1601,7 +1830,9 @@ const ChatList = ({ contacts }) => {
                                 );
                               })()}
                               {preview.icon}
-                              <span className={`truncate ${preview.isDeleted ? "italic opacity-80" : ""}`}>
+                              <span
+                                className={`truncate ${preview.isDeleted ? "italic opacity-80" : ""}`}
+                              >
                                 {preview.text}
                               </span>
                               {lastMsg?.edited && (
@@ -1700,24 +1931,11 @@ const ChatList = ({ contacts }) => {
                       )}
 
                       {isChatMuted(contact, mutedChats) && (
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="13"
-                          height="13"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                        <MutedBellIcon
+                          size={13}
                           className="text-[#8696a0] shrink-0"
                           title="Notifications muted"
-                        >
-                          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                          <path d="M18.63 13A17.89 17.89 0 0 1 18 8"></path>
-                          <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"></path>
-                          <path d="M18 8a6 6 0 0 0-9.33-5"></path>
-                          <line x1="1" y1="1" x2="23" y2="23"></line>
-                        </svg>
+                        />
                       )}
 
                       {(isChatPinned(contact, pinnedChats) || contactPin) && (
@@ -1864,6 +2082,19 @@ const ChatList = ({ contacts }) => {
           </div>
         )}
       </AnimatePresence>
+
+      {hoveredPreviewData && typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          <ChatHoverPreview
+            contact={hoveredPreviewData.contact}
+            lastMsg={hoveredPreviewData.lastMsg}
+            coords={hoveredPreviewData.coords}
+            theme={theme}
+            currentUserId={user?._id || user?.id}
+          />
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

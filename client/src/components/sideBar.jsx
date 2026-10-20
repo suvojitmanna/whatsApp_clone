@@ -1,21 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import useThemeStore from "../store/themeStore";
 import useUserStore from "../store/useUserStore";
 import useLayoutStore from "../store/layoutStore";
+import { useChatStore } from "../store/chatStore";
 import { FaWhatsapp, FaUserCircle, FaCog } from "react-icons/fa";
 import { MdOutlineCall, MdRadioButtonChecked } from "react-icons/md";
 import { motion } from "framer-motion";
 import { WhatsAppMediaFolderIcon } from "./Media";
+import { MetaAiRing, META_AI_USER_ID, META_AI_AVATAR } from "./common/MetaAiIcon";
 
 const sideBar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const { theme } = useThemeStore();
   const { user } = useUserStore();
-  const { activeTab, setActiveTab, selectedContact, isMediaModalOpen, openMediaModal } =
-    useLayoutStore();
+  const { activeTab, setActiveTab, selectedContact, setSelectedContact, isMediaModalOpen, openMediaModal } = useLayoutStore();
+  const isDark = theme === "dark";
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -82,6 +85,48 @@ const sideBar = () => {
             <MdRadioButtonChecked className="h-6 w-6" />
           </motion.div>
         </Link>
+
+        <div
+          className={`h-px w-12 self-center ${isDark ? "bg-white/15" : "bg-black/15"
+            }`}
+        />
+
+
+        <button
+          type="button"
+          onClick={() => {
+            const users = useChatStore.getState()?.users || [];
+            const metaAiUser = users.find(
+              (u) => u?.isAI || u?.username === "Meta AI" || String(u?._id) === META_AI_USER_ID
+            ) || {
+              _id: META_AI_USER_ID,
+              username: "Meta AI",
+              isAI: true,
+              isVerified: true,
+              isOnline: true,
+              profilePicture: META_AI_AVATAR,
+              about: "Ask me anything, imagine images, and explore new ideas.",
+            };
+            setSelectedContact(metaAiUser);
+            if (location.pathname !== "/") {
+              navigate("/");
+            }
+          }}
+          title="Meta AI"
+          aria-label="Meta AI"
+          className="outline-none focus:outline-none cursor-pointer"
+        >
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            className={`relative transition-all duration-300 ease-in-out p-2 rounded-2xl flex items-center justify-center cursor-pointer border ${selectedContact?.isAI || selectedContact?.username === "Meta AI" || String(selectedContact?._id) === META_AI_USER_ID
+              ? "bg-gradient-to-tr from-[#00c6ff]/20 via-[#0072ff]/20 to-[#a855f7]/20 border-cyan-500/40 ring-1 ring-cyan-500/30"
+              : "border-transparent hover:bg-black/5 dark:hover:bg-white/10"
+              }`}
+          >
+            <MetaAiRing size={24} />
+          </motion.div>
+        </button>
       </div>
 
       {!isMobile && <div className="flex-grow" />}

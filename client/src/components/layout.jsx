@@ -12,6 +12,7 @@ import MessageInfoPanel from "../components/MessageInfoPanel";
 import StatusPlaceholder from "./StatusPlaceholder";
 import MediaModal from "./MediaModal";
 import VideoCallManager from "../pages/videoCall/videoCallManager";
+import { META_AI_USER_ID } from "./common/MetaAiIcon";
 
 const Layout = ({
   children,
@@ -119,6 +120,19 @@ const Layout = ({
             onClose={() => setShowProfilePicture(false)}
             image={selectedContact?.profilePicture}
             username={selectedContact?.username}
+            isMetaAi={Boolean(
+              selectedContact?.isAI ||
+              selectedContact?.username === "Meta AI" ||
+              String(selectedContact?._id) === META_AI_USER_ID ||
+              String(selectedContact?.id) === META_AI_USER_ID ||
+              (Array.isArray(selectedContact?.participants) &&
+                selectedContact.participants.some(
+                  (p) =>
+                    p?.isAI ||
+                    p?.username === "Meta AI" ||
+                    String(p?._id || p) === META_AI_USER_ID
+                ))
+            )}
           />
         )}
 

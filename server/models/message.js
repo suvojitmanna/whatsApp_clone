@@ -55,8 +55,19 @@ const messageSchema = new mongoose.Schema(
         "poll",
         "event",
         "sticker",
+        "call",
+        "call_link",
+        "ai_image",
       ],
       default: "text",
+    },
+    isMetaAi: {
+      type: Boolean,
+      default: false,
+    },
+    metaAiPrompt: {
+      type: String,
+      default: null,
     },
     isEncrypted: {
       type: Boolean,
@@ -95,6 +106,14 @@ const messageSchema = new mongoose.Schema(
     eventData: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
+    },
+    callData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    callLinkData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
     edited: {
       type: Boolean,

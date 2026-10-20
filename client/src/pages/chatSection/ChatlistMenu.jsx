@@ -19,26 +19,13 @@ import {
   getContactListNames,
   toggleContactList,
 } from "../../utils/chatListsUtil";
-
-const MuteIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    width="19"
-    height="19"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="shrink-0"
-  >
-    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    <path d="M18.63 13A17.89 17.89 0 0 1 18 8" />
-    <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14" />
-    <path d="M18 8a6 6 0 0 0-9.33-5" />
-    <line x1="1" y1="1" x2="23" y2="23" />
-  </svg>
-);
+import {
+  MutedBellIcon,
+  ArchivedBoxIcon,
+  MarkUnreadIcon,
+  AddToListIcon,
+  MinusCircleIcon,
+} from "../../components/common/Icons";
 
 const ChatlistMenu = ({
   isOpen,
@@ -444,22 +431,7 @@ const ChatlistMenu = ({
                 onClick={handleToggleArchive}
                 className={itemClass}
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="19"
-                  height="19"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="shrink-0"
-                >
-                  <rect x="3" y="4" width="18" height="4" rx="1"></rect>
-                  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"></path>
-                  <line x1="12" y1="12" x2="12" y2="16"></line>
-                  <polyline points="9 14 12 17 15 14"></polyline>
-                </svg>
+                <ArchivedBoxIcon />
                 <span className="truncate">
                   {isArchived ? "Unarchive chat" : "Archive chat"}
                 </span>
@@ -481,7 +453,7 @@ const ChatlistMenu = ({
                   }}
                   className={itemClass}
                 >
-                  <MuteIcon />
+                  <MutedBellIcon />
 
                   <span className="truncate">
                     {isMuted ? "Unmute notifications" : "Mute notifications"}
@@ -535,22 +507,7 @@ const ChatlistMenu = ({
                 onClick={handleToggleUnread}
                 className={itemClass}
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="19"
-                  height="19"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="shrink-0"
-                >
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h9"></path>
-                  <line x1="7" y1="9" x2="13" y2="9"></line>
-                  <line x1="7" y1="13" x2="11" y2="13"></line>
-                  <circle cx="18" cy="6" r="3" fill="currentColor"></circle>
-                </svg>
+                <MarkUnreadIcon />
                 <span className="truncate">
                   {isUnread ? "Mark as read" : "Mark as unread"}
                 </span>
@@ -579,22 +536,7 @@ const ChatlistMenu = ({
                   }}
                   className={itemClass}
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="19"
-                    height="19"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="shrink-0"
-                  >
-                    <rect x="3" y="3" width="14" height="14" rx="2"></rect>
-                    <path d="M7 21h12a2 2 0 0 0 2-2V7"></path>
-                    <circle cx="9" cy="9" r="1.5" fill="currentColor"></circle>
-                    <path d="M4 15l4-3 5 4"></path>
-                  </svg>
+                  <AddToListIcon />
                   <span className="truncate">Add to list</span>
                   <span className="ml-auto text-[9px] opacity-70"><MdArrowRight size={25} /></span>
                 </button>
@@ -679,20 +621,7 @@ const ChatlistMenu = ({
                   : "hover:!bg-red-50 hover:!border-red-200 hover:!text-red-600"
                   }`}
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  width="19"
-                  height="19"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="shrink-0"
-                >
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="8" y1="12" x2="16" y2="12"></line>
-                </svg>
+                <MinusCircleIcon />
                 <span className="truncate">Clear chat</span>
               </button>
 

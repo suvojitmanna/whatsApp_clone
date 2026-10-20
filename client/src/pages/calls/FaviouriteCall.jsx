@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import useThemeStore from "../../store/themeStore";
-import useCallStore, { SEED_FAVOURITE_CANDIDATES } from "../../store/useCallStore";
+import useCallStore from "../../store/useCallStore";
 import {
   MdClose,
   MdSearch,
@@ -8,163 +8,56 @@ import {
   MdArrowBack,
   MdEdit,
   MdAdd,
-  MdDragHandle,
   MdVerified,
+  MdOutlineCall,
+  MdOutlineVideocam,
 } from "react-icons/md";
 import { FaUser } from "react-icons/fa";
+import { FavouritesEmptyIllustration } from "../../components/common/Icons";
+import { getAvatarBg, getAvatarInitial } from "../chatSection/ChatList";
 
 export const ContactAvatar = ({ contact, size = 48, className = "" }) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
 
   const username = contact?.username || contact?.name || "";
-  const avatarType = contact?.avatarType;
   const profilePicture = contact?.profilePicture || contact?.avatar;
 
-  if (avatarType === "amazon" || username.toLowerCase() === "amazon") {
+  if (profilePicture && profilePicture !== "/default-avatar.png") {
     return (
       <div
         style={{ width: size, height: size }}
-        className={`rounded-full bg-[#d69e66] flex flex-col items-center justify-center relative overflow-hidden shrink-0 shadow-sm ${className}`}
+        className={`rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-xs ${
+          isDark ? "bg-[#374248]" : "bg-[#dfe5e7]"
+        } ${className}`}
       >
-        <div className="w-5 h-2.5 bg-[#00a8e1] rounded-b-sm absolute top-0 shadow-xs" />
-        <svg
-          viewBox="0 0 36 20"
-          className="w-7 h-4 text-black mt-2"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        >
-          <path d="M 4 12 Q 18 20 32 8" />
-          <path d="M 28 6 L 32 8 L 30 13" fill="currentColor" />
-        </svg>
-      </div>
-    );
-  }
-
-  if (
-    avatarType === "flipkart" ||
-    username.toLowerCase().includes("flipkart")
-  ) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-[#fed700] flex items-center justify-center relative overflow-hidden shrink-0 shadow-sm ${className}`}
-      >
-        <div className="w-6 h-7 bg-[#2874f0] rounded-sm flex flex-col items-center justify-center relative shadow-xs">
-          <div className="w-2.5 h-1.5 border-t-2 border-l-2 border-r-2 border-[#fed700] -mt-1 rounded-t-sm" />
-          <span className="text-[#fed700] text-xs font-black italic">f</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (
-    avatarType === "prime" ||
-    username.toLowerCase().includes("prime video")
-  ) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-[#00a8e1] flex flex-col items-center justify-center relative overflow-hidden shrink-0 shadow-sm ${className}`}
-      >
-        <span className="text-white font-bold text-[9px] tracking-tight leading-none">
-          prime
-        </span>
-        <span className="text-white font-semibold text-[8px] tracking-tight leading-none">
-          video
-        </span>
-        <svg
-          viewBox="0 0 20 6"
-          className="w-4 h-1.5 text-white mt-0.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        >
-          <path d="M 2 3 Q 10 7 18 2" />
-        </svg>
-      </div>
-    );
-  }
-
-  if (avatarType === "hostel" || username.toLowerCase().includes("h4 batch")) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-[#a06859] flex items-center justify-center relative overflow-hidden shrink-0 border border-amber-900/40 shadow-sm ${className}`}
-      >
-        <div className="bg-[#e4cfb7] px-1 py-0.5 rounded text-[8px] font-black tracking-widest text-[#5a2e1d] uppercase border border-[#bfa286]">
-          HOSTEL
-        </div>
-      </div>
-    );
-  }
-
-  if (avatarType === "lme" || username.toLowerCase().includes("lme 2024")) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-white flex flex-col items-center justify-center relative overflow-hidden shrink-0 border border-gray-300 shadow-sm ${className}`}
-      >
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex flex-col gap-0.5 opacity-80">
-          <div className="h-0.5 bg-red-500 w-full" />
-          <div className="h-0.5 bg-yellow-400 w-full" />
-          <div className="h-0.5 bg-green-500 w-full" />
-          <div className="h-0.5 bg-blue-500 w-full" />
-        </div>
-        <span className="text-[#111b21] font-black text-xs relative z-10 bg-white/70 px-1 rounded">
-          LME
-        </span>
-      </div>
-    );
-  }
-
-  if (avatarType === "mar" || username.toLowerCase().includes("mar support")) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full bg-white flex flex-col items-center justify-center relative overflow-hidden shrink-0 border border-gray-200 shadow-sm ${className}`}
-      >
-        <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-red-500 flex items-center justify-center font-black text-[9px] text-blue-600">
-          R
-        </div>
-        <span className="text-[6px] font-bold text-gray-700 leading-none mt-0.5">
-          Get MAR
-        </span>
-      </div>
-    );
-  }
-
-  if (username.toLowerCase().includes("baba") || !profilePicture) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className={`rounded-full flex items-center justify-center shrink-0 shadow-xs ${isDark ? "bg-[#374248]" : "bg-[#dfe5e7]"
-          } ${className}`}
-      >
-        <FaUser
-          className={`text-xl ${isDark ? "text-[#f3a847]" : "text-[#54656f]"}`}
+        <img
+          src={profilePicture}
+          alt={username}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
         />
       </div>
     );
   }
 
+  const bg = getAvatarBg(username);
+  const initial = getAvatarInitial(username);
+
   return (
     <div
-      style={{ width: size, height: size }}
-      className={`rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-xs ${isDark ? "bg-[#374248]" : "bg-[#dfe5e7]"
-        } ${className}`}
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: bg,
+      }}
+      className={`rounded-full flex items-center justify-center shrink-0 shadow-xs text-white font-semibold select-none ${className}`}
     >
-      <img
-        src={profilePicture}
-        alt={username}
-        className="w-full h-full object-cover"
-        onError={(e) => {
-          e.currentTarget.style.display = "none";
-        }}
-      />
+      <span style={{ fontSize: Math.max(12, Math.round(size * 0.42)) }}>
+        {initial}
+      </span>
     </div>
   );
 };
@@ -183,7 +76,6 @@ export const AddFavouritesModal = ({
 
   const allCandidates = useMemo(() => {
     const map = new Map();
-    SEED_FAVOURITE_CANDIDATES.forEach((c) => map.set(c._id, c));
     contacts.forEach((c) => {
       const id = c._id || c.id;
       if (id && !map.has(id)) {
@@ -253,18 +145,18 @@ export const AddFavouritesModal = ({
     >
       <div
         className={`w-full max-w-[480px] h-[88vh] max-h-[700px] rounded-3xl shadow-2xl flex flex-col overflow-hidden border relative transition-all duration-200 ${isDark
-            ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
-            : "bg-white border-gray-200 text-[#111b21]"
+          ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
+          : "bg-white border-gray-200 text-[#111b21]"
           }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 pt-5 pb-3 flex items-center gap-4 shrink-0">
+        <div className="px-4 pt-5 pb-3 flex items-center gap-4 shrink-0">
           <button
             type="button"
             onClick={onClose}
             className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark
-                ? "hover:bg-[#202c33] text-gray-300"
-                : "hover:bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21]"
+              ? "hover:bg-[#1f2b33] text-gray-300"
+              : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
               }`}
             title="Close"
           >
@@ -280,21 +172,22 @@ export const AddFavouritesModal = ({
 
         <div className="px-5 pb-3 shrink-0">
           <div
-            className={`flex items-center gap-3 px-4 py-2.5 rounded-full border-2 transition-all ${isDark
-                ? "bg-[#111b21] border-[#00a884] focus-within:ring-2 focus-within:ring-[#00a884]/40"
-                : "bg-[#f0f2f5] border-[#00a884] focus-within:ring-2 focus-within:ring-[#00a884]/40"
+            className={`flex items-center gap-3 px-5 py-3 rounded-full border-2 transition-all duration-300 ${isDark
+              ? "bg-[#161a1d] border-[#00c878] focus-within:border-[#00d982]"
+              : "bg-[#f0f2f5] border-[#00a884] focus-within:border-[#00c878]"
               }`}
           >
             <MdSearch
-              className={`text-xl shrink-0 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+              className={`text-xl shrink-0 ${isDark ? "text-[#aebac1]" : "text-[#54656f]"
                 }`}
             />
+
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search name, number or @username"
-              className={`w-full bg-transparent text-[14px] focus:outline-none placeholder:text-[#8696a0] ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+              className={`w-full bg-transparent text-[14px] outline-none placeholder:text-[#aebac1] ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
                 }`}
               autoFocus
             />
@@ -311,8 +204,8 @@ export const AddFavouritesModal = ({
                 <div
                   key={id}
                   className={`flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-full transition-all text-xs font-medium border ${isDark
-                      ? "bg-[#202c33] border-[#2a3942] text-[#e9edef]"
-                      : "bg-[#f0f2f5] border-gray-300 text-[#111b21]"
+                    ? "bg-[#202c33] border-[#2a3942] text-[#e9edef]"
+                    : "bg-[#f0f2f5] border-gray-300 text-[#111b21]"
                     }`}
                 >
                   <ContactAvatar contact={cand} size={24} />
@@ -324,8 +217,8 @@ export const AddFavouritesModal = ({
                     type="button"
                     onClick={() => removeChip(id)}
                     className={`p-0.5 rounded-full transition-colors cursor-pointer ${isDark
-                        ? "text-[#8696a0] hover:text-white"
-                        : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
+                      ? "text-[#8696a0] hover:text-white"
+                      : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
                       }`}
                   >
                     <MdClose className="text-xs" />
@@ -349,21 +242,21 @@ export const AddFavouritesModal = ({
                   key={id}
                   onClick={() => toggleSelect(candidate)}
                   className={`flex items-center gap-3.5 px-3 py-2.5 rounded-2xl transition-all cursor-pointer ${isSelected
-                      ? isDark
-                        ? "bg-[#202c33]"
-                        : "bg-[#e7fce3] border border-[#25d366]/40"
-                      : isDark
-                        ? "hover:bg-[#202c33]/50"
-                        : "hover:bg-[#f5f6f6]"
+                    ? isDark
+                      ? "bg-[#1f2b33] shadow-sm"
+                      : "bg-[#e7fce3] border border-[#25d366]/40 shadow-sm"
+                    : isDark
+                      ? "hover:bg-[#1f2b33] hover:shadow-sm"
+                      : "hover:bg-[#e9edef] hover:shadow-sm"
                     }`}
                 >
                   <div className="shrink-0 flex items-center justify-center">
                     <div
                       className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${isSelected
-                          ? "bg-[#00a884] text-black shadow-xs"
-                          : isDark
-                            ? "border-2 border-[#8696a0]"
-                            : "border-2 border-[#8696a0]"
+                        ? "bg-[#00a884] text-black shadow-xs"
+                        : isDark
+                          ? "border-2 border-[#8696a0]"
+                          : "border-2 border-[#8696a0]"
                         }`}
                     >
                       {isSelected && <MdCheck className="text-sm font-bold stroke-2" />}
@@ -437,6 +330,8 @@ export const FavouritesView = ({
       <EditFavouritesView
         onBack={() => setIsEditMode(false)}
         onSave={() => setIsEditMode(false)}
+        onOpenAddModal={onOpenAddModal}
+        contacts={contacts}
       />
     );
   }
@@ -444,8 +339,8 @@ export const FavouritesView = ({
   return (
     <div
       className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 ${isDark
-          ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
-          : "bg-white border-gray-200 text-[#111b21]"
+        ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
+        : "bg-white border-gray-200 text-[#111b21]"
         }`}
     >
       <div
@@ -457,8 +352,8 @@ export const FavouritesView = ({
             type="button"
             onClick={onBack}
             className={`p-2 rounded-full transition-colors cursor-pointer ${isDark
-                ? "hover:bg-[#202c33] text-gray-300"
-                : "hover:bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21]"
+              ? "hover:bg-[#1f2b33] text-gray-300"
+              : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
               }`}
             title="Back to Calls"
           >
@@ -477,8 +372,8 @@ export const FavouritesView = ({
             type="button"
             onClick={() => setIsEditMode(true)}
             className={`p-2.5 rounded-full transition-colors cursor-pointer ${isDark
-                ? "hover:bg-[#202c33] text-gray-300"
-                : "hover:bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21]"
+              ? "hover:bg-[#1f2b33] text-gray-300"
+              : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
               }`}
             title="Edit favourites"
           >
@@ -489,8 +384,8 @@ export const FavouritesView = ({
             type="button"
             onClick={handleOpenAdd}
             className={`p-2.5 rounded-full transition-colors cursor-pointer ${isDark
-                ? "hover:bg-[#202c33] text-gray-300"
-                : "hover:bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21]"
+              ? "hover:bg-[#1f2b33] text-gray-300"
+              : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
               }`}
             title="Add to favourites"
           >
@@ -499,18 +394,31 @@ export const FavouritesView = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin flex flex-col">
         {favourites.length === 0 ? (
-          <div className="py-20 text-center flex flex-col items-center gap-3">
-            <p className={`text-sm ${isDark ? "text-[#8696a0]" : "text-[#54656f]"}`}>
-              No favourites added yet
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12 my-auto">
+            <FavouritesEmptyIllustration />
+
+            <h3
+              className={`text-[22px] font-medium tracking-tight mb-2.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+                }`}
+            >
+              Add to Favourites
+            </h3>
+
+            <p
+              className={`text-[14px] leading-relaxed max-w-[280px] mb-8 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                }`}
+            >
+              Make it easy to find the people and groups that matter most across WhatsApp.
             </p>
+
             <button
               type="button"
               onClick={handleOpenAdd}
-              className="px-5 py-2 rounded-full bg-[#00a884] text-black font-semibold text-xs active:scale-95 transition-all shadow-md cursor-pointer"
+              className="text-[#00a884] hover:text-[#00c59b] hover:bg-[#1d6153]/30 px-5 py-2 rounded-4xl font-medium text-[15px] cursor-pointer transition-colors"
             >
-              Add favourite
+              Add to Favourites
             </button>
           </div>
         ) : (
@@ -524,8 +432,8 @@ export const FavouritesView = ({
                     onStartCall ? onStartCall(fav, "audio") : null
                   }
                   className={`p-3.5 rounded-2xl flex items-center gap-3.5 transition-all cursor-pointer shadow-xs ${isDark
-                      ? "bg-[#202c33] hover:bg-[#2a3942]"
-                      : "bg-[#f0f2f5] hover:bg-[#e9edef] border border-gray-200/80 shadow-xs"
+                    ? "bg-[#111b21] hover:bg-[#1f2b33] hover:shadow-sm"
+                    : "bg-[#f0f2f5] hover:bg-[#e9edef] border border-gray-200/80 shadow-xs hover:shadow-sm"
                     }`}
                 >
                   <ContactAvatar contact={fav} size={48} />
@@ -539,6 +447,38 @@ export const FavouritesView = ({
                         <MdVerified className="text-[#00a884] text-base shrink-0" />
                       )}
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      title="Video Call"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onStartCall) onStartCall(fav, "video");
+                      }}
+                      className={`p-2 rounded-full cursor-pointer transition-all duration-300 ${isDark
+                        ? "text-[#aebac1] hover:text-[#00a884] hover:bg-[#00a884]/10 hover:border-[#00a884]/30"
+                        : "text-[#54656f] hover:text-[#008069] hover:bg-[#008069]/10 hover:border-[#008069]/25"
+                        }`}
+                    >
+                      <MdOutlineVideocam size={22} />
+                    </button>
+
+                    <button
+                      type="button"
+                      title="Voice Call"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onStartCall) onStartCall(fav, "audio");
+                      }}
+                      className={`p-2 rounded-full cursor-pointer transition-all duration-300 ${isDark
+                        ? "text-[#aebac1] hover:text-[#00a884] hover:bg-[#00a884]/10 hover:border-[#00a884]/30"
+                        : "text-[#54656f] hover:text-[#008069] hover:bg-[#008069]/10 hover:border-[#008069]/25"
+                        }`}
+                    >
+                      <MdOutlineCall size={22} />
+                    </button>
                   </div>
                 </div>
               );
@@ -558,10 +498,12 @@ export const FavouritesView = ({
   );
 };
 
-/* =========================================================================
-   3. EDIT FAVOURITES VIEW (MATCHES IMAGE 4)
-   ========================================================================= */
-export const EditFavouritesView = ({ onBack, onSave }) => {
+export const EditFavouritesView = ({
+  onBack,
+  onSave,
+  onOpenAddModal,
+  contacts = [],
+}) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
 
@@ -569,6 +511,15 @@ export const EditFavouritesView = ({ onBack, onSave }) => {
   const [localList, setLocalList] = useState(favourites);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [showAddModalInternal, setShowAddModalInternal] = useState(false);
+
+  const handleOpenAdd = () => {
+    if (typeof onOpenAddModal === "function") {
+      onOpenAddModal();
+    } else {
+      setShowAddModalInternal(true);
+    }
+  };
 
   useEffect(() => {
     setLocalList(favourites);
@@ -620,8 +571,8 @@ export const EditFavouritesView = ({ onBack, onSave }) => {
   return (
     <div
       className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 ${isDark
-          ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
-          : "bg-white border-gray-200 text-[#111b21]"
+        ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
+        : "bg-white border-gray-200 text-[#111b21]"
         }`}
     >
       <div
@@ -633,8 +584,8 @@ export const EditFavouritesView = ({ onBack, onSave }) => {
             type="button"
             onClick={onBack}
             className={`p-2 rounded-full transition-colors cursor-pointer ${isDark
-                ? "hover:bg-[#202c33] text-gray-300"
-                : "hover:bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21]"
+              ? "hover:bg-[#1f2b33] text-gray-300"
+              : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
               }`}
             title="Back"
           >
@@ -652,8 +603,8 @@ export const EditFavouritesView = ({ onBack, onSave }) => {
           type="button"
           onClick={onSave}
           className={`p-2 rounded-full transition-colors cursor-pointer ${isDark
-              ? "hover:bg-[#202c33] text-gray-200"
-              : "hover:bg-[#f0f2f5] text-[#54656f] hover:text-[#111b21]"
+            ? "hover:bg-[#1f2b33] text-gray-200"
+            : "hover:bg-[#e9edef] text-[#54656f] hover:text-[#111b21]"
             }`}
           title="Save changes"
         >
@@ -661,85 +612,110 @@ export const EditFavouritesView = ({ onBack, onSave }) => {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin">
-        {localList.length === 0 ? (
-          <div
-            className={`py-20 text-center text-sm ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
-              }`}
-          >
-            No favourites to edit
+      <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-thin flex flex-col">
+        {favourites.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12 my-auto">
+            <FavouritesEmptyIllustration />
+
+            <h3
+              className={`text-[22px] font-medium tracking-tight mb-2.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+                }`}
+            >
+              Add to Favourites
+            </h3>
+
+            <p
+              className={`text-[14px] leading-relaxed max-w-[280px] mb-8 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                }`}
+            >
+              Make it easy to find the people and groups that matter most across WhatsApp.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleOpenAdd}
+              className="text-[#00a884] hover:text-[#00c59b] hover:bg-[#1d6153]/30 px-5 py-2 rounded-4xl font-medium text-[15px] cursor-pointer transition-colors"
+            >
+              Add to Favourites
+            </button>
           </div>
         ) : (
-          <div className="flex flex-col divide-y divide-gray-500/10">
-            {localList.map((fav, index) => {
-              const id = fav.contactId || fav._id;
+          <div className="flex flex-col gap-2.5">
+            {favourites.map((fav) => {
               const name = fav.username || fav.name;
-
               return (
                 <div
-                  key={id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDrop={(e) => handleDrop(e, index)}
-                  onDragEnd={handleDragEnd}
-                  className={`py-3 px-1 flex items-center justify-between gap-3 group transition-all rounded-xl ${draggedIndex === index
-                      ? "opacity-30"
-                      : dragOverIndex === index
-                        ? "border-t-2 border-[#00a884] bg-[#00a884]/5"
-                        : isDark
-                          ? "hover:bg-[#202c33]/40"
-                          : "hover:bg-[#f5f6f6]"
+                  key={fav.contactId || fav._id}
+                  onClick={() =>
+                    onStartCall ? onStartCall(fav, "audio") : null
+                  }
+                  className={`p-3.5 rounded-2xl flex items-center gap-3.5 transition-all cursor-pointer shadow-xs ${isDark
+                    ? "bg-[#111b21] hover:bg-[#1f2b33] hover:shadow-sm"
+                    : "bg-[#f0f2f5] hover:bg-[#e9edef] border border-gray-200/80 shadow-xs hover:shadow-sm"
                     }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <ContactAvatar contact={fav} size={48} />
+                  <div className="min-w-0 flex-1">
                     <div
-                      className={`cursor-grab active:cursor-grabbing p-1.5 transition-colors flex items-center justify-center shrink-0 select-none ${isDark
-                          ? "text-[#8696a0] hover:text-white"
-                          : "text-[#8696a0] hover:text-[#111b21]"
-                        }`}
-                      title="Drag to reorder"
-                    >
-                      <div className="w-5 flex flex-col gap-1 py-1">
-                        <div className="h-[2px] bg-current rounded-full w-full" />
-                        <div className="h-[2px] bg-current rounded-full w-full" />
-                      </div>
-                    </div>
-
-                    <ContactAvatar contact={fav} size={48} />
-
-                    <div
-                      className={`font-medium text-[16px] truncate ${isDark ? "text-white" : "text-[#111b21]"
+                      className={`flex items-center gap-1.5 font-medium text-[16px] truncate ${isDark ? "text-white" : "text-[#111b21]"
                         }`}
                     >
-                      {name}
+                      <span>{name}</span>
+                      {fav.isVerified && (
+                        <MdVerified className="text-[#00a884] text-base shrink-0" />
+                      )}
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(id)}
-                    className={`p-2 rounded-full transition-colors cursor-pointer shrink-0 ${isDark
-                        ? "text-[#8696a0] hover:text-white hover:bg-red-500/10"
-                        : "text-[#54656f] hover:text-red-600 hover:bg-red-50"
-                      }`}
-                    title="Remove from favourites"
-                  >
-                    <MdClose className="text-xl" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      title="Video Call"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onStartCall) onStartCall(fav, "video");
+                      }}
+                      className={`p-2 rounded-full cursor-pointer transition-all duration-300 ${isDark
+                        ? "text-[#aebac1] hover:text-[#00a884] hover:bg-[#00a884]/10 hover:border-[#00a884]/30"
+                        : "text-[#54656f] hover:text-[#008069] hover:bg-[#008069]/10 hover:border-[#008069]/25"
+                        }`}
+                    >
+                      <MdOutlineVideocam size={22} />
+                    </button>
+
+                    <button
+                      type="button"
+                      title="Voice Call"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onStartCall) onStartCall(fav, "audio");
+                      }}
+                      className={`p-2 rounded-full cursor-pointer transition-all duration-300 ${isDark
+                        ? "text-[#aebac1] hover:text-[#00a884] hover:bg-[#00a884]/10 hover:border-[#00a884]/30"
+                        : "text-[#54656f] hover:text-[#008069] hover:bg-[#008069]/10 hover:border-[#008069]/25"
+                        }`}
+                    >
+                      <MdOutlineCall size={22} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {showAddModalInternal && (
+        <AddFavouritesModal
+          isOpen={showAddModalInternal}
+          onClose={() => setShowAddModalInternal(false)}
+          contacts={contacts}
+        />
+      )}
     </div>
   );
 };
 
-/* =========================================================================
-   DEFAULT EXPORT (COMPATIBLE COMPONENT)
-   ========================================================================= */
 const FaviouriteCall = ({
   isOpen,
   onClose,

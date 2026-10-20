@@ -27,6 +27,58 @@ export default function formatTimestamp(timestamp) {
   );
 }
 
+export function formatCallDate(call) {
+  if (!call) return "";
+
+  if (call.timestamp) {
+    const d = new Date(call.timestamp);
+    if (!isNaN(d.getTime())) {
+      const now = new Date();
+      if (d.toDateString() === now.toDateString()) {
+        return "Today";
+      }
+      const yesterday = new Date();
+      yesterday.setDate(now.getDate() - 1);
+      if (d.toDateString() === yesterday.toDateString()) {
+        return "Yesterday";
+      }
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+  }
+
+  if (call.dateFormatted) {
+    const raw = String(call.dateFormatted).trim();
+    const lower = raw.toLowerCase();
+    if (lower === "today") return "Today";
+    if (lower === "yesterday") return "Yesterday";
+
+    if (raw.includes("/")) {
+      const parts = raw.split("/");
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        const parsed = new Date(year, month, day);
+        if (!isNaN(parsed.getTime())) {
+          const now = new Date();
+          if (parsed.toDateString() === now.toDateString()) return "Today";
+          const yesterday = new Date();
+          yesterday.setDate(now.getDate() - 1);
+          if (parsed.toDateString() === yesterday.toDateString())
+            return "Yesterday";
+          return raw;
+        }
+      }
+    }
+    return raw;
+  }
+
+  return call.timeFormatted || "";
+}
+
 export function getDisappearingDurationMs(duration) {
   if (!duration || duration === "Off") return null;
   const dur = String(duration).toLowerCase().trim();

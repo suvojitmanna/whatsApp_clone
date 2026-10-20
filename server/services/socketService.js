@@ -36,6 +36,14 @@ function initializeSocket(server) {
         io.emit("user_status", { userId, isOnline: true });
 
         const now = new Date();
+
+        await Message.deleteMany({
+          receiver: userId,
+          isKept: { $ne: true },
+          isDisappearing: true,
+          disappearingExpiresAt: { $ne: null, $lte: now },
+        });
+
         const pendingMessages = await Message.find({
           receiver: userId,
           messageStatus: "send",
@@ -646,6 +654,69 @@ function initializeSocket(server) {
         console.error("Error handling disconnect:", error);
       }
     };
+
+    socket.on("request_reencrypt_message", (data) => {
+      try {
+        const {
+          messageId,
+          conversationId,
+          senderId,
+          receiverId,
+          receiverPublicKey,
+        } = data || {};
+        if (!senderId || !messageId) return;
+        const sId = senderId.toString();
+        const payload = {
+          messageId,
+          conversationId,
+          senderId: sId,
+          receiverId: receiverId?.toString(),
+          receiverPublicKey,
+        };
+        io.to(sId).emit("request_reencrypt_message", payload);
+        const senderSocketId = onlineUsers.get(sId);
+        if (senderSocketId && senderSocketId !== sId) {
+          io.to(senderSocketId).emit("request_reencrypt_message", payload);
+        }
+      } catch (err) {
+        console.error("Error routing request_reencrypt_message:", err);
+      }
+    });
+
+    socket.on("reencrypt_message_response", async (data) => {
+      try {
+        const { messageId, conversationId, receiverId, content, iv } =
+          data || {};
+        if (!messageId || !content || !iv) return;
+
+        const updatedMsg = await Message.findByIdAndUpdate(
+          messageId,
+          { content, iv, isEncrypted: true },
+          { new: true },
+        )
+          .populate("sender", "username profilePicture publicKey")
+          .populate("receiver", "username profilePicture publicKey")
+          .populate("replyTo");
+
+        if (updatedMsg && receiverId) {
+          const rId = receiverId.toString();
+          const payload = {
+            message: updatedMsg.toObject(),
+            messageId: messageId.toString(),
+            conversationId: conversationId?.toString(),
+            content,
+            iv,
+          };
+          io.to(rId).emit("message_reencrypted", payload);
+          const receiverSocketId = onlineUsers.get(rId);
+          if (receiverSocketId && receiverSocketId !== rId) {
+            io.to(receiverSocketId).emit("message_reencrypted", payload);
+          }
+        }
+      } catch (err) {
+        console.error("Error handling reencrypt_message_response:", err);
+      }
+    });
 
     socket.on("disconnect", handleDisconnected);
   });
