@@ -10,6 +10,7 @@ import {
 } from "react-icons/md";
 import { IoIosArrowDown } from "react-icons/io";
 import { ContactAvatar } from "./FaviouriteCall";
+import { CopyIcon, SendPaperPlaneIcon } from "../../components/common/Icons";
 
 const NewCallLinkModal = ({
   isOpen,
@@ -313,17 +314,7 @@ const NewCallLinkModal = ({
                   {copied ? (
                     <MdCheck className="text-lg" />
                   ) : (
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="w-4 h-4 stroke-current"
-                      fill="none"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                    </svg>
+                    <CopyIcon size={16} className="stroke-current" />
                   )}
                 </button>
               </div>
@@ -402,18 +393,7 @@ const NewCallLinkModal = ({
                 onClick={handleSendViaWhatsApp}
                 className="flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[#25d366] hover:bg-[#20bd5a] active:scale-95 text-[#111b21] font-semibold text-[14px] transition-all shadow-md cursor-pointer"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
+                <SendPaperPlaneIcon size={16} className="w-4 h-4" />
                 <span>Send link via WhatsApp</span>
               </button>
             </div>

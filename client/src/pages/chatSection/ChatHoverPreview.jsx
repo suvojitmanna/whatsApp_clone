@@ -269,11 +269,11 @@ export const ChatHoverPreview = ({
         left: `${coords.left}px`,
         top: `${coords.top}px`,
         maxWidth: "min(580px, calc(100vw - 32px))",
-        minWidth: "260px",
+        minWidth: "",
         zIndex: 99999,
         pointerEvents: "none",
       }}
-      className={`rounded-md border p-3 shadow-2xl transition-colors select-none text-[13px] leading-[18.5px] break-words ${isDark
+      className={`rounded-xl border p-3 shadow-2xl transition-colors select-none text-[13px] leading-[18.5px] break-words ${isDark
         ? "bg-[#182229] text-[#e9edef] border-[#3b4a54] shadow-[0_8px_32px_rgba(0,0,0,0.65)]"
         : "bg-white text-[#111b21] border-[#d1d7db] shadow-[0_8px_32px_rgba(0,0,0,0.2)]"
         }`}

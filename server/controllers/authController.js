@@ -11,6 +11,7 @@ const {
 const Conversation = require("../models/ConverSation.js");
 const Message = require("../models/message.js");
 const mongoose = require("mongoose");
+const { ensureMetaAiUser } = require("../services/aiService.js");
 
 const sendOtp = async (req, res) => {
   const { phoneNumber, phoneSuffix, email } = req.body;
@@ -238,12 +239,16 @@ const getAllUsers = async (req, res) => {
       });
     }
 
+    await ensureMetaAiUser().catch((err) =>
+      console.error("ensureMetaAiUser err:", err),
+    );
+
     const loggedInUserId = req.user.userId;
     const users = await User.find({
       _id: { $ne: loggedInUserId },
     })
       .select(
-        "username profilePicture lastSeen isOnline phoneSuffix phoneNumber about aboutUpdatedAt email publicKey",
+        "username profilePicture lastSeen isOnline phoneSuffix phoneNumber about aboutUpdatedAt email publicKey isAI isVerified",
       )
       .lean();
 
@@ -309,10 +314,16 @@ const getAllUsers = async (req, res) => {
       }
     });
 
-    const usersWithConversations = users.map((user) => ({
-      ...user,
-      conversation: conversationMap[user._id.toString()] || null,
-    }));
+    const usersWithConversations = users
+      .map((user) => ({
+        ...user,
+        conversation: conversationMap[user._id.toString()] || null,
+      }))
+      .sort((a, b) => {
+        if (a.isAI || a.username === "Meta AI") return -1;
+        if (b.isAI || b.username === "Meta AI") return 1;
+        return 0;
+      });
 
     return res.status(200).json({
       message: "Users retrieved successfully",

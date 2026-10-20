@@ -29,7 +29,7 @@ const StatusPlaceholder = () => {
         </h2>
 
         <p
-          className={`text-[14px] leading-relaxed max-w-[360px] ${
+          className={`text-[14px] leading-relaxed max-w-[400px] ${
             isDark ? "text-[#8696a0]" : "text-[#54656f]"
           }`}
         >

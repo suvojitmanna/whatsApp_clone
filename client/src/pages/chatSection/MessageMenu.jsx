@@ -5,6 +5,7 @@ import { FaRegCopy, FaStar, FaRegStar, FaDownload } from "react-icons/fa";
 import { BsEmojiSmile } from "react-icons/bs";
 import { TbPin } from "react-icons/tb";
 import { SiMetaai } from "react-icons/si";
+import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { RiEditLine, RiDeleteBin6Line } from "react-icons/ri";
 import { FiThumbsDown, FiCheckSquare, FiExternalLink } from "react-icons/fi";
 import { useChatStore } from "../../store/chatStore";
@@ -276,13 +277,31 @@ const MessageMenu = ({
                     type="button"
                     onClick={() => {
                         setShowOptions?.(false);
-                        setShowForwardModal?.(true);
+                        const chatStore = useChatStore.getState();
+                        const users = chatStore.users || [];
+                        const metaContact =
+                            users.find((u) => u._id === META_AI_USER_ID || u.username === "Meta AI" || u.isAI) || {
+                                _id: META_AI_USER_ID,
+                                username: "Meta AI",
+                                isAI: true,
+                                isVerified: true,
+                            };
+                        useLayoutStore.getState().setSelectedContact(metaContact);
+                        chatStore.setSelectedContact?.(metaContact);
+                        setTimeout(() => {
+                            window.dispatchEvent(
+                                new CustomEvent("meta_ai_prefill", {
+                                    detail: `Explain: "${message.content}"`,
+                                })
+                            );
+                        }, 100);
+                        toast.info("Asking Meta AI...");
                     }}
                     className={itemClass}
                 >
-                    <SiMetaai
+                    <MetaAiRing
                         size={17}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                        className="shrink-0 group-hover:scale-110 transition-transform"
                     />
                     <span>Ask Meta AI</span>
                 </button>

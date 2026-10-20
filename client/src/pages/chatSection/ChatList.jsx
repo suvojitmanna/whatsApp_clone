@@ -42,6 +42,7 @@ import {
   deleteCustomList,
 } from "../../utils/chatListsUtil";
 import { AVATAR_BG_COLORS } from "../../assets/rawData";
+import { MetaAiRing, META_AI_USER_ID, META_AI_AVATAR } from "../../components/common/MetaAiIcon";
 
 export const getAvatarBg = (name) => {
   if (!name) return AVATAR_BG_COLORS[0];
@@ -68,6 +69,10 @@ const ContactAvatar = ({ contact }) => {
   const [hasError, setHasError] = useState(false);
   const pic = contact?.profilePicture;
   const username = contact?.username || "User";
+
+  if (contact?.isAI || username === "Meta AI" || String(contact?._id) === META_AI_USER_ID) {
+    return <MetaAiRing size={48} className="shadow-xs" />;
+  }
 
   const showLetter = !pic || pic === "/default-avatar.png" || hasError;
 
@@ -746,6 +751,33 @@ const ChatList = ({ contacts }) => {
     setListPanel((prev) => ({ ...prev, isOpen: false }));
   };
 
+  const handleSelectMetaAi = (initialPrompt = "") => {
+    let metaAiUser = contacts?.find(
+      (c) => c?.isAI || c?.username === "Meta AI" || String(c?._id) === META_AI_USER_ID
+    );
+    if (!metaAiUser) {
+      metaAiUser = {
+        _id: META_AI_USER_ID,
+        username: "Meta AI",
+        about: "Ask me anything, imagine images, and explore new ideas. Powered by AI.",
+        isVerified: true,
+        isAI: true,
+        isOnline: true,
+        profilePicture: META_AI_AVATAR,
+      };
+    }
+    setSelectedContact(metaAiUser);
+    if (initialPrompt && initialPrompt.trim()) {
+      setTimeout(() => {
+        useChatStore.getState().sendMessage({
+          receiverId: metaAiUser._id,
+          content: initialPrompt.trim(),
+        });
+      }, 150);
+    }
+    setSearchTerms("");
+  };
+
   const [showListsDropdown, setShowListsDropdown] = useState(false);
   const [listToDelete, setListToDelete] = useState(null);
   const listsDropdownRef = useRef(null);
@@ -1090,6 +1122,17 @@ const ChatList = ({ contacts }) => {
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={() => handleSelectMetaAi()}
+            title="Meta AI"
+            className={`p-2 rounded-full transition-all cursor-pointer hover:scale-110 active:scale-95 ${theme === "dark"
+              ? "hover:bg-white/10"
+              : "hover:bg-black/5"
+              }`}
+          >
+            <MetaAiRing size={20} />
+          </button>
+          <button
+            type="button"
             onClick={() => searchInputRef.current?.focus()}
             title="New chat"
             className={`p-2 rounded-full transition-colors cursor-pointer ${theme === "dark"
@@ -1113,9 +1156,9 @@ const ChatList = ({ contacts }) => {
         </div>
       </div>
 
-      <div className="px-3 pt-1 pb-2">
+      <div className="px-3 pt-1 pb-2 relative z-30">
         <div
-          className={`flex items-center gap-3 px-5 py-2.5 rounded-full border-2 transition-all duration-200 ${theme === "dark"
+          className={`flex items-center gap-3 px-4 py-2 rounded-full border-2 transition-all duration-200 ${theme === "dark"
             ? "bg-[#161a1d] text-[#e9edef] border-[#00c878]"
             : "bg-[#f0f2f5] text-[#111b21] border-[#00a884]"
             }`}
@@ -1123,22 +1166,28 @@ const ChatList = ({ contacts }) => {
           <FaSearch
             className={`shrink-0 ${theme === "dark" ? "text-[#aebac1]" : "text-[#54656f]"
               }`}
-            size={17}
+            size={16}
           />
 
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Search or start a new chat"
+            placeholder="Ask Meta AI or Search"
             className={`w-full bg-transparent text-[14px] outline-none border-none ${theme === "dark"
               ? "text-[#e9edef] placeholder:text-[#aebac1]"
               : "text-[#111b21] placeholder:text-[#54656f]"
               }`}
             value={searchTerms}
             onChange={(e) => setSearchTerms(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && searchTerms.trim()) {
+                e.preventDefault();
+                handleSelectMetaAi(searchTerms);
+              }
+            }}
           />
 
-          {searchTerms && (
+          {searchTerms ? (
             <button
               type="button"
               onClick={() => setSearchTerms("")}
@@ -1150,8 +1199,61 @@ const ChatList = ({ contacts }) => {
             >
               <RxCross2 className="w-3.5 h-3.5" />
             </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleSelectMetaAi()}
+              title="Ask Meta AI"
+              className="p-1 rounded-full hover:scale-110 active:scale-95 transition-transform cursor-pointer shrink-0"
+            >
+              <MetaAiRing size={19} />
+            </button>
           )}
         </div>
+
+        {searchTerms.trim() && (
+          <div
+            className={`absolute left-3 right-3 top-[48px] rounded-2xl shadow-2xl border p-2 z-50 flex flex-col gap-1 backdrop-blur-md animate-in fade-in duration-150 ${
+              theme === "dark"
+                ? "bg-[#202c33]/98 border-gray-700/80 text-white"
+                : "bg-white/98 border-gray-200 text-gray-900"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => handleSelectMetaAi(searchTerms)}
+              className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <MetaAiRing size={22} />
+              <div className="flex-1 min-w-0">
+                <span className="text-[13px] font-semibold text-[#00a884] dark:text-[#25d366] block">
+                  Ask Meta AI
+                </span>
+                <span className="text-[12px] opacity-80 truncate block">
+                  "{searchTerms}"
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectMetaAi(`/imagine ${searchTerms}`)}
+              className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <div className="w-5.5 h-5.5 rounded-full bg-gradient-to-tr from-pink-500 via-purple-500 to-indigo-500 flex items-center justify-center text-white text-[12px] font-bold shadow-xs">
+                🎨
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[13px] font-semibold text-purple-400 block">
+                  Imagine with Meta AI
+                </span>
+                <span className="text-[12px] opacity-80 truncate block">
+                  "/imagine {searchTerms}"
+                </span>
+              </div>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="px-3 pb-2 pt-0.5 flex items-center justify-between gap-1.5 select-none border-b border-black/[0.06] dark:border-white/5 relative z-20">
@@ -1577,12 +1679,14 @@ const ChatList = ({ contacts }) => {
 
                 <div className="ml-3 flex-1 min-w-0">
                   <div className="flex justify-between items-baseline gap-2">
-                    <h2
-                      title={`Chat with ${contact?.username || "user"}`}
-                      className={`font-medium text-[16px] truncate ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"}`}
-                    >
-                      {contact?.username}
-                    </h2>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <h2
+                        title={`Chat with ${contact?.username || "user"}`}
+                        className={`font-medium text-[16px] truncate ${theme === "dark" ? "text-[#e9edef]" : "text-[#111b21]"}`}
+                      >
+                        {contact?.username}
+                      </h2>
+                    </div>
                     {(contact?.conversation || contactPin || hasDisappearing) && (
                       <span
                         className={`text-[12px] shrink-0 ${theme === "dark" ? "text-[#8696a0]" : "text-[#667781]"}`}
@@ -1600,9 +1704,18 @@ const ChatList = ({ contacts }) => {
                     >
                       {(() => {
                         if (isTyping) {
+                          const isAi = contact?.isAI || contact?.username === "Meta AI" || String(contact?._id) === META_AI_USER_ID;
                           return (
                             <span className="font-medium text-emerald-500 flex-shrink-0">
-                              typing...
+                              {isAi ? "Meta AI is thinking..." : "typing..."}
+                            </span>
+                          );
+                        }
+
+                        if (!lastMsg && (contact?.isAI || contact?.username === "Meta AI" || String(contact?._id) === META_AI_USER_ID)) {
+                          return (
+                            <span className="text-[13px] opacity-75 truncate">
+                              Ask me anything, imagine images...
                             </span>
                           );
                         }

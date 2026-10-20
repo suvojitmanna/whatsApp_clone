@@ -48,6 +48,8 @@ import ForwardModal from "../../components/ForwardModal";
 import PinDurationModal from "../../components/PinDurationModal";
 import ReportModal from "../../components/ReportModal";
 import MessageMenu from "./MessageMenu";
+import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
+import { MetaAiMarkdown, MetaAiImageCard, MetaAiFeedbackBar } from "../../components/common/MetaAiContent";
 
 import {
   WhatsAppPinIcon,
@@ -57,6 +59,9 @@ import {
   TailInIcon,
   ProhibitedIcon,
   MessageCheckIcon,
+  VideoCallOutgoingIcon,
+  VideoCallIncomingIcon,
+  CallOutgoingIcon,
 } from "../../components/common/Icons";
 
 export {
@@ -236,6 +241,12 @@ const MessageBuble = ({
   )?.toString();
   const isUserMessage = Boolean(
     currentUserId && senderId && currentUserId === senderId
+  );
+  const isMetaAiMessage = Boolean(
+    message?.isMetaAi ||
+    senderId === META_AI_USER_ID ||
+    message?.sender?.isAI ||
+    message?.sender?.username === "Meta AI"
   );
   const isDark = theme === "dark";
   const isSticker = message.contentType === "sticker";
@@ -974,6 +985,14 @@ const MessageBuble = ({
               onClick={() => setShowReactions((prev) => !prev)}
               className="relative"
             >
+              {isMetaAiMessage && !isUserMessage && (
+                <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-black/5 dark:border-white/5 select-none">
+                  <MetaAiRing size={15} showInnerIcon={false} />
+                  <span className="font-semibold text-xs bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                    Meta AI
+                  </span>
+                </div>
+              )}
               {(() => {
                 let rawReply =
                   message.replyMessage ||
@@ -1262,6 +1281,11 @@ const MessageBuble = ({
                             <FaLock className="shrink-0 text-xs opacity-70" />
                             <span>Waiting for this message. This may take a while.</span>
                           </span>
+                        ) : isMetaAiMessage ? (
+                          <div className="space-y-1">
+                            <MetaAiMarkdown content={displayContent} theme={theme} />
+                            <MetaAiFeedbackBar content={displayContent} theme={theme} />
+                          </div>
                         ) : (
                           <span className="break-words whitespace-pre-wrap">
                             {searchTerm
@@ -1277,7 +1301,32 @@ const MessageBuble = ({
                   </>
                 )}
 
-                {message.contentType === "image" && (
+                {(message.contentType === "ai_image" || (isMetaAiMessage && message.imageOrVideoUrl)) && (
+                  <div className="max-w-full">
+                    <MetaAiImageCard
+                      imageUrl={message.imageOrVideoUrl}
+                      prompt={message.metaAiPrompt || message.content}
+                      theme={theme}
+                      onOpenViewer={(url) => {
+                        setViewerModalFile({
+                          url,
+                          name: "meta-ai-image.jpg",
+                          type: "image",
+                          size: message.fileSize,
+                          sender: message.sender,
+                          createdAt: message.createdAt,
+                          messageId: message._id,
+                          isUserMessage: false,
+                        });
+                      }}
+                    />
+                    <div className="flex justify-end mt-1 select-none">
+                      {renderTimestampAndStatus(false)}
+                    </div>
+                  </div>
+                )}
+
+                {message.contentType === "image" && !isMetaAiMessage && message.contentType !== "ai_image" && (
                   <div className="max-w-full">
                     <div
                       className="relative group/img cursor-pointer overflow-hidden rounded-xl"
@@ -2244,63 +2293,17 @@ const MessageBuble = ({
                                 </div>
                               ) : isUserMessage ? (
                                 <div className="relative flex items-center justify-center">
-                                  <svg
-                                    width="22"
-                                    height="22"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                  >
-                                    <path
-                                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"
-                                      fill={isDark ? "white" : "#111b21"}
-                                    />
-                                    <rect
-                                      x="3"
-                                      y="6"
-                                      width="12"
-                                      height="12"
-                                      rx="2"
-                                      fill={isDark ? "white" : "#111b21"}
-                                    />
-                                    <path
-                                      d="M15 3h6v6m0-6l-7 7"
-                                      stroke={isDark ? "white" : "#111b21"}
-                                      strokeWidth="2.2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
-                                  </svg>
+                                  <VideoCallOutgoingIcon
+                                    size={22}
+                                    color={isDark ? "white" : "#111b21"}
+                                  />
                                 </div>
                               ) : (
                                 <div className="relative flex items-center justify-center">
-                                  <svg
-                                    width="22"
-                                    height="22"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                  >
-                                    <path
-                                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"
-                                      fill={isDark ? "white" : "#111b21"}
-                                    />
-                                    <rect
-                                      x="3"
-                                      y="6"
-                                      width="12"
-                                      height="12"
-                                      rx="2"
-                                      fill={isDark ? "white" : "#111b21"}
-                                    />
-                                    <path
-                                      d="M9 21H3v-6m0 6l7-7"
-                                      stroke={isDark ? "white" : "#111b21"}
-                                      strokeWidth="2.2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
-                                  </svg>
+                                  <VideoCallIncomingIcon
+                                    size={22}
+                                    color={isDark ? "white" : "#111b21"}
+                                  />
                                 </div>
                               )
                             ) : isMissed ? (
@@ -2316,25 +2319,10 @@ const MessageBuble = ({
                               </div>
                             ) : (
                               <div className="relative flex items-center justify-center">
-                                <svg
-                                  width="22"
-                                  height="22"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                >
-                                  <path
-                                    d="M19.23 15.26l-2.54-.29a1.99 1.99 0 0 0-1.64.57l-1.84 1.84a15.05 15.05 0 0 1-6.59-6.59l1.85-1.85c.43-.43.64-1.03.57-1.64l-.29-2.52a2 2 0 0 0-1.99-1.77H4.41c-1.13 0-2.07.94-2 2.07.53 8.54 7.44 15.45 15.98 15.98 1.13.07 2.07-.87 2.07-2v-2.38c0-1.05-.82-1.93-1.87-1.98z"
-                                    fill={isDark ? "white" : "#111b21"}
-                                  />
-                                  <path
-                                    d="M15 3h6v6m0-6l-7 7"
-                                    stroke={isDark ? "white" : "#111b21"}
-                                    strokeWidth="2.2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
+                                <CallOutgoingIcon
+                                  size={22}
+                                  color={isDark ? "white" : "#111b21"}
+                                />
                               </div>
                             )}
                           </div>

@@ -13,6 +13,7 @@ import StatusList from "./StatusList";
 import CameraModal from "../../components/CameraModal";
 import useOutsideClick from "../../hook/useOutsideClick";
 import StatusPlaceholder from "../../components/StatusPlaceholder";
+import { StatusStoryRing } from "../../components/common/Icons";
 
 const status = () => {
   const [previewContact, setPreviewContact] = useState(null);
@@ -254,30 +255,10 @@ const status = () => {
                 </div>
 
                 {userStatuses && (
-                  <svg
-                    className="absolute -top-[3px] -left-[3px] w-[54px] h-[54px] pointer-events-none"
-                    viewBox="0 0 100 100"
-                  >
-                    {userStatuses.statuses.map((_, index) => {
-                      const circumference = 2 * Math.PI * 46;
-                      const segmentLength =
-                        circumference / userStatuses.statuses.length;
-                      return (
-                        <circle
-                          key={index}
-                          cx="50"
-                          cy="50"
-                          r="46"
-                          fill="none"
-                          stroke="#10b981"
-                          strokeWidth="4"
-                          strokeDasharray={`${segmentLength - 4} 4`}
-                          strokeDashoffset={-(index * segmentLength)}
-                          transform="rotate(-90 50 50)"
-                        />
-                      );
-                    })}
-                  </svg>
+                  <StatusStoryRing
+                    count={userStatuses.statuses.length}
+                    className="absolute -top-[3px] -left-[3px] w-[54px] h-[54px]"
+                  />
                 )}
 
                 <button

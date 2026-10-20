@@ -9,6 +9,7 @@ import {
   MdOutlineEmail,
 } from "react-icons/md";
 import { ContactAvatar } from "./FaviouriteCall";
+import { BackspaceIcon } from "../../components/common/Icons";
 
 const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
   const { theme } = useThemeStore();
@@ -151,22 +152,20 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
 
   return (
     <div
-      className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 overflow-y-auto ${
-        isDark
+      className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 overflow-y-auto ${isDark
           ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
           : "bg-white border-gray-200 text-[#111b21]"
-      }`}
+        }`}
     >
       <div className="h-16 px-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={onBack}
-            className={`p-2 -ml-2 rounded-full transition-colors cursor-pointer active:scale-95 ${
-              isDark
+            className={`p-2 -ml-2 rounded-full transition-colors cursor-pointer active:scale-95 ${isDark
                 ? "text-[#e9edef] hover:bg-white/10"
                 : "text-[#111b21] hover:bg-black/5"
-            }`}
+              }`}
             title="Back"
             aria-label="Back"
           >
@@ -181,22 +180,20 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
 
       <div className="px-4 pb-3 shrink-0">
         <div
-          className={`p-1 rounded-xl flex items-center gap-1 ${
-            isDark ? "bg-[#182229]" : "bg-[#f0f2f5]"
-          }`}
+          className={`p-1 rounded-xl flex items-center gap-1 ${isDark ? "bg-[#182229]" : "bg-[#f0f2f5]"
+            }`}
         >
           <button
             type="button"
             onClick={() => setActiveMode("phone")}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              activeMode === "phone"
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeMode === "phone"
                 ? isDark
                   ? "bg-[#202c33] text-[#00c878] shadow-sm"
                   : "bg-white text-[#008f5a] shadow-sm"
                 : isDark
-                ? "text-[#8696a0] hover:text-[#e9edef]"
-                : "text-[#54656f] hover:text-[#111b21]"
-            }`}
+                  ? "text-[#8696a0] hover:text-[#e9edef]"
+                  : "text-[#54656f] hover:text-[#111b21]"
+              }`}
           >
             <MdCall className="text-sm" />
             <span>Phone number</span>
@@ -205,15 +202,14 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
           <button
             type="button"
             onClick={() => setActiveMode("email")}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              activeMode === "email"
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeMode === "email"
                 ? isDark
                   ? "bg-[#202c33] text-[#00c878] shadow-sm"
                   : "bg-white text-[#008f5a] shadow-sm"
                 : isDark
-                ? "text-[#8696a0] hover:text-[#e9edef]"
-                : "text-[#54656f] hover:text-[#111b21]"
-            }`}
+                  ? "text-[#8696a0] hover:text-[#e9edef]"
+                  : "text-[#54656f] hover:text-[#111b21]"
+              }`}
           >
             <MdOutlineEmail className="text-sm" />
             <span>Email</span>
@@ -239,22 +235,20 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                   }
                 }}
                 placeholder="Phone number"
-                className={`w-full px-4 py-3.5 rounded-2xl text-[16px] font-normal tracking-wide outline-none border-2 transition-all ${
-                  isDark
+                className={`w-full px-4 py-3.5 rounded-2xl text-[16px] font-normal tracking-wide outline-none border-2 transition-all ${isDark
                     ? "bg-[#161a1d] border-[#00c878] text-[#e9edef] placeholder-[#8696a0]"
                     : "bg-[#f0f2f5] border-[#00a884] text-[#111b21] placeholder-[#54656f]"
-                }`}
+                  }`}
               />
 
               {phoneNumber && (
                 <button
                   type="button"
                   onClick={() => setPhoneNumber("")}
-                  className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors cursor-pointer ${
-                    isDark
+                  className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors cursor-pointer ${isDark
                       ? "text-[#8696a0] hover:text-white hover:bg-white/10"
                       : "text-[#54656f] hover:text-black hover:bg-black/10"
-                  }`}
+                    }`}
                   title="Clear"
                 >
                   <MdClear className="text-lg" />
@@ -264,9 +258,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
           </div>
 
           <p
-            className={`text-center text-[13.5px] mt-6 mb-7 px-4 font-normal ${
-              isDark ? "text-[#8696a0]" : "text-[#54656f]"
-            }`}
+            className={`text-center text-[13.5px] mt-6 mb-7 px-4 font-normal ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+              }`}
           >
             Enter a phone number to start a call
           </p>
@@ -284,26 +277,14 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                     onMouseLeave={handleBackspaceMouseUp}
                     onTouchStart={handleBackspaceMouseDown}
                     onTouchEnd={handleBackspaceMouseUp}
-                    className={`h-16 w-full flex items-center justify-center rounded-2xl active:scale-95 transition-all cursor-pointer ${
-                      isDark
+                    className={`h-16 w-full flex items-center justify-center rounded-2xl active:scale-95 transition-all cursor-pointer ${isDark
                         ? "hover:bg-white/[0.06] active:bg-white/[0.12] text-[#e9edef]"
                         : "hover:bg-black/[0.05] active:bg-black/[0.1] text-[#111b21]"
-                    }`}
+                      }`}
                     title="Backspace (Hold to clear)"
                     aria-label="Backspace"
                   >
-                    <svg
-                      viewBox="0 0 24 24"
-                      className="w-6 h-6 stroke-current"
-                      fill="none"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" />
-                      <line x1="18" y1="9" x2="12" y2="15" />
-                      <line x1="12" y1="9" x2="18" y2="15" />
-                    </svg>
+                    <BackspaceIcon size={24} className="w-6 h-6 stroke-current" />
                   </button>
                 );
               }
@@ -314,11 +295,10 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                     key="plus"
                     type="button"
                     onClick={() => handleAppendDigit("+")}
-                    className={`h-16 w-full flex items-center justify-center rounded-2xl active:scale-95 transition-all cursor-pointer ${
-                      isDark
+                    className={`h-16 w-full flex items-center justify-center rounded-2xl active:scale-95 transition-all cursor-pointer ${isDark
                         ? "hover:bg-white/[0.06] active:bg-white/[0.12] text-[#e9edef]"
                         : "hover:bg-black/[0.05] active:bg-black/[0.1] text-[#111b21]"
-                    }`}
+                      }`}
                     aria-label="Plus"
                   >
                     <span className="text-[26px] font-medium leading-none">
@@ -333,20 +313,18 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                   key={item.digit}
                   type="button"
                   onClick={() => handleAppendDigit(item.digit)}
-                  className={`h-16 w-full flex flex-col items-center justify-center rounded-2xl active:scale-95 transition-all cursor-pointer ${
-                    isDark
+                  className={`h-16 w-full flex flex-col items-center justify-center rounded-2xl active:scale-95 transition-all cursor-pointer ${isDark
                       ? "hover:bg-white/[0.06] active:bg-white/[0.12] text-[#e9edef]"
                       : "hover:bg-black/[0.05] active:bg-black/[0.1] text-[#111b21]"
-                  }`}
+                    }`}
                 >
                   <span className="text-[26px] font-normal leading-none">
                     {item.digit}
                   </span>
                   {item.sub ? (
                     <span
-                      className={`text-[11px] font-medium tracking-widest mt-1 ${
-                        isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                      }`}
+                      className={`text-[11px] font-medium tracking-widest mt-1 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                        }`}
                     >
                       {item.sub}
                     </span>
@@ -393,22 +371,20 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                   }
                 }}
                 placeholder="Email address (e.g. name@gmail.com)"
-                className={`w-full px-4 py-3.5 rounded-2xl text-[15px] font-normal tracking-normal outline-none border-2 transition-all ${
-                  isDark
+                className={`w-full px-4 py-3.5 rounded-2xl text-[15px] font-normal tracking-normal outline-none border-2 transition-all ${isDark
                     ? "bg-[#161a1d] border-[#00c878] text-[#e9edef] placeholder-[#8696a0]"
                     : "bg-[#f0f2f5] border-[#00a884] text-[#111b21] placeholder-[#54656f]"
-                }`}
+                  }`}
               />
 
               {emailAddress && (
                 <button
                   type="button"
                   onClick={() => setEmailAddress("")}
-                  className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors cursor-pointer ${
-                    isDark
+                  className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors cursor-pointer ${isDark
                       ? "text-[#8696a0] hover:text-white hover:bg-white/10"
                       : "text-[#54656f] hover:text-black hover:bg-black/10"
-                  }`}
+                    }`}
                   title="Clear"
                 >
                   <MdClear className="text-lg" />
@@ -418,9 +394,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
           </div>
 
           <p
-            className={`text-center text-[13.5px] mt-4 mb-5 px-4 font-normal ${
-              isDark ? "text-[#8696a0]" : "text-[#54656f]"
-            }`}
+            className={`text-center text-[13.5px] mt-4 mb-5 px-4 font-normal ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+              }`}
           >
             Enter an email address to start a call
           </p>
@@ -435,11 +410,10 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                     setEmailAddress((prev) => prev + chip);
                   }
                 }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-                  isDark
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${isDark
                     ? "bg-[#182229] border-white/10 text-[#8696a0] hover:text-[#00c878] hover:border-[#00c878]/50"
                     : "bg-[#f0f2f5] border-gray-200 text-[#54656f] hover:text-[#008f5a] hover:border-[#008f5a]/50"
-                }`}
+                  }`}
               >
                 {chip}
               </button>
@@ -448,9 +422,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
           {matchingEmailContacts.length > 0 && (
             <div className="px-4 mb-4 flex flex-col gap-1.5">
               <span
-                className={`text-[11px] font-semibold uppercase tracking-wider px-1 ${
-                  isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                }`}
+                className={`text-[11px] font-semibold uppercase tracking-wider px-1 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                  }`}
               >
                 Suggested Contacts
               </span>
@@ -463,17 +436,15 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                     onClick={() => {
                       setEmailAddress(email);
                     }}
-                    className={`p-2.5 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${
-                      isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.05]"
-                    }`}
+                    className={`p-2.5 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.05]"
+                      }`}
                   >
                     <ContactAvatar contact={c} size={36} />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate">{name}</div>
                       <div
-                        className={`text-xs truncate ${
-                          isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                        }`}
+                        className={`text-xs truncate ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+                          }`}
                       >
                         {email}
                       </div>

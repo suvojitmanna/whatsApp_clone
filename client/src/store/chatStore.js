@@ -24,7 +24,9 @@ if (typeof window !== "undefined") {
   try {
     sessionStorage.removeItem("whatsapp_chat_scroll_positions");
     localStorage.removeItem("whatsapp_chat_scroll_positions");
-  } catch {}
+  } catch (e) {
+    console.log(e);
+  }
 }
 
 export const getTargetUserId = (contact, currentUserId) => {
@@ -170,7 +172,7 @@ export async function decryptSingleMessage(
         if (userObj) userObj.publicKey = peerPubKey;
       }
     } catch (e) {
-      console.log(e)
+      console.log(e);
     }
   }
 
@@ -859,7 +861,10 @@ export const useChatStore = create((set, get) => ({
       const strId = String(userId);
       clearSharedKeyCache(strId);
       const layout = useLayoutStore.getState();
-      if (layout?.selectedContact && String(layout.selectedContact._id) === strId) {
+      if (
+        layout?.selectedContact &&
+        String(layout.selectedContact._id) === strId
+      ) {
         layout.updateSelectedContact({ publicKey });
       }
       set((state) => ({
@@ -933,9 +938,8 @@ export const useChatStore = create((set, get) => ({
     socket.on("message_reencrypted", async (data) => {
       if (!data) return;
       const { messageId, content, iv, message, conversationId } = data;
-      const currentUserId = (
-        get().currentUser || useUserStore.getState().user
-      )?._id;
+      const currentUserId = (get().currentUser || useUserStore.getState().user)
+        ?._id;
       const selectedContact = useLayoutStore.getState()?.selectedContact;
       const rawMsg = message || {
         _id: messageId,
@@ -2058,7 +2062,14 @@ export const useChatStore = create((set, get) => ({
     let iv = null;
     let rawContentToKeep = content;
 
+    const isTargetingMetaAi = Boolean(
+      receiverId?.toString() === "66f000000000000000000001" ||
+      selectedContact?.isAI ||
+      (typeof content === "string" && /@meta\s*ai/i.test(content)),
+    );
+
     if (
+      !isTargetingMetaAi &&
       peerPubKey &&
       content &&
       typeof content === "string" &&

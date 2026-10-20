@@ -1,8 +1,8 @@
 import React from "react";
 import formatTimestamp from "../../utils/formatTime";
+import { StatusStoryRing } from "../../components/common/Icons";
 
 const StatusList = ({ contact, onPreview, theme }) => {
-  console.log(contact.statuses);
   return (
     <div>
       <div
@@ -19,30 +19,10 @@ const StatusList = ({ contact, onPreview, theme }) => {
           />
 
           {contact?.statuses?.length > 0 && (
-            <svg
-              className="absolute -top-[3px] -left-[3px] w-[54px] h-[54px] pointer-events-none -rotate-90"
-              viewBox="0 0 100 100"
-            >
-              {contact.statuses.map((_, index) => (
-                <circle
-                  key={index}
-                  cx="50"
-                  cy="50"
-                  r="46"
-                  fill="none"
-                  stroke="url(#statusGrad)"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                />
-              ))}
-
-              <defs>
-                <linearGradient id="statusGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#34d399" />
-                  <stop offset="100%" stopColor="#10b981" />
-                </linearGradient>
-              </defs>
-            </svg>
+            <StatusStoryRing
+              count={contact.statuses.length}
+              className="absolute -top-[3px] -left-[3px] w-[54px] h-[54px]"
+            />
           )}
         </div>
 

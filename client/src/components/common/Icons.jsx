@@ -1452,3 +1452,495 @@ export const EncryptionLogo = () => (
   </svg>
 );
 
+export const VideoCallOutgoingIcon = ({
+  size = 22,
+  width,
+  height,
+  className = "",
+  color = "currentColor",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      <path
+        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"
+        fill={color}
+      />
+      <rect x="3" y="6" width="12" height="12" rx="2" fill={color} />
+      <path
+        d="M15 3h6v6m0-6l-7 7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
+
+export const VideoCallIncomingIcon = ({
+  size = 22,
+  width,
+  height,
+  className = "",
+  color = "currentColor",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      <path
+        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"
+        fill={color}
+      />
+      <rect x="3" y="6" width="12" height="12" rx="2" fill={color} />
+      <path
+        d="M9 21H3v-6m0 6l7-7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
+
+export const CallOutgoingIcon = ({
+  size = 22,
+  width,
+  height,
+  className = "",
+  color = "currentColor",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      <path
+        d="M19.23 15.26l-2.54-.29a1.99 1.99 0 0 0-1.64.57l-1.84 1.84a15.05 15.05 0 0 1-6.59-6.59l1.85-1.85c.43-.43.64-1.03.57-1.64l-.29-2.52a2 2 0 0 0-1.99-1.77H4.41c-1.13 0-2.07.94-2 2.07.53 8.54 7.44 15.45 15.98 15.98 1.13.07 2.07-.87 2.07-2v-2.38c0-1.05-.82-1.93-1.87-1.98z"
+        fill={color}
+      />
+      <path
+        d="M15 3h6v6m0-6l-7 7"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+};
+
+export const BackspaceIcon = ({
+  size = 24,
+  width,
+  height,
+  className = "stroke-current",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" />
+      <line x1="18" y1="9" x2="12" y2="15" />
+      <line x1="12" y1="9" x2="18" y2="15" />
+    </svg>
+  );
+};
+
+export const SendPaperPlaneIcon = ({
+  size = 16,
+  width,
+  height,
+  className = "",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+};
+export const SendPlaneIcon = SendPaperPlaneIcon;
+
+export const StatusStoryRing = ({
+  count = 1,
+  size = 54,
+  strokeWidth = 4,
+  className = "",
+  color = "#10b981",
+  ...props
+}) => {
+  const radius = 46;
+  const circumference = 2 * Math.PI * radius;
+  const segmentLength = circumference / Math.max(1, count);
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      className={`pointer-events-none -rotate-90 ${className}`}
+      {...props}
+    >
+      {Array.from({ length: Math.max(1, count) }).map((_, index) => (
+        <circle
+          key={index}
+          cx="50"
+          cy="50"
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={count > 1 ? `${segmentLength - 4} 4` : undefined}
+          strokeDashoffset={count > 1 ? -(index * segmentLength) : 0}
+          strokeLinecap="round"
+        />
+      ))}
+    </svg>
+  );
+};
+
+export const WhatsAppLogoIcon = ({
+  size = 24,
+  width,
+  height,
+  className = "",
+  color = "#25D366",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill={color}
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.04 20.15C10.56 20.15 9.11 19.76 7.85 19.01L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.81 13.47 3.81 11.91C3.81 7.37 7.5 3.68 12.04 3.68C14.25 3.68 16.31 4.54 17.87 6.1C19.42 7.66 20.28 9.72 20.28 11.92C20.28 16.46 16.59 20.15 12.04 20.15ZM16.57 14.45C16.32 14.32 15.1 13.72 14.87 13.64C14.65 13.56 14.49 13.52 14.32 13.76C14.16 14.01 13.69 14.56 13.54 14.73C13.4 14.89 13.25 14.91 13 14.79C12.75 14.66 11.95 14.4 11 13.55C10.25 12.89 9.75 12.07 9.6 11.82C9.46 11.58 9.59 11.44 9.71 11.32C9.82 11.21 9.96 11.03 10.08 10.89C10.21 10.75 10.25 10.65 10.33 10.48C10.41 10.32 10.37 10.18 10.31 10.05C10.25 9.93 9.75 8.71 9.55 8.2C9.35 7.71 9.15 7.77 9 7.77C8.86 7.76 8.7 7.76 8.53 7.76C8.37 7.76 8.1 7.82 7.88 8.07C7.65 8.31 7.02 8.91 7.02 10.13C7.02 11.34 7.91 12.51 8.03 12.67C8.15 12.83 9.78 15.34 12.27 16.42C12.86 16.68 13.33 16.83 13.69 16.94C14.28 17.13 14.82 17.1 15.25 17.04C15.73 16.97 16.72 16.44 16.93 15.85C17.13 15.27 17.13 14.77 17.07 14.67C17.01 14.57 16.84 14.52 16.57 14.45Z" />
+    </svg>
+  );
+};
+
+export const VoiceMicIcon = ({
+  size = 20,
+  width,
+  height,
+  className = "",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+};
+
+export const PaperclipIcon = ({
+  size = 20,
+  width,
+  height,
+  className = "",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+};
+export const AttachmentIcon = PaperclipIcon;
+
+export const SmileyFaceIcon = ({
+  size = 20,
+  width,
+  height,
+  className = "",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+      <line x1="9" y1="9" x2="9.01" y2="9" />
+      <line x1="15" y1="9" x2="15.01" y2="9" />
+    </svg>
+  );
+};
+
+export const CheckDoubleIcon = ({
+  size = 16,
+  width,
+  height,
+  className = "",
+  color = "currentColor",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 16 11"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...props}
+    >
+      <path
+        d="M11.07 0.93L4.85 7.15L2.93 5.23L1.51 6.64L4.85 9.98L12.49 2.34L11.07 0.93ZM14.93 0.93L8.71 7.15L8.29 6.73L6.87 8.14L8.71 9.98L16.35 2.34L14.93 0.93Z"
+        fill={color}
+      />
+    </svg>
+  );
+};
+
+export const ClockPendingIcon = ({
+  size = 14,
+  width,
+  height,
+  className = "",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+};
+
+export const SearchGlassIcon = ({
+  size = 18,
+  width,
+  height,
+  className = "",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+};
+
+export const CameraPhotoIcon = ({
+  size = 20,
+  width,
+  height,
+  className = "",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  );
+};
+
+export const VideoCameraIcon = ({
+  size = 20,
+  width,
+  height,
+  className = "",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <polygon points="23 7 16 12 23 17 23 7" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  );
+};
+
+export const LockClosedIcon = ({
+  size = 14,
+  width,
+  height,
+  className = "",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+};
+
+// Re-export Meta AI visual symbols so any component can import them directly from Icons
+export {
+  MetaAiRing,
+  MetaAiBadge,
+  META_AI_USER_ID,
+  META_AI_AVATAR,
+} from "./MetaAiIcon";
+
+

@@ -614,37 +614,31 @@ const VideoCallModel = ({ socket }) => {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md transition-all duration-300 ${
-        isFullscreen ? "p-0" : "p-3 sm:p-5"
-      }`}
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md transition-all duration-300 ${isFullscreen ? "p-0" : "p-3 sm:p-5"
+        }`}
     >
       <div
-        className={`relative w-full overflow-hidden transition-all duration-300 shadow-[0_25px_80px_rgba(0,0,0,0.85)] border border-[#2a3942]/70 bg-[#111b21] ${
-          isFullscreen
-            ? "h-full w-full max-w-none max-h-none rounded-none border-0"
-            : incomingCall && !isCallActive
-              ? "max-w-[400px] h-[520px] rounded-3xl"
-              : !isVideoCall
-                ? "max-w-[400px] h-[580px] rounded-3xl"
-                : "max-w-4xl h-[85vh] max-h-[760px] rounded-3xl"
-        }`}
+        className={`relative w-full overflow-hidden transition-all duration-300 shadow-[0_25px_80px_rgba(0,0,0,0.85)] border border-[#2a3942]/70 bg-[#111b21] ${isFullscreen
+          ? "h-full w-full max-w-none max-h-none rounded-none border-0"
+          : incomingCall && !isCallActive
+            ? "max-w-[400px] h-[520px] rounded-3xl"
+            : !isVideoCall
+              ? "max-w-[400px] h-[580px] rounded-3xl"
+              : "max-w-4xl h-[85vh] max-h-[760px] rounded-3xl"
+          }`}
       >
-        {/* Ambient subtle WhatsApp glow */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute w-[500px] h-[500px] bg-[#00a884]/10 blur-[140px] rounded-full top-[-100px] left-[-100px]" />
           <div className="absolute w-[400px] h-[400px] bg-[#111b21] blur-[120px] rounded-full bottom-[-100px] right-[-100px]" />
         </div>
 
-        {/* 1. WhatsApp Incoming Call Screen */}
         {incomingCall && !isCallActive && (
           <div className="relative flex flex-col items-center justify-between h-full p-8 sm:p-10 text-center z-10 animate-in fade-in zoom-in duration-300">
-            {/* Top Security Badge */}
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#202c33]/90 border border-[#2a3942] text-[#8696a0] text-xs font-medium shadow-sm">
               <FaLock className="text-[#00a884] text-[10px]" />
               <span>End-to-end encrypted</span>
             </div>
 
-            {/* Caller Info with WhatsApp Pulsing Rings */}
             <div className="my-auto flex flex-col items-center">
               <div className="relative inline-block mb-6">
                 <div className="absolute -inset-4 rounded-full bg-[#00a884]/20 animate-ping opacity-60 pointer-events-none" />
@@ -677,7 +671,6 @@ const VideoCallModel = ({ socket }) => {
               </p>
             </div>
 
-            {/* Action Buttons: Decline and Accept */}
             <div className="flex items-center justify-center gap-16 sm:gap-20 mt-6">
               <button
                 onClick={handleRejectCall}
@@ -710,12 +703,9 @@ const VideoCallModel = ({ socket }) => {
           </div>
         )}
 
-        {/* 2. WhatsApp Active Call Screen (Voice or Video) */}
         {shouldShowActiveCall && (
           <div className="relative w-full h-full bg-[#111b21] flex flex-col justify-between overflow-hidden">
-            {/* Top WhatsApp Call Header Bar */}
             <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3.5 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-auto">
-              {/* Left: Status / Timer Pill */}
               <div className="flex items-center gap-2.5 shrink-0">
                 {callStatus === "connected" ? (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#202c33]/85 border border-[#2a3942]/60 text-white backdrop-blur-md shadow-sm">
@@ -743,13 +733,11 @@ const VideoCallModel = ({ socket }) => {
                 )}
               </div>
 
-              {/* Center: Official WhatsApp End-to-End Encryption Pill */}
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#202c33]/85 border border-[#2a3942]/70 text-[11px] text-[#8696a0] font-medium backdrop-blur-md shadow-sm select-none shrink-0">
                 <FaLock className="text-[#00a884] text-[10px]" />
                 <span className="font-medium">End-to-end encrypted</span>
               </div>
 
-              {/* Right: Window controls */}
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => setIsFullscreen((prev) => !prev)}
@@ -765,7 +753,6 @@ const VideoCallModel = ({ socket }) => {
               </div>
             </div>
 
-            {/* Remote Audio Track (Always active) */}
             <audio
               autoPlay
               ref={(audio) => {
@@ -775,7 +762,6 @@ const VideoCallModel = ({ socket }) => {
               }}
             />
 
-            {/* Video Call Mode Remote Stream */}
             {callType === "video" && (
               <video
                 ref={(video) => {
@@ -786,18 +772,15 @@ const VideoCallModel = ({ socket }) => {
                 }}
                 autoPlay
                 playsInline
-                className={`w-full h-full object-cover transition-opacity duration-700 ${
-                  remoteStream ? "opacity-100" : "opacity-0"
-                }`}
+                className={`w-full h-full object-cover transition-opacity duration-700 ${remoteStream ? "opacity-100" : "opacity-0"
+                  }`}
               />
             )}
 
-            {/* Fallback Screen: When Voice Call OR Remote Video is not streaming */}
             {(!remoteStream || callType !== "video") && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#111b21] z-10 px-4">
                 <div className="text-center flex flex-col items-center">
                   <div className="relative inline-block mb-6">
-                    {/* Pulsing Ripple Wave for Voice/Active Call */}
                     {isAudioEnabled && (
                       <>
                         <div className="absolute -inset-6 rounded-full bg-[#00a884]/15 animate-ping opacity-40 pointer-events-none" />
@@ -841,7 +824,6 @@ const VideoCallModel = ({ socket }) => {
               </div>
             )}
 
-            {/* Floating Picture-in-Picture Local Video Preview (for Video Calls) */}
             {callType === "video" && localStream && (
               <div className="absolute top-18 right-5 sm:right-8 w-36 sm:w-44 h-48 sm:h-56 rounded-2xl overflow-hidden border-2 border-[#2a3942] shadow-2xl bg-[#202c33] z-20 group transition-transform duration-300 hover:scale-105">
                 {isVideoEnabled ? (
@@ -869,11 +851,9 @@ const VideoCallModel = ({ socket }) => {
               </div>
             )}
 
-            {/* WhatsApp Signature Floating Control Dock (Bottom) */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30">
               <div className="flex items-center gap-4 px-6 py-3.5 rounded-full bg-[#202c33]/95 backdrop-blur-xl border border-[#2a3942] shadow-[0_12px_40px_rgba(0,0,0,0.65)]">
                 {callStatus !== "connected" ? (
-                  /* Cancel / Hangup button when calling */
                   <button
                     onClick={handleEndCall}
                     title="End call"
@@ -883,15 +863,13 @@ const VideoCallModel = ({ socket }) => {
                   </button>
                 ) : (
                   <>
-                    {/* Microphone Mute / Unmute */}
                     <button
                       onClick={toggleAudio}
                       title={isAudioEnabled ? "Mute microphone" : "Unmute microphone"}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
-                        isAudioEnabled
-                          ? "bg-[#374248] hover:bg-[#4a555c] text-white"
-                          : "bg-[#ea0038] text-white shadow-lg shadow-[#ea0038]/30"
-                      }`}
+                      className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer ${isAudioEnabled
+                        ? "bg-[#374248] hover:bg-[#4a555c] text-white"
+                        : "bg-[#ea0038] text-white shadow-lg shadow-[#ea0038]/30"
+                        }`}
                     >
                       {isAudioEnabled ? (
                         <FaMicrophone className="size-5" />
@@ -900,16 +878,14 @@ const VideoCallModel = ({ socket }) => {
                       )}
                     </button>
 
-                    {/* Camera Video On / Off */}
                     {callType === "video" && (
                       <button
                         onClick={toggleVideo}
                         title={isVideoEnabled ? "Turn off camera" : "Turn on camera"}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
-                          isVideoEnabled
-                            ? "bg-[#374248] hover:bg-[#4a555c] text-white"
-                            : "bg-[#ea0038] text-white shadow-lg shadow-[#ea0038]/30"
-                        }`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer ${isVideoEnabled
+                          ? "bg-[#374248] hover:bg-[#4a555c] text-white"
+                          : "bg-[#ea0038] text-white shadow-lg shadow-[#ea0038]/30"
+                          }`}
                       >
                         {isVideoEnabled ? (
                           <FaVideo className="size-5" />
@@ -919,16 +895,14 @@ const VideoCallModel = ({ socket }) => {
                       </button>
                     )}
 
-                    {/* Screen Sharing Toggle (Video Call) */}
                     {callType === "video" && (
                       <button
                         onClick={toggleScreenShare}
                         title={isScreenSharing ? "Stop sharing screen" : "Share screen"}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer ${
-                          isScreenSharing
-                            ? "bg-[#00a884] text-white shadow-lg shadow-[#00a884]/30"
-                            : "bg-[#374248] hover:bg-[#4a555c] text-white"
-                        }`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer ${isScreenSharing
+                          ? "bg-[#00a884] text-white shadow-lg shadow-[#00a884]/30"
+                          : "bg-[#374248] hover:bg-[#4a555c] text-white"
+                          }`}
                       >
                         {isScreenSharing ? (
                           <LuScreenShareOff className="size-5" />
@@ -938,7 +912,6 @@ const VideoCallModel = ({ socket }) => {
                       </button>
                     )}
 
-                    {/* Hangup / End Call */}
                     <button
                       onClick={handleEndCall}
                       title="End call"

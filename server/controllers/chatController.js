@@ -8,6 +8,10 @@ const Message = require("../models/message.js");
 const Conversation = require("../models/ConverSation.js");
 const User = require("../models/user.js");
 const mongoose = require("mongoose");
+const {
+  META_AI_USER_ID,
+  processMetaAiQuery,
+} = require("../services/aiService.js");
 
 function getDisappearingDurationMs(duration) {
   if (!duration || duration === "Off") return null;
@@ -32,6 +36,146 @@ function getDisappearingDurationMs(duration) {
     return (s || 1) * 1000;
   }
   return null;
+}
+
+async function triggerMetaAiResponse({
+  io,
+  senderId,
+  effectiveReceiverId,
+  conversationId,
+  userMessage,
+  isDirectToMetaAi,
+  isMetaAiMention,
+}) {
+  try {
+    const senderRoom = senderId.toString();
+    const receiverRoom = effectiveReceiverId ? effectiveReceiverId.toString() : null;
+    const senderSocketId =
+      io?.socketUserMap && typeof io.socketUserMap.get === "function"
+        ? io.socketUserMap.get(senderRoom)
+        : null;
+    const receiverSocketId =
+      receiverRoom && io?.socketUserMap && typeof io.socketUserMap.get === "function"
+        ? io.socketUserMap.get(receiverRoom)
+        : null;
+
+    if (io) {
+      const typingPayload = {
+        conversationId: conversationId.toString(),
+        userId: META_AI_USER_ID,
+        isTyping: true,
+        typingUser: "Meta AI",
+      };
+      io.to(senderRoom).emit("user_typing", typingPayload);
+      if (senderSocketId && senderSocketId !== senderRoom) {
+        io.to(senderSocketId).emit("user_typing", typingPayload);
+      }
+      if (receiverRoom && receiverRoom !== META_AI_USER_ID) {
+        io.to(receiverRoom).emit("user_typing", typingPayload);
+        if (receiverSocketId && receiverSocketId !== receiverRoom) {
+          io.to(receiverSocketId).emit("user_typing", typingPayload);
+        }
+      }
+    }
+
+    let rawPrompt = userMessage?.content || "";
+    if (isMetaAiMention) {
+      rawPrompt = rawPrompt.replace(/@meta\s*ai/gi, "").trim();
+    }
+
+    let recentMessages = [];
+    try {
+      recentMessages = await Message.find({
+        conversation: conversationId,
+        _id: { $ne: userMessage?._id },
+        deletedForEveryone: false,
+      })
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean();
+      recentMessages.reverse();
+    } catch (e) {
+      console.warn("Could not fetch recent messages for AI context:", e?.message);
+    }
+
+    const aiResult = await processMetaAiQuery(rawPrompt, recentMessages);
+
+    const aiMessage = new Message({
+      conversation: conversationId,
+      sender: META_AI_USER_ID,
+      receiver: senderId,
+      content: aiResult.content || "",
+      contentType: aiResult.type === "image" ? "image" : "text",
+      imageOrVideoUrl: aiResult.imageOrVideoUrl || null,
+      isMetaAi: true,
+      metaAiPrompt: rawPrompt,
+      messageStatus: "read",
+      readAt: new Date(),
+      replyTo: isMetaAiMention ? userMessage?._id : null,
+      timestamp: new Date(),
+    });
+    await aiMessage.save();
+
+    await Conversation.findByIdAndUpdate(conversationId, {
+      lastMessage: aiMessage._id,
+      updatedAt: new Date(),
+    });
+
+    const populatedAiMessage = await Message.findById(aiMessage._id)
+      .populate("sender", "username profilePicture publicKey isAI isVerified")
+      .populate("receiver", "username profilePicture publicKey")
+      .populate("replyTo");
+
+    if (io) {
+      const stopTypingPayload = {
+        conversationId: conversationId.toString(),
+        userId: META_AI_USER_ID,
+        isTyping: false,
+        typingUser: "Meta AI",
+      };
+      io.to(senderRoom).emit("user_typing", stopTypingPayload);
+      if (senderSocketId && senderSocketId !== senderRoom) {
+        io.to(senderSocketId).emit("user_typing", stopTypingPayload);
+      }
+      if (receiverRoom && receiverRoom !== META_AI_USER_ID) {
+        io.to(receiverRoom).emit("user_typing", stopTypingPayload);
+        if (receiverSocketId && receiverSocketId !== receiverRoom) {
+          io.to(receiverSocketId).emit("user_typing", stopTypingPayload);
+        }
+      }
+
+      const aiPayload = {
+        ...populatedAiMessage.toObject(),
+        unreadCount: 0,
+      };
+
+      io.to(senderRoom).emit("receive_message", aiPayload);
+      if (senderSocketId && senderSocketId !== senderRoom) {
+        io.to(senderSocketId).emit("receive_message", aiPayload);
+      }
+      if (!isDirectToMetaAi && receiverRoom) {
+        io.to(receiverRoom).emit("receive_message", aiPayload);
+        if (receiverSocketId && receiverSocketId !== receiverRoom) {
+          io.to(receiverSocketId).emit("receive_message", aiPayload);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Meta AI response generation error:", error);
+    if (io) {
+      const senderRoom = senderId.toString();
+      const senderSocketId = io?.socketUserMap?.get?.(senderRoom);
+      const failPayload = {
+        conversationId: conversationId.toString(),
+        userId: META_AI_USER_ID,
+        isTyping: false,
+      };
+      io.to(senderRoom).emit("user_typing", failPayload);
+      if (senderSocketId && senderSocketId !== senderRoom) {
+        io.to(senderSocketId).emit("user_typing", failPayload);
+      }
+    }
+  }
 }
 
 exports.sendMessage = async (req, res) => {
@@ -338,6 +482,24 @@ exports.sendMessage = async (req, res) => {
           }
         }
       }
+    }
+
+    const isDirectToMetaAi =
+      effectiveReceiverId?.toString() === META_AI_USER_ID ||
+      conversation?.participants?.some((p) => p?.toString() === META_AI_USER_ID);
+    const isMetaAiMention =
+      typeof content === "string" && /@meta\s*ai/i.test(content);
+
+    if (isDirectToMetaAi || isMetaAiMention) {
+      triggerMetaAiResponse({
+        io: req.io,
+        senderId: senderId.toString(),
+        effectiveReceiverId: effectiveReceiverId ? effectiveReceiverId.toString() : META_AI_USER_ID,
+        conversationId: conversation._id,
+        userMessage: populatedMessage,
+        isDirectToMetaAi,
+        isMetaAiMention,
+      }).catch((err) => console.error("Error triggering Meta AI response:", err));
     }
 
     return response(res, 201, "Message sent successfully", populatedMessage);
@@ -1734,3 +1896,35 @@ exports.setDisappearingDuration = async (req, res) => {
     return response(res, 500, "Internal server error");
   }
 };
+
+exports.askMetaAi = async (req, res) => {
+  try {
+    const { prompt, conversationId } = req.body;
+    if (!prompt || !prompt.trim()) {
+      return response(res, 400, "Prompt is required");
+    }
+
+    let recentMessages = [];
+    if (conversationId) {
+      try {
+        recentMessages = await Message.find({
+          conversation: conversationId,
+          deletedForEveryone: false,
+        })
+          .sort({ createdAt: -1 })
+          .limit(6)
+          .lean();
+        recentMessages.reverse();
+      } catch (e) {
+        console.warn("askMetaAi history fetch failed:", e?.message);
+      }
+    }
+
+    const aiResult = await processMetaAiQuery(prompt.trim(), recentMessages);
+    return response(res, 200, "Meta AI response generated", aiResult);
+  } catch (error) {
+    console.error("askMetaAi error:", error);
+    return response(res, 500, "Failed to generate Meta AI response");
+  }
+};
+

@@ -57,8 +57,17 @@ const messageSchema = new mongoose.Schema(
         "sticker",
         "call",
         "call_link",
+        "ai_image",
       ],
       default: "text",
+    },
+    isMetaAi: {
+      type: Boolean,
+      default: false,
+    },
+    metaAiPrompt: {
+      type: String,
+      default: null,
     },
     isEncrypted: {
       type: Boolean,

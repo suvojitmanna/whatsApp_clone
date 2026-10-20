@@ -11,7 +11,7 @@ import {
   MdVideocam,
   MdBackspace,
 } from "react-icons/md";
-import { CallLaptopIllustration } from "../../components/common/Icons";
+import { CallLaptopIllustration, BackspaceIcon } from "../../components/common/Icons";
 import NewCallLinkModal from "./NewCallLinkModal";
 
 const CallPlaceholder = ({
@@ -257,18 +257,7 @@ const CallPlaceholder = ({
                           : "hover:bg-black/[0.05] text-[#111b21]"
                       }`}
                     >
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="w-6 h-6 stroke-current"
-                        fill="none"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z" />
-                        <line x1="18" y1="9" x2="12" y2="15" />
-                        <line x1="12" y1="9" x2="18" y2="15" />
-                      </svg>
+                      <BackspaceIcon size={24} className="w-6 h-6 stroke-current" />
                     </button>
                   );
                 }
