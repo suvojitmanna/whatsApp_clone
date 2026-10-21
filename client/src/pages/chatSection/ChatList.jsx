@@ -1213,11 +1213,10 @@ const ChatList = ({ contacts }) => {
 
         {searchTerms.trim() && (
           <div
-            className={`absolute left-3 right-3 top-[48px] rounded-2xl shadow-2xl border p-2 z-50 flex flex-col gap-1 backdrop-blur-md animate-in fade-in duration-150 ${
-              theme === "dark"
+            className={`absolute left-3 right-3 top-[48px] rounded-2xl shadow-2xl border p-2 z-50 flex flex-col gap-1 backdrop-blur-md animate-in fade-in duration-150 ${theme === "dark"
                 ? "bg-[#202c33]/98 border-gray-700/80 text-white"
                 : "bg-white/98 border-gray-200 text-gray-900"
-            }`}
+              }`}
           >
             <button
               type="button"

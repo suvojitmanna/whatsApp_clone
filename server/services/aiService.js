@@ -15,7 +15,7 @@ function isAssistantMessage(msg) {
     msg.isMetaAi === true ||
     msg.sender?.isAI === true ||
     msg.sender === "meta_ai" ||
-    String(msg.sender?._id || msg.sender) === META_AI_USER_ID
+    String(msg.sender?._id || msg.sender) === META_AI_USER_ID,
   );
 }
 
@@ -392,7 +392,10 @@ async function ensureMetaAiUser() {
         aiUser.isOnline = true;
         changed = true;
       }
-      if (!aiUser.profilePicture || aiUser.profilePicture.includes("wikimedia.org")) {
+      if (
+        !aiUser.profilePicture ||
+        aiUser.profilePicture.includes("wikimedia.org")
+      ) {
         aiUser.profilePicture = META_AI_AVATAR;
         changed = true;
       }

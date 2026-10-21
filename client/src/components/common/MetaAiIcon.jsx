@@ -15,9 +15,8 @@ export const MetaAiRing = ({
   return (
     <div
       style={{ width: size, height: size }}
-      className={`relative shrink-0 flex items-center justify-center select-none ${
-        animate ? "animate-pulse" : ""
-      } ${className}`}
+      className={`relative shrink-0 flex items-center justify-center select-none ${animate ? "animate-pulse" : ""
+        } ${className}`}
     >
       <svg
         viewBox="0 0 48 48"

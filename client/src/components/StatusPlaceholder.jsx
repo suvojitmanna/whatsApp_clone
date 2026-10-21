@@ -8,9 +8,8 @@ const StatusPlaceholder = () => {
 
   return (
     <div
-      className={`h-full w-full flex flex-col items-center justify-center p-8 select-none transition-colors duration-300 ${
-        isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-[#f0f2f5] text-[#111b21]"
-      }`}
+      className={`h-full w-full flex flex-col items-center justify-center p-8 select-none transition-colors duration-300 ${isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-[#f0f2f5] text-[#111b21]"
+        }`}
     >
       <div className="flex flex-col items-center justify-center max-w-md text-center">
         <div className="mb-7 flex items-center justify-center">
@@ -21,17 +20,15 @@ const StatusPlaceholder = () => {
         </div>
 
         <h2
-          className={`text-[30px] sm:text-[32px] font-normal tracking-tight mb-2.5 ${
-            isDark ? "text-[#e9edef]" : "text-[#111b21]"
-          }`}
+          className={`text-[30px] sm:text-[32px] font-normal tracking-tight mb-2.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+            }`}
         >
           Share statuses
         </h2>
 
         <p
-          className={`text-[14px] leading-relaxed max-w-[400px] ${
-            isDark ? "text-[#8696a0]" : "text-[#54656f]"
-          }`}
+          className={`text-[14px] leading-relaxed max-w-[400px] ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+            }`}
         >
           Share photos, videos and text that disappear after 24 hours.
         </p>

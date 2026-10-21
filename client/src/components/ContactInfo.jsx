@@ -1289,10 +1289,10 @@ const ContactInfo = () => {
                                           : contactInfoTab === "advancedPrivacy"
                                             ? "Advanced"
                                             : contactInfoTab === "lists"
-                                               ? "Add to list"
-                                               : isMetaAi
-                                                 ? "Meta AI Info"
-                                                 : "Contact Info"}
+                                              ? "Add to list"
+                                              : isMetaAi
+                                                ? "Meta AI Info"
+                                                : "Contact Info"}
                   </h2>
                 )}
               </div>
@@ -1910,22 +1910,20 @@ const ContactInfo = () => {
                       }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
-                        isMetaAi
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${isMetaAi
                           ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
                           : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                      }`}>
+                        }`}>
                         {isMetaAi ? <MdShield size={19} /> : <FaLock size={16} />}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
                           {isMetaAi ? "AI Privacy & Security" : "Encryption"}
-                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
-                            isMetaAi
+                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${isMetaAi
                               ? "bg-blue-500/20 text-blue-400"
                               : "bg-emerald-500/20 text-emerald-500"
-                          }`}>
+                            }`}>
                             {isMetaAi ? "Meta AI" : "Active"}
                           </span>
                         </h4>
@@ -2056,9 +2054,8 @@ const ContactInfo = () => {
                   Your personal messages and calls with friends and family remain <span className="text-emerald-500 font-semibold">end-to-end encrypted</span>. No one else, not even WhatsApp or Meta, can read or listen to them.
                 </p>
 
-                <div className={`w-full p-4 rounded-2xl border text-left mb-4 ${
-                  theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
-                }`}>
+                <div className={`w-full p-4 rounded-2xl border text-left mb-4 ${theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
+                  }`}>
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 mt-0.5">
                       <MdShield size={18} />
@@ -2074,9 +2071,8 @@ const ContactInfo = () => {
                   </div>
                 </div>
 
-                <div className={`w-full p-4 rounded-2xl border text-left mb-6 ${
-                  theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
-                }`}>
+                <div className={`w-full p-4 rounded-2xl border text-left mb-6 ${theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
+                  }`}>
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
                       <FaLock size={14} />

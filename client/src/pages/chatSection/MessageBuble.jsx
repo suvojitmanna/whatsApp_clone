@@ -312,7 +312,7 @@ const MessageBuble = ({
                   });
                 }
               }
-            } catch (e) {}
+            } catch (e) { }
           }
         }
       });
@@ -2024,21 +2024,21 @@ const MessageBuble = ({
                     const linkData =
                       typeof message.callLinkData === "string"
                         ? (() => {
-                            try {
-                              return JSON.parse(message.callLinkData);
-                            } catch (e) {
-                              return {};
-                            }
-                          })()
+                          try {
+                            return JSON.parse(message.callLinkData);
+                          } catch (e) {
+                            return {};
+                          }
+                        })()
                         : message.callLinkData || {};
 
                     const rawUrl =
                       linkData?.url ||
                       (typeof message.content === "string" &&
-                      message.content.includes("call.whatsapp.com")
+                        message.content.includes("call.whatsapp.com")
                         ? message.content.match(
-                            /https?:\/\/call\.whatsapp\.com\/[^\s]+/i
-                          )?.[0] || message.content
+                          /https?:\/\/call\.whatsapp\.com\/[^\s]+/i
+                        )?.[0] || message.content
                         : "") ||
                       `https://call.whatsapp.com/video/SUH50LINK`;
 
@@ -2090,18 +2090,16 @@ const MessageBuble = ({
 
                           <div className="min-w-0 flex-1 pt-0.5">
                             <h4
-                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${
-                                isDark ? "text-white" : "text-[#111b21]"
-                              }`}
+                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${isDark ? "text-white" : "text-[#111b21]"
+                                }`}
                             >
                               {isVideo
                                 ? "WhatsApp Video Call Link"
                                 : "WhatsApp Voice Call Link"}
                             </h4>
                             <p
-                              className={`text-[12.5px] leading-snug mt-1 ${
-                                isDark ? "text-[#8696a0]" : "text-[#667781]"
-                              }`}
+                              className={`text-[12.5px] leading-snug mt-1 ${isDark ? "text-[#8696a0]" : "text-[#667781]"
+                                }`}
                             >
                               Use this link to join my WhatsApp{" "}
                               {isVideo ? "video" : "voice"} call.
@@ -2111,15 +2109,14 @@ const MessageBuble = ({
 
                         <div
                           onClick={handleCopyCallUrl}
-                          className={`mt-2 px-3 py-2 rounded-xl flex items-center justify-between gap-2 border transition-all cursor-pointer group ${
-                            isUserMessage
+                          className={`mt-2 px-3 py-2 rounded-xl flex items-center justify-between gap-2 border transition-all cursor-pointer group ${isUserMessage
                               ? isDark
                                 ? "bg-black/20 hover:bg-black/30 border-white/5"
                                 : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
                               : isDark
-                              ? "bg-white/[0.06] hover:bg-white/[0.09] border-white/5"
-                              : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
-                          }`}
+                                ? "bg-white/[0.06] hover:bg-white/[0.09] border-white/5"
+                                : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
+                            }`}
                           title="Click to copy link"
                         >
                           <span className="text-[13px] font-mono text-[#00a884] dark:text-[#25d366] font-medium truncate select-all">
@@ -2259,21 +2256,19 @@ const MessageBuble = ({
                     <div className="flex flex-col min-w-[240px] xs:min-w-[260px] max-w-[310px] select-none">
                       <div
                         onClick={handleCallBack}
-                        className={`flex items-start justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer group/callcard ${
-                          isUserMessage
+                        className={`flex items-start justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer group/callcard ${isUserMessage
                             ? isDark
                               ? "bg-black/15 hover:bg-black/25"
                               : "bg-black/[0.04] hover:bg-black/[0.07]"
                             : isDark
                               ? "bg-white/[0.06] hover:bg-white/[0.09]"
                               : "bg-black/[0.04] hover:bg-black/[0.07]"
-                        }`}
+                          }`}
                         title={`Click to call ${peerName || "contact"}`}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div
-                            className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover/callcard:scale-105 ${
-                              isMissed
+                            className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover/callcard:scale-105 ${isMissed
                                 ? isDark
                                   ? "bg-[#ea0038]/20"
                                   : "bg-[#fde8ec]"
@@ -2284,7 +2279,7 @@ const MessageBuble = ({
                                   : isDark
                                     ? "bg-[#182229]"
                                     : "bg-black/10"
-                            }`}
+                              }`}
                           >
                             {isVideo ? (
                               isMissed ? (
@@ -2329,24 +2324,22 @@ const MessageBuble = ({
 
                           <div className="min-w-0 flex-1 pt-0.5">
                             <h4
-                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${
-                                isMissed
+                              className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${isMissed
                                   ? "text-[#ea0038]"
                                   : isDark
                                     ? "text-white"
                                     : "text-[#111b21]"
-                              }`}
+                                }`}
                             >
                               {title}
                             </h4>
                             <p
-                              className={`text-[13px] font-normal mt-1 leading-tight truncate ${
-                                isMissed
+                              className={`text-[13px] font-normal mt-1 leading-tight truncate ${isMissed
                                   ? "text-[#ea0038] font-medium"
                                   : isDark
                                     ? "text-[#8696a0]"
                                     : "text-[#667781]"
-                              }`}
+                                }`}
                             >
                               {durationText}
                             </p>

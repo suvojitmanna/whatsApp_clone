@@ -49,13 +49,17 @@ async function triggerMetaAiResponse({
 }) {
   try {
     const senderRoom = senderId.toString();
-    const receiverRoom = effectiveReceiverId ? effectiveReceiverId.toString() : null;
+    const receiverRoom = effectiveReceiverId
+      ? effectiveReceiverId.toString()
+      : null;
     const senderSocketId =
       io?.socketUserMap && typeof io.socketUserMap.get === "function"
         ? io.socketUserMap.get(senderRoom)
         : null;
     const receiverSocketId =
-      receiverRoom && io?.socketUserMap && typeof io.socketUserMap.get === "function"
+      receiverRoom &&
+      io?.socketUserMap &&
+      typeof io.socketUserMap.get === "function"
         ? io.socketUserMap.get(receiverRoom)
         : null;
 
@@ -95,7 +99,10 @@ async function triggerMetaAiResponse({
         .lean();
       recentMessages.reverse();
     } catch (e) {
-      console.warn("Could not fetch recent messages for AI context:", e?.message);
+      console.warn(
+        "Could not fetch recent messages for AI context:",
+        e?.message,
+      );
     }
 
     const aiResult = await processMetaAiQuery(rawPrompt, recentMessages);
@@ -486,7 +493,9 @@ exports.sendMessage = async (req, res) => {
 
     const isDirectToMetaAi =
       effectiveReceiverId?.toString() === META_AI_USER_ID ||
-      conversation?.participants?.some((p) => p?.toString() === META_AI_USER_ID);
+      conversation?.participants?.some(
+        (p) => p?.toString() === META_AI_USER_ID,
+      );
     const isMetaAiMention =
       typeof content === "string" && /@meta\s*ai/i.test(content);
 
@@ -494,12 +503,16 @@ exports.sendMessage = async (req, res) => {
       triggerMetaAiResponse({
         io: req.io,
         senderId: senderId.toString(),
-        effectiveReceiverId: effectiveReceiverId ? effectiveReceiverId.toString() : META_AI_USER_ID,
+        effectiveReceiverId: effectiveReceiverId
+          ? effectiveReceiverId.toString()
+          : META_AI_USER_ID,
         conversationId: conversation._id,
         userMessage: populatedMessage,
         isDirectToMetaAi,
         isMetaAiMention,
-      }).catch((err) => console.error("Error triggering Meta AI response:", err));
+      }).catch((err) =>
+        console.error("Error triggering Meta AI response:", err),
+      );
     }
 
     return response(res, 201, "Message sent successfully", populatedMessage);
@@ -1927,4 +1940,3 @@ exports.askMetaAi = async (req, res) => {
     return response(res, 500, "Failed to generate Meta AI response");
   }
 };
-

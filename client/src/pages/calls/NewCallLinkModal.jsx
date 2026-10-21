@@ -127,8 +127,8 @@ const NewCallLinkModal = ({
     >
       <div
         className={`w-full max-w-[460px] rounded-[22px] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)] border transition-all ${isDark
-            ? "bg-[#202428] border-white/[0.08] text-[#e9edef]"
-            : "bg-white border-gray-200 text-[#111b21]"
+          ? "bg-[#202428] border-white/[0.08] text-[#e9edef]"
+          : "bg-white border-gray-200 text-[#111b21]"
           }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -140,8 +140,8 @@ const NewCallLinkModal = ({
             type="button"
             onClick={onClose}
             className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark
-                ? "text-[#aebac1] hover:text-white hover:bg-white/10"
-                : "text-[#54656f] hover:text-black hover:bg-black/5"
+              ? "text-[#aebac1] hover:text-white hover:bg-white/10"
+              : "text-[#54656f] hover:text-black hover:bg-black/5"
               }`}
             title="Close"
             aria-label="Close"
@@ -165,8 +165,8 @@ const NewCallLinkModal = ({
 
             <div
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border mb-3 ${isDark
-                  ? "bg-[#111b21] border-[#222e35]"
-                  : "bg-[#f0f2f5] border-gray-200"
+                ? "bg-[#111b21] border-[#222e35]"
+                : "bg-[#f0f2f5] border-gray-200"
                 }`}
             >
               <MdSearch className="text-lg opacity-60" />
@@ -194,8 +194,8 @@ const NewCallLinkModal = ({
                       key={id}
                       onClick={() => handleSelectContactToSend(c)}
                       className={`p-2.5 rounded-xl flex items-center gap-3 cursor-pointer transition-all ${isDark
-                          ? "hover:bg-white/[0.06]"
-                          : "hover:bg-black/[0.05]"
+                        ? "hover:bg-white/[0.06]"
+                        : "hover:bg-black/[0.05]"
                         }`}
                     >
                       <ContactAvatar contact={c} size={40} />
@@ -226,8 +226,8 @@ const NewCallLinkModal = ({
                     setIsTypeDropdownOpen((prev) => !prev);
                   }}
                   className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-medium text-[14px] transition-all cursor-pointer ${isDark
-                      ? "bg-[#132d24] hover:bg-[#183a2e] text-[#25d366] border border-[#00a884]/25"
-                      : "bg-[#e7fce3] hover:bg-[#d8f9d3] text-[#008069] border border-[#00a884]/30"
+                    ? "bg-[#132d24] hover:bg-[#183a2e] text-[#25d366] border border-[#00a884]/25"
+                    : "bg-[#e7fce3] hover:bg-[#d8f9d3] text-[#008069] border border-[#00a884]/30"
                     }`}
                   title="Change call type"
                 >
@@ -246,8 +246,8 @@ const NewCallLinkModal = ({
                 {isTypeDropdownOpen && (
                   <div
                     className={`absolute top-12 left-0 z-30 w-36 py-1.5 rounded-xl shadow-xl border animate-fadeIn ${isDark
-                        ? "bg-[#182229] border-white/10 text-[#e9edef]"
-                        : "bg-white border-gray-200 text-[#111b21]"
+                      ? "bg-[#182229] border-white/10 text-[#e9edef]"
+                      : "bg-white border-gray-200 text-[#111b21]"
                       }`}
                   >
                     <button
@@ -257,8 +257,8 @@ const NewCallLinkModal = ({
                         setIsTypeDropdownOpen(false);
                       }}
                       className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-sm transition-colors text-left cursor-pointer ${callType === "video"
-                          ? "text-[#00a884] font-medium"
-                          : ""
+                        ? "text-[#00a884] font-medium"
+                        : ""
                         } ${isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
                         }`}
                     >
@@ -273,8 +273,8 @@ const NewCallLinkModal = ({
                         setIsTypeDropdownOpen(false);
                       }}
                       className={`w-full px-3.5 py-2 flex items-center gap-2.5 text-sm transition-colors text-left cursor-pointer ${callType === "voice"
-                          ? "text-[#00a884] font-medium"
-                          : ""
+                        ? "text-[#00a884] font-medium"
+                        : ""
                         } ${isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
                         }`}
                     >
@@ -287,8 +287,8 @@ const NewCallLinkModal = ({
 
               <div
                 className={`flex-1 min-w-0 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border ${isDark
-                    ? "bg-[#111b21] border-white/[0.06]"
-                    : "bg-[#f0f2f5] border-gray-200"
+                  ? "bg-[#111b21] border-white/[0.06]"
+                  : "bg-[#f0f2f5] border-gray-200"
                   }`}
               >
                 <span
@@ -303,10 +303,10 @@ const NewCallLinkModal = ({
                   type="button"
                   onClick={handleCopyLink}
                   className={`p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${copied
-                      ? "text-[#00a884]"
-                      : isDark
-                        ? "text-[#aebac1] hover:text-white hover:bg-white/10"
-                        : "text-[#54656f] hover:text-black hover:bg-black/5"
+                    ? "text-[#00a884]"
+                    : isDark
+                      ? "text-[#aebac1] hover:text-white hover:bg-white/10"
+                      : "text-[#54656f] hover:text-black hover:bg-black/5"
                     }`}
                   title="Copy link"
                   aria-label="Copy link"
@@ -362,18 +362,18 @@ const NewCallLinkModal = ({
                 aria-checked={requireApproval}
                 onClick={() => setRequireApproval((prev) => !prev)}
                 className={`w-11 h-6 rounded-full p-0.5 transition-colors duration-200 cursor-pointer shrink-0 relative flex items-center ${requireApproval
-                    ? "bg-[#00a884]"
-                    : isDark
-                      ? "bg-[#374248]"
-                      : "bg-[#d1d7db]"
+                  ? "bg-[#00a884]"
+                  : isDark
+                    ? "bg-[#374248]"
+                    : "bg-[#d1d7db]"
                   }`}
               >
                 <div
                   className={`w-5 h-5 rounded-full transition-transform duration-200 shadow-sm ${requireApproval
-                      ? "bg-white translate-x-5"
-                      : isDark
-                        ? "bg-[#8696a0] translate-x-0"
-                        : "bg-white translate-x-0"
+                    ? "bg-white translate-x-5"
+                    : isDark
+                      ? "bg-[#8696a0] translate-x-0"
+                      : "bg-white translate-x-0"
                     }`}
                 />
               </button>

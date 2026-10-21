@@ -153,8 +153,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
   return (
     <div
       className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 overflow-y-auto ${isDark
-          ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
-          : "bg-white border-gray-200 text-[#111b21]"
+        ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
+        : "bg-white border-gray-200 text-[#111b21]"
         }`}
     >
       <div className="h-16 px-4 flex items-center justify-between shrink-0">
@@ -163,8 +163,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
             type="button"
             onClick={onBack}
             className={`p-2 -ml-2 rounded-full transition-colors cursor-pointer active:scale-95 ${isDark
-                ? "text-[#e9edef] hover:bg-white/10"
-                : "text-[#111b21] hover:bg-black/5"
+              ? "text-[#e9edef] hover:bg-white/10"
+              : "text-[#111b21] hover:bg-black/5"
               }`}
             title="Back"
             aria-label="Back"
@@ -187,12 +187,12 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
             type="button"
             onClick={() => setActiveMode("phone")}
             className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeMode === "phone"
-                ? isDark
-                  ? "bg-[#202c33] text-[#00c878] shadow-sm"
-                  : "bg-white text-[#008f5a] shadow-sm"
-                : isDark
-                  ? "text-[#8696a0] hover:text-[#e9edef]"
-                  : "text-[#54656f] hover:text-[#111b21]"
+              ? isDark
+                ? "bg-[#202c33] text-[#00c878] shadow-sm"
+                : "bg-white text-[#008f5a] shadow-sm"
+              : isDark
+                ? "text-[#8696a0] hover:text-[#e9edef]"
+                : "text-[#54656f] hover:text-[#111b21]"
               }`}
           >
             <MdCall className="text-sm" />
@@ -203,12 +203,12 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
             type="button"
             onClick={() => setActiveMode("email")}
             className={`flex-1 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${activeMode === "email"
-                ? isDark
-                  ? "bg-[#202c33] text-[#00c878] shadow-sm"
-                  : "bg-white text-[#008f5a] shadow-sm"
-                : isDark
-                  ? "text-[#8696a0] hover:text-[#e9edef]"
-                  : "text-[#54656f] hover:text-[#111b21]"
+              ? isDark
+                ? "bg-[#202c33] text-[#00c878] shadow-sm"
+                : "bg-white text-[#008f5a] shadow-sm"
+              : isDark
+                ? "text-[#8696a0] hover:text-[#e9edef]"
+                : "text-[#54656f] hover:text-[#111b21]"
               }`}
           >
             <MdOutlineEmail className="text-sm" />
@@ -236,8 +236,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                 }}
                 placeholder="Phone number"
                 className={`w-full px-4 py-3.5 rounded-2xl text-[16px] font-normal tracking-wide outline-none border-2 transition-all ${isDark
-                    ? "bg-[#161a1d] border-[#00c878] text-[#e9edef] placeholder-[#8696a0]"
-                    : "bg-[#f0f2f5] border-[#00a884] text-[#111b21] placeholder-[#54656f]"
+                  ? "bg-[#161a1d] border-[#00c878] text-[#e9edef] placeholder-[#8696a0]"
+                  : "bg-[#f0f2f5] border-[#00a884] text-[#111b21] placeholder-[#54656f]"
                   }`}
               />
 
@@ -246,8 +246,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                   type="button"
                   onClick={() => setPhoneNumber("")}
                   className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors cursor-pointer ${isDark
-                      ? "text-[#8696a0] hover:text-white hover:bg-white/10"
-                      : "text-[#54656f] hover:text-black hover:bg-black/10"
+                    ? "text-[#8696a0] hover:text-white hover:bg-white/10"
+                    : "text-[#54656f] hover:text-black hover:bg-black/10"
                     }`}
                   title="Clear"
                 >
@@ -278,8 +278,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                     onTouchStart={handleBackspaceMouseDown}
                     onTouchEnd={handleBackspaceMouseUp}
                     className={`h-16 w-full flex items-center justify-center rounded-2xl active:scale-95 transition-all cursor-pointer ${isDark
-                        ? "hover:bg-white/[0.06] active:bg-white/[0.12] text-[#e9edef]"
-                        : "hover:bg-black/[0.05] active:bg-black/[0.1] text-[#111b21]"
+                      ? "hover:bg-white/[0.06] active:bg-white/[0.12] text-[#e9edef]"
+                      : "hover:bg-black/[0.05] active:bg-black/[0.1] text-[#111b21]"
                       }`}
                     title="Backspace (Hold to clear)"
                     aria-label="Backspace"
@@ -296,8 +296,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                     type="button"
                     onClick={() => handleAppendDigit("+")}
                     className={`h-16 w-full flex items-center justify-center rounded-2xl active:scale-95 transition-all cursor-pointer ${isDark
-                        ? "hover:bg-white/[0.06] active:bg-white/[0.12] text-[#e9edef]"
-                        : "hover:bg-black/[0.05] active:bg-black/[0.1] text-[#111b21]"
+                      ? "hover:bg-white/[0.06] active:bg-white/[0.12] text-[#e9edef]"
+                      : "hover:bg-black/[0.05] active:bg-black/[0.1] text-[#111b21]"
                       }`}
                     aria-label="Plus"
                   >
@@ -314,8 +314,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                   type="button"
                   onClick={() => handleAppendDigit(item.digit)}
                   className={`h-16 w-full flex flex-col items-center justify-center rounded-2xl active:scale-95 transition-all cursor-pointer ${isDark
-                      ? "hover:bg-white/[0.06] active:bg-white/[0.12] text-[#e9edef]"
-                      : "hover:bg-black/[0.05] active:bg-black/[0.1] text-[#111b21]"
+                    ? "hover:bg-white/[0.06] active:bg-white/[0.12] text-[#e9edef]"
+                    : "hover:bg-black/[0.05] active:bg-black/[0.1] text-[#111b21]"
                     }`}
                 >
                   <span className="text-[26px] font-normal leading-none">
@@ -372,8 +372,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                 }}
                 placeholder="Email address (e.g. name@gmail.com)"
                 className={`w-full px-4 py-3.5 rounded-2xl text-[15px] font-normal tracking-normal outline-none border-2 transition-all ${isDark
-                    ? "bg-[#161a1d] border-[#00c878] text-[#e9edef] placeholder-[#8696a0]"
-                    : "bg-[#f0f2f5] border-[#00a884] text-[#111b21] placeholder-[#54656f]"
+                  ? "bg-[#161a1d] border-[#00c878] text-[#e9edef] placeholder-[#8696a0]"
+                  : "bg-[#f0f2f5] border-[#00a884] text-[#111b21] placeholder-[#54656f]"
                   }`}
               />
 
@@ -382,8 +382,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                   type="button"
                   onClick={() => setEmailAddress("")}
                   className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors cursor-pointer ${isDark
-                      ? "text-[#8696a0] hover:text-white hover:bg-white/10"
-                      : "text-[#54656f] hover:text-black hover:bg-black/10"
+                    ? "text-[#8696a0] hover:text-white hover:bg-white/10"
+                    : "text-[#54656f] hover:text-black hover:bg-black/10"
                     }`}
                   title="Clear"
                 >
@@ -411,8 +411,8 @@ const PhoneNumberView = ({ onBack, onStartCall, contacts = [] }) => {
                   }
                 }}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer ${isDark
-                    ? "bg-[#182229] border-white/10 text-[#8696a0] hover:text-[#00c878] hover:border-[#00c878]/50"
-                    : "bg-[#f0f2f5] border-gray-200 text-[#54656f] hover:text-[#008f5a] hover:border-[#008f5a]/50"
+                  ? "bg-[#182229] border-white/10 text-[#8696a0] hover:text-[#00c878] hover:border-[#00c878]/50"
+                  : "bg-[#f0f2f5] border-gray-200 text-[#54656f] hover:text-[#008f5a] hover:border-[#008f5a]/50"
                   }`}
               >
                 {chip}

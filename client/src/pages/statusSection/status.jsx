@@ -191,14 +191,14 @@ const status = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className={`h-full w-full flex flex-col overflow-hidden border-r relative z-10 transition-colors duration-300 ${theme === "dark"
-            ? "bg-[#111b21] border-gray-700/60 text-white"
-            : "bg-white border-gray-200 text-gray-900"
+          ? "bg-[#111b21] border-gray-700/60 text-white"
+          : "bg-white border-gray-200 text-gray-900"
           }`}
       >
         <header
           className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 transition-colors duration-300 ${theme === "dark"
-              ? "bg-[#111b21] border-gray-700/50 text-white"
-              : "bg-white border-gray-200 text-gray-900"
+            ? "bg-[#111b21] border-gray-700/50 text-white"
+            : "bg-white border-gray-200 text-gray-900"
             }`}
         >
           <h2 className="text-xl font-semibold">Status</h2>
@@ -232,8 +232,8 @@ const status = () => {
 
           <section
             className={`rounded-2xl border transition-all ${theme === "dark"
-                ? "bg-[#111b21] border-gray-700/40 hover:bg-white/5"
-                : "bg-gray-50/80 border-gray-200/70 hover:bg-gray-100/70"
+              ? "bg-[#111b21] border-gray-700/40 hover:bg-white/5"
+              : "bg-gray-50/80 border-gray-200/70 hover:bg-gray-100/70"
               } p-3`}
           >
             <div className="flex items-center gap-3">
@@ -365,8 +365,8 @@ const status = () => {
             ) : otherStatuses.length > 0 ? (
               <div
                 className={`rounded-2xl overflow-hidden border divide-y transition-all ${theme === "dark"
-                    ? "bg-[#111b21] border-gray-700/40 divide-gray-700/40"
-                    : "bg-white border-gray-200 divide-gray-100"
+                  ? "bg-[#111b21] border-gray-700/40 divide-gray-700/40"
+                  : "bg-white border-gray-200 divide-gray-100"
                   }`}
               >
                 {otherStatuses.map((contact, index) => (
@@ -463,8 +463,8 @@ const status = () => {
                   onChange={(e) => setNewStatus(e.target.value)}
                   placeholder="What's the vibe?"
                   className={`w-full p-6 rounded-[1.5rem] resize-none text-lg font-medium outline-none border-2 transition-all duration-200 ${theme === "dark"
-                      ? "bg-[#2a3942] text-white border-white/5 hover:border-emerald-500/50 focus:border-green-500 focus:ring-4 focus:ring-green-500/20"
-                      : "bg-gray-100 text-black border-gray-200 hover:border-emerald-500/50 focus:border-green-500 focus:ring-4 focus:ring-green-500/20"
+                    ? "bg-[#2a3942] text-white border-white/5 hover:border-emerald-500/50 focus:border-green-500 focus:ring-4 focus:ring-green-500/20"
+                    : "bg-gray-100 text-black border-gray-200 hover:border-emerald-500/50 focus:border-green-500 focus:ring-4 focus:ring-green-500/20"
                     }`}
                   rows={3}
                 />
@@ -477,8 +477,8 @@ const status = () => {
                     >
                       <div
                         className={`flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all duration-200 group-hover:scale-[1.02] group-active:scale-95 ${theme === "dark"
-                            ? "border-white/10 hover:border-green-500/50 hover:bg-white/5"
-                            : "border-gray-200 hover:border-green-500/50 hover:bg-gray-50"
+                          ? "border-white/10 hover:border-green-500/50 hover:bg-white/5"
+                          : "border-gray-200 hover:border-green-500/50 hover:bg-gray-50"
                           }`}
                       >
                         <FaCamera className="text-green-500" size={20} />
@@ -499,8 +499,8 @@ const status = () => {
                       onClick={() => setShowCamera(true)}
                       title="Take photo with camera"
                       className={`flex-1 flex items-center justify-center gap-3 p-4 rounded-2xl border-2 transition-all duration-200 hover:scale-[1.02] active:scale-95 cursor-pointer ${theme === "dark"
-                          ? "border-white/10 hover:border-blue-500/50 hover:bg-white/5"
-                          : "border-gray-200 hover:border-blue-500/50 hover:bg-gray-50"
+                        ? "border-white/10 hover:border-blue-500/50 hover:bg-white/5"
+                        : "border-gray-200 hover:border-blue-500/50 hover:bg-gray-50"
                         }`}
                     >
                       <FaCamera className="text-blue-500" size={20} />
@@ -521,8 +521,8 @@ const status = () => {
                         setFilePreview(null);
                       }}
                       className={`flex-1 py-4 font-bold rounded-2xl transition-all duration-300 active:scale-95 hover:bg-red-400/20 ${theme === "dark"
-                          ? "text-gray-400 hover:text-white"
-                          : "text-gray-500 hover:text-gray-900"
+                        ? "text-gray-400 hover:text-white"
+                        : "text-gray-500 hover:text-gray-900"
                         } cursor-pointer`}
                     >
                       Discard
