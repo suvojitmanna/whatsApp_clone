@@ -190,6 +190,7 @@ exports.sendMessage = async (req, res) => {
     let {
       senderId,
       receiverId,
+      conversationId: incomingConvId,
       content,
       messageStatus,
       statusId,
@@ -203,29 +204,71 @@ exports.sendMessage = async (req, res) => {
       iv,
     } = req.body;
 
-    let effectiveReceiverId = receiverId ? receiverId.toString() : null;
-    if (effectiveReceiverId) {
-      const possibleConv =
-        await Conversation.findById(effectiveReceiverId).select("participants");
-      if (possibleConv && Array.isArray(possibleConv.participants)) {
-        const other = possibleConv.participants.find(
-          (p) => p.toString() !== senderId.toString(),
-        );
-        if (other) effectiveReceiverId = other.toString();
+    let conversation = null;
+    let isGroup = false;
+
+    if (incomingConvId && mongoose.Types.ObjectId.isValid(incomingConvId)) {
+      conversation = await Conversation.findById(incomingConvId);
+      if (conversation?.isGroup) {
+        isGroup = true;
       }
     }
 
-    const participants = [senderId, effectiveReceiverId].sort();
+    if (!isGroup && receiverId && mongoose.Types.ObjectId.isValid(receiverId)) {
+      const possibleConv = await Conversation.findById(receiverId);
+      if (possibleConv?.isGroup) {
+        conversation = possibleConv;
+        isGroup = true;
+      }
+    }
+
+    let effectiveReceiverId = null;
+
+    if (isGroup) {
+      const isMember = conversation.participants?.some(
+        (p) => p.toString() === senderId.toString(),
+      );
+      if (!isMember) {
+        return response(res, 403, "You are not a member of this group");
+      }
+
+      const isAdmin = conversation.groupAdmin?.some(
+        (a) => a.toString() === senderId.toString(),
+      );
+      if (conversation.groupPermissions?.sendMessages === false && !isAdmin) {
+        return response(res, 403, "Only admins can send messages in this group");
+      }
+    } else {
+      effectiveReceiverId = receiverId ? receiverId.toString() : null;
+      if (effectiveReceiverId && mongoose.Types.ObjectId.isValid(effectiveReceiverId)) {
+        const possibleConv =
+          await Conversation.findById(effectiveReceiverId).select("participants isGroup");
+        if (possibleConv && !possibleConv.isGroup && Array.isArray(possibleConv.participants)) {
+          const other = possibleConv.participants.find(
+            (p) => p.toString() !== senderId.toString(),
+          );
+          if (other) effectiveReceiverId = other.toString();
+        }
+      }
+
+      const participants = [senderId, effectiveReceiverId].sort();
+      if (!conversation) {
+        conversation = await Conversation.findOne({
+          participants: participants,
+          isGroup: false,
+        });
+      }
+      if (!conversation) {
+        conversation = new Conversation({
+          participants: participants,
+          isGroup: false,
+        });
+        await conversation.save();
+      }
+    }
+
     const file = req.file;
     const timestamp = new Date();
-
-    let conversation = await Conversation.findOne({
-      participants: participants,
-    });
-    if (!conversation) {
-      conversation = new Conversation({ participants: participants });
-      await conversation.save();
-    }
     let imageOrVideoUrl = null;
     let contentType = customContentType || null;
 
@@ -315,49 +358,59 @@ exports.sendMessage = async (req, res) => {
       }
     }
 
-    const senderUser = await User.findById(senderId).select("blockedUsers");
-    const isReceiverBlockedBySender = Boolean(
-      senderUser?.blockedUsers?.some((bId) => {
-        const str = bId.toString();
-        return (
-          str === effectiveReceiverId.toString() ||
-          (conversation && str === conversation._id.toString())
+    let isReceiverBlockedBySender = false;
+    let isSenderBlockedByReceiver = false;
+    let receiverRoom = null;
+    let isReceiverOnline = false;
+
+    if (!isGroup && effectiveReceiverId) {
+      const senderUser = await User.findById(senderId).select("blockedUsers");
+      isReceiverBlockedBySender = Boolean(
+        senderUser?.blockedUsers?.some((bId) => {
+          const str = bId.toString();
+          return (
+            str === effectiveReceiverId.toString() ||
+            (conversation && str === conversation._id.toString())
+          );
+        }),
+      );
+      if (isReceiverBlockedBySender) {
+        return response(res, 400, "Unblock contact to send a message");
+      }
+
+      const receiverUser =
+        await User.findById(effectiveReceiverId).select("blockedUsers");
+      isSenderBlockedByReceiver = Boolean(
+        receiverUser?.blockedUsers?.some((bId) => {
+          const str = bId.toString();
+          return (
+            str === senderId.toString() ||
+            (conversation && str === conversation._id.toString())
+          );
+        }),
+      );
+
+      receiverRoom = effectiveReceiverId?.toString();
+      isReceiverOnline =
+        !isSenderBlockedByReceiver &&
+        Boolean(
+          (req.socketUserMap &&
+            typeof req.socketUserMap.get === "function" &&
+            req.socketUserMap.get(receiverRoom)) ||
+          (req.io && req.io.sockets?.adapter?.rooms?.get(receiverRoom)?.size > 0),
         );
-      }),
-    );
-    if (isReceiverBlockedBySender) {
-      return response(res, 400, "Unblock contact to send a message");
     }
 
-    const receiverUser =
-      await User.findById(effectiveReceiverId).select("blockedUsers");
-    const isSenderBlockedByReceiver = Boolean(
-      receiverUser?.blockedUsers?.some((bId) => {
-        const str = bId.toString();
-        return (
-          str === senderId.toString() ||
-          (conversation && str === conversation._id.toString())
-        );
-      }),
-    );
-
-    const receiverRoom = effectiveReceiverId?.toString();
-    const isReceiverOnline =
-      !isSenderBlockedByReceiver &&
-      Boolean(
-        (req.socketUserMap &&
-          typeof req.socketUserMap.get === "function" &&
-          req.socketUserMap.get(receiverRoom)) ||
-        (req.io && req.io.sockets?.adapter?.rooms?.get(receiverRoom)?.size > 0),
-      );
     const now = new Date();
-    const finalStatus = isSenderBlockedByReceiver
+    const finalStatus = isGroup
       ? "send"
-      : isReceiverOnline
-        ? "delivered"
-        : "send";
+      : isSenderBlockedByReceiver
+        ? "send"
+        : isReceiverOnline
+          ? "delivered"
+          : "send";
     const initialDeliveredAt =
-      isReceiverOnline && !isSenderBlockedByReceiver ? now : null;
+      !isGroup && isReceiverOnline && !isSenderBlockedByReceiver ? now : null;
     let isDisappearing = false;
     let disappearingDuration = null;
     let disappearingExpiresAt = null;
@@ -393,7 +446,7 @@ exports.sendMessage = async (req, res) => {
     const message = new Message({
       conversation: conversation._id,
       sender: senderId,
-      receiver: effectiveReceiverId,
+      receiver: isGroup ? null : effectiveReceiverId,
       content: content || "",
       contentType,
       isEncrypted: isEncrypted === true || isEncrypted === "true",
@@ -412,7 +465,7 @@ exports.sendMessage = async (req, res) => {
       messageStatus: finalStatus,
       deliveredAt: initialDeliveredAt,
       blockedDelivery: isSenderBlockedByReceiver,
-      deletedFor: isSenderBlockedByReceiver ? [effectiveReceiverId] : [],
+      deletedFor: isSenderBlockedByReceiver && effectiveReceiverId ? [effectiveReceiverId] : [],
       readAt: null,
       timestamp,
       reactions: [],
@@ -428,11 +481,11 @@ exports.sendMessage = async (req, res) => {
     conversation.deletedFor = (conversation.deletedFor || []).filter(
       (dId) =>
         dId.toString() !== senderId.toString() &&
-        (!isSenderBlockedByReceiver
+        (!isGroup && effectiveReceiverId && !isSenderBlockedByReceiver
           ? dId.toString() !== effectiveReceiverId.toString()
           : true),
     );
-    if (!isSenderBlockedByReceiver) {
+    if (isGroup || !isSenderBlockedByReceiver) {
       conversation.lastMessage = message._id;
     }
     await conversation.save();
@@ -441,6 +494,8 @@ exports.sendMessage = async (req, res) => {
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey")
       .populate("replyTo")
+      .populate("deliveredTo.user", "username profilePicture phoneNumber about")
+      .populate("readBy.user", "username profilePicture phoneNumber about")
       .populate({
         path: "statusId",
         populate: {
@@ -449,7 +504,25 @@ exports.sendMessage = async (req, res) => {
         },
       });
 
-    if (req.io && !isSenderBlockedByReceiver) {
+    if (req.io && isGroup) {
+      const messagePayload = {
+        ...populatedMessage.toObject(),
+        conversationId: conversation._id.toString(),
+      };
+
+      conversation.participants.forEach((p) => {
+        const pIdStr = (p._id || p).toString();
+        if (pIdStr !== senderId.toString()) {
+          req.io.to(pIdStr).emit("receive_message", messagePayload);
+          if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+            const sId = req.socketUserMap.get(pIdStr);
+            if (sId && sId !== pIdStr) {
+              req.io.to(sId).emit("receive_message", messagePayload);
+            }
+          }
+        }
+      });
+    } else if (req.io && !isSenderBlockedByReceiver && receiverRoom) {
       const receiverSocketId =
         req.socketUserMap && typeof req.socketUserMap.get === "function"
           ? req.socketUserMap.get(receiverRoom)
@@ -492,10 +565,11 @@ exports.sendMessage = async (req, res) => {
     }
 
     const isDirectToMetaAi =
-      effectiveReceiverId?.toString() === META_AI_USER_ID ||
-      conversation?.participants?.some(
-        (p) => p?.toString() === META_AI_USER_ID,
-      );
+      !isGroup &&
+      (effectiveReceiverId?.toString() === META_AI_USER_ID ||
+        conversation?.participants?.some(
+          (p) => p?.toString() === META_AI_USER_ID,
+        ));
     const isMetaAiMention =
       typeof content === "string" && /@meta\s*ai/i.test(content);
 
@@ -746,6 +820,8 @@ exports.getMessages = async (req, res) => {
     })
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey")
+      .populate("deliveredTo.user", "username profilePicture phoneNumber about")
+      .populate("readBy.user", "username profilePicture phoneNumber about")
       .populate("reactions.userId", "username profilePicture")
       .populate("pollData.options.votes", "username profilePicture")
       .populate("replyTo")
@@ -1940,3 +2016,185 @@ exports.askMetaAi = async (req, res) => {
     return response(res, 500, "Failed to generate Meta AI response");
   }
 };
+
+exports.createGroup = async (req, res) => {
+  const creatorId = req.user.userId;
+  let {
+    name,
+    description,
+    participants = [],
+    groupProfileImage,
+    disappearingDuration,
+    groupPermissions,
+  } = req.body;
+
+  try {
+    if (!name || !name.trim()) {
+      return response(res, 400, "Group name is required");
+    }
+
+    let parsedParticipants = [];
+    if (typeof participants === "string") {
+      try {
+        parsedParticipants = JSON.parse(participants);
+      } catch (e) {
+        parsedParticipants = participants
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    } else if (Array.isArray(participants)) {
+      parsedParticipants = participants;
+    }
+
+    const participantSet = new Set(
+      parsedParticipants
+        .map((p) => (p._id || p.userId || p).toString())
+        .filter(Boolean),
+    );
+    participantSet.add(creatorId.toString());
+
+    let imageUrl = groupProfileImage || "";
+    if (req.file) {
+      try {
+        const uploadRes = await uploadFileToCloudinary(req.file);
+        imageUrl = uploadRes?.secure_url || uploadRes?.url || "";
+      } catch (uploadErr) {
+        console.warn("Group avatar upload failed:", uploadErr);
+      }
+    }
+
+    let parsedPermissions = undefined;
+    if (groupPermissions) {
+      try {
+        parsedPermissions =
+          typeof groupPermissions === "string"
+            ? JSON.parse(groupPermissions)
+            : groupPermissions;
+      } catch (e) {}
+    }
+
+    const conversation = new Conversation({
+      isGroup: true,
+      groupName: name.trim(),
+      groupDescription: description ? description.trim() : "",
+      groupProfileImage: imageUrl,
+      groupAdmin: [creatorId],
+      participants: Array.from(participantSet),
+      disappearingDuration: disappearingDuration || "Off",
+      ...(parsedPermissions ? { groupPermissions: parsedPermissions } : {}),
+    });
+
+    await conversation.save();
+
+    const initialMessage = new Message({
+      conversation: conversation._id,
+      sender: creatorId,
+      content: `Group "${name.trim()}" created`,
+      contentType: "text",
+      messageStatus: "read",
+      readAt: new Date(),
+    });
+    await initialMessage.save();
+
+    conversation.lastMessage = initialMessage._id;
+    await conversation.save();
+
+    const populatedConv = await Conversation.findById(conversation._id)
+      .populate(
+        "participants",
+        "username profilePicture isOnline lastSeen email phoneNumber publicKey",
+      )
+      .populate("groupAdmin", "username profilePicture")
+      .populate({
+        path: "lastMessage",
+        populate: {
+          path: "sender receiver",
+          select: "username profilePicture email phoneNumber publicKey",
+        },
+      })
+      .lean();
+
+    if (req.io) {
+      Array.from(participantSet).forEach((pId) => {
+        req.io.to(pId).emit("new_group_created", populatedConv);
+        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          const sId = req.socketUserMap.get(pId);
+          if (sId && sId !== pId) {
+            req.io.to(sId).emit("new_group_created", populatedConv);
+          }
+        }
+      });
+    }
+
+    return response(res, 201, "Group created successfully", populatedConv);
+  } catch (error) {
+    console.error("Error creating group:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.updateGroup = async (req, res) => {
+  const userId = req.user.userId;
+  const { conversationId } = req.params;
+  const { groupName, groupDescription, groupProfileImage } = req.body;
+
+  try {
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      isGroup: true,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return response(res, 404, "Group conversation not found");
+    }
+
+    if (groupName !== undefined && typeof groupName === "string") {
+      conversation.groupName = groupName.trim();
+    }
+    if (groupDescription !== undefined && typeof groupDescription === "string") {
+      conversation.groupDescription = groupDescription.trim();
+    }
+    if (groupProfileImage !== undefined && typeof groupProfileImage === "string") {
+      conversation.groupProfileImage = groupProfileImage;
+    }
+
+    await conversation.save();
+
+    const populatedConv = await Conversation.findById(conversation._id)
+      .populate(
+        "participants",
+        "username profilePicture isOnline lastSeen email phoneNumber publicKey",
+      )
+      .populate("groupAdmin", "username profilePicture")
+      .populate({
+        path: "lastMessage",
+        populate: {
+          path: "sender receiver",
+          select: "username profilePicture email phoneNumber publicKey",
+        },
+      })
+      .lean();
+
+    if (req.io) {
+      conversation.participants.forEach((p) => {
+        const pIdStr = (p._id || p).toString();
+        req.io.to(pIdStr).emit("group_updated", populatedConv);
+        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          const sId = req.socketUserMap.get(pIdStr);
+          if (sId && sId !== pIdStr) {
+            req.io.to(sId).emit("group_updated", populatedConv);
+          }
+        }
+      });
+    }
+
+    return response(res, 200, "Group updated successfully", populatedConv);
+  } catch (error) {
+    console.error("Error updating group:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+

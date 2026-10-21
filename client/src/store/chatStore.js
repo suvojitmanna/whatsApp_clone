@@ -256,7 +256,27 @@ const getStoredBlocked = () => {
 
 export const useChatStore = create((set, get) => ({
   users: [],
-  setUsers: (users) => set({ users }),
+  setUsers: (users) => {
+    if (Array.isArray(users)) {
+      set((state) => {
+        const nextOnline = new Map(state.onlineUsers || new Map());
+        users.forEach((u) => {
+          if (u && u._id) {
+            const uId = u._id.toString();
+            if (!nextOnline.has(uId) && u.isOnline !== undefined) {
+              nextOnline.set(uId, {
+                isOnline: Boolean(u.isOnline),
+                lastSeen: u.lastSeen,
+              });
+            }
+          }
+        });
+        return { users, onlineUsers: nextOnline };
+      });
+    } else {
+      set({ users });
+    }
+  },
   conversations: { data: [] },
   currentConversation: null,
   currentUser: useUserStore.getState()?.user || null,
@@ -853,6 +873,7 @@ export const useChatStore = create((set, get) => ({
     socket.off("user_public_key_updated");
     socket.off("request_reencrypt_message");
     socket.off("message_reencrypted");
+    socket.off("new_group_created");
 
     get().fetchBlockedUsers();
 
@@ -1111,6 +1132,11 @@ export const useChatStore = create((set, get) => ({
 
     socket.on("receive_message", (message) => {
       get().receiveMessage(message);
+    });
+
+    socket.on("new_group_created", (newGroup) => {
+      if (!newGroup) return;
+      get().fetchConversations();
     });
 
     socket.on("user_blocked", ({ blockedUserId, blockedBy }) => {
@@ -1545,9 +1571,18 @@ export const useChatStore = create((set, get) => ({
 
     socket.on("user_status", ({ userId, isOnline, lastSeen }) => {
       set((state) => {
+        const strId = (userId?._id || userId)?.toString();
         const newOnlineUsers = new Map(state.onlineUsers);
-        newOnlineUsers.set(userId, { isOnline, lastSeen });
-        return { onlineUsers: newOnlineUsers };
+        newOnlineUsers.set(strId, { isOnline, lastSeen });
+        const updatedUsers = state.users?.map((u) =>
+          (u?._id || u)?.toString() === strId
+            ? { ...u, isOnline, lastSeen }
+            : u,
+        );
+        return {
+          onlineUsers: newOnlineUsers,
+          users: updatedUsers || state.users,
+        };
       });
     });
 
@@ -1677,29 +1712,54 @@ export const useChatStore = create((set, get) => ({
       });
     });
     const { conversations } = get();
+    const myId = (
+      get().currentUser || useUserStore.getState().user
+    )?._id?.toString();
 
     if (conversations?.data?.length > 0) {
       conversations.data.forEach((con) => {
-        const otherUser = con.participants.find(
-          (p) => p._id !== get().currentConversation?.user?._id,
-        );
-
-        if (otherUser?._id) {
-          socket.emit("get_user_status", otherUser._id, (status) => {
-            set((state) => {
-              const newOnlineUsers = new Map(state.onlineUsers);
-
-              newOnlineUsers.set(status.userId, {
-                isOnline: status.isOnline,
-                lastSeen: status.lastSeen,
+        if (Array.isArray(con.participants)) {
+          con.participants.forEach((p) => {
+            const pId = (p?._id || p)?.toString();
+            if (pId && pId !== myId) {
+              socket.emit("get_user_status", pId, (status) => {
+                if (!status) return;
+                set((state) => {
+                  const newOnlineUsers = new Map(state.onlineUsers);
+                  const strId = (
+                    status?.userId?._id || status?.userId
+                  )?.toString();
+                  newOnlineUsers.set(strId, {
+                    isOnline: status.isOnline,
+                    lastSeen: status.lastSeen,
+                  });
+                  return { onlineUsers: newOnlineUsers };
+                });
               });
-
-              return { onlineUsers: newOnlineUsers };
-            });
+            }
           });
         }
       });
     }
+
+    const userList = get().users || [];
+    userList.forEach((u) => {
+      const uId = (u?._id || u)?.toString();
+      if (uId && uId !== myId) {
+        socket.emit("get_user_status", uId, (status) => {
+          if (!status) return;
+          set((state) => {
+            const newOnlineUsers = new Map(state.onlineUsers);
+            const strId = (status?.userId?._id || status?.userId)?.toString();
+            newOnlineUsers.set(strId, {
+              isOnline: status.isOnline,
+              lastSeen: status.lastSeen,
+            });
+            return { onlineUsers: newOnlineUsers };
+          });
+        });
+      }
+    });
   },
   setCurrentUser: (user) => set({ currentUser: user }),
 
@@ -3225,18 +3285,67 @@ export const useChatStore = create((set, get) => ({
     return typingUsers.get(conversationId)?.has(userId) || false;
   },
 
-  isUserOnline: (userId) => {
-    if (!userId) return null;
+  checkUserStatus: (userId) => {
+    const socket = getSocket();
+    if (!socket || !userId) return;
+    const strId = (userId?._id || userId)?.toString();
+    socket.emit("get_user_status", strId, (status) => {
+      if (!status) return;
+      set((state) => {
+        const newOnlineUsers = new Map(state.onlineUsers);
+        const sId = (status?.userId?._id || status?.userId)?.toString();
+        newOnlineUsers.set(sId, {
+          isOnline: status.isOnline,
+          lastSeen: status.lastSeen,
+        });
+        const updatedUsers = state.users?.map((u) =>
+          (u?._id || u)?.toString() === sId
+            ? { ...u, isOnline: status.isOnline, lastSeen: status.lastSeen }
+            : u,
+        );
+        return {
+          onlineUsers: newOnlineUsers,
+          users: updatedUsers || state.users,
+        };
+      });
+    });
+  },
 
-    const { onlineUsers } = get();
-    return onlineUsers.get(userId)?.isOnline || false;
+  isUserOnline: (userId) => {
+    if (!userId) return false;
+    const strId = (userId?._id || userId)?.toString();
+    const { onlineUsers, users } = get();
+    if (onlineUsers && onlineUsers.has(strId)) {
+      return Boolean(onlineUsers.get(strId)?.isOnline);
+    }
+    const found = users?.find((u) => (u?._id || u)?.toString() === strId);
+    return Boolean(found?.isOnline);
   },
 
   getUserLastSeen: (userId) => {
     if (!userId) return null;
+    const strId = (userId?._id || userId)?.toString();
+    const { onlineUsers, users } = get();
+    if (onlineUsers && onlineUsers.has(strId)) {
+      return onlineUsers.get(strId)?.lastSeen || null;
+    }
+    const found = users?.find((u) => (u?._id || u)?.toString() === strId);
+    return found?.lastSeen || null;
+  },
 
-    const { onlineUsers } = get();
-    return onlineUsers.get(userId)?.lastSeen || false;
+  getGroupOnlineCount: (participants, currentUserId) => {
+    if (!participants || !Array.isArray(participants)) return 0;
+    const { isUserOnline } = get();
+    const myIdStr = (currentUserId?._id || currentUserId)?.toString();
+    let count = 0;
+    participants.forEach((p) => {
+      const pId = (p?._id || p)?.toString();
+      if (!pId || pId === myIdStr) return;
+      if (isUserOnline(pId)) {
+        count++;
+      }
+    });
+    return count;
   },
 
   cleanup: () => {

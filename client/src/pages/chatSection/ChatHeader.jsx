@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { FaArrowLeft } from "react-icons/fa6";
-import { FaLock, FaVideo, FaPhone } from "react-icons/fa";
+import { FaLock, FaVideo, FaPhone, FaUsers } from "react-icons/fa";
 import { FiSearch } from "react-icons/fi";
 import { RxCross2 } from "react-icons/rx";
 import { HiDotsVertical } from "react-icons/hi";
@@ -9,6 +9,8 @@ import formatTimestamp from "../../utils/formatTime";
 import { WhatsAppDisappearingIcon } from "./MessageBuble";
 import { ChevronUpIcon, ChevronDownIcon } from "../../components/common/Icons";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
+import useUserStore from "../../store/useUserStore";
+import { useChatStore } from "../../store/chatStore";
 
 const ChatHeader = ({
   handleChatContextMenu,
@@ -40,10 +42,83 @@ const ChatHeader = ({
   setShowHeaderMenu,
   onCloseChat,
 }) => {
+  const { user } = useUserStore();
+  const onlineUsers = useChatStore((state) => state.onlineUsers);
+  const isUserOnline = useChatStore((state) => state.isUserOnline);
+  const getGroupOnlineCount = useChatStore((state) => state.getGroupOnlineCount);
+  const checkUserStatus = useChatStore((state) => state.checkUserStatus);
+
   const isMetaAi =
     selectedContact?.isAI ||
     selectedContact?.username === "Meta AI" ||
     String(selectedContact?._id) === META_AI_USER_ID;
+
+  const isGroup = Boolean(
+    selectedContact?.isGroup ||
+    selectedContact?.isGroupChat ||
+    selectedContact?.conversation?.isGroup
+  );
+
+  const participants = React.useMemo(() => {
+    return (
+      selectedContact?.participants ||
+      selectedContact?.conversation?.participants ||
+      []
+    );
+  }, [selectedContact]);
+
+  React.useEffect(() => {
+    if (isGroup && participants.length > 0 && typeof checkUserStatus === "function") {
+      const myIdStr = user?._id?.toString();
+      participants.forEach((p) => {
+        const pId = (p?._id || p)?.toString();
+        if (pId && pId !== myIdStr) {
+          checkUserStatus(pId);
+        }
+      });
+    }
+  }, [isGroup, participants, user?._id, checkUserStatus]);
+
+  const groupOnlineCount = React.useMemo(() => {
+    if (!isGroup) return 0;
+    return getGroupOnlineCount ? getGroupOnlineCount(participants, user?._id) : 0;
+  }, [isGroup, participants, user?._id, onlineUsers, getGroupOnlineCount]);
+
+  const isGroupOnline = isGroup && groupOnlineCount > 0;
+
+  const onlineMemberNames = React.useMemo(() => {
+    if (!isGroup || !isUserOnline) return "";
+    const myIdStr = user?._id?.toString();
+    return participants
+      .filter((p) => {
+        const pId = (p?._id || p)?.toString();
+        return pId && pId !== myIdStr && isUserOnline(pId);
+      })
+      .map((p) => p?.username || p?.name || "Member")
+      .join(", ");
+  }, [isGroup, participants, user?._id, onlineUsers, isUserOnline]);
+
+  const groupSubtitle = React.useMemo(() => {
+    if (!isGroup) return "";
+    const currentUserId = user?._id?.toString();
+    const names = participants.map((p) => {
+      const pId = (p?._id || p)?.toString();
+      if (pId === currentUserId) return "You";
+      return p?.username || p?.name || "Member";
+    });
+    return names.length > 0 ? names.join(", ") : "Group members";
+  }, [isGroup, participants, user?._id]);
+
+  const [showInitialInfo, setShowInitialInfo] = React.useState(true);
+
+  React.useEffect(() => {
+    setShowInitialInfo(true);
+    const timer = setTimeout(() => {
+      setShowInitialInfo(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [selectedContact?._id, selectedContact?.conversation?._id]);
 
   return (
     <div
@@ -80,6 +155,30 @@ const ChatHeader = ({
           >
             <MetaAiRing size={40} className="shadow-sm" />
           </div>
+        ) : isGroup ? (
+          selectedContact?.profilePicture ? (
+            <img
+              src={selectedContact.profilePicture}
+              alt={selectedContact.username}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowContactInfo(true);
+              }}
+              title="View group info"
+              className="w-10 h-10 rounded-full cursor-pointer object-cover hover:opacity-90 active:scale-95 transition-all shadow-sm"
+            />
+          ) : (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowContactInfo(true);
+              }}
+              title="View group info"
+              className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center bg-[#00a884]/20 text-[#00a884] dark:bg-emerald-500/20 dark:text-emerald-400 select-none shadow-sm border border-emerald-500/30 cursor-pointer"
+            >
+              <FaUsers size={20} />
+            </div>
+          )
         ) : (
           <motion.img
             layoutId="profile-image"
@@ -94,17 +193,17 @@ const ChatHeader = ({
           />
         )}
 
-        {online && !isMetaAi && (
+        {((isGroup ? isGroupOnline : online) && !isMetaAi) && (
           <span
             className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#202c33]" : "border-white"
               } bg-emerald-500 shadow-sm`}
-            title="Online"
+            title={isGroup ? `${groupOnlineCount} online` : "Online"}
           ></span>
         )}
 
         {disappearingDuration && disappearingDuration !== "Off" && (
           <span
-            className={`absolute bottom-0 ${online ? "left-0" : "right-0"} w-4 h-4 rounded-full border ${theme === "dark" ? "border-[#202c33] bg-[#111b21]" : "border-white bg-[#f0f2f5]"
+            className={`absolute bottom-0 ${(isGroup ? isGroupOnline : online) && !isMetaAi ? "left-0" : "right-0"} w-4 h-4 rounded-full border ${theme === "dark" ? "border-[#202c33] bg-[#111b21]" : "border-white bg-[#f0f2f5]"
               } flex items-center justify-center text-[#8696a0] shadow-sm`}
             title={`Disappearing messages: ${disappearingDuration}`}
           >
@@ -164,6 +263,40 @@ const ChatHeader = ({
           </div>
         ) : isMetaAi ? (
           <div></div>
+        ) : isGroup ? (
+          isGroupOnline ? (
+            <div
+              className="flex items-center gap-1.5 text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium truncate"
+              title={onlineMemberNames ? `Online: ${onlineMemberNames}` : `${groupOnlineCount} online`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 inline-block animate-pulse" />
+              <span>
+                {groupOnlineCount} {groupOnlineCount === 1 ? "member" : "members"} online
+              </span>
+            </div>
+          ) : showInitialInfo ? (
+            <p
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowContactInfo(true);
+              }}
+              className={`text-xs sm:text-sm truncate cursor-pointer hover:underline ${theme === "dark"
+                  ? "text-gray-400 hover:text-emerald-400"
+                  : "text-gray-500 hover:text-emerald-600"
+                } transition-colors`}
+              title="Click here for group info"
+            >
+              click here for group info
+            </p>
+          ) : (
+            <p
+              className={`text-xs sm:text-sm truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                }`}
+              title={groupSubtitle}
+            >
+              {groupSubtitle}
+            </p>
+          )
         ) : (
           <p
             className={`text-xs sm:text-sm truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"

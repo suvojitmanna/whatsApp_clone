@@ -65,9 +65,43 @@ const HomePage = () => {
   const contacts = useMemo(() => {
     const currentUserId = user?._id?.toString();
     const convMap = new Map();
+    const groupItems = [];
 
     for (let i = 0; i < conversationList.length; i++) {
       const conv = conversationList[i];
+      if (!conv) continue;
+
+      if (conv.isGroup) {
+        const isMember =
+          !currentUserId ||
+          conv.participants?.some((p) => {
+            const pId = (p?._id || p)?.toString();
+            return pId === currentUserId;
+          });
+
+        if (isMember) {
+          const convId = conv._id?.toString() || conv._id;
+          groupItems.push({
+            _id: convId,
+            id: convId,
+            isGroup: true,
+            isGroupChat: true,
+            username: conv.groupName || "Group",
+            name: conv.groupName || "Group",
+            profilePicture: conv.groupProfileImage || "",
+            groupName: conv.groupName || "Group",
+            groupProfileImage: conv.groupProfileImage || "",
+            groupAdmin: conv.groupAdmin,
+            groupDescription: conv.groupDescription || "",
+            about: conv.groupDescription || "",
+            groupPermissions: conv.groupPermissions,
+            participants: conv.participants || [],
+            conversation: conv,
+          });
+        }
+        continue;
+      }
+
       if (!conv?.participants) continue;
       let otherUserId = null;
       let hasCurrent = false;
@@ -86,7 +120,7 @@ const HomePage = () => {
       }
     }
 
-    return effectiveUsers.map((contact) => {
+    const directContacts = effectiveUsers.map((contact) => {
       const contactId = contact?._id?.toString();
       const conversation = convMap.get(contactId) || contact?.conversation || null;
       return {
@@ -94,6 +128,8 @@ const HomePage = () => {
         conversation,
       };
     });
+
+    return [...groupItems, ...directContacts];
   }, [effectiveUsers, conversationList, user?._id]);
 
   const handleStatusPreview = (contact, index = 0) => {
@@ -201,7 +237,7 @@ const HomePage = () => {
         className="h-full w-full"
       >
         <AnimatePresence mode="wait">
-          {loading && effectiveUsers.length === 0 ? (
+          {loading && contacts.length === 0 ? (
             <motion.div
               key="loading"
               initial={{ opacity: 0 }}
@@ -222,7 +258,7 @@ const HomePage = () => {
                 </div>
               ))}
             </motion.div>
-          ) : effectiveUsers.length === 0 ? (
+          ) : contacts.length === 0 ? (
             <motion.div
               key="empty"
               initial={{
@@ -237,9 +273,9 @@ const HomePage = () => {
               className="flex flex-col items-center justify-center h-full text-gray-400"
             >
               <FaUserFriends size={45} className="mb-3 opacity-70" />
-              <p className="text-sm">No users found</p>
+              <p className="text-sm">No chats found</p>
               <span className="text-xs opacity-60 mt-1">
-                Try refreshing or adding contacts
+                Try refreshing or starting a new chat or group
               </span>
             </motion.div>
           ) : (

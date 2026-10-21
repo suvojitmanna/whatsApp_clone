@@ -11,6 +11,35 @@ const conversationSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    isGroup: {
+      type: Boolean,
+      default: false,
+    },
+    groupName: {
+      type: String,
+      default: "",
+    },
+    groupProfileImage: {
+      type: String,
+      default: "",
+    },
+    groupAdmin: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    groupDescription: {
+      type: String,
+      default: "",
+    },
+    groupPermissions: {
+      editGroupSettings: { type: Boolean, default: true },
+      sendMessages: { type: Boolean, default: true },
+      addMembers: { type: Boolean, default: true },
+      inviteViaLink: { type: Boolean, default: true },
+      approveNewMembers: { type: Boolean, default: false },
+    },
     deletedFor: [
       {
         type: mongoose.Schema.Types.ObjectId,
