@@ -29,7 +29,6 @@ import MessageBuble, {
 import MessageSkeletonLoader from "./MessageSkeletonLoader";
 import EmojiPicker from "emoji-picker-react";
 import useOutsideClick from "../../hook/useOutsideClick";
-import { getSocket } from "../../services/chatService";
 import useVideoCallStore from "../../store/videoCallStore";
 import useLayoutStore from "../../store/layoutStore";
 import { FiDownload } from "react-icons/fi";
@@ -1004,9 +1003,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     const targetConvId =
       selectedContact?.conversation?._id ||
+      (selectedContact?.isGroup ? (selectedContact?._id || selectedContact?.id) : null) ||
       conversations?.data?.find((conv) =>
         conv.participants?.some(
-          (participant) => participant._id === selectedContact?._id,
+          (participant) => (participant?._id || participant) === selectedContact?._id,
         ),
       )?._id;
 
@@ -1542,7 +1542,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     setIsSending(true);
     try {
-      const receiverId = targetUserId || selectedContact?._id;
+      const isGroupChat = Boolean(
+        selectedContact?.isGroup ||
+        selectedContact?.isGroupChat ||
+        selectedContact?.conversation?.isGroup
+      );
+      const effectiveConversationId =
+        conversationId ||
+        selectedContact?.conversation?._id ||
+        (selectedContact?.isGroup ? (selectedContact?._id || selectedContact?.id) : null);
+      const receiverId = isGroupChat
+        ? (effectiveConversationId || selectedContact?._id)
+        : (targetUserId || selectedContact?._id);
       const replyData = replyingTo
         ? {
           _id: replyingTo._id,
@@ -1560,6 +1571,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           const formData = new FormData();
           formData.append("senderId", user?._id);
           formData.append("receiverId", receiverId);
+          if (effectiveConversationId) {
+            formData.append("conversationId", effectiveConversationId);
+          }
+          if (isGroupChat) {
+            formData.append("isGroup", "true");
+          }
           formData.append("messageStatus", "send");
           formData.append("media", item.file);
           formData.append("fileName", item.name);
@@ -1583,6 +1600,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         const formData = new FormData();
         formData.append("senderId", user?._id);
         formData.append("receiverId", receiverId);
+        if (effectiveConversationId) {
+          formData.append("conversationId", effectiveConversationId);
+        }
+        if (isGroupChat) {
+          formData.append("isGroup", "true");
+        }
         formData.append("messageStatus", "send");
         formData.append("content", trimmedMessage);
         formData.append("contentType", "text");

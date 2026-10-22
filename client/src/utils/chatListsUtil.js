@@ -242,6 +242,7 @@ export const isContactInList = (contact, listName) => {
     return Boolean(
       contact?.isGroup ||
       contact?.isGroupChat ||
+      contact?.conversation?.isGroup ||
       (contact?.conversation?.participants &&
         contact.conversation.participants.length > 2),
     );

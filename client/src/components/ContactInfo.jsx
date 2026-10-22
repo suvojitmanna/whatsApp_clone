@@ -24,10 +24,17 @@ import {
   FaStar,
   FaHeart,
   FaBookmark,
+  FaUsers,
+  FaUser,
+  FaUserCog,
+  FaUserCheck,
+  FaRegHeart,
 } from "react-icons/fa";
-import { FaArrowLeft } from "react-icons/fa6";
-import { IoMdRemoveCircleOutline } from "react-icons/io";
-import { IoTimerOutline, IoColorPaletteOutline } from "react-icons/io5";
+import { FaArrowLeft, FaUserShield } from "react-icons/fa6";
+import { IoMdRemoveCircleOutline, IoMdExit } from "react-icons/io";
+import { BsEmojiSmile } from "react-icons/bs";
+import EmojiPicker from "emoji-picker-react";
+import { IoTimerOutline, IoColorPaletteOutline, IoShieldCheckmarkOutline, IoRemoveCircleOutline } from "react-icons/io5";
 import {
   MdChevronLeft,
   MdChevronRight,
@@ -39,11 +46,17 @@ import {
   MdThumbDown,
   MdShield,
   MdList,
+  MdOutlineChat,
+  MdHistory,
+  MdKeyboardArrowDown,
 } from "react-icons/md";
+import { FiUserPlus, FiLink, FiEdit2 } from "react-icons/fi";
 import { LuSparkles, LuDownload } from "react-icons/lu";
 import { format } from "date-fns";
 import ReportModal from "./ReportModal";
 import BlockModal from "./BlockModal";
+import AddMemberModal from "./AddMemberModal";
+import EditGroupAdminsModal from "./EditGroupAdminsModal";
 import {
   CHAT_THEMES,
   CURATED_THEME_IDS,
@@ -64,6 +77,38 @@ import ContactMedia from "./ContactMedia";
 import FileViewerModal from "./FileViewerModal";
 import { FALLBACK_MEDIA } from "../assets/rawData";
 import { MetaAiRing, META_AI_USER_ID, MetaAiBadge } from "./common/MetaAiIcon";
+
+const WhatsAppSwitch = ({ checked, onChange, disabled = false, className = "" }) => (
+  <button
+    type="button"
+    disabled={disabled}
+    onClick={(e) => {
+      e?.stopPropagation?.();
+      if (!disabled && onChange) onChange(e);
+    }}
+    className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors shrink-0 ${checked
+      ? "bg-[#00a884] justify-end"
+      : "bg-transparent border-2 border-[#8696a0] justify-start"
+      } ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${className}`}
+  >
+    <div
+      className={`w-4 h-4 rounded-full transition-transform ${checked ? "bg-[#111b21] mr-0.5" : "bg-[#8696a0] ml-0.5"
+        }`}
+    />
+  </button>
+);
+
+const formatMemberChangeDate = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${day}/${month}/${year} at ${hours}:${minutes}`;
+};
 
 const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   <button
@@ -156,6 +201,496 @@ const ContactInfo = () => {
           String(p?._id || p) === META_AI_USER_ID
       ))
   );
+
+  const isGroup = Boolean(
+    selectedContact?.isGroup ||
+    selectedContact?.isGroupChat ||
+    selectedContact?.conversation?.isGroup
+  );
+
+  const groupAdmins = useMemo(() => {
+    const raw =
+      selectedContact?.groupAdmin ||
+      selectedContact?.conversation?.groupAdmin ||
+      [];
+    const list = Array.isArray(raw) ? raw : [raw];
+    return list
+      .filter(Boolean)
+      .map((a) => (a?._id || a)?.toString())
+      .filter(Boolean);
+  }, [selectedContact]);
+
+  const groupParticipants = useMemo(() => {
+    const raw =
+      selectedContact?.participants ||
+      selectedContact?.conversation?.participants ||
+      [];
+    const list = Array.isArray(raw) ? [...raw] : [];
+    const myIdStr = user?._id?.toString();
+    list.sort((a, b) => {
+      const aId = (a?._id || a)?.toString();
+      const bId = (b?._id || b)?.toString();
+      if (aId === myIdStr) return -1;
+      if (bId === myIdStr) return 1;
+      const aIsAdmin = groupAdmins.includes(aId);
+      const bIsAdmin = groupAdmins.includes(bId);
+      if (aIsAdmin && !bIsAdmin) return -1;
+      if (!aIsAdmin && bIsAdmin) return 1;
+      const aName = (a?.username || a?.name || "").toLowerCase();
+      const bName = (b?.username || b?.name || "").toLowerCase();
+      return aName.localeCompare(bName);
+    });
+    return list;
+  }, [selectedContact, user?._id, groupAdmins]);
+
+  const groupName =
+    selectedContact?.groupName ||
+    selectedContact?.name ||
+    selectedContact?.username ||
+    "Group";
+
+  const groupDescription =
+    selectedContact?.groupDescription ||
+    selectedContact?.conversation?.groupDescription ||
+    "";
+
+  const getGroupOnlineCount = useChatStore((state) => state.getGroupOnlineCount);
+  const onlineUsers = useChatStore((state) => state.onlineUsers);
+  const checkUserStatus = useChatStore((state) => state.checkUserStatus);
+
+  useEffect(() => {
+    if (isGroup && groupParticipants.length > 0 && typeof checkUserStatus === "function") {
+      const myIdStr = user?._id?.toString();
+      groupParticipants.forEach((p) => {
+        const pId = (p?._id || p)?.toString();
+        if (pId && pId !== myIdStr) {
+          checkUserStatus(pId);
+        }
+      });
+    }
+  }, [isGroup, groupParticipants, user?._id, checkUserStatus]);
+
+  const groupOnlineCount = useMemo(() => {
+    if (!isGroup || !getGroupOnlineCount) return 0;
+    return getGroupOnlineCount(groupParticipants, user?._id);
+  }, [isGroup, groupParticipants, user?._id, onlineUsers, getGroupOnlineCount]);
+
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showEditAdminsModal, setShowEditAdminsModal] = useState(false);
+  const [showAllMembers, setShowAllMembers] = useState(false);
+  const [openMemberMenuId, setOpenMemberMenuId] = useState(null);
+  const [memberTagPromptOpen, setMemberTagPromptOpen] = useState(false);
+  const [userMemberTag, setUserMemberTag] = useState("");
+  const memberMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (memberMenuRef.current && !memberMenuRef.current.contains(e.target)) {
+        setOpenMemberMenuId(null);
+      }
+    };
+    if (openMemberMenuId) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openMemberMenuId]);
+
+  const getAvatarColor = useCallback((name) => {
+    const colors = [
+      "#7c3aed",
+      "#b45309",
+      "#047857",
+      "#be185d",
+      "#0284c7",
+      "#9333ea",
+      "#b91c1c",
+      "#d97706",
+      "#059669",
+      "#4f46e5",
+    ];
+    if (!name) return colors[0];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }, []);
+
+  const displayedParticipants = useMemo(() => {
+    if (showAllMembers) return groupParticipants;
+    return groupParticipants.slice(0, 10);
+  }, [groupParticipants, showAllMembers]);
+
+  const [memberChanges, setMemberChanges] = useState([]);
+  const [isLoadingMemberChanges, setIsLoadingMemberChanges] = useState(false);
+
+  const fetchMemberChanges = useCallback(async () => {
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    if (!convId || !isGroup) return;
+
+    setIsLoadingMemberChanges(true);
+    try {
+      const { data } = await axiosInstance.get(
+        `/chat/group/${convId}/member-changes`
+      );
+      const list = data?.data || data || [];
+      setMemberChanges(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error("Error fetching member changes:", err);
+    } finally {
+      setIsLoadingMemberChanges(false);
+    }
+  }, [selectedContact?._id, selectedContact?.conversation?._id, isGroup]);
+
+  useEffect(() => {
+    if (contactInfoTab === "memberChanges") {
+      fetchMemberChanges();
+    }
+  }, [contactInfoTab, fetchMemberChanges]);
+
+  useEffect(() => {
+    const socket = useChatStore.getState().socket;
+    if (!socket) return;
+
+    const handleMemberChangeAdded = (change) => {
+      const convId = (
+        selectedContact?.conversation?._id ||
+        selectedContact?._id
+      )?.toString();
+      if (!change || (change.conversationId && change.conversationId !== convId)) return;
+      setMemberChanges((prev) => [change, ...prev]);
+    };
+
+    socket.on("member_change_added", handleMemberChangeAdded);
+    return () => {
+      socket.off("member_change_added", handleMemberChangeAdded);
+    };
+  }, [selectedContact?._id, selectedContact?.conversation?._id]);
+
+  const groupPermissions = useMemo(() => {
+    const raw =
+      selectedContact?.groupPermissions ||
+      selectedContact?.conversation?.groupPermissions ||
+      {};
+    return {
+      editGroupSettings: raw.editGroupSettings ?? true,
+      sendMessages: raw.sendMessages ?? true,
+      addMembers: raw.addMembers ?? true,
+      inviteViaLink: raw.inviteViaLink ?? true,
+      sendMessageHistory: raw.sendMessageHistory ?? true,
+      approveNewMembers: raw.approveNewMembers ?? false,
+    };
+  }, [selectedContact]);
+
+  const isCurrentUserAdmin = useMemo(() => {
+    const currentUserId = user?._id?.toString();
+    return groupAdmins.some((a) => (a?._id || a)?.toString() === currentUserId);
+  }, [groupAdmins, user?._id]);
+
+  const canAddMembers = useMemo(() => {
+    if (!isGroup) return false;
+    if (isCurrentUserAdmin) return true;
+    return groupPermissions.addMembers !== false;
+  }, [isGroup, isCurrentUserAdmin, groupPermissions]);
+
+  const adminDisplayNames = useMemo(() => {
+    if (!groupParticipants || groupParticipants.length === 0) return "";
+    const adminSet = new Set(groupAdmins.map((a) => (a?._id || a)?.toString()));
+    const names = groupParticipants
+      .filter((p) => adminSet.has((p?._id || p)?.toString()))
+      .map((p) => {
+        const pId = (p?._id || p)?.toString();
+        if (pId === user?._id?.toString()) return "You";
+        return p?.username || p?.name || "Admin";
+      });
+    return names.join(", ");
+  }, [groupParticipants, groupAdmins, user?._id]);
+
+  const handleTogglePermission = async (key) => {
+    if (!isCurrentUserAdmin) {
+      toast.error("Only group admins can edit group permissions");
+      return;
+    }
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    if (!convId) {
+      toast.error("Group conversation not found");
+      return;
+    }
+
+    const currentPerms = { ...groupPermissions };
+    const updated = {
+      ...currentPerms,
+      [key]: !currentPerms[key],
+    };
+
+    useChatStore.getState().updateGroupInfo(convId, {
+      groupPermissions: updated,
+    });
+    useLayoutStore.getState().setSelectedContact((prev) => {
+      if (!prev || typeof prev !== "object") return prev;
+      return {
+        ...prev,
+        groupPermissions: updated,
+        conversation: {
+          ...prev?.conversation,
+          groupPermissions: updated,
+        },
+      };
+    });
+
+    try {
+      const { data } = await axiosInstance.put(`/chat/group/${convId}`, {
+        groupPermissions: updated,
+      });
+      const resData = data?.data || data;
+      const serverPerms = resData?.groupPermissions || updated;
+      useChatStore.getState().updateGroupInfo(convId, {
+        groupPermissions: serverPerms,
+      });
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
+          groupPermissions: serverPerms,
+          conversation: {
+            ...prev?.conversation,
+            groupPermissions: serverPerms,
+          },
+        };
+      });
+      toast.success("Group permissions updated");
+    } catch (err) {
+      console.error("Error updating permissions:", err);
+      useChatStore.getState().updateGroupInfo(convId, {
+        groupPermissions: currentPerms,
+      });
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
+          groupPermissions: currentPerms,
+          conversation: {
+            ...prev?.conversation,
+            groupPermissions: currentPerms,
+          },
+        };
+      });
+      toast.error(err?.response?.data?.message || "Failed to update permissions");
+    }
+  };
+
+  const handleToggleMemberAdmin = async (memberId, currentlyAdmin, memberName) => {
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    const newAdmins = currentlyAdmin
+      ? groupAdmins.filter((id) => id !== memberId)
+      : [...groupAdmins, memberId];
+    if (newAdmins.length === 0) {
+      toast.error("There must be at least one group admin");
+      return;
+    }
+    try {
+      const { data } = await axiosInstance.put(`/chat/group/${convId}`, {
+        groupAdmin: newAdmins,
+      });
+      const updated = data?.data || data;
+      useChatStore.getState().updateGroupInfo(convId, {
+        groupAdmin: newAdmins,
+      });
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
+          groupAdmin: newAdmins,
+          conversation: {
+            ...prev?.conversation,
+            groupAdmin: newAdmins,
+          },
+        };
+      });
+      toast.success(
+        currentlyAdmin
+          ? `${memberName} dismissed as admin`
+          : `${memberName} is now an admin`
+      );
+    } catch (err) {
+      console.error("Error updating admin status:", err);
+      toast.error(err?.response?.data?.message || "Failed to update admin");
+    }
+  };
+
+  const handleRemoveMember = async (memberId, memberName) => {
+    if (!window.confirm(`Remove ${memberName} from this group?`)) return;
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    try {
+      const { data } = await axiosInstance.put(`/chat/group/${convId}`, {
+        removeParticipant: memberId,
+      });
+      const updated = data?.data || data;
+      useChatStore.getState().updateGroupInfo(convId, updated);
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        const newParticipants = (prev?.participants || prev?.conversation?.participants || [])
+          .filter((p) => (p?._id || p)?.toString() !== memberId?.toString());
+        return {
+          ...prev,
+          participants: newParticipants,
+          conversation: {
+            ...prev?.conversation,
+            participants: newParticipants,
+          },
+        };
+      });
+      toast.success(`${memberName} removed from group`);
+    } catch (err) {
+      console.error("Error removing member:", err);
+      toast.error(err?.response?.data?.message || "Failed to remove member");
+    }
+  };
+
+  const [isEditingGroupName, setIsEditingGroupName] = useState(false);
+  const [editedGroupName, setEditedGroupName] = useState("");
+  const [showNameEmoji, setShowNameEmoji] = useState(false);
+  const nameEmojiRef = useRef(null);
+  useOutsideClick(nameEmojiRef, () => {
+    if (showNameEmoji) setShowNameEmoji(false);
+  });
+
+  const [isEditingGroupDesc, setIsEditingGroupDesc] = useState(false);
+  const [editedGroupDesc, setEditedGroupDesc] = useState("");
+  const [showDescEmoji, setShowDescEmoji] = useState(false);
+  const descEmojiRef = useRef(null);
+  useOutsideClick(descEmojiRef, () => {
+    if (showDescEmoji) setShowDescEmoji(false);
+  });
+
+  useEffect(() => {
+    setEditedGroupName(groupName);
+    setEditedGroupDesc(groupDescription);
+    setIsEditingGroupName(false);
+    setIsEditingGroupDesc(false);
+    setShowNameEmoji(false);
+    setShowDescEmoji(false);
+  }, [selectedContact?._id, groupName, groupDescription]);
+
+  const handleSaveGroupName = async () => {
+    const trimmed = editedGroupName.trim();
+    if (!trimmed) {
+      toast.error("Group name cannot be empty");
+      return;
+    }
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    try {
+      const { data } = await axiosInstance.put(`/chat/group/${convId}`, {
+        groupName: trimmed,
+      });
+      const updated = data?.data || data;
+      useChatStore.getState().updateGroupInfo(convId, {
+        groupName: trimmed,
+        name: trimmed,
+        username: trimmed,
+      });
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
+          username: trimmed,
+          name: trimmed,
+          groupName: trimmed,
+          conversation: {
+            ...prev?.conversation,
+            groupName: trimmed,
+          },
+        };
+      });
+      setIsEditingGroupName(false);
+      setShowNameEmoji(false);
+      toast.success("Group name updated");
+    } catch (err) {
+      console.error("Error updating group name:", err);
+      toast.error(err?.response?.data?.message || "Failed to update group name");
+    }
+  };
+
+  const handleSaveGroupDesc = async () => {
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    try {
+      const trimmed = editedGroupDesc.trim();
+      const { data } = await axiosInstance.put(`/chat/group/${convId}`, {
+        groupDescription: trimmed,
+      });
+      const updated = data?.data || data;
+      useChatStore.getState().updateGroupInfo(convId, {
+        groupDescription: trimmed,
+      });
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
+          groupDescription: trimmed,
+          conversation: {
+            ...prev?.conversation,
+            groupDescription: trimmed,
+          },
+        };
+      });
+      setIsEditingGroupDesc(false);
+      setShowDescEmoji(false);
+      toast.success("Group description updated");
+    } catch (err) {
+      console.error("Error updating group description:", err);
+      toast.error(
+        err?.response?.data?.message || "Failed to update group description"
+      );
+    }
+  };
+
+  const handleExitGroup = async () => {
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    if (!convId) return;
+    if (window.confirm(`Exit "${groupName}" group?`)) {
+      try {
+        await axiosInstance.put(`/chat/group/${convId}`, {
+          removeParticipant: user?._id,
+        });
+        setShowContactInfo(false);
+        useLayoutStore.getState().setSelectedContact(null);
+        toast.success("Exited group");
+      } catch (err) {
+        console.error("Error exiting group:", err);
+        try {
+          await useChatStore.getState().deleteChat(convId);
+          setShowContactInfo(false);
+          useLayoutStore.getState().setSelectedContact(null);
+          toast.success("Exited group");
+        } catch (e) {
+          toast.error("Failed to exit group");
+        }
+      }
+    }
+  };
 
   const chatStarredMessages = useMemo(() => {
     if (!starredMessages) return [];
@@ -1242,6 +1777,8 @@ const ContactInfo = () => {
                         }
                       } else if (contactInfoTab === "privacy") {
                         setContactInfoTab("security");
+                      } else if (contactInfoTab === "memberChanges") {
+                        setContactInfoTab("info");
                       } else {
                         setContactInfoTab("info");
                       }
@@ -1289,15 +1826,21 @@ const ContactInfo = () => {
                                           : contactInfoTab === "advancedPrivacy"
                                             ? "Advanced"
                                             : contactInfoTab === "lists"
-                                               ? "Add to list"
-                                               : isMetaAi
-                                                 ? "Meta AI Info"
-                                                 : "Contact Info"}
+                                              ? "Add to list"
+                                              : contactInfoTab === "groupPermissions"
+                                                ? "Group permissions"
+                                                : contactInfoTab === "memberChanges"
+                                                  ? "Member changes"
+                                                  : isMetaAi
+                                                    ? "Meta AI info"
+                                                    : isGroup
+                                                      ? "Group info"
+                                                      : "Contact info"}
                   </h2>
                 )}
               </div>
 
-              {contactInfoTab === "info" && !isMetaAi ? (
+              {contactInfoTab === "info" && !isMetaAi && !isGroup ? (
                 <button
                   type="button"
                   className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all text-gray-500 dark:text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer flex items-center justify-center"
@@ -1305,7 +1848,7 @@ const ContactInfo = () => {
                 >
                   <FaPen className="h-4 w-4" />
                 </button>
-              ) : contactInfoTab === "info" && isMetaAi ? (
+              ) : contactInfoTab === "info" && (isMetaAi || isGroup) ? (
                 <button
                   type="button"
                   onClick={() => setShowContactInfo(false)}
@@ -1356,7 +1899,7 @@ const ContactInfo = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.15 }}
-                className="flex flex-col items-center py-3 px-6 overflow-y-auto flex-1 scrollbar-hide"
+                className="flex flex-col items-center pt-1 px-6 pb-0 overflow-y-auto flex-1 scrollbar-hide"
               >
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
@@ -1378,6 +1921,23 @@ const ContactInfo = () => {
                         className="relative z-10 drop-shadow-[0_12px_30px_rgba(59,130,246,0.35)]"
                       />
                     </div>
+                  ) : isGroup ? (
+                    selectedContact?.profilePicture ? (
+                      <img
+                        src={selectedContact.profilePicture}
+                        alt={groupName}
+                        onClick={() => setShowProfilePicture(true)}
+                        className="w-40 h-40 rounded-full object-cover border-4 border-white/10 shadow-[0_20px_50px_rgba(16,185,129,0.3)] cursor-pointer"
+                      />
+                    ) : (
+                      <div
+                        onClick={() => setShowProfilePicture(true)}
+                        className="w-40 h-40 rounded-full bg-[#dfe5e7] dark:bg-[#202c33] flex items-center justify-center border-4 border-white/10 shadow-[0_20px_50px_rgba(16,185,129,0.2)] cursor-pointer"
+                        title={groupName}
+                      >
+                        <FaUsers className="w-16 h-16 text-gray-400 dark:text-gray-300" />
+                      </div>
+                    )
                   ) : (
                     <img
                       src={selectedContact?.profilePicture || "/default-avatar.png"}
@@ -1386,54 +1946,180 @@ const ContactInfo = () => {
                       className="w-40 h-40 rounded-full object-cover border-4 border-white/10 shadow-[0_20px_50px_rgba(16,185,129,0.3)] cursor-pointer"
                     />
                   )}
-                  {online && !isMetaAi && (
-                    <span className="absolute bottom-3 right-3 w-5 h-5 bg-emerald-500 border-4 border-[#111b21] rounded-full shadow-lg"></span>
+                  {((online && !isMetaAi && !isGroup) || (isGroup && groupOnlineCount > 0)) && (
+                    <span
+                      className="absolute bottom-3 right-3 w-5 h-5 bg-emerald-500 border-4 border-[#111b21] rounded-full shadow-lg"
+                      title={isGroup ? `${groupOnlineCount} online` : "Online"}
+                    ></span>
                   )}
                 </motion.div>
 
-                <div className="text-center mb-6">
-                  <h2
-                    className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300 flex items-center justify-center gap-2 ${theme === "dark" ? "text-white/95" : "text-gray-900"
-                      }`}
-                  >
-                    <span>{selectedContact?.username || (isMetaAi ? "Meta AI" : "Contact")}</span>
-                    {isMetaAi && (
-                      <span
-                        title="Verified Meta AI Assistant"
-                        className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-[10px] font-bold shadow-sm"
+                <div className="text-center mb-6 w-full flex flex-col items-center">
+                  {isGroup ? (
+                    <div className="flex flex-col items-center w-full">
+                      {!isEditingGroupName ? (
+                        <div className="flex items-center justify-center gap-2 group px-4 max-w-full">
+                          <h2
+                            className={`text-2xl font-bold tracking-tight transition-colors duration-300 break-words text-center ${theme === "dark" ? "text-white/95" : "text-gray-900"
+                              }`}
+                          >
+                            {groupName}
+                          </h2>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditedGroupName(groupName);
+                              setIsEditingGroupName(true);
+                              setShowNameEmoji(false);
+                            }}
+                            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition-all cursor-pointer shrink-0"
+                            title="Edit group name"
+                          >
+                            <FaPen size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative w-full max-w-[320px] flex flex-col items-center">
+                          <div className="flex items-center gap-2 w-full border-b-2 border-emerald-500 pb-1">
+                            <input
+                              type="text"
+                              autoFocus
+                              maxLength={100}
+                              value={editedGroupName}
+                              onChange={(e) => setEditedGroupName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveGroupName();
+                                if (e.key === "Escape") {
+                                  setIsEditingGroupName(false);
+                                  setShowNameEmoji(false);
+                                }
+                              }}
+                              className={`w-full bg-transparent border-none outline-none text-center text-lg font-bold ${theme === "dark" ? "text-white" : "text-gray-900"
+                                }`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNameEmoji((prev) => !prev)}
+                              className="text-gray-400 hover:text-emerald-500 transition p-1 cursor-pointer shrink-0"
+                              title="Add emoji"
+                            >
+                              <BsEmojiSmile size={18} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSaveGroupName}
+                              className="text-emerald-500 hover:text-emerald-400 hover:scale-110 active:scale-95 transition p-1 cursor-pointer shrink-0"
+                              title="Save group name"
+                            >
+                              <FaCheck size={16} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditingGroupName(false);
+                                setShowNameEmoji(false);
+                              }}
+                              className="text-gray-400 hover:text-red-500 transition p-1 cursor-pointer shrink-0"
+                              title="Cancel"
+                            >
+                              <RxCross2 size={16} />
+                            </button>
+                          </div>
+                          <div className="w-full flex justify-end text-[11px] text-gray-400 mt-1">
+                            <span>{100 - editedGroupName.length}</span>
+                          </div>
+
+                          {showNameEmoji && (
+                            <div
+                              ref={nameEmojiRef}
+                              className="absolute left-1/2 -translate-x-1/2 top-14 z-50 shadow-2xl rounded-2xl overflow-hidden"
+                            >
+                              <EmojiPicker
+                                onEmojiClick={(emojiData) => {
+                                  setEditedGroupName((prev) => prev + emojiData.emoji);
+                                }}
+                                theme={theme === "dark" ? "dark" : "light"}
+                                height={350}
+                                width={300}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <p
+                        className={`text-[14px] font-normal mt-1 flex items-center justify-center gap-1.5 transition-colors duration-300 ${
+                          theme === "dark" ? "text-[#8696a0]" : "text-gray-500"
+                        }`}
                       >
-                        ✓
-                      </span>
-                    )}
-                  </h2>
-
-                  <div className="flex flex-col items-center gap-1">
-                    {isMetaAi ? (
-                      <p className="text-[13px] font-semibold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                        Official AI Assistant • Meta
+                        <span>Group</span>
+                        <span className="opacity-60">•</span>
+                        <span
+                          onClick={() => {
+                            document
+                              .getElementById("group-members-section")
+                              ?.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          className="hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
+                        >
+                          {groupParticipants.length} {groupParticipants.length === 1 ? "member" : "members"}
+                        </span>
+                        {groupOnlineCount > 0 && (
+                          <>
+                            <span className="opacity-60">•</span>
+                            <span className="text-emerald-500 font-medium">
+                              {groupOnlineCount} online
+                            </span>
+                          </>
+                        )}
                       </p>
-                    ) : (
-                      <>
-                        {selectedContact?.email && (
-                          <p
-                            className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                              }`}
+                    </div>
+                  ) : (
+                    <>
+                      <h2
+                        className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300 flex items-center justify-center gap-2 ${theme === "dark" ? "text-white/95" : "text-gray-900"
+                          }`}
+                      >
+                        <span>{selectedContact?.username || (isMetaAi ? "Meta AI" : "Contact")}</span>
+                        {isMetaAi && (
+                          <span
+                            title="Verified Meta AI Assistant"
+                            className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-[10px] font-bold shadow-sm"
                           >
-                            {selectedContact.email}
-                          </p>
+                            ✓
+                          </span>
                         )}
+                      </h2>
 
-                        {selectedContact?.phoneNumber && (
-                          <p
-                            className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-emerald-500/80" : "text-emerald-600"
-                              }`}
-                          >
-                            {selectedContact.phoneNumber}
+                      <div className="flex flex-col items-center gap-1">
+                        {isMetaAi ? (
+                          <p className="text-[13px] font-semibold bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+                            Official AI Assistant • Meta
                           </p>
+                        ) : (
+                          <>
+                            {selectedContact?.email && (
+                              <p
+                                className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                                  }`}
+                              >
+                                {selectedContact.email}
+                              </p>
+                            )}
+
+                            {selectedContact?.phoneNumber && (
+                              <p
+                                className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-emerald-500/80" : "text-emerald-600"
+                                  }`}
+                              >
+                                {selectedContact.phoneNumber}
+                              </p>
+                            )}
+                          </>
                         )}
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex justify-center gap-8">
@@ -1446,7 +2132,16 @@ const ContactInfo = () => {
                     theme={theme}
                   />
 
-                  {isMetaAi ? (
+                  {isGroup ? (
+                    canAddMembers && (
+                      <ActionButton
+                        icon={<FiUserPlus size={18} />}
+                        label="Add"
+                        onClick={() => setShowAddMemberModal(true)}
+                        theme={theme}
+                      />
+                    )
+                  ) : isMetaAi ? (
                     <ActionButton
                       icon={<FaStar size={18} />}
                       label="Starred"
@@ -1475,49 +2170,177 @@ const ContactInfo = () => {
                 </div>
 
                 <div className="w-full space-y-4 pt-4">
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.4, type: "spring", stiffness: 100 }}
-                    className={`relative p-3 rounded-2xl overflow-hidden transition-all duration-500 backdrop-blur-2xl border ${theme === "dark"
-                      ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
-                      : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
-                      }`}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
-
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className={`w-1.5 h-1.5 ${isMetaAi ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"}`} />
-                      <p className={`text-[11px] font-bold uppercase tracking-[0.15em] ${isMetaAi ? "text-blue-500" : "text-emerald-500"}`}>
-                        {isMetaAi ? "About Meta AI" : "About"}
-                      </p>
-                    </div>
-
-                    <p
-                      className={`text-[15px] leading-relaxed relative z-10 ${theme === "dark" ? "text-gray-200" : "text-gray-700"
+                  {isGroup ? (
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.4, type: "spring", stiffness: 100 }}
+                      className={`relative p-3.5 rounded-2xl overflow-hidden transition-all duration-500 backdrop-blur-2xl border ${theme === "dark"
+                        ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                        : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
                         }`}
                     >
-                      {isMetaAi
-                        ? (selectedContact?.about || "Always here to help you answer questions, brainstorm ideas, imagine images, learn new things, and get things done with AI.")
-                        : (selectedContact?.about || "Hey there! I am using WhatsApp.")}
-                    </p>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
 
-                    {!isMetaAi && (
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-emerald-500">
+                            Group description
+                          </p>
+                        </div>
+                        {!isEditingGroupDesc && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditedGroupDesc(groupDescription);
+                              setIsEditingGroupDesc(true);
+                              setShowDescEmoji(false);
+                            }}
+                            className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-emerald-500 dark:hover:text-emerald-400 transition cursor-pointer"
+                            title="Edit group description"
+                          >
+                            <FaPen size={13} />
+                          </button>
+                        )}
+                      </div>
+
+                      {!isEditingGroupDesc ? (
+                        <div
+                          onClick={() => {
+                            if (!groupDescription) {
+                              setEditedGroupDesc("");
+                              setIsEditingGroupDesc(true);
+                              setShowDescEmoji(false);
+                            }
+                          }}
+                          className={!groupDescription ? "cursor-pointer" : ""}
+                        >
+                          {groupDescription ? (
+                            <p
+                              className={`text-[14px] leading-relaxed relative z-10 whitespace-pre-wrap ${theme === "dark" ? "text-gray-200" : "text-gray-700"
+                                }`}
+                            >
+                              {groupDescription}
+                            </p>
+                          ) : (
+                            <p className="text-[14px] text-emerald-500 hover:underline cursor-pointer">
+                              Add group description
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="relative flex flex-col gap-2 pt-1">
+                          <textarea
+                            autoFocus
+                            rows={3}
+                            maxLength={512}
+                            value={editedGroupDesc}
+                            onChange={(e) => setEditedGroupDesc(e.target.value)}
+                            placeholder="Add group description..."
+                            className={`w-full p-2.5 rounded-xl text-[14px] border border-emerald-500/50 focus:border-emerald-500 outline-none resize-none transition ${theme === "dark"
+                              ? "bg-white/5 text-gray-100 placeholder:text-gray-500"
+                              : "bg-black/5 text-gray-800 placeholder:text-gray-400"
+                              }`}
+                          />
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-gray-400">
+                              {512 - editedGroupDesc.length}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setShowDescEmoji((prev) => !prev)}
+                                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-emerald-500 transition cursor-pointer"
+                                title="Add emoji"
+                              >
+                                <BsEmojiSmile size={18} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsEditingGroupDesc(false);
+                                  setShowDescEmoji(false);
+                                }}
+                                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-red-500 transition cursor-pointer"
+                                title="Cancel"
+                              >
+                                <RxCross2 size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSaveGroupDesc}
+                                className="p-1.5 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 active:scale-95 transition cursor-pointer shadow-md"
+                                title="Save description"
+                              >
+                                <FaCheck size={14} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {showDescEmoji && (
+                            <div
+                              ref={descEmojiRef}
+                              className="absolute right-0 top-full mt-2 z-50 shadow-2xl rounded-2xl overflow-hidden"
+                            >
+                              <EmojiPicker
+                                onEmojiClick={(emojiData) => {
+                                  setEditedGroupDesc((prev) => prev + emojiData.emoji);
+                                }}
+                                theme={theme === "dark" ? "dark" : "light"}
+                                height={320}
+                                width={280}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.4, type: "spring", stiffness: 100 }}
+                      className={`relative p-3 rounded-2xl overflow-hidden transition-all duration-500 backdrop-blur-2xl border ${theme === "dark"
+                        ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                        : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
+                        }`}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
+
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={`w-1.5 h-1.5 ${isMetaAi ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"}`} />
+                        <p className={`text-[11px] font-bold uppercase tracking-[0.15em] ${isMetaAi ? "text-blue-500" : "text-emerald-500"}`}>
+                          {isMetaAi ? "About Meta AI" : "About"}
+                        </p>
+                      </div>
+
                       <p
-                        className={`text-[10px] mt-1 ${theme === "dark" ? "text-gray-500" : "text-gray-400"
+                        className={`text-[15px] leading-relaxed relative z-10 ${theme === "dark" ? "text-gray-200" : "text-gray-700"
                           }`}
                       >
-                        {selectedContact?.aboutUpdatedAt
-                          ? `Updated ${new Date(
-                            selectedContact.aboutUpdatedAt,
-                          ).toLocaleString([], {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })}`
-                          : ""}
+                        {isMetaAi
+                          ? (selectedContact?.about || "Always here to help you answer questions, brainstorm ideas, imagine images, learn new things, and get things done with AI.")
+                          : (selectedContact?.about || "Hey there! I am using WhatsApp.")}
                       </p>
-                    )}
-                  </motion.div>
+
+                      {!isMetaAi && (
+                        <p
+                          className={`text-[10px] mt-1 ${theme === "dark" ? "text-gray-500" : "text-gray-400"
+                            }`}
+                        >
+                          {selectedContact?.aboutUpdatedAt
+                            ? `Updated ${new Date(
+                              selectedContact.aboutUpdatedAt,
+                            ).toLocaleString([], {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}`
+                            : ""}
+                        </p>
+                      )}
+                    </motion.div>
+                  )}
 
                   <div className={`-my-0.10 border-t ${isDark ? "border-white/20" : "border-black/10"}`} />
 
@@ -1793,22 +2616,38 @@ const ContactInfo = () => {
                       : " hover:bg-black/8 hover:border-black/10"
                       }`}
                   >
+
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-colors ${isFavorite
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-all duration-300 ${isFavorite
                           ? "bg-rose-500/15 text-rose-500 border-rose-500/30"
                           : "bg-rose-500/10 text-rose-400 border-rose-500/20"
                           }`}
                       >
-                        <FaHeart size={16} className={isFavorite ? "fill-rose-500" : ""} />
+                        {isFavorite ? (
+                          <FaHeart
+                            size={16}
+                            className="transition-transform duration-300 scale-110"
+                          />
+                        ) : (
+                          <FaRegHeart
+                            size={16}
+                            className="transition-transform duration-300"
+                          />
+                        )}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
-                          {isFavorite ? "Remove from favourites" : "Add to favourites"}
+                          {isFavorite
+                            ? "Remove from favourites"
+                            : "Add to favourites"}
                         </h4>
+
                         <p
-                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                          className={`text-[12px] truncate ${theme === "dark"
+                            ? "text-gray-400"
+                            : "text-gray-500"
                             }`}
                         >
                           {isFavorite
@@ -1816,9 +2655,8 @@ const ContactInfo = () => {
                             : "Add to favourite chats for quick access"}
                         </p>
                       </div>
-
                       <span
-                        className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 transition-colors ${isFavorite
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 transition-all duration-300 ${isFavorite
                           ? "bg-rose-500/20 text-rose-400 font-semibold"
                           : "text-[#8696a0]"
                           }`}
@@ -1910,22 +2748,20 @@ const ContactInfo = () => {
                       }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
-                        isMetaAi
-                          ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                          : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                      }`}>
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${isMetaAi
+                        ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                        : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                        }`}>
                         {isMetaAi ? <MdShield size={19} /> : <FaLock size={16} />}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
                           {isMetaAi ? "AI Privacy & Security" : "Encryption"}
-                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
-                            isMetaAi
-                              ? "bg-blue-500/20 text-blue-400"
-                              : "bg-emerald-500/20 text-emerald-500"
-                          }`}>
+                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${isMetaAi
+                            ? "bg-blue-500/20 text-blue-400"
+                            : "bg-emerald-500/20 text-emerald-500"
+                            }`}>
                             {isMetaAi ? "Meta AI" : "Active"}
                           </span>
                         </h4>
@@ -1943,7 +2779,361 @@ const ContactInfo = () => {
                     </div>
                   </motion.div>
 
+                  {isGroup && (
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.65, type: "spring", stiffness: 100 }}
+                      onClick={() => setContactInfoTab("groupPermissions")}
+                      className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                        ? "border-white/10 hover:bg-white/[0.06]"
+                        : "hover:bg-black/[0.04]"
+                        }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                          <IoShieldCheckmarkOutline size={20} />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-[14px] font-semibold truncate">
+                            Group permissions
+                          </h4>
+                          <p
+                            className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                              }`}
+                          >
+                            Edit group settings, send messages, and more
+                          </p>
+                        </div>
+
+                        <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {isGroup && (
+                    <motion.div
+                      id="group-members-section"
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.65, type: "spring", stiffness: 100 }}
+                      className={`p-3.5 rounded-2xl transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                        ? "border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                        : "border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
+                        }`}
+                    >
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <span className={`text-[13px] font-semibold ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>
+                          {groupParticipants.length} {groupParticipants.length === 1 ? "member" : "members"}
+                        </span>
+                        {groupOnlineCount > 0 && (
+                          <span className="text-[11px] font-medium text-emerald-500">
+                            {groupOnlineCount} online
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        {canAddMembers && (
+                          <div
+                            onClick={() => setShowAddMemberModal(true)}
+                            className={`flex items-center gap-3 p-2 rounded-xl transition-colors cursor-pointer mb-1 ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                              }`}
+                          >
+                            <div className="w-10 h-10 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                              <FiUserPlus size={18} />
+                            </div>
+                            <span className="text-[14px] font-medium text-emerald-500">
+                              Add member
+                            </span>
+                          </div>
+                        )}
+
+                        {displayedParticipants.map((member, index) => {
+                          const memberId = (member?._id || member)?.toString();
+                          const isMe = memberId === user?._id?.toString();
+                          const isAdmin = groupAdmins.includes(memberId);
+                          const isMemberOnline = isMe
+                            ? true
+                            : Boolean(
+                              isUserOnline
+                                ? isUserOnline(memberId)
+                                : onlineUsers instanceof Map
+                                  ? onlineUsers.get(memberId)?.isOnline
+                                  : Array.isArray(onlineUsers)
+                                    ? onlineUsers.includes(memberId)
+                                    : member?.isOnline
+                            );
+                          const displayName = isMe ? "You" : (member?.username || member?.name || "Participant");
+                          const memberAbout = isMe
+                            ? (user?.about || member?.about || "MY PRONOUN IS\"he\"NOT \"him\" ✌️🤞👊;")
+                            : (member?.about || "Hey there! I am using WhatsApp.");
+                          const isMenuOpen = openMemberMenuId === memberId;
+                          const isNearBottom = index >= displayedParticipants.length - 2 && displayedParticipants.length > 3;
+
+                          return (
+                            <div
+                              key={memberId}
+                              className={`group relative flex items-center gap-3 p-2.5 rounded-xl transition-colors ${
+                                isMenuOpen
+                                  ? "bg-[#202c33]"
+                                  : theme === "dark"
+                                    ? "hover:bg-[#202c33]"
+                                    : "hover:bg-black/5"
+                              }`}
+                            >
+                              <div className="relative shrink-0 w-11 h-11 rounded-full overflow-hidden flex items-center justify-center bg-[#2a3942] border border-white/10">
+                                {member?.profilePicture && !member.profilePicture.includes("default-avatar") ? (
+                                  <img
+                                    src={member.profilePicture}
+                                    alt={displayName}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : isMe ? (
+                                  <div className="w-full h-full bg-[#9a3412] flex items-center justify-center text-white">
+                                    <FaUser size={18} className="text-white/80" />
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="w-full h-full flex items-center justify-center text-white font-semibold text-[16px]"
+                                    style={{ backgroundColor: getAvatarColor(displayName) }}
+                                  >
+                                    {(displayName[0] || "U").toUpperCase()}
+                                  </div>
+                                )}
+                                {isMemberOnline && (
+                                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#111b21] rounded-full"></span>
+                                )}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-[15px] font-normal truncate ${
+                                    theme === "dark" ? "text-[#e9edef]" : "text-gray-800"
+                                  }`}>
+                                    {displayName}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {isAdmin && (
+                                      <span className="text-[11px] font-normal px-2 py-0.5 rounded bg-[#0a332c] text-[#00a884] shrink-0">
+                                        Group admin
+                                      </span>
+                                    )}
+                                    {!isMe && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenMemberMenuId((prev) => (prev === memberId ? null : memberId));
+                                        }}
+                                        className={`p-1 rounded-full text-[#8696a0] hover:text-[#e9edef] transition cursor-pointer ${
+                                          isMenuOpen
+                                            ? "opacity-100 text-[#e9edef]"
+                                            : "opacity-0 group-hover:opacity-100"
+                                        }`}
+                                        title="Member options"
+                                      >
+                                        <MdKeyboardArrowDown size={20} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {isMe && (
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMemberTagPromptOpen(true);
+                                    }}
+                                    className="text-[13px] text-[#00a884] hover:underline cursor-pointer font-normal mt-0.5 inline-block"
+                                  >
+                                    {userMemberTag ? userMemberTag : "Add member tag"}
+                                  </div>
+                                )}
+
+                                <p className={`text-[13px] truncate font-normal leading-tight mt-0.5 ${
+                                  theme === "dark" ? "text-[#8696a0]" : "text-gray-500"
+                                }`}>
+                                  {memberAbout}
+                                </p>
+                              </div>
+
+                              {isMenuOpen && (
+                                <div
+                                  ref={memberMenuRef}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`absolute right-3 ${
+                                    isNearBottom ? "bottom-full mb-1" : "top-full mt-1"
+                                  } w-56 bg-[#233138] border border-[#2e3b43] rounded-lg shadow-[0_4px_24px_rgba(0,0,0,0.6)] py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100`}
+                                >
+                                  {isCurrentUserAdmin && !isMe && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenMemberMenuId(null);
+                                        handleRemoveMember(memberId, displayName);
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
+                                    >
+                                      <IoRemoveCircleOutline size={19} className="text-[#8696a0] shrink-0" />
+                                      <span>Remove</span>
+                                    </button>
+                                  )}
+
+                                  {isCurrentUserAdmin && !isMe && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenMemberMenuId(null);
+                                        handleToggleMemberAdmin(memberId, isAdmin, displayName);
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
+                                    >
+                                      <FaUserShield size={18} className="text-[#8696a0] shrink-0" />
+                                      <span>{isAdmin ? "Dismiss as admin" : "Make group admin"}</span>
+                                    </button>
+                                  )}
+
+                                  {!isMe && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenMemberMenuId(null);
+                                        setContactInfoTab("security");
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
+                                    >
+                                      <span className="font-mono font-bold text-[13px] text-[#8696a0] w-[19px] text-center shrink-0">
+                                        123
+                                      </span>
+                                      <span>Verify security code</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {groupParticipants.length > 10 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllMembers((prev) => !prev)}
+                            className={`w-full flex items-center justify-between p-2.5 mt-1 rounded-xl cursor-pointer transition-colors ${
+                              theme === "dark" ? "hover:bg-white/5 text-[#00a884]" : "hover:bg-black/5 text-[#00a884]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-[#00a884]/10 text-[#00a884] flex items-center justify-center shrink-0">
+                                <MdKeyboardArrowDown
+                                  size={20}
+                                  className={`transition-transform duration-200 ${
+                                    showAllMembers ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </div>
+                              <span className="text-[14px] font-medium">
+                                {showAllMembers
+                                  ? "View less"
+                                  : `View all (${groupParticipants.length - 10} more)`}
+                              </span>
+                            </div>
+                          </button>
+                        )}
+
+                        <div
+                          onClick={() => setContactInfoTab("memberChanges")}
+                          className={`flex items-center justify-between p-3 mt-1 -mx-1 rounded-xl cursor-pointer transition-colors border-t border-black/5 dark:border-white/5 ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                            }`}
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-[#1b3445] text-[#53bdeb] flex items-center justify-center shrink-0">
+                              <MdHistory size={18} />
+                            </div>
+                            <div className="min-w-0">
+                              <h5 className={`text-[14px] font-medium leading-snug ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                                Past members
+                              </h5>
+                              <p className="text-[12px] opacity-60 truncate">
+                                View member changes from the last 60 days
+                              </p>
+                            </div>
+                          </div>
+                          <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
                   <div className="my-4 border-t border-white/10" />
+                  
+
+                  {!isMetaAi && (
+                    !isGroup ? (
+                      <motion.div
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.7, type: "spring", stiffness: 100 }}
+                        onClick={handleToggleBlock}
+                        className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                          ? " hover:bg-red-500/10 hover:border-red-500/20"
+                          : " hover:bg-red-50 hover:border-red-100"
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
+                            <MdBlock size={19} />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-[14px] font-semibold text-red-500 truncate">
+                              {isBlocked
+                                ? `Unblock ${selectedContact?.username || "contact"}`
+                                : `Block ${selectedContact?.username || "contact"}`}
+                            </h4>
+                            <p
+                              className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                                }`}
+                            >
+                              {isBlocked
+                                ? "Allow calls and messages from this contact"
+                                : "Calls and messages will be blocked"}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ delay: 0.7, type: "spring", stiffness: 100 }}
+                        onClick={handleExitGroup}
+                        className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                          ? " hover:bg-red-500/10 hover:border-red-500/20"
+                          : " hover:bg-red-50 hover:border-red-100"
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
+                            <IoMdExit size={19} />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-[14px] font-semibold text-red-500 truncate">
+                              Exit group
+                            </h4>
+                            <p
+                              className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                                }`}
+                            >
+                              Leave this group conversation
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  )}
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
@@ -1967,40 +3157,6 @@ const ContactInfo = () => {
                       </div>
                     </div>
                   </motion.div>
-                  {!isMetaAi && (
-                    <motion.div
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.7, type: "spring", stiffness: 100 }}
-                      onClick={handleToggleBlock}
-                      className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
-                        ? " hover:bg-red-500/10 hover:border-red-500/20"
-                        : " hover:bg-red-50 hover:border-red-100"
-                        }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
-                          <MdBlock size={19} />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-[14px] font-semibold text-red-500 truncate">
-                            {isBlocked
-                              ? `Unblock ${selectedContact?.username || "contact"}`
-                              : `Block ${selectedContact?.username || "contact"}`}
-                          </h4>
-                          <p
-                            className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                              }`}
-                          >
-                            {isBlocked
-                              ? "Allow calls and messages from this contact"
-                              : "Calls and messages will be blocked"}
-                          </p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
 
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
@@ -2034,6 +3190,270 @@ const ContactInfo = () => {
               </motion.div>
             )}
 
+            {contactInfoTab === "groupPermissions" && (
+              <motion.div
+                key="tab-group-permissions"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="flex-1 overflow-y-auto px-5 py-4 scrollbar-thin space-y-6"
+              >
+                <div>
+                  <h4 className={`text-xs font-medium mb-3 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                    Members can:
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3.5">
+                        <FiEdit2 size={18} className="text-gray-400 shrink-0 mt-0.5" />
+                        <div>
+                          <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                            Edit group settings
+                          </h5>
+                          <p className="text-[12px] opacity-60 leading-relaxed mt-0.5">
+                            This includes the name, icon, description, disappearing message timer, and the ability to pin, keep or unkeep messages.
+                          </p>
+                        </div>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.editGroupSettings}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("editGroupSettings")}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3.5">
+                        <MdOutlineChat size={18} className="text-gray-400 shrink-0" />
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Send new messages
+                        </h5>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.sendMessages}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("sendMessages")}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3.5">
+                        <FiUserPlus size={18} className="text-gray-400 shrink-0" />
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Add other members
+                        </h5>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.addMembers}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("addMembers")}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3.5">
+                        <FiLink size={18} className="text-gray-400 shrink-0" />
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Invite via link
+                        </h5>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.inviteViaLink}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("inviteViaLink")}
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3.5">
+                        <MdHistory size={18} className="text-gray-400 shrink-0 mt-0.5" />
+                        <div>
+                          <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                            Send message history
+                          </h5>
+                          <p className="text-[12px] opacity-60 leading-relaxed mt-0.5">
+                            Past messages can be sent to new members.
+                          </p>
+                        </div>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.sendMessageHistory}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("sendMessageHistory")}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <h4 className={`text-xs font-medium mb-3 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                    Admins can:
+                  </h4>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3.5">
+                      <div className="relative shrink-0 text-gray-400 mt-1">
+                        <FaUserCheck size={16} />
+                      </div>
+                      <div>
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Approve new members
+                        </h5>
+                        <p className="text-[12px] opacity-60 leading-relaxed mt-0.5">
+                          When turned on, admins must approve anyone who wants to join this group.{" "}
+                          <span className="text-[#00a884] font-medium hover:underline cursor-pointer">
+                            Learn more
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <WhatsAppSwitch
+                      checked={groupPermissions.approveNewMembers}
+                      disabled={!isCurrentUserAdmin}
+                      onChange={() => handleTogglePermission("approveNewMembers")}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <h4 className={`text-xs font-medium mb-3 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                    Group admins
+                  </h4>
+                  <div
+                    onClick={() => {
+                      if (isCurrentUserAdmin) {
+                        setShowEditAdminsModal(true);
+                      } else {
+                        toast.info("Only group admins can edit admins");
+                      }
+                    }}
+                    className={`flex items-start justify-between p-2.5 -mx-2 rounded-xl transition-colors cursor-pointer ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                      }`}
+                  >
+                    <div className="flex items-start gap-3.5 min-w-0">
+                      <FaUserCog size={18} className="text-gray-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Edit group admins
+                        </h5>
+                        <p className="text-[12px] opacity-60 leading-relaxed mt-0.5 truncate">
+                          {adminDisplayNames || "No admins"}
+                        </p>
+                      </div>
+                    </div>
+                    <MdChevronRight size={18} className="text-gray-400 shrink-0 mt-1" />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <div
+                    onClick={() => setContactInfoTab("memberChanges")}
+                    className={`flex items-center justify-between p-2.5 -mx-2 rounded-xl transition-colors cursor-pointer ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <MdHistory size={18} className="text-gray-400 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Member changes
+                        </h5>
+                        <p className="text-[12px] opacity-60 leading-relaxed mt-0.5 truncate">
+                          See who has left or been removed
+                        </p>
+                      </div>
+                    </div>
+                    <MdChevronRight size={18} className="text-gray-400 shrink-0" />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "memberChanges" && (
+              <motion.div
+                key="tab-member-changes"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="flex-1 flex flex-col overflow-y-auto scrollbar-thin"
+              >
+                <div className="px-6 py-5 text-center">
+                  <p className="text-[13px] text-[#8696a0] leading-relaxed max-w-sm mx-auto">
+                    See updates from the last 60 days like username changes or who has left or been removed.{" "}
+                    <span
+                      onClick={() =>
+                        toast.info(
+                          "Only member changes from the last 60 days are shown in this list."
+                        )
+                      }
+                      className="text-[#00a884] font-medium hover:underline cursor-pointer"
+                    >
+                      Learn more
+                    </span>
+                  </p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-2">
+                  {isLoadingMemberChanges ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                      <div className="w-7 h-7 border-2 border-[#00a884] border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-[#8696a0]">Loading updates...</span>
+                    </div>
+                  ) : memberChanges.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                      <div className="w-12 h-12 rounded-full bg-[#1b3445]/40 text-[#53bdeb] flex items-center justify-center mb-3">
+                        <MdHistory size={24} />
+                      </div>
+                      <h4 className={`text-sm font-medium mb-1 ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                        No member changes
+                      </h4>
+                      <p className="text-xs text-[#8696a0] max-w-xs leading-relaxed">
+                        No one has left or been removed from this group in the last 60 days.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {memberChanges.map((change, idx) => {
+                        const changeUser = change.user || {};
+                        const avatar = changeUser.profilePicture;
+                        return (
+                          <div
+                            key={change._id || idx}
+                            className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-colors ${theme === "dark" ? "hover:bg-white/[0.03]" : "hover:bg-black/[0.02]"
+                              }`}
+                          >
+                            <div className="w-11 h-11 rounded-full bg-[#1a3848] text-[#53bdeb] flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                              {avatar ? (
+                                <img
+                                  src={avatar}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <FaUser size={18} />
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <h4
+                                className={`text-[15px] font-semibold leading-snug truncate ${theme === "dark" ? "text-white" : "text-gray-900"
+                                  }`}
+                              >
+                                {change.text}
+                              </h4>
+                              <p className="text-[12px] text-[#8696a0] mt-0.5 font-normal">
+                                {formatMemberChangeDate(change.timestamp)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {contactInfoTab === "security" && isMetaAi ? (
               <motion.div
                 key="tab-security-ai"
@@ -2056,9 +3476,8 @@ const ContactInfo = () => {
                   Your personal messages and calls with friends and family remain <span className="text-emerald-500 font-semibold">end-to-end encrypted</span>. No one else, not even WhatsApp or Meta, can read or listen to them.
                 </p>
 
-                <div className={`w-full p-4 rounded-2xl border text-left mb-4 ${
-                  theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
-                }`}>
+                <div className={`w-full p-4 rounded-2xl border text-left mb-4 ${theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
+                  }`}>
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 mt-0.5">
                       <MdShield size={18} />
@@ -2074,9 +3493,8 @@ const ContactInfo = () => {
                   </div>
                 </div>
 
-                <div className={`w-full p-4 rounded-2xl border text-left mb-6 ${
-                  theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
-                }`}>
+                <div className={`w-full p-4 rounded-2xl border text-left mb-6 ${theme === "dark" ? "bg-white/[0.03] border-white/10" : "bg-black/[0.02] border-black/5"
+                  }`}>
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
                       <FaLock size={14} />
@@ -3470,6 +4888,76 @@ const ContactInfo = () => {
               initialIndex={previewModalIndex}
               theme={theme}
             />
+          )}
+
+          {showAddMemberModal && (
+            <AddMemberModal
+              isOpen={showAddMemberModal}
+              onClose={() => setShowAddMemberModal(false)}
+              onOpenPermissions={() => {
+                setShowAddMemberModal(false);
+                setContactInfoTab("groupPermissions");
+              }}
+              groupParticipants={groupParticipants}
+              convId={chatId}
+              theme={theme}
+            />
+          )}
+
+          {showEditAdminsModal && (
+            <EditGroupAdminsModal
+              isOpen={showEditAdminsModal}
+              onClose={() => setShowEditAdminsModal(false)}
+              groupParticipants={groupParticipants}
+              groupAdmins={groupAdmins}
+              currentUserId={user?._id?.toString()}
+              convId={chatId}
+            />
+          )}
+
+          {memberTagPromptOpen && (
+            <div
+              className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+              onClick={() => setMemberTagPromptOpen(false)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm bg-[#222e35] rounded-2xl p-5 shadow-2xl border border-white/10 text-[#e9edef] animate-in zoom-in-95 duration-150"
+              >
+                <h3 className="text-[17px] font-semibold mb-2">Member Tag</h3>
+                <p className="text-[13px] text-[#8696a0] mb-4">
+                  Add a tag to your profile in this group so other members know your role or alias.
+                </p>
+                <input
+                  type="text"
+                  value={userMemberTag}
+                  onChange={(e) => setUserMemberTag(e.target.value)}
+                  placeholder="e.g. Lead, Admin, Developer"
+                  maxLength={30}
+                  className="w-full bg-[#111b21] border border-white/10 rounded-xl px-3.5 py-2.5 text-[14px] text-[#e9edef] placeholder-[#8696a0] outline-none focus:border-[#00a884] mb-5"
+                  autoFocus
+                />
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMemberTagPromptOpen(false)}
+                    className="px-4 py-2 rounded-xl text-[14px] text-[#8696a0] hover:text-[#e9edef] hover:bg-white/5 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMemberTagPromptOpen(false);
+                      toast.success("Member tag updated");
+                    }}
+                    className="px-4 py-2 rounded-xl text-[14px] bg-[#00a884] text-[#111b21] font-semibold hover:bg-[#00a884]/90 transition cursor-pointer"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
           <div
             ref={cursorTooltipRef}

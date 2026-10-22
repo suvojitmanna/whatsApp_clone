@@ -30,6 +30,8 @@ import useLayoutStore from "../../store/layoutStore";
 import ReportModal from "../../components/ReportModal";
 import BlockModal from "../../components/BlockModal";
 import { WhatsAppMediaFolderIcon } from "../../components/Media";
+import { META_AI_USER_ID } from "../../components/common/MetaAiIcon";
+
 
 const ChatHeaderMenu = ({
   isOpen,
@@ -103,6 +105,32 @@ const ChatHeaderMenu = ({
   const targetUserId = useMemo(() => {
     return getTargetUserId(selectedContact, user?._id);
   }, [selectedContact, user?._id]);
+
+  const isMetaAi = useMemo(() => {
+    return Boolean(
+      selectedContact?.isAI ||
+      selectedContact?.isMetaAi ||
+      selectedContact?.username === "Meta AI" ||
+      String(selectedContact?._id) === META_AI_USER_ID ||
+      String(selectedContact?.id) === META_AI_USER_ID ||
+      String(targetUserId) === META_AI_USER_ID ||
+      (selectedContact?.conversation?.participants &&
+        selectedContact.conversation.participants.some(
+          (p) =>
+            p?.username === "Meta AI" ||
+            p?.isAI ||
+            String(p?._id || p) === META_AI_USER_ID
+        )) ||
+      (selectedContact?.participants &&
+        selectedContact.participants.some(
+          (p) =>
+            p?.username === "Meta AI" ||
+            p?.isAI ||
+            String(p?._id || p) === META_AI_USER_ID
+        ))
+    );
+  }, [selectedContact, targetUserId]);
+
 
   const isBlocked = useMemo(() => {
     if (!blockedContacts || blockedContacts.length === 0) return false;
@@ -404,8 +432,10 @@ const ChatHeaderMenu = ({
     };
   }, [isOpen, onClose]);
 
-  const contactName =
-    selectedContact?.username || selectedContact?.name || "this contact";
+  const contactName = isMetaAi
+    ? "Meta AI"
+    : selectedContact?.username || selectedContact?.name || "this contact";
+
 
   const itemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7px] gap-3.5 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] ${isDark
     ? "hover:bg-white/10 hover:border-white/15 hover:text-white"
@@ -464,408 +494,547 @@ const ChatHeaderMenu = ({
                 }`}
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  if (onOpenContactInfo) {
-                    onOpenContactInfo();
-                  } else {
-                    useLayoutStore.getState().openContactInfoWithTab("info");
-                  }
-                }}
-                className={itemClass}
-              >
-                <FiInfo size={18} className="text-[#8696a0] shrink-0" />
-                <span className="truncate">
-                  {selectedContact?.isGroup ? "Group info" : "Contact info"}
-                </span>
-              </button>
+              {isMetaAi ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenContactInfo) {
+                        onOpenContactInfo();
+                      } else {
+                        useLayoutStore.getState().openContactInfoWithTab("info");
+                      }
+                    }}
+                    className={itemClass}
+                  >
+                    <FiInfo size={18} className="text-[#8696a0] shrink-0" />
+                    <span className="truncate">Contact info</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  openMediaModal({
-                    scope: "chat",
-                    contact: selectedContact,
-                    chatId:
-                      selectedContact?.conversation?._id ||
-                      selectedContact?.conversation ||
-                      selectedContact?._id,
-                  });
-                }}
-                className={itemClass}
-              >
-                <WhatsAppMediaFolderIcon size={18} className="text-[#8696a0] shrink-0" />
-                <span>Media, links and docs</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onSearchClick?.();
+                    }}
+                    className={itemClass}
+                  >
+                    <FiSearch size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Search</span>
+                  </button>
 
-              {onOpenCallLink && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenCallLink();
-                  }}
-                  className={itemClass}
-                  title="Create a shareable link for this call"
-                >
-                  <FiLink size={18} className="text-[#8696a0] shrink-0" />
-                  <span>Create call link</span>
-                </button>
-              )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onClose();
+                      onSelectMessages?.();
+                    }}
+                    className={itemClass}
+                  >
+                    <FiCheckSquare size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Select message</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onSearchClick?.();
-                }}
-                className={itemClass}
-              >
-                <FiSearch size={18} className="text-[#8696a0] shrink-0" />
-                <span>Search</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onClose();
-                  onSelectMessages?.();
-                }}
-                className={itemClass}
-              >
-                <FiCheckSquare size={18} className="text-[#8696a0] shrink-0" />
-                <span>Select messages</span>
-              </button>
-
-              <div
-                className="relative"
-                onMouseEnter={() => !isMuted && setActiveSubmenu("mute")}
-                onMouseLeave={() => setActiveSubmenu(null)}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isMuted) {
-                      handleUnmute();
-                    } else {
-                      setActiveSubmenu(
-                        activeSubmenu === "mute" ? null : "mute"
-                      );
-                    }
-                  }}
-                  className={itemClass}
-                >
-                  {isMuted ? (
-                    <FiBell size={18} className="text-emerald-500 shrink-0" />
-                  ) : (
-                    <FiBellOff size={18} className="text-[#8696a0] shrink-0" />
-                  )}
-                  <span className="truncate">
-                    {isMuted ? "Unmute notifications" : "Mute notifications"}
-                  </span>
-                  {!isMuted && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenChatTheme) {
+                        onOpenChatTheme();
+                      } else {
+                        useLayoutStore.getState().openContactInfoWithTab("chatTheme");
+                      }
+                    }}
+                    className={itemClass}
+                  >
+                    <IoColorPaletteOutline
+                      size={18}
+                      className="text-[#8696a0] shrink-0"
+                    />
+                    <span className="truncate">Chat theme</span>
                     <MdChevronRight
                       size={16}
                       className="text-[#8696a0] ml-auto shrink-0"
                     />
-                  )}
-                </button>
+                  </button>
 
-                <AnimatePresence>
-                  {activeSubmenu === "mute" && !isMuted && (
-                    <motion.div
-                      ref={submenuRef}
-                      initial={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
-                      transition={{ duration: 0.1 }}
-                      className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
-                        } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
-                        } min-w-[155px] max-h-[300px] overflow-y-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
-                          ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
-                          : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
+                  <button
+                    type="button"
+                    onClick={handleToggleFavorite}
+                    className={itemClass}
+                  >
+                    <FiHeart
+                      size={18}
+                      className={`shrink-0 ${isFavorite
+                          ? "text-rose-500 fill-rose-500"
+                          : "text-[#8696a0]"
                         }`}
+                    />
+                    <span className="truncate">
+                      {isFavorite ? "Remove from favourites" : "Add to favourites"}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportChat}
+                    className={itemClass}
+                  >
+                    <FiDownload size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Export chat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCloseChat}
+                    className={itemClass}
+                  >
+                    <RxCrossCircled
+                      size={18}
+                      className="text-[#8696a0] shrink-0"
+                    />
+                    <span>Close chat</span>
+                  </button>
+
+                  <div
+                    className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"
+                      }`}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDialog({ type: "clear" })}
+                    className={dangerItemClass}
+                  >
+                    <FiMinusCircle
+                      size={18}
+                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
+                    />
+                    <span>Clear chat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDialog({ type: "delete" })}
+                    className={dangerItemClass}
+                  >
+                    <RiDeleteBin6Line
+                      size={18}
+                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
+                    />
+                    <span>Delete chat</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenContactInfo) {
+                        onOpenContactInfo();
+                      } else {
+                        useLayoutStore.getState().openContactInfoWithTab("info");
+                      }
+                    }}
+                    className={itemClass}
+                  >
+                    <FiInfo size={18} className="text-[#8696a0] shrink-0" />
+                    <span className="truncate">
+                      {selectedContact?.isGroup ? "Group info" : "Contact info"}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      openMediaModal({
+                        scope: "chat",
+                        contact: selectedContact,
+                        chatId:
+                          selectedContact?.conversation?._id ||
+                          selectedContact?.conversation ||
+                          selectedContact?._id,
+                      });
+                    }}
+                    className={itemClass}
+                  >
+                    <WhatsAppMediaFolderIcon size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Media, links and docs</span>
+                  </button>
+
+                  {onOpenCallLink && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenCallLink();
+                      }}
+                      className={itemClass}
+                      title="Create a shareable link for this call"
                     >
-                      {["8 hours", "1 week", "Always"].map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => handleMute(opt)}
-                          className={submenuItemClass}
-                        >
-                          <span>{opt}</span>
-                        </button>
-                      ))}
-                    </motion.div>
+                      <FiLink size={18} className="text-[#8696a0] shrink-0" />
+                      <span>Create call link</span>
+                    </button>
                   )}
-                </AnimatePresence>
-              </div>
 
-              <div
-                className="relative"
-                onMouseEnter={() => setActiveSubmenu("disappearing")}
-                onMouseLeave={() => setActiveSubmenu(null)}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    if (onOpenDisappearingMessages) {
-                      onOpenDisappearingMessages();
-                    } else {
-                      useLayoutStore.getState().openContactInfoWithTab("disappearing");
-                    }
-                  }}
-                  className={itemClass}
-                >
-                  <IoTimerOutline
-                    size={18}
-                    className="text-[#8696a0] shrink-0"
-                  />
-                  <span className="truncate">
-                    Disappearing messages
-                  </span>
-                  <MdChevronRight
-                    size={16}
-                    className="text-[#8696a0] ml-auto shrink-0"
-                  />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onSearchClick?.();
+                    }}
+                    className={itemClass}
+                  >
+                    <FiSearch size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Search</span>
+                  </button>
 
-                <AnimatePresence>
-                  {activeSubmenu === "disappearing" && (
-                    <motion.div
-                      initial={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
-                      transition={{ duration: 0.1 }}
-                      className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
-                        } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
-                        } min-w-[155px] max-h-[300px] overflow-y-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
-                          ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
-                          : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
-                        }`}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onClose();
+                      onSelectMessages?.();
+                    }}
+                    className={itemClass}
+                  >
+                    <FiCheckSquare size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Select messages</span>
+                  </button>
+
+                  <div
+                    className="relative"
+                    onMouseEnter={() => !isMuted && setActiveSubmenu("mute")}
+                    onMouseLeave={() => setActiveSubmenu(null)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isMuted) {
+                          handleUnmute();
+                        } else {
+                          setActiveSubmenu(
+                            activeSubmenu === "mute" ? null : "mute"
+                          );
+                        }
+                      }}
+                      className={itemClass}
                     >
-                      {["24 hours", "7 days", "90 days", "Off"].map((opt) => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => handleSetDisappearing(opt)}
-                          className={submenuItemClass}
-                        >
-                          <span>{opt}</span>
-                          {disappearingDuration === opt && (
-                            <MdCheck
-                              size={16}
-                              className="text-emerald-500 shrink-0"
-                            />
-                          )}
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  if (onOpenChatTheme) {
-                    onOpenChatTheme();
-                  } else {
-                    useLayoutStore.getState().openContactInfoWithTab("chatTheme");
-                  }
-                }}
-                className={itemClass}
-              >
-                <IoColorPaletteOutline
-                  size={18}
-                  className="text-[#8696a0] shrink-0"
-                />
-                <span className="truncate">Chat theme</span>
-                <MdChevronRight
-                  size={16}
-                  className="text-[#8696a0] ml-auto shrink-0"
-                />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleToggleFavorite}
-                className={itemClass}
-              >
-                <FiHeart
-                  size={18}
-                  className={`shrink-0 ${isFavorite
-                    ? "text-rose-500 fill-rose-500"
-                    : "text-[#8696a0]"
-                    }`}
-                />
-                <span className="truncate">
-                  {isFavorite ? "Remove from favourites" : "Add to favourites"}
-                </span>
-              </button>
-
-              <div
-                className="relative"
-                onMouseEnter={() => setActiveSubmenu("list")}
-                onMouseLeave={() => setActiveSubmenu(null)}
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActiveSubmenu(
-                      activeSubmenu === "list" ? null : "list"
-                    )
-                  }
-                  className={itemClass}
-                >
-                  <MdOutlinePlaylistAdd
-                    size={19}
-                    className="text-[#8696a0] shrink-0"
-                  />
-                  <span>Add to list</span>
-                  <MdChevronRight
-                    size={16}
-                    className="text-[#8696a0] ml-auto shrink-0"
-                  />
-                </button>
-
-                <AnimatePresence>
-                  {activeSubmenu === "list" && (
-                    <motion.div
-                      initial={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
-                      transition={{ duration: 0.1 }}
-                      className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
-                        } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
-                        } min-w-[155px] max-h-[300px] overflow-y-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
-                          ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
-                          : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
-                        }`}
-                    >
-                      {["Favourites", "Work", "Personal", "New list..."].map(
-                        (tag) => (
-                          <button
-                            key={tag}
-                            type="button"
-                            onClick={() => {
-                              toast.success(`Chat added to ${tag}`);
-                              onClose();
-                            }}
-                            className={submenuItemClass}
-                          >
-                            <span>{tag}</span>
-                          </button>
-                        )
+                      {isMuted ? (
+                        <FiBell size={18} className="text-emerald-500 shrink-0" />
+                      ) : (
+                        <FiBellOff size={18} className="text-[#8696a0] shrink-0" />
                       )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                      <span className="truncate">
+                        {isMuted ? "Unmute notifications" : "Mute notifications"}
+                      </span>
+                      {!isMuted && (
+                        <MdChevronRight
+                          size={16}
+                          className="text-[#8696a0] ml-auto shrink-0"
+                        />
+                      )}
+                    </button>
 
-              <button
-                type="button"
-                onClick={handleExportChat}
-                className={itemClass}
-              >
-                <FiDownload size={18} className="text-[#8696a0] shrink-0" />
-                <span>Export chat</span>
-              </button>
+                    <AnimatePresence>
+                      {activeSubmenu === "mute" && !isMuted && (
+                        <motion.div
+                          ref={submenuRef}
+                          initial={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
+                          transition={{ duration: 0.1 }}
+                          className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
+                            } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
+                            } min-w-[155px] max-h-[300px] overflow-y-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
+                              ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
+                              : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
+                            }`}
+                        >
+                          {["8 hours", "1 week", "Always"].map((opt) => (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => handleMute(opt)}
+                              className={submenuItemClass}
+                            >
+                              <span>{opt}</span>
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
-              <button
-                type="button"
-                onClick={handleCloseChat}
-                className={itemClass}
-              >
-                <RxCrossCircled
-                  size={18}
-                  className="text-[#8696a0] shrink-0"
-                />
-                <span>Close chat</span>
-              </button>
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setActiveSubmenu("disappearing")}
+                    onMouseLeave={() => setActiveSubmenu(null)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        if (onOpenDisappearingMessages) {
+                          onOpenDisappearingMessages();
+                        } else {
+                          useLayoutStore.getState().openContactInfoWithTab("disappearing");
+                        }
+                      }}
+                      className={itemClass}
+                    >
+                      <IoTimerOutline
+                        size={18}
+                        className="text-[#8696a0] shrink-0"
+                      />
+                      <span className="truncate">
+                        Disappearing messages
+                      </span>
+                      <MdChevronRight
+                        size={16}
+                        className="text-[#8696a0] ml-auto shrink-0"
+                      />
+                    </button>
 
-              <div
-                className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"
-                  }`}
-              />
-              <button
-                type="button"
-                onClick={handleSendCallLink}
-                className={itemClass}
-              >
-                <FiLink size={18} className="text-[#8696a0] shrink-0" />
-                <span>Send call link</span>
-              </button>
+                    <AnimatePresence>
+                      {activeSubmenu === "disappearing" && (
+                        <motion.div
+                          initial={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
+                          transition={{ duration: 0.1 }}
+                          className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
+                            } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
+                            } min-w-[155px] max-h-[300px] overflow-y-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
+                              ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
+                              : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
+                            }`}
+                        >
+                          {["24 hours", "7 days", "90 days", "Off"].map((opt) => (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => handleSetDisappearing(opt)}
+                              className={submenuItemClass}
+                            >
+                              <span>{opt}</span>
+                              {disappearingDuration === opt && (
+                                <MdCheck
+                                  size={16}
+                                  className="text-emerald-500 shrink-0"
+                                />
+                              )}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onStartCall?.();
-                }}
-                className={itemClass}
-              >
-                <FiUserPlus size={18} className="text-[#8696a0] shrink-0" />
-                <span>New group call</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenChatTheme) {
+                        onOpenChatTheme();
+                      } else {
+                        useLayoutStore.getState().openContactInfoWithTab("chatTheme");
+                      }
+                    }}
+                    className={itemClass}
+                  >
+                    <IoColorPaletteOutline
+                      size={18}
+                      className="text-[#8696a0] shrink-0"
+                    />
+                    <span className="truncate">Chat theme</span>
+                    <MdChevronRight
+                      size={16}
+                      className="text-[#8696a0] ml-auto shrink-0"
+                    />
+                  </button>
 
-              <div
-                className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"
-                  }`}
-              />
+                  <button
+                    type="button"
+                    onClick={handleToggleFavorite}
+                    className={itemClass}
+                  >
+                    <FiHeart
+                      size={18}
+                      className={`shrink-0 ${isFavorite
+                        ? "text-rose-500 fill-rose-500"
+                        : "text-[#8696a0]"
+                        }`}
+                    />
+                    <span className="truncate">
+                      {isFavorite ? "Remove from favourites" : "Add to favourites"}
+                    </span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  setShowReportModal(true);
-                }}
-                className={dangerItemClass}
-              >
-                <FiThumbsDown size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
-                <span>Report</span>
-              </button>
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setActiveSubmenu("list")}
+                    onMouseLeave={() => setActiveSubmenu(null)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveSubmenu(
+                          activeSubmenu === "list" ? null : "list"
+                        )
+                      }
+                      className={itemClass}
+                    >
+                      <MdOutlinePlaylistAdd
+                        size={19}
+                        className="text-[#8696a0] shrink-0"
+                      />
+                      <span>Add to list</span>
+                      <MdChevronRight
+                        size={16}
+                        className="text-[#8696a0] ml-auto shrink-0"
+                      />
+                    </button>
 
-              <button
-                type="button"
-                onClick={handleToggleBlock}
-                className={dangerItemClass}
-              >
-                <MdBlock size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
-                <span>
-                  {isBlocked ? "Unblock" : "Block"}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmDialog({ type: "clear" })}
-                className={dangerItemClass}
-              >
-                <FiMinusCircle
-                  size={18}
-                  className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
-                />
-                <span>Clear chat</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmDialog({ type: "delete" })}
-                className={dangerItemClass}
-              >
-                <RiDeleteBin6Line
-                  size={18}
-                  className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
-                />
-                <span>Delete chat</span>
-              </button>
+                    <AnimatePresence>
+                      {activeSubmenu === "list" && (
+                        <motion.div
+                          initial={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: coords.openSubmenuToLeft ? 6 : -6 }}
+                          transition={{ duration: 0.1 }}
+                          className={`absolute ${coords.openSubmenuToLeft ? "right-[99%] mr-1" : "left-[99%] ml-1"
+                            } ${coords.submenuAlignBottom ? "bottom-0" : "top-0"
+                            } min-w-[155px] max-h-[300px] overflow-y-auto scrollbar-hide [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl border shadow-xl z-50 select-none ${isDark
+                              ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_10px_30px_rgba(0,0,0,0.6)]"
+                              : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
+                            }`}
+                        >
+                          {["Favourites", "Work", "Personal", "New list..."].map(
+                            (tag) => (
+                              <button
+                                key={tag}
+                                type="button"
+                                onClick={() => {
+                                  toast.success(`Chat added to ${tag}`);
+                                  onClose();
+                                }}
+                                className={submenuItemClass}
+                              >
+                                <span>{tag}</span>
+                              </button>
+                            )
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleExportChat}
+                    className={itemClass}
+                  >
+                    <FiDownload size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Export chat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCloseChat}
+                    className={itemClass}
+                  >
+                    <RxCrossCircled
+                      size={18}
+                      className="text-[#8696a0] shrink-0"
+                    />
+                    <span>Close chat</span>
+                  </button>
+
+                  <div
+                    className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"
+                      }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendCallLink}
+                    className={itemClass}
+                  >
+                    <FiLink size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Send call link</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onStartCall?.();
+                    }}
+                    className={itemClass}
+                  >
+                    <FiUserPlus size={18} className="text-[#8696a0] shrink-0" />
+                    <span>New group call</span>
+                  </button>
+
+                  <div
+                    className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"
+                      }`}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      setShowReportModal(true);
+                    }}
+                    className={dangerItemClass}
+                  >
+                    <FiThumbsDown size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
+                    <span>Report</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleBlock}
+                    className={dangerItemClass}
+                  >
+                    <MdBlock size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
+                    <span>
+                      {isBlocked ? "Unblock" : "Block"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDialog({ type: "clear" })}
+                    className={dangerItemClass}
+                  >
+                    <FiMinusCircle
+                      size={18}
+                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
+                    />
+                    <span>Clear chat</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDialog({ type: "delete" })}
+                    className={dangerItemClass}
+                  >
+                    <RiDeleteBin6Line
+                      size={18}
+                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
+                    />
+                    <span>Delete chat</span>
+                  </button>
+                </>
+              )}
             </motion.div>
+
           </>,
           document.body
         )}

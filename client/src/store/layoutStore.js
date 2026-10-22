@@ -55,18 +55,40 @@ const useLayoutStore = create(
             : {}),
         }),
 
-      setSelectedContact: (contact) => {
-        set({ selectedContact: contact, selectedMessageInfo: null });
+      setSelectedContact: (contactOrFn) => {
+        set((state) => {
+          let nextContact;
+          if (typeof contactOrFn === "function") {
+            const current =
+              typeof state.selectedContact === "function"
+                ? null
+                : state.selectedContact;
+            nextContact = contactOrFn(current);
+          } else {
+            nextContact = contactOrFn;
+          }
+          return {
+            selectedContact: nextContact,
+            selectedMessageInfo: null,
+          };
+        });
       },
-      updateSelectedContact: (updates) =>
-        set((state) => ({
-          selectedContact: state.selectedContact
-            ? {
-                ...state.selectedContact,
-                ...updates,
-              }
-            : null,
-        })),
+      updateSelectedContact: (updatesOrFn) =>
+        set((state) => {
+          if (!state.selectedContact || typeof state.selectedContact === "function") {
+            return { selectedContact: null };
+          }
+          const updates =
+            typeof updatesOrFn === "function"
+              ? updatesOrFn(state.selectedContact)
+              : updatesOrFn;
+          return {
+            selectedContact: {
+              ...state.selectedContact,
+              ...updates,
+            },
+          };
+        }),
       setActiveTab: (tab) => {
         set({ activeTab: tab });
       },

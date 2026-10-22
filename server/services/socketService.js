@@ -5,6 +5,10 @@ const Conversation = require("../models/ConverSation");
 const handleVideoCallEvent = require("./videoCallService");
 const socketMiddleware = require("../middleware/socketMiddleware");
 const { deleteFileFromCloudinary } = require("../config/cloudinary");
+const {
+  onUserConnectedGroupDelivery,
+  processMultipleGroupReceipts,
+} = require("./groupStatusService");
 
 const onlineUsers = new Map();
 const typingUsers = new Map();
@@ -82,6 +86,8 @@ function initializeSocket(server) {
             }
           }
         }
+
+        await onUserConnectedGroupDelivery(userId, io, onlineUsers);
       } catch (error) {
         console.error("Error in user_connected:", error);
       }
@@ -112,41 +118,67 @@ function initializeSocket(server) {
     socket.on("message_read", async ({ messageIds }) => {
       try {
         if (!messageIds || !messageIds.length) return;
+        const currentUserId = (userId || socket.userId)?.toString();
         const now = new Date();
-        const messages = await Message.find({ _id: { $in: messageIds } });
+        const messages = await Message.find({
+          _id: { $in: messageIds },
+          sender: { $ne: currentUserId },
+        });
 
         if (!messages.length) return;
-        const senderIds = [
-          ...new Set(
-            messages.map((msg) => msg.sender?.toString()).filter(Boolean),
-          ),
-        ];
 
-        await Message.updateMany(
-          { _id: { $in: messageIds } },
-          { $set: { messageStatus: "read", readAt: now } },
-        );
-        await Message.updateMany(
-          { _id: { $in: messageIds }, deliveredAt: null },
-          { $set: { deliveredAt: now } },
+        const groupMessages = messages.filter((m) => !m.receiver);
+        const directMessages = messages.filter(
+          (m) => m.receiver && m.receiver.toString() === currentUserId,
         );
 
-        senderIds.forEach((senderId) => {
-          const sId = senderId.toString();
-          const payload = {
-            messageIds: messageIds.map(String),
-            messageStatus: "read",
-            readAt: now.toISOString(),
-            deliveredAt: now.toISOString(),
-          };
-          io.to(sId).emit("message_status_update_bulk", payload);
-          io.to(sId).emit("message_read", payload);
-          if (onlineUsers.has(sId)) {
-            const socketId = onlineUsers.get(sId);
-            io.to(socketId).emit("message_status_update_bulk", payload);
-            io.to(socketId).emit("message_read", payload);
-          }
-        });
+        if (groupMessages.length > 0 && currentUserId) {
+          const groupIds = groupMessages.map((m) => m._id.toString());
+          await processMultipleGroupReceipts(
+            groupIds,
+            currentUserId,
+            "read",
+            io,
+            onlineUsers,
+          );
+        }
+
+        if (directMessages.length > 0) {
+          const directIds = directMessages.map((m) => m._id);
+          const senderIds = [
+            ...new Set(
+              directMessages
+                .map((msg) => msg.sender?.toString())
+                .filter(Boolean),
+            ),
+          ];
+
+          await Message.updateMany(
+            { _id: { $in: directIds } },
+            { $set: { messageStatus: "read", readAt: now } },
+          );
+          await Message.updateMany(
+            { _id: { $in: directIds }, deliveredAt: null },
+            { $set: { deliveredAt: now } },
+          );
+
+          senderIds.forEach((senderId) => {
+            const sId = senderId.toString();
+            const payload = {
+              messageIds: directIds.map(String),
+              messageStatus: "read",
+              readAt: now.toISOString(),
+              deliveredAt: now.toISOString(),
+            };
+            io.to(sId).emit("message_status_update_bulk", payload);
+            io.to(sId).emit("message_read", payload);
+            if (onlineUsers.has(sId)) {
+              const socketId = onlineUsers.get(sId);
+              io.to(socketId).emit("message_status_update_bulk", payload);
+              io.to(socketId).emit("message_read", payload);
+            }
+          });
+        }
       } catch (error) {
         console.error("Error marking message as read:", error);
       }
@@ -155,37 +187,63 @@ function initializeSocket(server) {
     socket.on("message_delivered", async ({ messageIds }) => {
       try {
         if (!messageIds || !messageIds.length) return;
+        const currentUserId = (userId || socket.userId)?.toString();
         const now = new Date();
         const messages = await Message.find({
           _id: { $in: messageIds },
-          messageStatus: "send",
+          sender: { $ne: currentUserId },
         });
 
         if (!messages.length) return;
-        const senderIds = [
-          ...new Set(
-            messages.map((msg) => msg.sender?.toString()).filter(Boolean),
-          ),
-        ];
 
-        await Message.updateMany(
-          { _id: { $in: messages.map((m) => m._id) }, messageStatus: "send" },
-          { $set: { messageStatus: "delivered", deliveredAt: now } },
+        const groupMessages = messages.filter((m) => !m.receiver);
+        const directMessages = messages.filter(
+          (m) =>
+            m.receiver &&
+            m.receiver.toString() === currentUserId &&
+            m.messageStatus === "send",
         );
 
-        senderIds.forEach((senderId) => {
-          const sId = senderId.toString();
-          const payload = {
-            messageIds: messages.map((m) => m._id.toString()),
-            messageStatus: "delivered",
-            deliveredAt: now.toISOString(),
-          };
-          io.to(sId).emit("message_status_update_bulk", payload);
-          if (onlineUsers.has(sId)) {
-            const socketId = onlineUsers.get(sId);
-            io.to(socketId).emit("message_status_update_bulk", payload);
-          }
-        });
+        if (groupMessages.length > 0 && currentUserId) {
+          const groupIds = groupMessages.map((m) => m._id.toString());
+          await processMultipleGroupReceipts(
+            groupIds,
+            currentUserId,
+            "delivered",
+            io,
+            onlineUsers,
+          );
+        }
+
+        if (directMessages.length > 0) {
+          const directIds = directMessages.map((m) => m._id);
+          const senderIds = [
+            ...new Set(
+              directMessages
+                .map((msg) => msg.sender?.toString())
+                .filter(Boolean),
+            ),
+          ];
+
+          await Message.updateMany(
+            { _id: { $in: directIds }, messageStatus: "send" },
+            { $set: { messageStatus: "delivered", deliveredAt: now } },
+          );
+
+          senderIds.forEach((senderId) => {
+            const sId = senderId.toString();
+            const payload = {
+              messageIds: directIds.map(String),
+              messageStatus: "delivered",
+              deliveredAt: now.toISOString(),
+            };
+            io.to(sId).emit("message_status_update_bulk", payload);
+            if (onlineUsers.has(sId)) {
+              const socketId = onlineUsers.get(sId);
+              io.to(socketId).emit("message_status_update_bulk", payload);
+            }
+          });
+        }
       } catch (error) {
         console.error("Error in message_delivered:", error);
       }

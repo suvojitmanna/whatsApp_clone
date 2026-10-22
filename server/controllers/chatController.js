@@ -12,6 +12,10 @@ const {
   META_AI_USER_ID,
   processMetaAiQuery,
 } = require("../services/aiService.js");
+const {
+  onGroupMessageCreated,
+  processMultipleGroupReceipts,
+} = require("../services/groupStatusService.js");
 
 function getDisappearingDurationMs(duration) {
   if (!duration || duration === "Off") return null;
@@ -49,13 +53,17 @@ async function triggerMetaAiResponse({
 }) {
   try {
     const senderRoom = senderId.toString();
-    const receiverRoom = effectiveReceiverId ? effectiveReceiverId.toString() : null;
+    const receiverRoom = effectiveReceiverId
+      ? effectiveReceiverId.toString()
+      : null;
     const senderSocketId =
       io?.socketUserMap && typeof io.socketUserMap.get === "function"
         ? io.socketUserMap.get(senderRoom)
         : null;
     const receiverSocketId =
-      receiverRoom && io?.socketUserMap && typeof io.socketUserMap.get === "function"
+      receiverRoom &&
+      io?.socketUserMap &&
+      typeof io.socketUserMap.get === "function"
         ? io.socketUserMap.get(receiverRoom)
         : null;
 
@@ -95,7 +103,10 @@ async function triggerMetaAiResponse({
         .lean();
       recentMessages.reverse();
     } catch (e) {
-      console.warn("Could not fetch recent messages for AI context:", e?.message);
+      console.warn(
+        "Could not fetch recent messages for AI context:",
+        e?.message,
+      );
     }
 
     const aiResult = await processMetaAiQuery(rawPrompt, recentMessages);
@@ -126,7 +137,73 @@ async function triggerMetaAiResponse({
       .populate("receiver", "username profilePicture publicKey")
       .populate("replyTo");
 
+    const readTime = new Date();
+    const updatedUserMsgIds = [];
+
+    if (userMessage?._id) {
+      await Message.findByIdAndUpdate(userMessage._id, {
+        $set: {
+          messageStatus: "read",
+          readAt: readTime,
+          deliveredAt: userMessage.deliveredAt || readTime,
+        },
+      });
+      updatedUserMsgIds.push(userMessage._id.toString());
+    }
+
+    if (isDirectToMetaAi) {
+      const pendingUserMsgs = await Message.find({
+        conversation: conversationId,
+        sender: senderId,
+        messageStatus: { $in: ["send", "delivered", "pending"] },
+      }).select("_id");
+
+      if (pendingUserMsgs.length > 0) {
+        await Message.updateMany(
+          {
+            conversation: conversationId,
+            sender: senderId,
+            messageStatus: { $in: ["send", "delivered", "pending"] },
+          },
+          {
+            $set: {
+              messageStatus: "read",
+              readAt: readTime,
+              deliveredAt: readTime,
+            },
+          },
+        );
+        pendingUserMsgs.forEach((m) => {
+          const idStr = m._id.toString();
+          if (!updatedUserMsgIds.includes(idStr)) {
+            updatedUserMsgIds.push(idStr);
+          }
+        });
+      }
+    }
+
     if (io) {
+      if (updatedUserMsgIds.length > 0) {
+        const statusPayload = {
+          messageId: userMessage?._id?.toString() || updatedUserMsgIds[0],
+          messageIds: updatedUserMsgIds,
+          conversationId: conversationId.toString(),
+          messageStatus: "read",
+          readAt: readTime.toISOString(),
+          deliveredAt: readTime.toISOString(),
+        };
+        io.to(senderRoom).emit("message_status_update", statusPayload);
+        io.to(senderRoom).emit("message_status_update_bulk", statusPayload);
+        io.to(senderRoom).emit("message_read", statusPayload);
+        if (senderSocketId && senderSocketId !== senderRoom) {
+          io.to(senderSocketId).emit("message_status_update", statusPayload);
+          io.to(senderSocketId).emit(
+            "message_status_update_bulk",
+            statusPayload,
+          );
+          io.to(senderSocketId).emit("message_read", statusPayload);
+        }
+      }
       const stopTypingPayload = {
         conversationId: conversationId.toString(),
         userId: META_AI_USER_ID,
@@ -183,6 +260,7 @@ exports.sendMessage = async (req, res) => {
     let {
       senderId,
       receiverId,
+      conversationId: incomingConvId,
       content,
       messageStatus,
       statusId,
@@ -196,29 +274,83 @@ exports.sendMessage = async (req, res) => {
       iv,
     } = req.body;
 
-    let effectiveReceiverId = receiverId ? receiverId.toString() : null;
-    if (effectiveReceiverId) {
-      const possibleConv =
-        await Conversation.findById(effectiveReceiverId).select("participants");
-      if (possibleConv && Array.isArray(possibleConv.participants)) {
-        const other = possibleConv.participants.find(
-          (p) => p.toString() !== senderId.toString(),
-        );
-        if (other) effectiveReceiverId = other.toString();
+    let conversation = null;
+    let isGroup = false;
+
+    if (incomingConvId && mongoose.Types.ObjectId.isValid(incomingConvId)) {
+      conversation = await Conversation.findById(incomingConvId);
+      if (conversation?.isGroup) {
+        isGroup = true;
       }
     }
 
-    const participants = [senderId, effectiveReceiverId].sort();
+    if (!isGroup && receiverId && mongoose.Types.ObjectId.isValid(receiverId)) {
+      const possibleConv = await Conversation.findById(receiverId);
+      if (possibleConv?.isGroup) {
+        conversation = possibleConv;
+        isGroup = true;
+      }
+    }
+
+    let effectiveReceiverId = null;
+
+    if (isGroup) {
+      const isMember = conversation.participants?.some(
+        (p) => p.toString() === senderId.toString(),
+      );
+      if (!isMember) {
+        return response(res, 403, "You are not a member of this group");
+      }
+
+      const isAdmin = conversation.groupAdmin?.some(
+        (a) => a.toString() === senderId.toString(),
+      );
+      if (conversation.groupPermissions?.sendMessages === false && !isAdmin) {
+        return response(
+          res,
+          403,
+          "Only admins can send messages in this group",
+        );
+      }
+    } else {
+      effectiveReceiverId = receiverId ? receiverId.toString() : null;
+      if (
+        effectiveReceiverId &&
+        mongoose.Types.ObjectId.isValid(effectiveReceiverId)
+      ) {
+        const possibleConv = await Conversation.findById(
+          effectiveReceiverId,
+        ).select("participants isGroup");
+        if (
+          possibleConv &&
+          !possibleConv.isGroup &&
+          Array.isArray(possibleConv.participants)
+        ) {
+          const other = possibleConv.participants.find(
+            (p) => p.toString() !== senderId.toString(),
+          );
+          if (other) effectiveReceiverId = other.toString();
+        }
+      }
+
+      const participants = [senderId, effectiveReceiverId].sort();
+      if (!conversation) {
+        conversation = await Conversation.findOne({
+          participants: participants,
+          isGroup: false,
+        });
+      }
+      if (!conversation) {
+        conversation = new Conversation({
+          participants: participants,
+          isGroup: false,
+        });
+        await conversation.save();
+      }
+    }
+
     const file = req.file;
     const timestamp = new Date();
-
-    let conversation = await Conversation.findOne({
-      participants: participants,
-    });
-    if (!conversation) {
-      conversation = new Conversation({ participants: participants });
-      await conversation.save();
-    }
     let imageOrVideoUrl = null;
     let contentType = customContentType || null;
 
@@ -308,49 +440,60 @@ exports.sendMessage = async (req, res) => {
       }
     }
 
-    const senderUser = await User.findById(senderId).select("blockedUsers");
-    const isReceiverBlockedBySender = Boolean(
-      senderUser?.blockedUsers?.some((bId) => {
-        const str = bId.toString();
-        return (
-          str === effectiveReceiverId.toString() ||
-          (conversation && str === conversation._id.toString())
+    let isReceiverBlockedBySender = false;
+    let isSenderBlockedByReceiver = false;
+    let receiverRoom = null;
+    let isReceiverOnline = false;
+
+    if (!isGroup && effectiveReceiverId) {
+      const senderUser = await User.findById(senderId).select("blockedUsers");
+      isReceiverBlockedBySender = Boolean(
+        senderUser?.blockedUsers?.some((bId) => {
+          const str = bId.toString();
+          return (
+            str === effectiveReceiverId.toString() ||
+            (conversation && str === conversation._id.toString())
+          );
+        }),
+      );
+      if (isReceiverBlockedBySender) {
+        return response(res, 400, "Unblock contact to send a message");
+      }
+
+      const receiverUser =
+        await User.findById(effectiveReceiverId).select("blockedUsers");
+      isSenderBlockedByReceiver = Boolean(
+        receiverUser?.blockedUsers?.some((bId) => {
+          const str = bId.toString();
+          return (
+            str === senderId.toString() ||
+            (conversation && str === conversation._id.toString())
+          );
+        }),
+      );
+
+      receiverRoom = effectiveReceiverId?.toString();
+      isReceiverOnline =
+        !isSenderBlockedByReceiver &&
+        Boolean(
+          (req.socketUserMap &&
+            typeof req.socketUserMap.get === "function" &&
+            req.socketUserMap.get(receiverRoom)) ||
+          (req.io &&
+            req.io.sockets?.adapter?.rooms?.get(receiverRoom)?.size > 0),
         );
-      }),
-    );
-    if (isReceiverBlockedBySender) {
-      return response(res, 400, "Unblock contact to send a message");
     }
 
-    const receiverUser =
-      await User.findById(effectiveReceiverId).select("blockedUsers");
-    const isSenderBlockedByReceiver = Boolean(
-      receiverUser?.blockedUsers?.some((bId) => {
-        const str = bId.toString();
-        return (
-          str === senderId.toString() ||
-          (conversation && str === conversation._id.toString())
-        );
-      }),
-    );
-
-    const receiverRoom = effectiveReceiverId?.toString();
-    const isReceiverOnline =
-      !isSenderBlockedByReceiver &&
-      Boolean(
-        (req.socketUserMap &&
-          typeof req.socketUserMap.get === "function" &&
-          req.socketUserMap.get(receiverRoom)) ||
-        (req.io && req.io.sockets?.adapter?.rooms?.get(receiverRoom)?.size > 0),
-      );
     const now = new Date();
-    const finalStatus = isSenderBlockedByReceiver
+    const finalStatus = isGroup
       ? "send"
-      : isReceiverOnline
-        ? "delivered"
-        : "send";
+      : isSenderBlockedByReceiver
+        ? "send"
+        : isReceiverOnline
+          ? "delivered"
+          : "send";
     const initialDeliveredAt =
-      isReceiverOnline && !isSenderBlockedByReceiver ? now : null;
+      !isGroup && isReceiverOnline && !isSenderBlockedByReceiver ? now : null;
     let isDisappearing = false;
     let disappearingDuration = null;
     let disappearingExpiresAt = null;
@@ -386,7 +529,7 @@ exports.sendMessage = async (req, res) => {
     const message = new Message({
       conversation: conversation._id,
       sender: senderId,
-      receiver: effectiveReceiverId,
+      receiver: isGroup ? null : effectiveReceiverId,
       content: content || "",
       contentType,
       isEncrypted: isEncrypted === true || isEncrypted === "true",
@@ -405,7 +548,10 @@ exports.sendMessage = async (req, res) => {
       messageStatus: finalStatus,
       deliveredAt: initialDeliveredAt,
       blockedDelivery: isSenderBlockedByReceiver,
-      deletedFor: isSenderBlockedByReceiver ? [effectiveReceiverId] : [],
+      deletedFor:
+        isSenderBlockedByReceiver && effectiveReceiverId
+          ? [effectiveReceiverId]
+          : [],
       readAt: null,
       timestamp,
       reactions: [],
@@ -421,11 +567,11 @@ exports.sendMessage = async (req, res) => {
     conversation.deletedFor = (conversation.deletedFor || []).filter(
       (dId) =>
         dId.toString() !== senderId.toString() &&
-        (!isSenderBlockedByReceiver
+        (!isGroup && effectiveReceiverId && !isSenderBlockedByReceiver
           ? dId.toString() !== effectiveReceiverId.toString()
           : true),
     );
-    if (!isSenderBlockedByReceiver) {
+    if (isGroup || !isSenderBlockedByReceiver) {
       conversation.lastMessage = message._id;
     }
     await conversation.save();
@@ -434,6 +580,8 @@ exports.sendMessage = async (req, res) => {
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey")
       .populate("replyTo")
+      .populate("deliveredTo.user", "username profilePicture phoneNumber about")
+      .populate("readBy.user", "username profilePicture phoneNumber about")
       .populate({
         path: "statusId",
         populate: {
@@ -442,7 +590,56 @@ exports.sendMessage = async (req, res) => {
         },
       });
 
-    if (req.io && !isSenderBlockedByReceiver) {
+    if (isGroup) {
+      if (req.io) {
+        await onGroupMessageCreated(
+          message,
+          conversation,
+          senderId,
+          req.io,
+          req.socketUserMap,
+        );
+      }
+      const updatedPopulatedMessage = await Message.findById(message._id)
+        .populate("sender", "username profilePicture publicKey")
+        .populate("receiver", "username profilePicture publicKey")
+        .populate("replyTo")
+        .populate(
+          "deliveredTo.user",
+          "username profilePicture phoneNumber about",
+        )
+        .populate("readBy.user", "username profilePicture phoneNumber about")
+        .populate({
+          path: "statusId",
+          populate: {
+            path: "user",
+            select: "username profilePicture",
+          },
+        });
+
+      if (req.io) {
+        const messagePayload = {
+          ...(updatedPopulatedMessage || populatedMessage).toObject(),
+          conversationId: conversation._id.toString(),
+        };
+
+        conversation.participants.forEach((p) => {
+          const pIdStr = (p._id || p).toString();
+          if (pIdStr !== senderId.toString()) {
+            req.io.to(pIdStr).emit("receive_message", messagePayload);
+            if (
+              req.socketUserMap &&
+              typeof req.socketUserMap.get === "function"
+            ) {
+              const sId = req.socketUserMap.get(pIdStr);
+              if (sId && sId !== pIdStr) {
+                req.io.to(sId).emit("receive_message", messagePayload);
+              }
+            }
+          }
+        });
+      }
+    } else if (req.io && !isSenderBlockedByReceiver && receiverRoom) {
       const receiverSocketId =
         req.socketUserMap && typeof req.socketUserMap.get === "function"
           ? req.socketUserMap.get(receiverRoom)
@@ -485,8 +682,11 @@ exports.sendMessage = async (req, res) => {
     }
 
     const isDirectToMetaAi =
-      effectiveReceiverId?.toString() === META_AI_USER_ID ||
-      conversation?.participants?.some((p) => p?.toString() === META_AI_USER_ID);
+      !isGroup &&
+      (effectiveReceiverId?.toString() === META_AI_USER_ID ||
+        conversation?.participants?.some(
+          (p) => p?.toString() === META_AI_USER_ID,
+        ));
     const isMetaAiMention =
       typeof content === "string" && /@meta\s*ai/i.test(content);
 
@@ -494,12 +694,16 @@ exports.sendMessage = async (req, res) => {
       triggerMetaAiResponse({
         io: req.io,
         senderId: senderId.toString(),
-        effectiveReceiverId: effectiveReceiverId ? effectiveReceiverId.toString() : META_AI_USER_ID,
+        effectiveReceiverId: effectiveReceiverId
+          ? effectiveReceiverId.toString()
+          : META_AI_USER_ID,
         conversationId: conversation._id,
         userMessage: populatedMessage,
         isDirectToMetaAi,
         isMetaAiMention,
-      }).catch((err) => console.error("Error triggering Meta AI response:", err));
+      }).catch((err) =>
+        console.error("Error triggering Meta AI response:", err),
+      );
     }
 
     return response(res, 201, "Message sent successfully", populatedMessage);
@@ -518,7 +722,7 @@ exports.getConversation = async (req, res) => {
     })
       .populate(
         "participants",
-        "username profilePicture isOnline lastSeen email phoneNumber publicKey",
+        "username profilePicture isOnline lastSeen email phoneNumber publicKey about",
       )
       .populate({
         path: "lastMessage",
@@ -662,6 +866,54 @@ exports.getMessages = async (req, res) => {
         lastMessage: latestRemaining?._id || null,
       });
     }
+    const isDirectToMetaAi = conversation.participants.some(
+      (p) => p.toString() === META_AI_USER_ID,
+    );
+    if (isDirectToMetaAi) {
+      const latestAiMsg = await Message.findOne({
+        conversation: conversationId,
+        sender: META_AI_USER_ID,
+      }).sort({ createdAt: -1 });
+
+      if (latestAiMsg) {
+        await Message.updateMany(
+          {
+            conversation: conversationId,
+            sender: userId,
+            createdAt: { $lte: latestAiMsg.createdAt },
+            messageStatus: { $in: ["send", "delivered", "pending"] },
+          },
+          {
+            $set: {
+              messageStatus: "read",
+              readAt: latestAiMsg.createdAt || now,
+              deliveredAt: latestAiMsg.createdAt || now,
+            },
+          },
+        );
+      }
+    }
+
+    if (conversation.isGroup) {
+      const unreadGroupMessages = await Message.find({
+        conversation: conversationId,
+        sender: { $ne: userId },
+        "readBy.user": { $ne: userId },
+        deletedFor: { $ne: userId },
+      }).select("_id");
+
+      if (unreadGroupMessages.length > 0) {
+        const unreadGroupIds = unreadGroupMessages.map((m) => m._id);
+        await processMultipleGroupReceipts(
+          unreadGroupIds,
+          userId,
+          "read",
+          req.io,
+          req.socketUserMap,
+        );
+      }
+    }
+
     const unreadMessages = await Message.find({
       conversation: conversationId,
       receiver: userId,
@@ -733,6 +985,8 @@ exports.getMessages = async (req, res) => {
     })
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey")
+      .populate("deliveredTo.user", "username profilePicture phoneNumber about")
+      .populate("readBy.user", "username profilePicture phoneNumber about")
       .populate("reactions.userId", "username profilePicture")
       .populate("pollData.options.votes", "username profilePicture")
       .populate("replyTo")
@@ -758,12 +1012,16 @@ exports.markAsRead = async (req, res) => {
   const { messageIds } = req.body;
 
   try {
-    let messages = await Message.find({
+    if (!messageIds || !messageIds.length) {
+      return response(res, 200, "No message IDs provided", []);
+    }
+
+    const allMessages = await Message.find({
       _id: { $in: messageIds },
-      receiver: userId,
+      sender: { $ne: userId },
     });
 
-    if (!messages.length) {
+    if (!allMessages.length) {
       return response(
         res,
         200,
@@ -772,75 +1030,89 @@ exports.markAsRead = async (req, res) => {
       );
     }
 
-    const now = new Date();
-    await Message.updateMany(
-      {
-        _id: { $in: messageIds },
-        receiver: userId,
-      },
-      {
-        $set: { messageStatus: "read", readAt: now },
-      },
-    );
-    await Message.updateMany(
-      {
-        _id: { $in: messageIds },
-        receiver: userId,
-        deliveredAt: null,
-      },
-      {
-        $set: { deliveredAt: now },
-      },
+    const groupMessages = allMessages.filter((m) => !m.receiver);
+    let directMessages = allMessages.filter(
+      (m) => m.receiver && m.receiver.toString() === userId.toString(),
     );
 
-    const convIds = [
-      ...new Set(
-        messages.map((m) => m.conversation?.toString()).filter(Boolean),
-      ),
-    ];
-    if (convIds.length > 0) {
-      await Conversation.updateMany(
-        { _id: { $in: convIds } },
-        { $set: { unreadCount: 0 } },
+    if (groupMessages.length > 0) {
+      const groupMsgIds = groupMessages.map((m) => m._id.toString());
+      await processMultipleGroupReceipts(
+        groupMsgIds,
+        userId,
+        "read",
+        req.io,
+        req.socketUserMap,
       );
     }
 
-    messages = messages.map((msg) => ({
-      ...msg._doc,
-      messageStatus: "read",
-      readAt: now,
-      deliveredAt: msg.deliveredAt || now,
-    }));
+    const now = new Date();
+    if (directMessages.length > 0) {
+      const directIds = directMessages.map((m) => m._id);
+      await Message.updateMany(
+        { _id: { $in: directIds } },
+        { $set: { messageStatus: "read", readAt: now } },
+      );
+      await Message.updateMany(
+        { _id: { $in: directIds }, deliveredAt: null },
+        { $set: { deliveredAt: now } },
+      );
 
-    if (req.io) {
-      const readMessageIds = messageIds.map(String);
-      const senderIds = [
-        ...new Set(messages.map((m) => m.sender?.toString()).filter(Boolean)),
+      const convIds = [
+        ...new Set(
+          directMessages.map((m) => m.conversation?.toString()).filter(Boolean),
+        ),
       ];
+      if (convIds.length > 0) {
+        await Conversation.updateMany(
+          { _id: { $in: convIds } },
+          { $set: { unreadCount: 0 } },
+        );
+      }
 
-      senderIds.forEach((senderId) => {
-        const sId = senderId.toString();
-        const payload = {
-          messageIds: readMessageIds,
-          messageStatus: "read",
-          readAt: now.toISOString(),
-          deliveredAt: now.toISOString(),
-        };
-        req.io.to(sId).emit("message_status_update_bulk", payload);
-        req.io.to(sId).emit("message_read", payload);
+      directMessages = directMessages.map((msg) => ({
+        ...msg._doc,
+        messageStatus: "read",
+        readAt: now,
+        deliveredAt: msg.deliveredAt || now,
+      }));
 
-        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
-          const senderSocketId = req.socketUserMap.get(sId);
-          if (senderSocketId) {
-            req.io
-              .to(senderSocketId)
-              .emit("message_status_update_bulk", payload);
-            req.io.to(senderSocketId).emit("message_read", payload);
+      if (req.io) {
+        const readMessageIds = directIds.map(String);
+        const senderIds = [
+          ...new Set(
+            directMessages.map((m) => m.sender?.toString()).filter(Boolean),
+          ),
+        ];
+
+        senderIds.forEach((senderId) => {
+          const sId = senderId.toString();
+          const payload = {
+            messageIds: readMessageIds,
+            messageStatus: "read",
+            readAt: now.toISOString(),
+            deliveredAt: now.toISOString(),
+          };
+          req.io.to(sId).emit("message_status_update_bulk", payload);
+          req.io.to(sId).emit("message_read", payload);
+
+          if (
+            req.socketUserMap &&
+            typeof req.socketUserMap.get === "function"
+          ) {
+            const senderSocketId = req.socketUserMap.get(sId);
+            if (senderSocketId) {
+              req.io
+                .to(senderSocketId)
+                .emit("message_status_update_bulk", payload);
+              req.io.to(senderSocketId).emit("message_read", payload);
+            }
           }
-        }
-      });
+        });
+      }
     }
-    return response(res, 200, "Messages marked as read", messages);
+
+    return response(res, 200, "Messages marked as read", allMessages);
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");
@@ -1928,3 +2200,511 @@ exports.askMetaAi = async (req, res) => {
   }
 };
 
+exports.createGroup = async (req, res) => {
+  const creatorId = req.user.userId;
+  let {
+    name,
+    description,
+    participants = [],
+    groupProfileImage,
+    disappearingDuration,
+    groupPermissions,
+  } = req.body;
+
+  try {
+    if (!name || !name.trim()) {
+      return response(res, 400, "Group name is required");
+    }
+
+    let parsedParticipants = [];
+    if (typeof participants === "string") {
+      try {
+        parsedParticipants = JSON.parse(participants);
+      } catch (e) {
+        parsedParticipants = participants
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+    } else if (Array.isArray(participants)) {
+      parsedParticipants = participants;
+    }
+
+    const participantSet = new Set(
+      parsedParticipants
+        .map((p) => (p._id || p.userId || p).toString())
+        .filter(Boolean),
+    );
+    participantSet.add(creatorId.toString());
+
+    let imageUrl = groupProfileImage || "";
+    if (req.file) {
+      try {
+        const uploadRes = await uploadFileToCloudinary(req.file);
+        imageUrl = uploadRes?.secure_url || uploadRes?.url || "";
+      } catch (uploadErr) {
+        console.warn("Group avatar upload failed:", uploadErr);
+      }
+    }
+
+    let parsedPermissions = undefined;
+    if (groupPermissions) {
+      try {
+        parsedPermissions =
+          typeof groupPermissions === "string"
+            ? JSON.parse(groupPermissions)
+            : groupPermissions;
+      } catch (e) {}
+    }
+
+    const conversation = new Conversation({
+      isGroup: true,
+      groupName: name.trim(),
+      groupDescription: description ? description.trim() : "",
+      groupProfileImage: imageUrl,
+      groupAdmin: [creatorId],
+      participants: Array.from(participantSet),
+      disappearingDuration: disappearingDuration || "Off",
+      ...(parsedPermissions ? { groupPermissions: parsedPermissions } : {}),
+    });
+
+    await conversation.save();
+
+    const initialMessage = new Message({
+      conversation: conversation._id,
+      sender: creatorId,
+      content: `Group "${name.trim()}" created`,
+      contentType: "text",
+      messageStatus: "read",
+      readAt: new Date(),
+    });
+    await initialMessage.save();
+
+    conversation.lastMessage = initialMessage._id;
+    await conversation.save();
+
+    const populatedConv = await Conversation.findById(conversation._id)
+      .populate(
+        "participants",
+        "username profilePicture isOnline lastSeen email phoneNumber publicKey about",
+      )
+      .populate("groupAdmin", "username profilePicture")
+      .populate({
+        path: "lastMessage",
+        populate: {
+          path: "sender receiver",
+          select: "username profilePicture email phoneNumber publicKey",
+        },
+      })
+      .lean();
+
+    if (req.io) {
+      Array.from(participantSet).forEach((pId) => {
+        req.io.to(pId).emit("new_group_created", populatedConv);
+        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          const sId = req.socketUserMap.get(pId);
+          if (sId && sId !== pId) {
+            req.io.to(sId).emit("new_group_created", populatedConv);
+          }
+        }
+      });
+    }
+
+    return response(res, 201, "Group created successfully", populatedConv);
+  } catch (error) {
+    console.error("Error creating group:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.updateGroup = async (req, res) => {
+  const userId = req.user.userId;
+  const { conversationId } = req.params;
+  const {
+    groupName,
+    groupDescription,
+    groupProfileImage,
+    groupPermissions,
+    groupAdmin,
+    addParticipants,
+    removeParticipant,
+  } = req.body;
+
+  try {
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      isGroup: true,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return response(res, 404, "Group conversation not found");
+    }
+
+    const isAdmin =
+      Array.isArray(conversation.groupAdmin) &&
+      conversation.groupAdmin.some(
+        (a) => (a?._id || a)?.toString() === userId.toString(),
+      );
+
+    let systemMessageContent = null;
+    const actorUser = await User.findById(userId);
+    const actorName = actorUser?.username || "Admin";
+
+    if (
+      groupName !== undefined ||
+      groupDescription !== undefined ||
+      groupProfileImage !== undefined
+    ) {
+      if (
+        !isAdmin &&
+        conversation.groupPermissions?.editGroupSettings === false
+      ) {
+        return response(res, 403, "Only admins can edit group settings");
+      }
+      if (groupName !== undefined && typeof groupName === "string") {
+        conversation.groupName = groupName.trim();
+      }
+      if (
+        groupDescription !== undefined &&
+        typeof groupDescription === "string"
+      ) {
+        conversation.groupDescription = groupDescription.trim();
+      }
+      if (
+        groupProfileImage !== undefined &&
+        typeof groupProfileImage === "string"
+      ) {
+        conversation.groupProfileImage = groupProfileImage;
+      }
+    }
+
+    if (groupPermissions && typeof groupPermissions === "object") {
+      if (!isAdmin) {
+        return response(res, 403, "Only admins can edit group permissions");
+      }
+      let currentPerms = {};
+      if (conversation.groupPermissions) {
+        if (typeof conversation.groupPermissions.toObject === "function") {
+          currentPerms = conversation.groupPermissions.toObject();
+        } else if (typeof conversation.groupPermissions === "object") {
+          currentPerms = { ...conversation.groupPermissions };
+        }
+      }
+      conversation.groupPermissions = {
+        editGroupSettings:
+          groupPermissions.editGroupSettings !== undefined
+            ? Boolean(groupPermissions.editGroupSettings)
+            : (currentPerms.editGroupSettings ?? true),
+        sendMessages:
+          groupPermissions.sendMessages !== undefined
+            ? Boolean(groupPermissions.sendMessages)
+            : (currentPerms.sendMessages ?? true),
+        addMembers:
+          groupPermissions.addMembers !== undefined
+            ? Boolean(groupPermissions.addMembers)
+            : (currentPerms.addMembers ?? true),
+        inviteViaLink:
+          groupPermissions.inviteViaLink !== undefined
+            ? Boolean(groupPermissions.inviteViaLink)
+            : (currentPerms.inviteViaLink ?? true),
+        sendMessageHistory:
+          groupPermissions.sendMessageHistory !== undefined
+            ? Boolean(groupPermissions.sendMessageHistory)
+            : (currentPerms.sendMessageHistory ?? true),
+        approveNewMembers:
+          groupPermissions.approveNewMembers !== undefined
+            ? Boolean(groupPermissions.approveNewMembers)
+            : (currentPerms.approveNewMembers ?? false),
+      };
+      if (typeof conversation.markModified === "function") {
+        conversation.markModified("groupPermissions");
+      }
+    }
+
+    if (groupAdmin && Array.isArray(groupAdmin)) {
+      if (!isAdmin) {
+        return response(res, 403, "Only admins can edit group admins");
+      }
+      const participantIds = new Set(
+        conversation.participants.map((p) => (p._id || p).toString()),
+      );
+      const validAdminIds = groupAdmin
+        .map((a) => (a?._id || a)?.toString())
+        .filter((id) => id && participantIds.has(id));
+
+      if (validAdminIds.length > 0) {
+        conversation.groupAdmin = validAdminIds.map(
+          (id) => new mongoose.Types.ObjectId(id),
+        );
+      }
+    }
+
+    let newlyAddedIds = [];
+    if (addParticipants) {
+      if (!isAdmin && conversation.groupPermissions?.addMembers === false) {
+        return response(res, 403, "Only admins can add members to this group");
+      }
+      const candidates = (
+        Array.isArray(addParticipants) ? addParticipants : [addParticipants]
+      )
+        .map((c) => (c?._id || c)?.toString())
+        .filter(Boolean);
+
+      const existingSet = new Set(
+        conversation.participants.map((p) => (p._id || p).toString()),
+      );
+      newlyAddedIds = candidates.filter((id) => !existingSet.has(id));
+
+      if (newlyAddedIds.length > 0) {
+        newlyAddedIds.forEach((id) => {
+          conversation.participants.push(new mongoose.Types.ObjectId(id));
+        });
+
+        const addedUsers = await User.find({ _id: { $in: newlyAddedIds } });
+        const addedNames = addedUsers
+          .map((u) => u.phoneNumber || u.username || "Member")
+          .join(", ");
+        systemMessageContent = `${actorName} added ${addedNames}`;
+
+        if (!Array.isArray(conversation.memberChanges)) {
+          conversation.memberChanges = [];
+        }
+        addedUsers.forEach((u) => {
+          const uName = u.phoneNumber || u.username || "Member";
+          conversation.memberChanges.push({
+            user: u._id,
+            action: "added",
+            actor: userId,
+            text: `${actorName} added ${uName}`,
+            timestamp: new Date(),
+          });
+        });
+      }
+    }
+
+    let removedUserId = null;
+    if (removeParticipant) {
+      const targetId = (
+        removeParticipant?._id || removeParticipant
+      )?.toString();
+      const isSelf = targetId === userId.toString();
+      if (!isSelf && !isAdmin) {
+        return response(res, 403, "Only admins can remove participants");
+      }
+
+      removedUserId = targetId;
+      conversation.participants = conversation.participants.filter(
+        (p) => (p._id || p).toString() !== targetId,
+      );
+      conversation.groupAdmin = conversation.groupAdmin.filter(
+        (a) => (a._id || a).toString() !== targetId,
+      );
+
+      if (
+        conversation.groupAdmin.length === 0 &&
+        conversation.participants.length > 0
+      ) {
+        conversation.groupAdmin.push(conversation.participants[0]);
+      }
+
+      const targetUser = await User.findById(targetId);
+      const targetPhoneOrName =
+        targetUser?.phoneNumber || targetUser?.username || "Member";
+      if (!Array.isArray(conversation.memberChanges)) {
+        conversation.memberChanges = [];
+      }
+
+      if (isSelf) {
+        systemMessageContent = `${targetPhoneOrName} left the group`;
+        conversation.memberChanges.push({
+          user: targetId,
+          action: "left",
+          actor: userId,
+          text: `${targetPhoneOrName} left the group`,
+          timestamp: new Date(),
+        });
+      } else {
+        systemMessageContent = `${actorName} removed ${targetPhoneOrName}`;
+        conversation.memberChanges.push({
+          user: targetId,
+          action: "removed",
+          actor: userId,
+          text: `${actorName} removed ${targetPhoneOrName}`,
+          timestamp: new Date(),
+        });
+      }
+    }
+
+    let createdSysMsg = null;
+    if (systemMessageContent) {
+      createdSysMsg = new Message({
+        conversation: conversation._id,
+        sender: userId,
+        content: systemMessageContent,
+        contentType: "text",
+        messageStatus: "read",
+        readAt: new Date(),
+      });
+      await createdSysMsg.save();
+      conversation.lastMessage = createdSysMsg._id;
+    }
+
+    await conversation.save();
+
+    const populatedConv = await Conversation.findById(conversation._id)
+      .populate(
+        "participants",
+        "username profilePicture isOnline lastSeen email phoneNumber publicKey about",
+      )
+      .populate("groupAdmin", "username profilePicture")
+      .populate({
+        path: "lastMessage",
+        populate: {
+          path: "sender receiver",
+          select: "username profilePicture email phoneNumber publicKey",
+        },
+      })
+      .lean();
+
+    if (req.io) {
+      conversation.participants.forEach((p) => {
+        const pIdStr = (p._id || p).toString();
+        req.io.to(pIdStr).emit("group_updated", populatedConv);
+        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          const sId = req.socketUserMap.get(pIdStr);
+          if (sId && sId !== pIdStr) {
+            req.io.to(sId).emit("group_updated", populatedConv);
+          }
+        }
+      });
+
+      newlyAddedIds.forEach((pIdStr) => {
+        req.io.to(pIdStr).emit("new_group_created", populatedConv);
+        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          const sId = req.socketUserMap.get(pIdStr);
+          if (sId && sId !== pIdStr) {
+            req.io.to(sId).emit("new_group_created", populatedConv);
+          }
+        }
+      });
+
+      if (removedUserId) {
+        req.io.to(removedUserId).emit("group_updated", {
+          ...populatedConv,
+          removedParticipantId: removedUserId,
+        });
+        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+          const sId = req.socketUserMap.get(removedUserId);
+          if (sId && sId !== removedUserId) {
+            req.io.to(sId).emit("group_updated", {
+              ...populatedConv,
+              removedParticipantId: removedUserId,
+            });
+          }
+        }
+      }
+
+      if (createdSysMsg) {
+        const populatedMsg = await Message.findById(createdSysMsg._id)
+          .populate("sender", "username profilePicture")
+          .lean();
+        conversation.participants.forEach((p) => {
+          const pIdStr = (p._id || p).toString();
+          req.io.to(pIdStr).emit("receive_message", populatedMsg);
+          if (
+            req.socketUserMap &&
+            typeof req.socketUserMap.get === "function"
+          ) {
+            const sId = req.socketUserMap.get(pIdStr);
+            if (sId && sId !== pIdStr) {
+              req.io.to(sId).emit("receive_message", populatedMsg);
+            }
+          }
+        });
+      }
+    }
+
+    return response(res, 200, "Group updated successfully", populatedConv);
+  } catch (error) {
+    console.error("Error updating group:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+exports.getMemberChanges = async (req, res) => {
+  const userId = req.user.userId;
+  const { conversationId } = req.params;
+
+  try {
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      isGroup: true,
+      participants: userId,
+    })
+      .populate("memberChanges.user", "username phoneNumber profilePicture")
+      .populate("memberChanges.actor", "username phoneNumber profilePicture")
+      .lean();
+
+    if (!conversation) {
+      return response(res, 404, "Group conversation not found");
+    }
+
+    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+
+    const changes = (conversation.memberChanges || [])
+      .filter((mc) => !mc.timestamp || new Date(mc.timestamp) >= sixtyDaysAgo)
+      .map((mc) => ({
+        _id: mc._id,
+        text: mc.text,
+        action: mc.action || "left",
+        timestamp: mc.timestamp || new Date(),
+        user: mc.user,
+        actor: mc.actor,
+      }));
+
+    const systemMsgs = await Message.find({
+      conversation: conversationId,
+      createdAt: { $gte: sixtyDaysAgo },
+      content: { $regex: /(left|removed|added)/i },
+    })
+      .populate("sender", "username phoneNumber profilePicture")
+      .lean();
+
+    const seenTexts = new Set(
+      changes.map((c) => (c.text || "") + new Date(c.timestamp).toDateString()),
+    );
+
+    systemMsgs.forEach((sm) => {
+      let text = sm.content;
+      if (text.includes("left") && !text.includes("left the group")) {
+        text = text
+          .replace(/left$/i, "left the group")
+          .replace(/left\s+/i, "left the group ");
+      }
+      const key = text + new Date(sm.createdAt).toDateString();
+      if (!seenTexts.has(key)) {
+        seenTexts.add(key);
+        changes.push({
+          _id: sm._id,
+          text: text,
+          action: text.includes("removed")
+            ? "removed"
+            : text.includes("added")
+              ? "added"
+              : "left",
+          timestamp: sm.createdAt,
+          user: sm.sender,
+          actor: sm.sender,
+        });
+      }
+    });
+
+    changes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    return response(res, 200, "Member changes fetched successfully", changes);
+  } catch (error) {
+    console.error("Error fetching member changes:", error);
+    return response(res, 500, "Internal server error");
+  }
+};

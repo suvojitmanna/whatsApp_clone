@@ -324,7 +324,7 @@ const SecurityVerifyModal = ({
                 <button
                   type="button"
                   onClick={() => setCurrentView("code")}
-                  className="text-[#00a884] hover:text-[#06cf9c] font-medium text-[14px] cursor-pointer transition-colors"
+                  className="text-[#00a884] hover:text-[#06cf9c] font-medium text-[14px] cursor-pointer transition-colors hover:underline"
                 >
                   Learn more
                 </button>

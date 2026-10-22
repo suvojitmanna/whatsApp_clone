@@ -13,6 +13,7 @@ import {
   FaFileAlt,
   FaHeart,
   FaCaretDown,
+  FaUsers,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
 import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam, MdLink } from "react-icons/md";
@@ -32,6 +33,7 @@ import {
   MutedBellIcon,
 } from "../../components/common/Icons";
 import AddToListModal from "../../components/AddToListModal";
+import NewGroupModal from "../../components/NewGroupModal";
 import ListPanelOverChatList from "../../components/ListPanelOverChatList";
 import ChatlistMenu from "./ChatlistMenu";
 import ChatHoverPreview from "./ChatHoverPreview";
@@ -67,8 +69,23 @@ export const getAvatarInitial = (name) => {
 
 const ContactAvatar = ({ contact }) => {
   const [hasError, setHasError] = useState(false);
-  const pic = contact?.profilePicture;
-  const username = contact?.username || "User";
+  const pic =
+    contact?.profilePicture ||
+    contact?.groupProfileImage ||
+    contact?.conversation?.groupProfileImage;
+  const username =
+    contact?.username ||
+    contact?.name ||
+    contact?.groupName ||
+    contact?.conversation?.groupName ||
+    "User";
+
+  const isGroup = Boolean(
+    contact?.isGroup ||
+    contact?.isGroupChat ||
+    contact?.conversation?.isGroup ||
+    (contact?.conversation?.participants && contact.conversation.participants.length > 2)
+  );
 
   if (contact?.isAI || username === "Meta AI" || String(contact?._id) === META_AI_USER_ID) {
     return <MetaAiRing size={48} className="shadow-xs" />;
@@ -77,6 +94,13 @@ const ContactAvatar = ({ contact }) => {
   const showLetter = !pic || pic === "/default-avatar.png" || hasError;
 
   if (showLetter) {
+    if (isGroup) {
+      return (
+        <div className="w-12 h-12 rounded-full shrink-0 flex items-center justify-center bg-[#00a884]/20 text-[#00a884] dark:bg-emerald-500/20 dark:text-emerald-400 select-none shadow-xs border border-emerald-500/30">
+          <FaUsers size={22} />
+        </div>
+      );
+    }
     const bg = getAvatarBg(username);
     const initial = getAvatarInitial(username);
     return (
@@ -716,6 +740,9 @@ export const isChatMarkedUnread = (contact, unreadList) => {
 const ChatList = ({ contacts }) => {
   const { user } = useUserStore();
   const { isUserTyping } = useChatStore();
+  const onlineUsers = useChatStore((state) => state.onlineUsers);
+  const isUserOnline = useChatStore((state) => state.isUserOnline);
+  const getGroupOnlineCount = useChatStore((state) => state.getGroupOnlineCount);
   const pinnedMessages = useChatStore((state) => state.pinnedMessages);
   const selectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedContact = useLayoutStore(
@@ -740,6 +767,24 @@ const ChatList = ({ contacts }) => {
     mode: "create",
     listName: "",
   });
+  const [showNewGroupModal, setShowNewGroupModal] = useState(false);
+  const [showThreeDotsMenu, setShowThreeDotsMenu] = useState(false);
+  const threeDotsMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        threeDotsMenuRef.current &&
+        !threeDotsMenuRef.current.contains(e.target)
+      ) {
+        setShowThreeDotsMenu(false);
+      }
+    };
+    if (showThreeDotsMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showThreeDotsMenu]);
 
   const openNewListPanel = () => {
     setListPanel({ isOpen: true, mode: "create", listName: "" });
@@ -1133,8 +1178,8 @@ const ChatList = ({ contacts }) => {
           </button>
           <button
             type="button"
-            onClick={() => searchInputRef.current?.focus()}
-            title="New chat"
+            onClick={() => setShowNewGroupModal(true)}
+            title="New group"
             className={`p-2 rounded-full transition-colors cursor-pointer ${theme === "dark"
               ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
               : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
@@ -1142,17 +1187,68 @@ const ChatList = ({ contacts }) => {
           >
             <MdOutlineChat size={20} />
           </button>
-          <button
-            type="button"
-            onClick={openNewListPanel}
-            title="New list"
-            className={`p-2 rounded-full transition-colors cursor-pointer ${theme === "dark"
-              ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
-              : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
-              }`}
-          >
-            <HiDotsVertical size={19} />
-          </button>
+          <div className="relative" ref={threeDotsMenuRef}>
+            <button
+              type="button"
+              onClick={() => setShowThreeDotsMenu((prev) => !prev)}
+              title="Menu"
+              className={`p-2 rounded-full transition-colors cursor-pointer ${showThreeDotsMenu
+                ? theme === "dark"
+                  ? "bg-white/10 text-[#e9edef]"
+                  : "bg-black/10 text-[#111b21]"
+                : theme === "dark"
+                  ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
+                  : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
+                }`}
+            >
+              <HiDotsVertical size={19} />
+            </button>
+
+            <AnimatePresence>
+              {showThreeDotsMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                  transition={{ duration: 0.12 }}
+                  className={`absolute right-0 top-full mt-2 z-50 min-w-[190px] rounded-2xl shadow-2xl border p-1.5 select-none ${theme === "dark"
+                    ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/80"
+                    : "bg-white border-gray-200 text-gray-900 shadow-xl"
+                    }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowThreeDotsMenu(false);
+                      setShowNewGroupModal(true);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl cursor-pointer transition-colors ${theme === "dark"
+                      ? "hover:bg-[#182229] text-[#e9edef]"
+                      : "hover:bg-gray-100 text-gray-800"
+                      }`}
+                  >
+                    <FaUsers size={16} className="text-[#00a884] shrink-0" />
+                    <span className="font-medium">New group</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowThreeDotsMenu(false);
+                      openNewListPanel();
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl cursor-pointer transition-colors ${theme === "dark"
+                      ? "hover:bg-[#182229] text-[#e9edef]"
+                      : "hover:bg-gray-100 text-gray-800"
+                      }`}
+                  >
+                    <MdList size={18} className="text-gray-400 shrink-0" />
+                    <span>New list</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -1213,11 +1309,10 @@ const ChatList = ({ contacts }) => {
 
         {searchTerms.trim() && (
           <div
-            className={`absolute left-3 right-3 top-[48px] rounded-2xl shadow-2xl border p-2 z-50 flex flex-col gap-1 backdrop-blur-md animate-in fade-in duration-150 ${
-              theme === "dark"
-                ? "bg-[#202c33]/98 border-gray-700/80 text-white"
-                : "bg-white/98 border-gray-200 text-gray-900"
-            }`}
+            className={`absolute left-3 right-3 top-[48px] rounded-2xl shadow-2xl border p-2 z-50 flex flex-col gap-1 backdrop-blur-md animate-in fade-in duration-150 ${theme === "dark"
+              ? "bg-[#202c33]/98 border-gray-700/80 text-white"
+              : "bg-white/98 border-gray-200 text-gray-900"
+              }`}
           >
             <button
               type="button"
@@ -1589,6 +1684,30 @@ const ChatList = ({ contacts }) => {
             const isTyping = isUserTyping(conversationId, contact?._id);
             const contactPin = getContactPin(contact, pinnedMessages);
 
+            const isGroup = Boolean(
+              contact?.isGroup ||
+              contact?.isGroupChat ||
+              contact?.conversation?.isGroup ||
+              (contact?.conversation?.participants && contact.conversation.participants.length > 2)
+            );
+            const isMetaAi = Boolean(
+              contact?.isAI ||
+              contact?.username === "Meta AI" ||
+              String(contact?._id) === META_AI_USER_ID
+            );
+            let isContactOnline = false;
+            let groupOnlineCount = 0;
+            if (isGroup) {
+              const participants =
+                contact?.participants ||
+                contact?.conversation?.participants ||
+                [];
+              groupOnlineCount = getGroupOnlineCount ? getGroupOnlineCount(participants, user?._id) : 0;
+              isContactOnline = groupOnlineCount > 0;
+            } else if (!isMetaAi) {
+              isContactOnline = isUserOnline ? isUserOnline(contact?._id) : false;
+            }
+
             const convId = (contact?.conversation?._id || contact?.conversation)?.toString();
             const contactId = contact?._id?.toString();
             const disappearingDuration =
@@ -1666,9 +1785,16 @@ const ChatList = ({ contacts }) => {
               >
                 <div className="relative shrink-0">
                   <ContactAvatar contact={contact} />
+                  {isContactOnline && !isMetaAi && (
+                    <span
+                      className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 ${theme === "dark" ? "border-[#111b21]" : "border-white"
+                        } bg-emerald-500 shadow-sm`}
+                      title={isGroup ? `${groupOnlineCount} online` : "Online"}
+                    />
+                  )}
                   {hasDisappearing && disappearingDuration !== "Off" && (
                     <span
-                      className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border ${theme === "dark" ? "border-[#111b21] bg-[#202c33]" : "border-white bg-[#f0f2f5]"
+                      className={`absolute bottom-0 ${isContactOnline && !isMetaAi ? "left-0" : "right-0"} w-4 h-4 rounded-full border ${theme === "dark" ? "border-[#111b21] bg-[#202c33]" : "border-white bg-[#f0f2f5]"
                         } flex items-center justify-center text-[#8696a0] shadow-sm`}
                       title={`Disappearing messages: ${disappearingDuration}`}
                     >
@@ -1794,12 +1920,82 @@ const ChatList = ({ contacts }) => {
                                     />
                                   );
                                 }
-                                if (status === "send" || status === "sent") {
+
+                                const isGroupChat = Boolean(
+                                  contact?.isGroup ||
+                                  contact?.conversation?.isGroup ||
+                                  (!lastMsg?.receiver &&
+                                    (contact?.participants?.length > 2 ||
+                                      contact?.conversation?.participants?.length > 2))
+                                );
+
+                                if (isGroupChat) {
+                                  const rawParticipants =
+                                    contact?.participants ||
+                                    contact?.conversation?.participants ||
+                                    [];
+                                  const otherParticipants = rawParticipants
+                                    .map((p) => (p?._id || p?.userId || p?.id || p)?.toString())
+                                    .filter((pId) => Boolean(pId) && pId !== currentUserId);
+
+                                  if (otherParticipants.length > 0) {
+                                    const readIds = new Set(
+                                      (lastMsg?.readBy || []).map((r) =>
+                                        (r?.user?._id || r?.user || r?.userId || r)?.toString()
+                                      )
+                                    );
+                                    const deliveredIds = new Set(
+                                      (lastMsg?.deliveredTo || []).map((d) =>
+                                        (d?.user?._id || d?.user || d?.userId || d)?.toString()
+                                      )
+                                    );
+
+                                    const allRead =
+                                      status === "read" ||
+                                      otherParticipants.every((pId) => readIds.has(pId));
+
+                                    if (allRead) {
+                                      return (
+                                        <FaCheckDouble
+                                          size={12}
+                                          className="inline mr-1 text-[#53bdeb] shrink-0"
+                                          title="Read by all"
+                                        />
+                                      );
+                                    }
+
+                                    const allDelivered =
+                                      status === "delivered" ||
+                                      otherParticipants.every(
+                                        (pId) => deliveredIds.has(pId) || readIds.has(pId)
+                                      );
+
+                                    if (allDelivered) {
+                                      return (
+                                        <FaCheckDouble
+                                          size={12}
+                                          className="inline mr-1 text-[#8696a0] shrink-0"
+                                          title="Delivered to all"
+                                        />
+                                      );
+                                    }
+
+                                    return (
+                                      <FiCheck
+                                        size={13}
+                                        className="inline mr-1 text-[#8696a0] shrink-0"
+                                        title="Sent"
+                                      />
+                                    );
+                                  }
+                                }
+
+                                if (status === "read") {
                                   return (
-                                    <FiCheck
-                                      size={13}
-                                      className="inline mr-1 text-[#8696a0] shrink-0"
-                                      title="Sent"
+                                    <FaCheckDouble
+                                      size={12}
+                                      className="inline mr-1 text-[#53bdeb] shrink-0"
+                                      title="Read"
                                     />
                                   );
                                 }
@@ -1812,12 +2008,12 @@ const ChatList = ({ contacts }) => {
                                     />
                                   );
                                 }
-                                if (status === "read") {
+                                if (status === "send" || status === "sent") {
                                   return (
-                                    <FaCheckDouble
-                                      size={12}
-                                      className="inline mr-1 text-[#53bdeb] shrink-0"
-                                      title="Read"
+                                    <FiCheck
+                                      size={13}
+                                      className="inline mr-1 text-[#8696a0] shrink-0"
+                                      title="Sent"
                                     />
                                   );
                                 }
@@ -1833,6 +2029,13 @@ const ChatList = ({ contacts }) => {
                               <span
                                 className={`truncate ${preview.isDeleted ? "italic opacity-80" : ""}`}
                               >
+                                {!isLastMsgFromMe &&
+                                  (contact.isGroup || contact.isGroupChat || contact.conversation?.isGroup) &&
+                                  lastMsg?.sender?.username ? (
+                                  <span className="font-medium text-[#111b21] dark:text-[#e9edef] mr-1">
+                                    {lastMsg.sender.username}:
+                                  </span>
+                                ) : null}
                                 {preview.text}
                               </span>
                               {lastMsg?.edited && (
@@ -2095,6 +2298,11 @@ const ChatList = ({ contacts }) => {
         </AnimatePresence>,
         document.body
       )}
+
+      <NewGroupModal
+        isOpen={showNewGroupModal}
+        onClose={() => setShowNewGroupModal(false)}
+      />
     </div>
   );
 };
