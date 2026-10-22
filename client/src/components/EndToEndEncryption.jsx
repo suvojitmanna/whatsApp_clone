@@ -204,7 +204,7 @@ export default function EndToEndEncryption({
                         <button
                             type="button"
                             onClick={() => setShowDetails((prev) => !prev)}
-                            className="flex cursor-pointer items-center gap-1.5 text-[15px] font-semibold text-[#16c875] transition hover:text-[#36e58d]"
+                            className="flex cursor-pointer items-center gap-1.5 text-[15px] font-semibold text-[#16c875] transition hover:text-[#36e58d] hover:underline"
                         >
                             {showDetails ? "Show less" : "Learn more"}
                             {!showDetails && <MdOpenInNew size={15} />}

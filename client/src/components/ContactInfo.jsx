@@ -30,11 +30,11 @@ import {
   FaUserCheck,
   FaRegHeart,
 } from "react-icons/fa";
-import { FaArrowLeft } from "react-icons/fa6";
+import { FaArrowLeft, FaUserShield } from "react-icons/fa6";
 import { IoMdRemoveCircleOutline, IoMdExit } from "react-icons/io";
 import { BsEmojiSmile } from "react-icons/bs";
 import EmojiPicker from "emoji-picker-react";
-import { IoTimerOutline, IoColorPaletteOutline, IoShieldCheckmarkOutline } from "react-icons/io5";
+import { IoTimerOutline, IoColorPaletteOutline, IoShieldCheckmarkOutline, IoRemoveCircleOutline } from "react-icons/io5";
 import {
   MdChevronLeft,
   MdChevronRight,
@@ -48,6 +48,7 @@ import {
   MdList,
   MdOutlineChat,
   MdHistory,
+  MdKeyboardArrowDown,
 } from "react-icons/md";
 import { FiUserPlus, FiLink, FiEdit2 } from "react-icons/fi";
 import { LuSparkles, LuDownload } from "react-icons/lu";
@@ -207,14 +208,6 @@ const ContactInfo = () => {
     selectedContact?.conversation?.isGroup
   );
 
-  const groupParticipants = useMemo(() => {
-    const raw =
-      selectedContact?.participants ||
-      selectedContact?.conversation?.participants ||
-      [];
-    return Array.isArray(raw) ? raw : [];
-  }, [selectedContact]);
-
   const groupAdmins = useMemo(() => {
     const raw =
       selectedContact?.groupAdmin ||
@@ -226,6 +219,29 @@ const ContactInfo = () => {
       .map((a) => (a?._id || a)?.toString())
       .filter(Boolean);
   }, [selectedContact]);
+
+  const groupParticipants = useMemo(() => {
+    const raw =
+      selectedContact?.participants ||
+      selectedContact?.conversation?.participants ||
+      [];
+    const list = Array.isArray(raw) ? [...raw] : [];
+    const myIdStr = user?._id?.toString();
+    list.sort((a, b) => {
+      const aId = (a?._id || a)?.toString();
+      const bId = (b?._id || b)?.toString();
+      if (aId === myIdStr) return -1;
+      if (bId === myIdStr) return 1;
+      const aIsAdmin = groupAdmins.includes(aId);
+      const bIsAdmin = groupAdmins.includes(bId);
+      if (aIsAdmin && !bIsAdmin) return -1;
+      if (!aIsAdmin && bIsAdmin) return 1;
+      const aName = (a?.username || a?.name || "").toLowerCase();
+      const bName = (b?.username || b?.name || "").toLowerCase();
+      return aName.localeCompare(bName);
+    });
+    return list;
+  }, [selectedContact, user?._id, groupAdmins]);
 
   const groupName =
     selectedContact?.groupName ||
@@ -261,6 +277,52 @@ const ContactInfo = () => {
 
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showEditAdminsModal, setShowEditAdminsModal] = useState(false);
+  const [showAllMembers, setShowAllMembers] = useState(false);
+  const [openMemberMenuId, setOpenMemberMenuId] = useState(null);
+  const [memberTagPromptOpen, setMemberTagPromptOpen] = useState(false);
+  const [userMemberTag, setUserMemberTag] = useState("");
+  const memberMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (memberMenuRef.current && !memberMenuRef.current.contains(e.target)) {
+        setOpenMemberMenuId(null);
+      }
+    };
+    if (openMemberMenuId) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [openMemberMenuId]);
+
+  const getAvatarColor = useCallback((name) => {
+    const colors = [
+      "#7c3aed",
+      "#b45309",
+      "#047857",
+      "#be185d",
+      "#0284c7",
+      "#9333ea",
+      "#b91c1c",
+      "#d97706",
+      "#059669",
+      "#4f46e5",
+    ];
+    if (!name) return colors[0];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }, []);
+
+  const displayedParticipants = useMemo(() => {
+    if (showAllMembers) return groupParticipants;
+    return groupParticipants.slice(0, 10);
+  }, [groupParticipants, showAllMembers]);
+
   const [memberChanges, setMemberChanges] = useState([]);
   const [isLoadingMemberChanges, setIsLoadingMemberChanges] = useState(false);
 
@@ -1837,7 +1899,7 @@ const ContactInfo = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.15 }}
-                className="flex flex-col items-center py-3 px-6 overflow-y-auto flex-1 scrollbar-hide"
+                className="flex flex-col items-center pt-1 px-6 pb-0 overflow-y-auto flex-1 scrollbar-hide"
               >
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
@@ -1986,12 +2048,29 @@ const ContactInfo = () => {
                       )}
 
                       <p
-                        className={`text-[13px] text-xl font-medium mt-1.5 transition-colors duration-300 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                          }`}
+                        className={`text-[14px] font-normal mt-1 flex items-center justify-center gap-1.5 transition-colors duration-300 ${
+                          theme === "dark" ? "text-[#8696a0]" : "text-gray-500"
+                        }`}
                       >
-                        Group • <span className="text-emerald-500 hover:underline cursor-pointer transition-colors duration-300 font-semibold text-xs">{groupParticipants.length} {groupParticipants.length === 1 ? "member" : "members"}</span>
+                        <span>Group</span>
+                        <span className="opacity-60">•</span>
+                        <span
+                          onClick={() => {
+                            document
+                              .getElementById("group-members-section")
+                              ?.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          className="hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
+                        >
+                          {groupParticipants.length} {groupParticipants.length === 1 ? "member" : "members"}
+                        </span>
                         {groupOnlineCount > 0 && (
-                          <> • <span className="text-emerald-500 hover:underline cursor-pointer transition-colors duration-300">{groupOnlineCount} online</span></>
+                          <>
+                            <span className="opacity-60">•</span>
+                            <span className="text-emerald-500 font-medium">
+                              {groupOnlineCount} online
+                            </span>
+                          </>
                         )}
                       </p>
                     </div>
@@ -2706,9 +2785,9 @@ const ContactInfo = () => {
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.65, type: "spring", stiffness: 100 }}
                       onClick={() => setContactInfoTab("groupPermissions")}
-                      className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl border ${theme === "dark"
-                        ? "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
-                        : "bg-black/[0.02] border-black/5 hover:bg-black/[0.04] shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
+                      className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                        ? "border-white/10 hover:bg-white/[0.06]"
+                        : "hover:bg-black/[0.04]"
                         }`}
                     >
                       <div className="flex items-center gap-3">
@@ -2733,38 +2812,15 @@ const ContactInfo = () => {
                     </motion.div>
                   )}
 
-                  <div className="my-4 border-t border-white/10" />
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.7, type: "spring", stiffness: 100 }}
-                    onClick={handleExecuteClearChat}
-                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
-                      ? " hover:bg-red-500/10 hover:border-red-500/20"
-                      : " hover:bg-red-50 hover:border-red-100"
-                      }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
-                        <IoMdRemoveCircleOutline size={19} />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-[14px] font-semibold text-red-500 truncate">
-                          Clear Chat
-                        </h4>
-
-                      </div>
-                    </div>
-                  </motion.div>
                   {isGroup && (
                     <motion.div
+                      id="group-members-section"
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.65, type: "spring", stiffness: 100 }}
-                      className={`p-3.5 rounded-2xl transition-all duration-300 backdrop-blur-2xl border ${theme === "dark"
-                        ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
-                        : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
+                      className={`p-3.5 rounded-2xl transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                        ? "border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                        : "border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
                         }`}
                     >
                       <div className="flex items-center justify-between mb-3 px-1">
@@ -2778,7 +2834,7 @@ const ContactInfo = () => {
                         )}
                       </div>
 
-                      <div className="space-y-1 max-h-72 overflow-y-auto scrollbar-thin">
+                      <div className="space-y-1">
                         {canAddMembers && (
                           <div
                             onClick={() => setShowAddMemberModal(true)}
@@ -2794,7 +2850,7 @@ const ContactInfo = () => {
                           </div>
                         )}
 
-                        {groupParticipants.map((member) => {
+                        {displayedParticipants.map((member, index) => {
                           const memberId = (member?._id || member)?.toString();
                           const isMe = memberId === user?._id?.toString();
                           const isAdmin = groupAdmins.includes(memberId);
@@ -2810,19 +2866,42 @@ const ContactInfo = () => {
                                     : member?.isOnline
                             );
                           const displayName = isMe ? "You" : (member?.username || member?.name || "Participant");
+                          const memberAbout = isMe
+                            ? (user?.about || member?.about || "MY PRONOUN IS\"he\"NOT \"him\" ✌️🤞👊;")
+                            : (member?.about || "Hey there! I am using WhatsApp.");
+                          const isMenuOpen = openMemberMenuId === memberId;
+                          const isNearBottom = index >= displayedParticipants.length - 2 && displayedParticipants.length > 3;
 
                           return (
                             <div
                               key={memberId}
-                              className={`group relative flex items-center gap-3 p-2 rounded-xl transition-colors ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
-                                }`}
+                              className={`group relative flex items-center gap-3 p-2.5 rounded-xl transition-colors ${
+                                isMenuOpen
+                                  ? "bg-[#202c33]"
+                                  : theme === "dark"
+                                    ? "hover:bg-[#202c33]"
+                                    : "hover:bg-black/5"
+                              }`}
                             >
-                              <div className="relative shrink-0">
-                                <img
-                                  src={member?.profilePicture || "/default-avatar.png"}
-                                  alt={displayName}
-                                  className="w-10 h-10 rounded-full object-cover border border-white/10"
-                                />
+                              <div className="relative shrink-0 w-11 h-11 rounded-full overflow-hidden flex items-center justify-center bg-[#2a3942] border border-white/10">
+                                {member?.profilePicture && !member.profilePicture.includes("default-avatar") ? (
+                                  <img
+                                    src={member.profilePicture}
+                                    alt={displayName}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : isMe ? (
+                                  <div className="w-full h-full bg-[#9a3412] flex items-center justify-center text-white">
+                                    <FaUser size={18} className="text-white/80" />
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="w-full h-full flex items-center justify-center text-white font-semibold text-[16px]"
+                                    style={{ backgroundColor: getAvatarColor(displayName) }}
+                                  >
+                                    {(displayName[0] || "U").toUpperCase()}
+                                  </div>
+                                )}
                                 {isMemberOnline && (
                                   <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#111b21] rounded-full"></span>
                                 )}
@@ -2830,45 +2909,138 @@ const ContactInfo = () => {
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between">
-                                  <span className={`text-[14px] font-medium truncate ${theme === "dark" ? "text-gray-200" : "text-gray-800"
-                                    }`}>
+                                  <span className={`text-[15px] font-normal truncate ${
+                                    theme === "dark" ? "text-[#e9edef]" : "text-gray-800"
+                                  }`}>
                                     {displayName}
                                   </span>
-                                  {isAdmin && (
-                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 shrink-0">
-                                      Group Admin
-                                    </span>
-                                  )}
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {isAdmin && (
+                                      <span className="text-[11px] font-normal px-2 py-0.5 rounded bg-[#0a332c] text-[#00a884] shrink-0">
+                                        Group admin
+                                      </span>
+                                    )}
+                                    {!isMe && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setOpenMemberMenuId((prev) => (prev === memberId ? null : memberId));
+                                        }}
+                                        className={`p-1 rounded-full text-[#8696a0] hover:text-[#e9edef] transition cursor-pointer ${
+                                          isMenuOpen
+                                            ? "opacity-100 text-[#e9edef]"
+                                            : "opacity-0 group-hover:opacity-100"
+                                        }`}
+                                        title="Member options"
+                                      >
+                                        <MdKeyboardArrowDown size={20} />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
-                                <p className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                                  }`}>
-                                  {member?.about || (isMe ? "Available" : "Hey there! I am using WhatsApp.")}
+
+                                {isMe && (
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMemberTagPromptOpen(true);
+                                    }}
+                                    className="text-[13px] text-[#00a884] hover:underline cursor-pointer font-normal mt-0.5 inline-block"
+                                  >
+                                    {userMemberTag ? userMemberTag : "Add member tag"}
+                                  </div>
+                                )}
+
+                                <p className={`text-[13px] truncate font-normal leading-tight mt-0.5 ${
+                                  theme === "dark" ? "text-[#8696a0]" : "text-gray-500"
+                                }`}>
+                                  {memberAbout}
                                 </p>
                               </div>
 
-                              {isCurrentUserAdmin && !isMe && (
-                                <div className="shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleMemberAdmin(memberId, isAdmin, displayName)}
-                                    className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-emerald-500 transition cursor-pointer"
-                                    title={isAdmin ? "Dismiss as admin" : "Make group admin"}
-                                  >
-                                    <FaUserCog size={15} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveMember(memberId, displayName)}
-                                    className="p-1.5 rounded-full hover:bg-red-500/10 text-gray-400 hover:text-red-500 transition cursor-pointer"
-                                    title="Remove from group"
-                                  >
-                                    <RxCross2 size={16} />
-                                  </button>
+                              {isMenuOpen && (
+                                <div
+                                  ref={memberMenuRef}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className={`absolute right-3 ${
+                                    isNearBottom ? "bottom-full mb-1" : "top-full mt-1"
+                                  } w-56 bg-[#233138] border border-[#2e3b43] rounded-lg shadow-[0_4px_24px_rgba(0,0,0,0.6)] py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100`}
+                                >
+                                  {isCurrentUserAdmin && !isMe && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenMemberMenuId(null);
+                                        handleRemoveMember(memberId, displayName);
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
+                                    >
+                                      <IoRemoveCircleOutline size={19} className="text-[#8696a0] shrink-0" />
+                                      <span>Remove</span>
+                                    </button>
+                                  )}
+
+                                  {isCurrentUserAdmin && !isMe && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenMemberMenuId(null);
+                                        handleToggleMemberAdmin(memberId, isAdmin, displayName);
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
+                                    >
+                                      <FaUserShield size={18} className="text-[#8696a0] shrink-0" />
+                                      <span>{isAdmin ? "Dismiss as admin" : "Make group admin"}</span>
+                                    </button>
+                                  )}
+
+                                  {!isMe && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenMemberMenuId(null);
+                                        setContactInfoTab("security");
+                                      }}
+                                      className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
+                                    >
+                                      <span className="font-mono font-bold text-[13px] text-[#8696a0] w-[19px] text-center shrink-0">
+                                        123
+                                      </span>
+                                      <span>Verify security code</span>
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
                           );
                         })}
+
+                        {groupParticipants.length > 10 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAllMembers((prev) => !prev)}
+                            className={`w-full flex items-center justify-between p-2.5 mt-1 rounded-xl cursor-pointer transition-colors ${
+                              theme === "dark" ? "hover:bg-white/5 text-[#00a884]" : "hover:bg-black/5 text-[#00a884]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-[#00a884]/10 text-[#00a884] flex items-center justify-center shrink-0">
+                                <MdKeyboardArrowDown
+                                  size={20}
+                                  className={`transition-transform duration-200 ${
+                                    showAllMembers ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </div>
+                              <span className="text-[14px] font-medium">
+                                {showAllMembers
+                                  ? "View less"
+                                  : `View all (${groupParticipants.length - 10} more)`}
+                              </span>
+                            </div>
+                          </button>
+                        )}
 
                         <div
                           onClick={() => setContactInfoTab("memberChanges")}
@@ -2893,6 +3065,9 @@ const ContactInfo = () => {
                       </div>
                     </motion.div>
                   )}
+
+                  <div className="my-4 border-t border-white/10" />
+                  
 
                   {!isMetaAi && (
                     !isGroup ? (
@@ -2959,6 +3134,29 @@ const ContactInfo = () => {
                       </motion.div>
                     )
                   )}
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.7, type: "spring", stiffness: 100 }}
+                    onClick={handleExecuteClearChat}
+                    className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl ${theme === "dark"
+                      ? " hover:bg-red-500/10 hover:border-red-500/20"
+                      : " hover:bg-red-50 hover:border-red-100"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
+                        <IoMdRemoveCircleOutline size={19} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-semibold text-red-500 truncate">
+                          Clear Chat
+                        </h4>
+
+                      </div>
+                    </div>
+                  </motion.div>
 
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
@@ -4715,6 +4913,51 @@ const ContactInfo = () => {
               currentUserId={user?._id?.toString()}
               convId={chatId}
             />
+          )}
+
+          {memberTagPromptOpen && (
+            <div
+              className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+              onClick={() => setMemberTagPromptOpen(false)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-sm bg-[#222e35] rounded-2xl p-5 shadow-2xl border border-white/10 text-[#e9edef] animate-in zoom-in-95 duration-150"
+              >
+                <h3 className="text-[17px] font-semibold mb-2">Member Tag</h3>
+                <p className="text-[13px] text-[#8696a0] mb-4">
+                  Add a tag to your profile in this group so other members know your role or alias.
+                </p>
+                <input
+                  type="text"
+                  value={userMemberTag}
+                  onChange={(e) => setUserMemberTag(e.target.value)}
+                  placeholder="e.g. Lead, Admin, Developer"
+                  maxLength={30}
+                  className="w-full bg-[#111b21] border border-white/10 rounded-xl px-3.5 py-2.5 text-[14px] text-[#e9edef] placeholder-[#8696a0] outline-none focus:border-[#00a884] mb-5"
+                  autoFocus
+                />
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMemberTagPromptOpen(false)}
+                    className="px-4 py-2 rounded-xl text-[14px] text-[#8696a0] hover:text-[#e9edef] hover:bg-white/5 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMemberTagPromptOpen(false);
+                      toast.success("Member tag updated");
+                    }}
+                    className="px-4 py-2 rounded-xl text-[14px] bg-[#00a884] text-[#111b21] font-semibold hover:bg-[#00a884]/90 transition cursor-pointer"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
           <div
             ref={cursorTooltipRef}
