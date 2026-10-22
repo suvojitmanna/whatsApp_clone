@@ -58,8 +58,17 @@ const messageSchema = new mongoose.Schema(
         "call",
         "call_link",
         "ai_image",
+        "system",
       ],
       default: "text",
+    },
+    isSystemMessage: {
+      type: Boolean,
+      default: false,
+    },
+    systemAction: {
+      type: String,
+      default: null,
     },
     isMetaAi: {
       type: Boolean,

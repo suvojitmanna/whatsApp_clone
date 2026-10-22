@@ -50,6 +50,7 @@ import ReportModal from "../../components/ReportModal";
 import MessageMenu from "./MessageMenu";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { MetaAiMarkdown, MetaAiImageCard, MetaAiFeedbackBar } from "../../components/common/MetaAiContent";
+import { isGroupSystemMessage, getFormattedGroupSystemText } from "../../utils/systemMessageUtils";
 
 import {
   WhatsAppPinIcon,
@@ -946,6 +947,30 @@ const MessageBuble = ({
 
   if (!message || isDisappearingExpired) return null;
   const msgDOMId = (message?._id?._id || message?._id || message?.temp)?.toString();
+
+  if (isGroupSystemMessage(message)) {
+    const systemText = getFormattedGroupSystemText(
+      message,
+      currentUserId,
+      currentUser?.username || currentUser?.name
+    );
+    return (
+      <div
+        id={msgDOMId ? `msg-${msgDOMId}` : undefined}
+        className="w-full flex justify-center my-2 select-none px-4"
+      >
+        <div
+          className={`max-w-[520px] px-3.5 py-1.5 rounded-lg text-xs font-normal leading-[18px] shadow-sm text-center inline-flex items-center justify-center gap-1.5 transition-colors border select-none ${
+            isDark
+              ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0]"
+              : "bg-white border-black/5 text-[#54656f]"
+          }`}
+        >
+          <span>{systemText}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

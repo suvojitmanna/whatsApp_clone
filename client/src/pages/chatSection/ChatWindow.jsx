@@ -52,6 +52,7 @@ import ReportModal from "../../components/ReportModal";
 import NewCallLinkModal from "../calls/NewCallLinkModal";
 import { getPinActorAndLabel } from "./ChatList";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
+import { isGroupSystemMessage, getFormattedGroupSystemText } from "../../utils/systemMessageUtils";
 
 function getDisappearingDurationMs(duration) {
   if (!duration || duration === "Off") return null;
@@ -1842,6 +1843,26 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     );
   };
 
+  const renderGroupSystemNotification = (msg) => {
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const currentUserName = user?.username || user?.name;
+    const text = getFormattedGroupSystemText(msg, currentUserId, currentUserName);
+
+    return (
+      <div className="flex justify-center my-2 select-none px-4">
+        <div
+          className={`max-w-[520px] px-3.5 py-1.5 rounded-lg text-xs font-normal leading-[18px] shadow-sm text-center inline-flex items-center justify-center gap-1.5 transition-colors border select-none ${
+            theme === "dark"
+              ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0]"
+              : "bg-white border-black/5 text-[#54656f]"
+          }`}
+        >
+          <span>{text}</span>
+        </div>
+      </div>
+    );
+  };
+
   const renderDateSeparator = (
     date,
     includePinNotification = false
@@ -2423,8 +2444,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             );
                           }
 
+                          if (isGroupSystemMessage(msg)) {
+                            return (
+                              <div key={msg._id || `sys-${index}`}>
+                                {renderGroupSystemNotification(msg)}
+                              </div>
+                            );
+                          }
+
                           const prevMsg =
-                            index > 0 && !msgs[index - 1]?.isDisappearingSystemEvent
+                            index > 0 &&
+                            !msgs[index - 1]?.isDisappearingSystemEvent &&
+                            !isGroupSystemMessage(msgs[index - 1])
                               ? msgs[index - 1]
                               : null;
                           const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();

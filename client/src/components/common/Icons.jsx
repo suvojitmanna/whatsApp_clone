@@ -1935,7 +1935,6 @@ export const LockClosedIcon = ({
   );
 };
 
-// Re-export Meta AI visual symbols so any component can import them directly from Icons
 export {
   MetaAiRing,
   MetaAiBadge,

@@ -2274,7 +2274,9 @@ exports.createGroup = async (req, res) => {
       conversation: conversation._id,
       sender: creatorId,
       content: `Group "${name.trim()}" created`,
-      contentType: "text",
+      contentType: "system",
+      isSystemMessage: true,
+      systemAction: "created",
       messageStatus: "read",
       readAt: new Date(),
     });
@@ -2542,7 +2544,9 @@ exports.updateGroup = async (req, res) => {
         conversation: conversation._id,
         sender: userId,
         content: systemMessageContent,
-        contentType: "text",
+        contentType: "system",
+        isSystemMessage: true,
+        systemAction: removeParticipant ? (isSelf ? "left" : "removed") : "added",
         messageStatus: "read",
         readAt: new Date(),
       });
@@ -2622,6 +2626,18 @@ exports.updateGroup = async (req, res) => {
             }
           }
         });
+        if (removedUserId) {
+          req.io.to(removedUserId).emit("receive_message", populatedMsg);
+          if (
+            req.socketUserMap &&
+            typeof req.socketUserMap.get === "function"
+          ) {
+            const sId = req.socketUserMap.get(removedUserId);
+            if (sId && sId !== removedUserId) {
+              req.io.to(sId).emit("receive_message", populatedMsg);
+            }
+          }
+        }
       }
     }
 
