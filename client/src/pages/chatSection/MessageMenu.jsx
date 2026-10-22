@@ -130,6 +130,23 @@ const MessageMenu = ({
                 </button>
             )}
 
+            {isUserMessage && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        setSelectedMessageInfo?.(message);
+                    }}
+                    className={itemClass}
+                >
+                    <IoIosInformationCircleOutline
+                        size={19}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Message info</span>
+                </button>
+            )}
+
             <button
                 type="button"
                 onClick={() => {
@@ -346,23 +363,6 @@ const MessageMenu = ({
                         className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
                     />
                     <span>Download</span>
-                </button>
-            )}
-
-            {isUserMessage && (
-                <button
-                    type="button"
-                    onClick={() => {
-                        setShowOptions?.(false);
-                        setSelectedMessageInfo?.(message);
-                    }}
-                    className={itemClass}
-                >
-                    <IoIosInformationCircleOutline
-                        size={19}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
-                    <span>Message info</span>
                 </button>
             )}
 

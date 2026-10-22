@@ -133,7 +133,70 @@ async function triggerMetaAiResponse({
       .populate("receiver", "username profilePicture publicKey")
       .populate("replyTo");
 
+    const readTime = new Date();
+    const updatedUserMsgIds = [];
+
+    if (userMessage?._id) {
+      await Message.findByIdAndUpdate(userMessage._id, {
+        $set: {
+          messageStatus: "read",
+          readAt: readTime,
+          deliveredAt: userMessage.deliveredAt || readTime,
+        },
+      });
+      updatedUserMsgIds.push(userMessage._id.toString());
+    }
+
+    if (isDirectToMetaAi) {
+      const pendingUserMsgs = await Message.find({
+        conversation: conversationId,
+        sender: senderId,
+        messageStatus: { $in: ["send", "delivered", "pending"] },
+      }).select("_id");
+
+      if (pendingUserMsgs.length > 0) {
+        await Message.updateMany(
+          {
+            conversation: conversationId,
+            sender: senderId,
+            messageStatus: { $in: ["send", "delivered", "pending"] },
+          },
+          {
+            $set: {
+              messageStatus: "read",
+              readAt: readTime,
+              deliveredAt: readTime,
+            },
+          }
+        );
+        pendingUserMsgs.forEach((m) => {
+          const idStr = m._id.toString();
+          if (!updatedUserMsgIds.includes(idStr)) {
+            updatedUserMsgIds.push(idStr);
+          }
+        });
+      }
+    }
+
     if (io) {
+      if (updatedUserMsgIds.length > 0) {
+        const statusPayload = {
+          messageId: userMessage?._id?.toString() || updatedUserMsgIds[0],
+          messageIds: updatedUserMsgIds,
+          conversationId: conversationId.toString(),
+          messageStatus: "read",
+          readAt: readTime.toISOString(),
+          deliveredAt: readTime.toISOString(),
+        };
+        io.to(senderRoom).emit("message_status_update", statusPayload);
+        io.to(senderRoom).emit("message_status_update_bulk", statusPayload);
+        io.to(senderRoom).emit("message_read", statusPayload);
+        if (senderSocketId && senderSocketId !== senderRoom) {
+          io.to(senderSocketId).emit("message_status_update", statusPayload);
+          io.to(senderSocketId).emit("message_status_update_bulk", statusPayload);
+          io.to(senderSocketId).emit("message_read", statusPayload);
+        }
+      }
       const stopTypingPayload = {
         conversationId: conversationId.toString(),
         userId: META_AI_USER_ID,
@@ -749,6 +812,34 @@ exports.getMessages = async (req, res) => {
         lastMessage: latestRemaining?._id || null,
       });
     }
+    const isDirectToMetaAi = conversation.participants.some(
+      (p) => p.toString() === META_AI_USER_ID,
+    );
+    if (isDirectToMetaAi) {
+      const latestAiMsg = await Message.findOne({
+        conversation: conversationId,
+        sender: META_AI_USER_ID,
+      }).sort({ createdAt: -1 });
+
+      if (latestAiMsg) {
+        await Message.updateMany(
+          {
+            conversation: conversationId,
+            sender: userId,
+            createdAt: { $lte: latestAiMsg.createdAt },
+            messageStatus: { $in: ["send", "delivered", "pending"] },
+          },
+          {
+            $set: {
+              messageStatus: "read",
+              readAt: latestAiMsg.createdAt || now,
+              deliveredAt: latestAiMsg.createdAt || now,
+            },
+          }
+        );
+      }
+    }
+
     const unreadMessages = await Message.find({
       conversation: conversationId,
       receiver: userId,

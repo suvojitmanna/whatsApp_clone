@@ -10,7 +10,7 @@ import {
   FiCheck,
   FiImage,
 } from "react-icons/fi";
-import {FaUser } from "react-icons/fa";
+import { FaUser } from "react-icons/fa";
 import { MdOutlineChat, MdChevronRight, MdOutlineSchedule } from "react-icons/md";
 import { BsEmojiSmile } from "react-icons/bs";
 import EmojiPicker from "emoji-picker-react";
@@ -36,8 +36,8 @@ const WhatsAppSwitch = ({ checked, onChange, className = "" }) => (
     type="button"
     onClick={onChange}
     className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors shrink-0 ${checked
-        ? "bg-[#25d366] justify-end"
-        : "bg-transparent border-2 border-[#8696a0] justify-start"
+      ? "bg-[#25d366] justify-end"
+      : "bg-transparent border-2 border-[#8696a0] justify-start"
       } ${className}`}
   >
     <div
@@ -235,12 +235,8 @@ const NewGroupModal = ({ isOpen, onClose }) => {
           className={`absolute inset-0 z-50 flex flex-col overflow-hidden select-none h-full w-full ${isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-white text-[#111b21]"
             }`}
         >
-          {/* ========================================================= */}
-          {/* SCREEN 1: ADD GROUP MEMBERS                                */}
-          {/* ========================================================= */}
           {screen === 1 && (
             <div className="flex-1 flex flex-col h-full min-h-0 relative select-none">
-              {/* Header */}
               <div
                 className={`flex items-center gap-4 px-5 py-4 shrink-0 border-b ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-[#008069] text-white border-transparent"
                   }`}
@@ -258,7 +254,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                 </h3>
               </div>
 
-              {/* Selected chips bar */}
               {selectedUserIds.length > 0 && (
                 <div
                   className={`px-4 py-3 flex items-center gap-2.5 overflow-x-auto scrollbar-hide border-b shrink-0 flex-wrap max-h-32 ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-gray-50 border-gray-200"
@@ -302,12 +297,11 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                 </div>
               )}
 
-              {/* Search bar */}
               <div className="px-4 py-2 border-b border-black/5 dark:border-white/5 shrink-0">
                 <div
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs ${isDark
-                      ? "bg-[#202c33] border-transparent text-[#e9edef]"
-                      : "bg-gray-100 border-transparent text-gray-800"
+                    ? "bg-[#202c33] border-transparent text-[#e9edef]"
+                    : "bg-gray-100 border-transparent text-gray-800"
                     }`}
                 >
                   <FiSearch className="text-gray-400 shrink-0" size={15} />
@@ -330,7 +324,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              {/* Grouped Contacts List */}
               <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-2 space-y-4">
                 {Object.keys(groupedUsers).length > 0 ? (
                   Object.keys(groupedUsers).map((letter) => (
@@ -346,12 +339,12 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                               key={contact._id}
                               onClick={() => toggleSelectUser(contact._id)}
                               className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl cursor-pointer transition-colors ${isSelected
-                                  ? isDark
-                                    ? "bg-[#2a3942]"
-                                    : "bg-gray-200"
-                                  : isDark
-                                    ? "hover:bg-white/5"
-                                    : "hover:bg-black/5"
+                                ? isDark
+                                  ? "bg-[#2a3942]"
+                                  : "bg-gray-200"
+                                : isDark
+                                  ? "hover:bg-white/5"
+                                  : "hover:bg-black/5"
                                 }`}
                             >
                               <div className="flex items-center gap-3.5 min-w-0">
@@ -395,15 +388,14 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                 )}
               </div>
 
-              {/* Bottom "Next" Button */}
               <div className="p-4 border-t border-black/5 dark:border-white/5 shrink-0 bg-transparent">
                 <button
                   type="button"
                   disabled={selectedUserIds.length === 0}
                   onClick={() => setScreen(2)}
                   className={`w-full py-3.5 rounded-full font-semibold text-sm sm:text-base flex items-center justify-center transition-all cursor-pointer shadow-lg ${selectedUserIds.length > 0
-                      ? "bg-[#00a884] hover:bg-[#20ba5c] text-black"
-                      : "bg-[#00a884]/40 text-black/50 cursor-not-allowed"
+                    ? "bg-[#00a884] hover:bg-[#20ba5c] text-black"
+                    : "bg-[#00a884]/40 text-black/50 cursor-not-allowed"
                     }`}
                 >
                   Next
@@ -412,12 +404,8 @@ const NewGroupModal = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* ========================================================= */}
-          {/* SCREEN 2: NEW GROUP INFO (Step 2)                         */}
-          {/* ========================================================= */}
           {screen === 2 && (
             <div className="flex-1 flex flex-col h-full min-h-0 relative select-none">
-              {/* Header */}
               <div
                 className={`flex items-center gap-4 px-5 py-4 shrink-0 border-b ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-[#008069] text-white border-transparent"
                   }`}
@@ -434,7 +422,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-7">
-                {/* Center Circular Avatar Container */}
                 <div className="flex flex-col items-center justify-center pt-2">
                   <input
                     ref={fileInputRef}
@@ -463,7 +450,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                       </div>
                     )}
 
-                    {/* Hover overlay if image already chosen */}
                     {groupImagePreview && (
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs font-medium">
                         <FiImage size={24} />
@@ -473,7 +459,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                   </div>
                 </div>
 
-                {/* Group subject input with green underline */}
                 <div className="relative pt-2">
                   <div className="flex items-center gap-3 border-b-2 border-[#00a884] pb-2">
                     <input
@@ -495,7 +480,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                     </button>
                   </div>
 
-                  {/* Emoji Picker Popup */}
                   {showEmojiPicker && (
                     <div
                       ref={emojiPickerRef}
@@ -514,9 +498,7 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                   )}
                 </div>
 
-                {/* Settings Rows */}
                 <div className="space-y-1 pt-2 divide-y divide-white/5">
-                  {/* Disappearing messages */}
                   <div
                     onClick={() => {
                       setTempDisappearingDuration(disappearingDuration);
@@ -535,7 +517,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                     <MdChevronRight size={22} className="text-gray-400 shrink-0" />
                   </div>
 
-                  {/* Group permissions */}
                   <div
                     onClick={() => setScreen(3)}
                     className="flex items-center justify-between py-3.5 cursor-pointer hover:bg-white/5 px-2 rounded-xl transition-colors"
@@ -549,7 +530,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                   </div>
                 </div>
 
-                {/* Bottom Circular Green Checkmark Button */}
                 <div className="pt-6 flex justify-center pb-2">
                   <motion.button
                     whileHover={{ scale: 1.08 }}
@@ -557,8 +537,8 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                     disabled={selectedUserIds.length === 0 || isSubmitting}
                     onClick={handleCreateGroup}
                     className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl text-black cursor-pointer transition-all ${selectedUserIds.length > 0 && !isSubmitting
-                        ? "bg-[#25d366] hover:bg-[#20ba5c]"
-                        : "bg-[#25d366]/40 text-black/50 cursor-not-allowed"
+                      ? "bg-[#25d366] hover:bg-[#20ba5c]"
+                      : "bg-[#25d366]/40 text-black/50 cursor-not-allowed"
                       }`}
                     title="Create group"
                   >
@@ -573,12 +553,8 @@ const NewGroupModal = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* ========================================================= */}
-          {/* SCREEN 3: GROUP PERMISSIONS (Image 3)                     */}
-          {/* ========================================================= */}
           {screen === 3 && (
             <div className="flex-1 flex flex-col h-full min-h-0 relative select-none">
-              {/* Header */}
               <div
                 className={`flex items-center gap-4 px-5 py-4 shrink-0 border-b ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-[#008069] text-white border-transparent"
                   }`}
@@ -597,13 +573,11 @@ const NewGroupModal = ({ isOpen, onClose }) => {
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
-                {/* Members can section */}
                 <div>
                   <h4 className="text-xs font-medium text-gray-400 mb-3">
                     Members can:
                   </h4>
                   <div className="space-y-4">
-                    {/* Edit group settings */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3.5">
                         <FiEdit2 size={18} className="text-gray-400 shrink-0 mt-1" />
@@ -627,7 +601,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                       />
                     </div>
 
-                    {/* Send new messages */}
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3.5">
                         <MdOutlineChat size={18} className="text-gray-400 shrink-0" />
@@ -644,7 +617,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                       />
                     </div>
 
-                    {/* Add other members */}
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3.5">
                         <FiUserPlus size={18} className="text-gray-400 shrink-0" />
@@ -661,7 +633,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                       />
                     </div>
 
-                    {/* Invite via link */}
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3.5">
                         <FiLink size={18} className="text-gray-400 shrink-0" />
@@ -680,7 +651,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                   </div>
                 </div>
 
-                {/* Admins can section */}
                 <div className="pt-2 border-t border-white/5">
                   <h4 className="text-xs font-medium text-gray-400 mb-3">
                     Admins can:
@@ -720,9 +690,7 @@ const NewGroupModal = ({ isOpen, onClose }) => {
               </div>
             </div>
           )}
-          {/* ========================================================= */}
-          {/* SCREEN 4: DISAPPEARING MESSAGES DIALOG (Image 4)          */}
-          {/* ========================================================= */}
+
           {showDisappearingModal && (
             <div
               className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs select-none"
@@ -735,8 +703,8 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                 transition={{ duration: 0.14 }}
                 onClick={(e) => e.stopPropagation()}
                 className={`w-full max-w-sm rounded-3xl p-6 shadow-2xl border ${isDark
-                    ? "bg-[#202c33] border-white/10 text-[#e9edef]"
-                    : "bg-white border-gray-200 text-[#111b21]"
+                  ? "bg-[#202c33] border-white/10 text-[#e9edef]"
+                  : "bg-white border-gray-200 text-[#111b21]"
                   }`}
               >
                 <h3 className="text-lg font-semibold tracking-tight mb-2">
@@ -758,10 +726,10 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                       >
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
-                              ? "border-[#00a884]"
-                              : isDark
-                                ? "border-gray-500"
-                                : "border-gray-400"
+                            ? "border-[#00a884]"
+                            : isDark
+                              ? "border-gray-500"
+                              : "border-gray-400"
                             }`}
                         >
                           {isSelected && (

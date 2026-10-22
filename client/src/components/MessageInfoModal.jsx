@@ -274,11 +274,10 @@ const MessageInfoModal = ({
           transition={{ duration: 0.18, ease: "easeOut" }}
           onClick={(e) => e.stopPropagation()}
           className={`w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border flex flex-col max-h-[88vh] ${isDark
-              ? "bg-[#111b21] border-[#222d34] text-[#e9edef]"
-              : "bg-white border-gray-200 text-[#111b21]"
+            ? "bg-[#111b21] border-[#222d34] text-[#e9edef]"
+            : "bg-white border-gray-200 text-[#111b21]"
             }`}
         >
-          {/* Header */}
           <div
             className={`flex items-center justify-between px-5 py-4 border-b shrink-0 ${isDark ? "bg-[#202c33] border-[#222d34]" : "bg-[#008069] text-white border-transparent"
               }`}
@@ -300,8 +299,8 @@ const MessageInfoModal = ({
               type="button"
               onClick={handleClose}
               className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark
-                  ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
-                  : "hover:bg-black/10 text-white"
+                ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
+                : "hover:bg-black/10 text-white"
                 }`}
               title="Close"
             >
@@ -310,11 +309,10 @@ const MessageInfoModal = ({
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5">
-            {/* Selected Message Bubble Preview */}
             <div
               className={`p-3.5 rounded-2xl border shadow-sm ${isDark
-                  ? "bg-[#005c4b]/30 border-emerald-500/20 text-[#e9edef]"
-                  : "bg-[#d9fdd3]/70 border-emerald-600/15 text-[#111b21]"
+                ? "bg-[#005c4b]/30 border-emerald-500/20 text-[#e9edef]"
+                : "bg-[#d9fdd3]/70 border-emerald-600/15 text-[#111b21]"
                 }`}
             >
               <span
@@ -410,12 +408,11 @@ const MessageInfoModal = ({
               </div>
             </div>
 
-            {/* If Group: Search Filter */}
             {isGroup && totalRecipients > 4 && (
               <div
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border text-sm ${isDark
-                    ? "bg-[#202c33]/60 border-[#222d34] text-[#e9edef]"
-                    : "bg-gray-100 border-gray-200 text-gray-800"
+                  ? "bg-[#202c33]/60 border-[#222d34] text-[#e9edef]"
+                  : "bg-gray-100 border-gray-200 text-gray-800"
                   }`}
               >
                 <FiSearch className="text-gray-400 shrink-0" size={16} />
@@ -438,10 +435,8 @@ const MessageInfoModal = ({
               </div>
             )}
 
-            {/* Group Message Info View vs 1:1 View */}
             {isGroup ? (
               <div className="space-y-4">
-                {/* READ BY SECTION */}
                 <div
                   className={`rounded-xl border overflow-hidden ${isDark ? "bg-[#202c33]/40 border-[#222d34]" : "bg-white border-gray-200"
                     }`}
@@ -520,7 +515,6 @@ const MessageInfoModal = ({
                   </div>
                 </div>
 
-                {/* DELIVERED TO SECTION */}
                 <div
                   className={`rounded-xl border overflow-hidden ${isDark ? "bg-[#202c33]/40 border-[#222d34]" : "bg-white border-gray-200"
                     }`}
@@ -592,7 +586,6 @@ const MessageInfoModal = ({
                   </div>
                 </div>
 
-                {/* REMAINING / NOT DELIVERED SECTION */}
                 {remainingList.length > 0 && (
                   <div
                     className={`rounded-xl border overflow-hidden ${isDark ? "bg-[#202c33]/40 border-[#222d34]" : "bg-white border-gray-200"
@@ -646,20 +639,18 @@ const MessageInfoModal = ({
                 )}
               </div>
             ) : (
-              /* 1:1 CHAT MESSAGE INFO VIEW */
               <div
                 className={`rounded-2xl divide-y border overflow-hidden shadow-sm ${isDark
-                    ? "bg-[#202c33]/30 border-[#222d34] divide-[#222d34]"
-                    : "bg-white border-gray-200 divide-gray-100"
+                  ? "bg-[#202c33]/30 border-[#222d34] divide-[#222d34]"
+                  : "bg-white border-gray-200 divide-gray-100"
                   }`}
               >
-                {/* READ ROW */}
                 <div className="flex items-center justify-between p-4.5">
                   <div className="flex items-center gap-4">
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isRead
-                          ? "bg-[#53bdeb]/15 text-[#53bdeb]"
-                          : "bg-gray-500/10 text-gray-400/40"
+                        ? "bg-[#53bdeb]/15 text-[#53bdeb]"
+                        : "bg-gray-500/10 text-gray-400/40"
                         }`}
                     >
                       <FaCheckDouble size={16} />
@@ -683,15 +674,14 @@ const MessageInfoModal = ({
                   </div>
                 </div>
 
-                {/* DELIVERED ROW */}
                 <div className="flex items-center justify-between p-4.5">
                   <div className="flex items-center gap-4">
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isDelivered
-                          ? isDark
-                            ? "bg-white/10 text-gray-300"
-                            : "bg-gray-100 text-gray-600"
-                          : "bg-gray-500/10 text-gray-400/40"
+                        ? isDark
+                          ? "bg-white/10 text-gray-300"
+                          : "bg-gray-100 text-gray-600"
+                        : "bg-gray-500/10 text-gray-400/40"
                         }`}
                     >
                       <FaCheckDouble size={16} />
@@ -715,7 +705,6 @@ const MessageInfoModal = ({
                   </div>
                 </div>
 
-                {/* SENT ROW */}
                 <div className="flex items-center justify-between p-4.5">
                   <div className="flex items-center gap-4">
                     <div
@@ -743,7 +732,6 @@ const MessageInfoModal = ({
               </div>
             )}
 
-            {/* End-to-End Encryption Banner */}
             <div className="flex items-start gap-3 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs">
               <FaLock size={13} className="shrink-0 mt-0.5" />
               <p className="leading-relaxed">

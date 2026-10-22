@@ -1586,6 +1586,57 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
+    socket.on("group_updated", (updatedConv) => {
+      if (!updatedConv?._id) return;
+      const strId = updatedConv._id.toString();
+      set((state) => ({
+        conversations: {
+          ...state.conversations,
+          data: state.conversations?.data?.map((conv) => {
+            if (String(conv._id) === strId) {
+              return { ...conv, ...updatedConv };
+            }
+            return conv;
+          }),
+        },
+        users: state.users?.map((u) => {
+          if (
+            String(u._id) === strId ||
+            String(u.conversation?._id) === strId
+          ) {
+            return {
+              ...u,
+              ...updatedConv,
+              conversation: {
+                ...u.conversation,
+                ...updatedConv,
+              },
+            };
+          }
+          return u;
+        }),
+      }));
+      const active = useLayoutStore.getState().selectedContact;
+      if (
+        active &&
+        (String(active._id) === strId ||
+          String(active.conversation?._id) === strId)
+      ) {
+        useLayoutStore.getState().setSelectedContact((prev) => ({
+          ...prev,
+          ...updatedConv,
+          username: updatedConv.groupName || prev?.username,
+          name: updatedConv.groupName || prev?.name,
+          groupName: updatedConv.groupName,
+          groupDescription: updatedConv.groupDescription,
+          conversation: {
+            ...prev?.conversation,
+            ...updatedConv,
+          },
+        }));
+      }
+    });
+
     socket.on(
       "message_pinned",
       ({
@@ -2704,7 +2755,32 @@ export const useChatStore = create((set, get) => ({
       }
 
       set((state) => {
-        const nextMessages = [...state.messages, decryptedMessage];
+        let nextMessages = [...state.messages, decryptedMessage];
+        const isFromMetaAi = Boolean(
+          decryptedMessage.isMetaAi ||
+          decryptedMessage.sender?.username === "Meta AI" ||
+          String(decryptedMessage.sender?._id || decryptedMessage.sender) === "66f000000000000000000001"
+        );
+        if (isFromMetaAi) {
+          const nowIso = new Date().toISOString();
+          const replyToId = String(
+            decryptedMessage.replyTo?._id || decryptedMessage.replyTo || ""
+          );
+          nextMessages = nextMessages.map((msg) => {
+            const isUserMsg = String(msg.sender?._id || msg.sender) === String(myId);
+            const isTarget = replyToId ? String(msg._id) === replyToId : isUserMsg;
+            if (isTarget && msg.messageStatus !== "read") {
+              return {
+                ...msg,
+                messageStatus: "read",
+                readAt: msg.readAt || nowIso,
+                deliveredAt: msg.deliveredAt || nowIso,
+              };
+            }
+            return msg;
+          });
+        }
+
         const nextCache = conversationId
           ? syncMessagesCache(state.messagesCache, conversationId, nextMessages)
           : state.messagesCache;
@@ -3346,6 +3422,35 @@ export const useChatStore = create((set, get) => ({
       }
     });
     return count;
+  },
+
+  updateGroupInfo: (conversationId, updateData) => {
+    if (!conversationId) return;
+    const strId = conversationId.toString();
+    set((state) => ({
+      conversations: {
+        ...state.conversations,
+        data: state.conversations?.data?.map((conv) => {
+          if (String(conv._id) === strId) {
+            return { ...conv, ...updateData };
+          }
+          return conv;
+        }),
+      },
+      users: state.users?.map((u) => {
+        if (String(u._id) === strId || String(u.conversation?._id) === strId) {
+          return {
+            ...u,
+            ...updateData,
+            conversation: {
+              ...u.conversation,
+              ...updateData,
+            },
+          };
+        }
+        return u;
+      }),
+    }));
   },
 
   cleanup: () => {

@@ -260,18 +260,17 @@ const MessageInfoPanel = () => {
         exit={{ x: "100%", opacity: 0 }}
         transition={{ type: "tween", duration: 0.2 }}
         className={`h-full flex flex-col select-none ${isMobile
-            ? "fixed inset-0 z-[100]"
-            : "relative w-full md:w-[360px] lg:w-[410px] xl:w-[430px] shrink-0 border-l"
+          ? "fixed inset-0 z-[100]"
+          : "relative w-full md:w-[360px] lg:w-[410px] xl:w-[430px] shrink-0 border-l"
           } ${isDark
             ? "bg-[#111b21] border-[#222d34] text-[#e9edef]"
             : "bg-[#f0f2f5] border-gray-200 text-gray-900"
           } shadow-2xl`}
       >
-        {/* Header */}
         <div
           className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${isDark
-              ? "bg-[#202c33] border-[#222d34] text-[#e9edef]"
-              : "bg-[#008069] text-white border-transparent"
+            ? "bg-[#202c33] border-[#222d34] text-[#e9edef]"
+            : "bg-[#008069] text-white border-transparent"
             }`}
         >
           <div className="flex items-center gap-3">
@@ -279,8 +278,8 @@ const MessageInfoPanel = () => {
               type="button"
               onClick={() => setSelectedMessageInfo(null)}
               className={`p-2 rounded-full transition-colors cursor-pointer flex items-center justify-center ${isDark
-                  ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
-                  : "hover:bg-black/10 text-white"
+                ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
+                : "hover:bg-black/10 text-white"
                 }`}
               title="Back"
             >
@@ -304,8 +303,8 @@ const MessageInfoPanel = () => {
             type="button"
             onClick={() => setSelectedMessageInfo(null)}
             className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark
-                ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
-                : "hover:bg-black/10 text-white"
+              ? "hover:bg-white/10 text-[#aebac1] hover:text-white"
+              : "hover:bg-black/10 text-white"
               }`}
             title="Close"
           >
@@ -314,7 +313,6 @@ const MessageInfoPanel = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {/* Selected Message Bubble Preview */}
           <div
             className={`p-4 border-b ${isDark ? "bg-[#0b141a]/60 border-[#222d34]/80" : "bg-[#e5ddd5]/40 border-black/5"
               }`}
@@ -412,13 +410,12 @@ const MessageInfoPanel = () => {
             </div>
           </div>
 
-          {/* If Group: Search Filter */}
           {isGroup && totalRecipients > 4 && (
             <div className="p-3 border-b border-black/5 dark:border-white/5">
               <div
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${isDark
-                    ? "bg-[#202c33] border-[#222d34] text-[#e9edef]"
-                    : "bg-white border-gray-200 text-gray-800"
+                  ? "bg-[#202c33] border-[#222d34] text-[#e9edef]"
+                  : "bg-white border-gray-200 text-gray-800"
                   }`}
               >
                 <FiSearch className="text-gray-400 shrink-0" size={14} />
@@ -442,10 +439,8 @@ const MessageInfoPanel = () => {
             </div>
           )}
 
-          {/* GROUP VIEW */}
           {isGroup ? (
             <div className="mt-2 space-y-3 pb-4">
-              {/* READ BY */}
               <div
                 className={`border-y shadow-sm ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
                   }`}
@@ -524,7 +519,6 @@ const MessageInfoPanel = () => {
                 </div>
               </div>
 
-              {/* DELIVERED TO */}
               <div
                 className={`border-y shadow-sm ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
                   }`}
@@ -596,7 +590,6 @@ const MessageInfoPanel = () => {
                 </div>
               </div>
 
-              {/* REMAINING */}
               {remainingList.length > 0 && (
                 <div
                   className={`border-y shadow-sm ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"
@@ -653,8 +646,8 @@ const MessageInfoPanel = () => {
             /* 1:1 CHAT VIEW */
             <div
               className={`mt-4 border-y divide-y shadow-sm ${isDark
-                  ? "bg-[#111b21] border-[#222d34] divide-[#222d34]"
-                  : "bg-white border-gray-200 divide-gray-100"
+                ? "bg-[#111b21] border-[#222d34] divide-[#222d34]"
+                : "bg-white border-gray-200 divide-gray-100"
                 }`}
             >
               <div className="flex items-center justify-between px-5 py-4">
@@ -686,10 +679,10 @@ const MessageInfoPanel = () => {
                 <div className="flex items-center gap-4">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isDelivered
-                        ? isDark
-                          ? "bg-white/10 text-gray-300"
-                          : "bg-gray-100 text-gray-600"
-                        : "bg-gray-500/10 text-gray-400/40"
+                      ? isDark
+                        ? "bg-white/10 text-gray-300"
+                        : "bg-gray-100 text-gray-600"
+                      : "bg-gray-500/10 text-gray-400/40"
                       }`}
                   >
                     <FaCheckDouble size={16} />
