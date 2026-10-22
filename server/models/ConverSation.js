@@ -38,8 +38,33 @@ const conversationSchema = new mongoose.Schema(
       sendMessages: { type: Boolean, default: true },
       addMembers: { type: Boolean, default: true },
       inviteViaLink: { type: Boolean, default: true },
+      sendMessageHistory: { type: Boolean, default: true },
       approveNewMembers: { type: Boolean, default: false },
     },
+    memberChanges: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        action: {
+          type: String,
+          default: "left",
+        },
+        actor: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        text: {
+          type: String,
+          required: true,
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     deletedFor: [
       {
         type: mongoose.Schema.Types.ObjectId,

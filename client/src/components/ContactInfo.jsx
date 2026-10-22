@@ -25,12 +25,16 @@ import {
   FaHeart,
   FaBookmark,
   FaUsers,
+  FaUser,
+  FaUserCog,
+  FaUserCheck,
+  FaRegHeart,
 } from "react-icons/fa";
 import { FaArrowLeft } from "react-icons/fa6";
 import { IoMdRemoveCircleOutline, IoMdExit } from "react-icons/io";
 import { BsEmojiSmile } from "react-icons/bs";
 import EmojiPicker from "emoji-picker-react";
-import { IoTimerOutline, IoColorPaletteOutline } from "react-icons/io5";
+import { IoTimerOutline, IoColorPaletteOutline, IoShieldCheckmarkOutline } from "react-icons/io5";
 import {
   MdChevronLeft,
   MdChevronRight,
@@ -42,11 +46,16 @@ import {
   MdThumbDown,
   MdShield,
   MdList,
+  MdOutlineChat,
+  MdHistory,
 } from "react-icons/md";
+import { FiUserPlus, FiLink, FiEdit2 } from "react-icons/fi";
 import { LuSparkles, LuDownload } from "react-icons/lu";
 import { format } from "date-fns";
 import ReportModal from "./ReportModal";
 import BlockModal from "./BlockModal";
+import AddMemberModal from "./AddMemberModal";
+import EditGroupAdminsModal from "./EditGroupAdminsModal";
 import {
   CHAT_THEMES,
   CURATED_THEME_IDS,
@@ -67,6 +76,38 @@ import ContactMedia from "./ContactMedia";
 import FileViewerModal from "./FileViewerModal";
 import { FALLBACK_MEDIA } from "../assets/rawData";
 import { MetaAiRing, META_AI_USER_ID, MetaAiBadge } from "./common/MetaAiIcon";
+
+const WhatsAppSwitch = ({ checked, onChange, disabled = false, className = "" }) => (
+  <button
+    type="button"
+    disabled={disabled}
+    onClick={(e) => {
+      e?.stopPropagation?.();
+      if (!disabled && onChange) onChange(e);
+    }}
+    className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors shrink-0 ${checked
+      ? "bg-[#00a884] justify-end"
+      : "bg-transparent border-2 border-[#8696a0] justify-start"
+      } ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${className}`}
+  >
+    <div
+      className={`w-4 h-4 rounded-full transition-transform ${checked ? "bg-[#111b21] mr-0.5" : "bg-[#8696a0] ml-0.5"
+        }`}
+    />
+  </button>
+);
+
+const formatMemberChangeDate = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${day}/${month}/${year} at ${hours}:${minutes}`;
+};
 
 const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   <button
@@ -167,11 +208,11 @@ const ContactInfo = () => {
   );
 
   const groupParticipants = useMemo(() => {
-    return (
+    const raw =
       selectedContact?.participants ||
       selectedContact?.conversation?.participants ||
-      []
-    );
+      [];
+    return Array.isArray(raw) ? raw : [];
   }, [selectedContact]);
 
   const groupAdmins = useMemo(() => {
@@ -179,7 +220,11 @@ const ContactInfo = () => {
       selectedContact?.groupAdmin ||
       selectedContact?.conversation?.groupAdmin ||
       [];
-    return raw.map((a) => (a?._id || a)?.toString());
+    const list = Array.isArray(raw) ? raw : [raw];
+    return list
+      .filter(Boolean)
+      .map((a) => (a?._id || a)?.toString())
+      .filter(Boolean);
   }, [selectedContact]);
 
   const groupName =
@@ -213,6 +258,246 @@ const ContactInfo = () => {
     if (!isGroup || !getGroupOnlineCount) return 0;
     return getGroupOnlineCount(groupParticipants, user?._id);
   }, [isGroup, groupParticipants, user?._id, onlineUsers, getGroupOnlineCount]);
+
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showEditAdminsModal, setShowEditAdminsModal] = useState(false);
+  const [memberChanges, setMemberChanges] = useState([]);
+  const [isLoadingMemberChanges, setIsLoadingMemberChanges] = useState(false);
+
+  const fetchMemberChanges = useCallback(async () => {
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    if (!convId || !isGroup) return;
+
+    setIsLoadingMemberChanges(true);
+    try {
+      const { data } = await axiosInstance.get(
+        `/chat/group/${convId}/member-changes`
+      );
+      const list = data?.data || data || [];
+      setMemberChanges(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error("Error fetching member changes:", err);
+    } finally {
+      setIsLoadingMemberChanges(false);
+    }
+  }, [selectedContact?._id, selectedContact?.conversation?._id, isGroup]);
+
+  useEffect(() => {
+    if (contactInfoTab === "memberChanges") {
+      fetchMemberChanges();
+    }
+  }, [contactInfoTab, fetchMemberChanges]);
+
+  useEffect(() => {
+    const socket = useChatStore.getState().socket;
+    if (!socket) return;
+
+    const handleMemberChangeAdded = (change) => {
+      const convId = (
+        selectedContact?.conversation?._id ||
+        selectedContact?._id
+      )?.toString();
+      if (!change || (change.conversationId && change.conversationId !== convId)) return;
+      setMemberChanges((prev) => [change, ...prev]);
+    };
+
+    socket.on("member_change_added", handleMemberChangeAdded);
+    return () => {
+      socket.off("member_change_added", handleMemberChangeAdded);
+    };
+  }, [selectedContact?._id, selectedContact?.conversation?._id]);
+
+  const groupPermissions = useMemo(() => {
+    const raw =
+      selectedContact?.groupPermissions ||
+      selectedContact?.conversation?.groupPermissions ||
+      {};
+    return {
+      editGroupSettings: raw.editGroupSettings ?? true,
+      sendMessages: raw.sendMessages ?? true,
+      addMembers: raw.addMembers ?? true,
+      inviteViaLink: raw.inviteViaLink ?? true,
+      sendMessageHistory: raw.sendMessageHistory ?? true,
+      approveNewMembers: raw.approveNewMembers ?? false,
+    };
+  }, [selectedContact]);
+
+  const isCurrentUserAdmin = useMemo(() => {
+    const currentUserId = user?._id?.toString();
+    return groupAdmins.some((a) => (a?._id || a)?.toString() === currentUserId);
+  }, [groupAdmins, user?._id]);
+
+  const canAddMembers = useMemo(() => {
+    if (!isGroup) return false;
+    if (isCurrentUserAdmin) return true;
+    return groupPermissions.addMembers !== false;
+  }, [isGroup, isCurrentUserAdmin, groupPermissions]);
+
+  const adminDisplayNames = useMemo(() => {
+    if (!groupParticipants || groupParticipants.length === 0) return "";
+    const adminSet = new Set(groupAdmins.map((a) => (a?._id || a)?.toString()));
+    const names = groupParticipants
+      .filter((p) => adminSet.has((p?._id || p)?.toString()))
+      .map((p) => {
+        const pId = (p?._id || p)?.toString();
+        if (pId === user?._id?.toString()) return "You";
+        return p?.username || p?.name || "Admin";
+      });
+    return names.join(", ");
+  }, [groupParticipants, groupAdmins, user?._id]);
+
+  const handleTogglePermission = async (key) => {
+    if (!isCurrentUserAdmin) {
+      toast.error("Only group admins can edit group permissions");
+      return;
+    }
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    if (!convId) {
+      toast.error("Group conversation not found");
+      return;
+    }
+
+    const currentPerms = { ...groupPermissions };
+    const updated = {
+      ...currentPerms,
+      [key]: !currentPerms[key],
+    };
+
+    useChatStore.getState().updateGroupInfo(convId, {
+      groupPermissions: updated,
+    });
+    useLayoutStore.getState().setSelectedContact((prev) => {
+      if (!prev || typeof prev !== "object") return prev;
+      return {
+        ...prev,
+        groupPermissions: updated,
+        conversation: {
+          ...prev?.conversation,
+          groupPermissions: updated,
+        },
+      };
+    });
+
+    try {
+      const { data } = await axiosInstance.put(`/chat/group/${convId}`, {
+        groupPermissions: updated,
+      });
+      const resData = data?.data || data;
+      const serverPerms = resData?.groupPermissions || updated;
+      useChatStore.getState().updateGroupInfo(convId, {
+        groupPermissions: serverPerms,
+      });
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
+          groupPermissions: serverPerms,
+          conversation: {
+            ...prev?.conversation,
+            groupPermissions: serverPerms,
+          },
+        };
+      });
+      toast.success("Group permissions updated");
+    } catch (err) {
+      console.error("Error updating permissions:", err);
+      useChatStore.getState().updateGroupInfo(convId, {
+        groupPermissions: currentPerms,
+      });
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
+          groupPermissions: currentPerms,
+          conversation: {
+            ...prev?.conversation,
+            groupPermissions: currentPerms,
+          },
+        };
+      });
+      toast.error(err?.response?.data?.message || "Failed to update permissions");
+    }
+  };
+
+  const handleToggleMemberAdmin = async (memberId, currentlyAdmin, memberName) => {
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    const newAdmins = currentlyAdmin
+      ? groupAdmins.filter((id) => id !== memberId)
+      : [...groupAdmins, memberId];
+    if (newAdmins.length === 0) {
+      toast.error("There must be at least one group admin");
+      return;
+    }
+    try {
+      const { data } = await axiosInstance.put(`/chat/group/${convId}`, {
+        groupAdmin: newAdmins,
+      });
+      const updated = data?.data || data;
+      useChatStore.getState().updateGroupInfo(convId, {
+        groupAdmin: newAdmins,
+      });
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
+          groupAdmin: newAdmins,
+          conversation: {
+            ...prev?.conversation,
+            groupAdmin: newAdmins,
+          },
+        };
+      });
+      toast.success(
+        currentlyAdmin
+          ? `${memberName} dismissed as admin`
+          : `${memberName} is now an admin`
+      );
+    } catch (err) {
+      console.error("Error updating admin status:", err);
+      toast.error(err?.response?.data?.message || "Failed to update admin");
+    }
+  };
+
+  const handleRemoveMember = async (memberId, memberName) => {
+    if (!window.confirm(`Remove ${memberName} from this group?`)) return;
+    const convId = (
+      selectedContact?.conversation?._id ||
+      selectedContact?._id
+    )?.toString();
+    try {
+      const { data } = await axiosInstance.put(`/chat/group/${convId}`, {
+        removeParticipant: memberId,
+      });
+      const updated = data?.data || data;
+      useChatStore.getState().updateGroupInfo(convId, updated);
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        const newParticipants = (prev?.participants || prev?.conversation?.participants || [])
+          .filter((p) => (p?._id || p)?.toString() !== memberId?.toString());
+        return {
+          ...prev,
+          participants: newParticipants,
+          conversation: {
+            ...prev?.conversation,
+            participants: newParticipants,
+          },
+        };
+      });
+      toast.success(`${memberName} removed from group`);
+    } catch (err) {
+      console.error("Error removing member:", err);
+      toast.error(err?.response?.data?.message || "Failed to remove member");
+    }
+  };
 
   const [isEditingGroupName, setIsEditingGroupName] = useState(false);
   const [editedGroupName, setEditedGroupName] = useState("");
@@ -259,18 +544,19 @@ const ContactInfo = () => {
         name: trimmed,
         username: trimmed,
       });
-      useLayoutStore.getState().setSelectedContact((prev) => ({
-        ...prev,
-        ...updated,
-        username: trimmed,
-        name: trimmed,
-        groupName: trimmed,
-        conversation: {
-          ...prev?.conversation,
-          ...updated,
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
+          username: trimmed,
+          name: trimmed,
           groupName: trimmed,
-        },
-      }));
+          conversation: {
+            ...prev?.conversation,
+            groupName: trimmed,
+          },
+        };
+      });
       setIsEditingGroupName(false);
       setShowNameEmoji(false);
       toast.success("Group name updated");
@@ -294,16 +580,17 @@ const ContactInfo = () => {
       useChatStore.getState().updateGroupInfo(convId, {
         groupDescription: trimmed,
       });
-      useLayoutStore.getState().setSelectedContact((prev) => ({
-        ...prev,
-        ...updated,
-        groupDescription: trimmed,
-        conversation: {
-          ...prev?.conversation,
-          ...updated,
+      useLayoutStore.getState().setSelectedContact((prev) => {
+        if (!prev || typeof prev !== "object") return prev;
+        return {
+          ...prev,
           groupDescription: trimmed,
-        },
-      }));
+          conversation: {
+            ...prev?.conversation,
+            groupDescription: trimmed,
+          },
+        };
+      });
       setIsEditingGroupDesc(false);
       setShowDescEmoji(false);
       toast.success("Group description updated");
@@ -323,13 +610,22 @@ const ContactInfo = () => {
     if (!convId) return;
     if (window.confirm(`Exit "${groupName}" group?`)) {
       try {
-        await useChatStore.getState().deleteChat(convId);
+        await axiosInstance.put(`/chat/group/${convId}`, {
+          removeParticipant: user?._id,
+        });
         setShowContactInfo(false);
         useLayoutStore.getState().setSelectedContact(null);
         toast.success("Exited group");
       } catch (err) {
         console.error("Error exiting group:", err);
-        toast.error("Failed to exit group");
+        try {
+          await useChatStore.getState().deleteChat(convId);
+          setShowContactInfo(false);
+          useLayoutStore.getState().setSelectedContact(null);
+          toast.success("Exited group");
+        } catch (e) {
+          toast.error("Failed to exit group");
+        }
       }
     }
   };
@@ -1419,6 +1715,8 @@ const ContactInfo = () => {
                         }
                       } else if (contactInfoTab === "privacy") {
                         setContactInfoTab("security");
+                      } else if (contactInfoTab === "memberChanges") {
+                        setContactInfoTab("info");
                       } else {
                         setContactInfoTab("info");
                       }
@@ -1467,11 +1765,15 @@ const ContactInfo = () => {
                                             ? "Advanced"
                                             : contactInfoTab === "lists"
                                               ? "Add to list"
-                                              : isMetaAi
-                                                ? "Meta AI info"
-                                                : isGroup
-                                                  ? "Group info"
-                                                  : "Contact info"}
+                                              : contactInfoTab === "groupPermissions"
+                                                ? "Group permissions"
+                                                : contactInfoTab === "memberChanges"
+                                                  ? "Member changes"
+                                                  : isMetaAi
+                                                    ? "Meta AI info"
+                                                    : isGroup
+                                                      ? "Group info"
+                                                      : "Contact info"}
                   </h2>
                 )}
               </div>
@@ -1596,9 +1898,8 @@ const ContactInfo = () => {
                       {!isEditingGroupName ? (
                         <div className="flex items-center justify-center gap-2 group px-4 max-w-full">
                           <h2
-                            className={`text-2xl font-bold tracking-tight transition-colors duration-300 break-words text-center ${
-                              theme === "dark" ? "text-white/95" : "text-gray-900"
-                            }`}
+                            className={`text-2xl font-bold tracking-tight transition-colors duration-300 break-words text-center ${theme === "dark" ? "text-white/95" : "text-gray-900"
+                              }`}
                           >
                             {groupName}
                           </h2>
@@ -1631,9 +1932,8 @@ const ContactInfo = () => {
                                   setShowNameEmoji(false);
                                 }
                               }}
-                              className={`w-full bg-transparent border-none outline-none text-center text-lg font-bold ${
-                                theme === "dark" ? "text-white" : "text-gray-900"
-                              }`}
+                              className={`w-full bg-transparent border-none outline-none text-center text-lg font-bold ${theme === "dark" ? "text-white" : "text-gray-900"
+                                }`}
                             />
                             <button
                               type="button"
@@ -1686,20 +1986,20 @@ const ContactInfo = () => {
                       )}
 
                       <p
-                        className={`text-[13px] font-medium mt-1.5 transition-colors duration-300 ${
-                          theme === "dark" ? "text-gray-400" : "text-gray-500"
-                        }`}
+                        className={`text-[13px] text-xl font-medium mt-1.5 transition-colors duration-300 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                          }`}
                       >
-                        Group • {groupParticipants.length} {groupParticipants.length === 1 ? "member" : "members"}
-                        {groupOnlineCount > 0 && ` • ${groupOnlineCount} online`}
+                        Group • <span className="text-emerald-500 hover:underline cursor-pointer transition-colors duration-300 font-semibold text-xs">{groupParticipants.length} {groupParticipants.length === 1 ? "member" : "members"}</span>
+                        {groupOnlineCount > 0 && (
+                          <> • <span className="text-emerald-500 hover:underline cursor-pointer transition-colors duration-300">{groupOnlineCount} online</span></>
+                        )}
                       </p>
                     </div>
                   ) : (
                     <>
                       <h2
-                        className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300 flex items-center justify-center gap-2 ${
-                          theme === "dark" ? "text-white/95" : "text-gray-900"
-                        }`}
+                        className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300 flex items-center justify-center gap-2 ${theme === "dark" ? "text-white/95" : "text-gray-900"
+                          }`}
                       >
                         <span>{selectedContact?.username || (isMetaAi ? "Meta AI" : "Contact")}</span>
                         {isMetaAi && (
@@ -1721,9 +2021,8 @@ const ContactInfo = () => {
                           <>
                             {selectedContact?.email && (
                               <p
-                                className={`text-[13px] font-medium transition-colors duration-300 ${
-                                  theme === "dark" ? "text-gray-400" : "text-gray-500"
-                                }`}
+                                className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                                  }`}
                               >
                                 {selectedContact.email}
                               </p>
@@ -1731,9 +2030,8 @@ const ContactInfo = () => {
 
                             {selectedContact?.phoneNumber && (
                               <p
-                                className={`text-[13px] font-medium transition-colors duration-300 ${
-                                  theme === "dark" ? "text-emerald-500/80" : "text-emerald-600"
-                                }`}
+                                className={`text-[13px] font-medium transition-colors duration-300 ${theme === "dark" ? "text-emerald-500/80" : "text-emerald-600"
+                                  }`}
                               >
                                 {selectedContact.phoneNumber}
                               </p>
@@ -1755,7 +2053,16 @@ const ContactInfo = () => {
                     theme={theme}
                   />
 
-                  {isMetaAi ? (
+                  {isGroup ? (
+                    canAddMembers && (
+                      <ActionButton
+                        icon={<FiUserPlus size={18} />}
+                        label="Add"
+                        onClick={() => setShowAddMemberModal(true)}
+                        theme={theme}
+                      />
+                    )
+                  ) : isMetaAi ? (
                     <ActionButton
                       icon={<FaStar size={18} />}
                       label="Starred"
@@ -1789,11 +2096,10 @@ const ContactInfo = () => {
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.4, type: "spring", stiffness: 100 }}
-                      className={`relative p-3.5 rounded-2xl overflow-hidden transition-all duration-500 backdrop-blur-2xl border ${
-                        theme === "dark"
-                          ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
-                          : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
-                      }`}
+                      className={`relative p-3.5 rounded-2xl overflow-hidden transition-all duration-500 backdrop-blur-2xl border ${theme === "dark"
+                        ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                        : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
+                        }`}
                     >
                       <div className="absolute inset-0 bg-gradient-to-br from-white/[0.05] to-transparent pointer-events-none" />
 
@@ -1833,9 +2139,8 @@ const ContactInfo = () => {
                         >
                           {groupDescription ? (
                             <p
-                              className={`text-[14px] leading-relaxed relative z-10 whitespace-pre-wrap ${
-                                theme === "dark" ? "text-gray-200" : "text-gray-700"
-                              }`}
+                              className={`text-[14px] leading-relaxed relative z-10 whitespace-pre-wrap ${theme === "dark" ? "text-gray-200" : "text-gray-700"
+                                }`}
                             >
                               {groupDescription}
                             </p>
@@ -1854,11 +2159,10 @@ const ContactInfo = () => {
                             value={editedGroupDesc}
                             onChange={(e) => setEditedGroupDesc(e.target.value)}
                             placeholder="Add group description..."
-                            className={`w-full p-2.5 rounded-xl text-[14px] border border-emerald-500/50 focus:border-emerald-500 outline-none resize-none transition ${
-                              theme === "dark"
-                                ? "bg-white/5 text-gray-100 placeholder:text-gray-500"
-                                : "bg-black/5 text-gray-800 placeholder:text-gray-400"
-                            }`}
+                            className={`w-full p-2.5 rounded-xl text-[14px] border border-emerald-500/50 focus:border-emerald-500 outline-none resize-none transition ${theme === "dark"
+                              ? "bg-white/5 text-gray-100 placeholder:text-gray-500"
+                              : "bg-black/5 text-gray-800 placeholder:text-gray-400"
+                              }`}
                           />
                           <div className="flex items-center justify-between">
                             <span className="text-[11px] text-gray-400">
@@ -1951,7 +2255,7 @@ const ContactInfo = () => {
                               selectedContact.aboutUpdatedAt,
                             ).toLocaleString([], {
                               dateStyle: "medium",
-                            timeStyle: "short",
+                              timeStyle: "short",
                             })}`
                             : ""}
                         </p>
@@ -2233,22 +2537,38 @@ const ContactInfo = () => {
                       : " hover:bg-black/8 hover:border-black/10"
                       }`}
                   >
+
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-colors ${isFavorite
+                        className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border transition-all duration-300 ${isFavorite
                           ? "bg-rose-500/15 text-rose-500 border-rose-500/30"
                           : "bg-rose-500/10 text-rose-400 border-rose-500/20"
                           }`}
                       >
-                        <FaHeart size={16} className={isFavorite ? "fill-rose-500" : ""} />
+                        {isFavorite ? (
+                          <FaHeart
+                            size={16}
+                            className="transition-transform duration-300 scale-110"
+                          />
+                        ) : (
+                          <FaRegHeart
+                            size={16}
+                            className="transition-transform duration-300"
+                          />
+                        )}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[14px] font-semibold flex items-center gap-1.5">
-                          {isFavorite ? "Remove from favourites" : "Add to favourites"}
+                          {isFavorite
+                            ? "Remove from favourites"
+                            : "Add to favourites"}
                         </h4>
+
                         <p
-                          className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                          className={`text-[12px] truncate ${theme === "dark"
+                            ? "text-gray-400"
+                            : "text-gray-500"
                             }`}
                         >
                           {isFavorite
@@ -2256,9 +2576,8 @@ const ContactInfo = () => {
                             : "Add to favourite chats for quick access"}
                         </p>
                       </div>
-
                       <span
-                        className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 transition-colors ${isFavorite
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 transition-all duration-300 ${isFavorite
                           ? "bg-rose-500/20 text-rose-400 font-semibold"
                           : "text-[#8696a0]"
                           }`}
@@ -2381,6 +2700,39 @@ const ContactInfo = () => {
                     </div>
                   </motion.div>
 
+                  {isGroup && (
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.65, type: "spring", stiffness: 100 }}
+                      onClick={() => setContactInfoTab("groupPermissions")}
+                      className={`relative p-3.5 rounded-2xl cursor-pointer transition-all duration-300 backdrop-blur-2xl border ${theme === "dark"
+                        ? "bg-white/[0.03] border-white/10 hover:bg-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                        : "bg-black/[0.02] border-black/5 hover:bg-black/[0.04] shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
+                        }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                          <IoShieldCheckmarkOutline size={20} />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-[14px] font-semibold truncate">
+                            Group permissions
+                          </h4>
+                          <p
+                            className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                              }`}
+                          >
+                            Edit group settings, send messages, and more
+                          </p>
+                        </div>
+
+                        <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                      </div>
+                    </motion.div>
+                  )}
+
                   <div className="my-4 border-t border-white/10" />
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
@@ -2410,11 +2762,10 @@ const ContactInfo = () => {
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.65, type: "spring", stiffness: 100 }}
-                      className={`p-3.5 rounded-2xl transition-all duration-300 backdrop-blur-2xl border ${
-                        theme === "dark"
-                          ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
-                          : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
-                      }`}
+                      className={`p-3.5 rounded-2xl transition-all duration-300 backdrop-blur-2xl border ${theme === "dark"
+                        ? "bg-white/[0.03] border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                        : "bg-black/[0.02] border-black/5 shadow-[0_8px_32px_rgba(31,38,135,0.05)]"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-3 px-1">
                         <span className={`text-[13px] font-semibold ${theme === "dark" ? "text-gray-300" : "text-gray-700"}`}>
@@ -2427,7 +2778,22 @@ const ContactInfo = () => {
                         )}
                       </div>
 
-                      <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
+                      <div className="space-y-1 max-h-72 overflow-y-auto scrollbar-thin">
+                        {canAddMembers && (
+                          <div
+                            onClick={() => setShowAddMemberModal(true)}
+                            className={`flex items-center gap-3 p-2 rounded-xl transition-colors cursor-pointer mb-1 ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                              }`}
+                          >
+                            <div className="w-10 h-10 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                              <FiUserPlus size={18} />
+                            </div>
+                            <span className="text-[14px] font-medium text-emerald-500">
+                              Add member
+                            </span>
+                          </div>
+                        )}
+
                         {groupParticipants.map((member) => {
                           const memberId = (member?._id || member)?.toString();
                           const isMe = memberId === user?._id?.toString();
@@ -2435,22 +2801,21 @@ const ContactInfo = () => {
                           const isMemberOnline = isMe
                             ? true
                             : Boolean(
-                                isUserOnline
-                                  ? isUserOnline(memberId)
-                                  : onlineUsers instanceof Map
+                              isUserOnline
+                                ? isUserOnline(memberId)
+                                : onlineUsers instanceof Map
                                   ? onlineUsers.get(memberId)?.isOnline
                                   : Array.isArray(onlineUsers)
-                                  ? onlineUsers.includes(memberId)
-                                  : member?.isOnline
-                              );
+                                    ? onlineUsers.includes(memberId)
+                                    : member?.isOnline
+                            );
                           const displayName = isMe ? "You" : (member?.username || member?.name || "Participant");
 
                           return (
                             <div
                               key={memberId}
-                              className={`flex items-center gap-3 p-2 rounded-xl transition-colors ${
-                                theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
-                              }`}
+                              className={`group relative flex items-center gap-3 p-2 rounded-xl transition-colors ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                                }`}
                             >
                               <div className="relative shrink-0">
                                 <img
@@ -2465,9 +2830,8 @@ const ContactInfo = () => {
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between">
-                                  <span className={`text-[14px] font-medium truncate ${
-                                    theme === "dark" ? "text-gray-200" : "text-gray-800"
-                                  }`}>
+                                  <span className={`text-[14px] font-medium truncate ${theme === "dark" ? "text-gray-200" : "text-gray-800"
+                                    }`}>
                                     {displayName}
                                   </span>
                                   {isAdmin && (
@@ -2476,15 +2840,56 @@ const ContactInfo = () => {
                                     </span>
                                   )}
                                 </div>
-                                <p className={`text-[12px] truncate ${
-                                  theme === "dark" ? "text-gray-400" : "text-gray-500"
-                                }`}>
+                                <p className={`text-[12px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                                  }`}>
                                   {member?.about || (isMe ? "Available" : "Hey there! I am using WhatsApp.")}
                                 </p>
                               </div>
+
+                              {isCurrentUserAdmin && !isMe && (
+                                <div className="shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleMemberAdmin(memberId, isAdmin, displayName)}
+                                    className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-emerald-500 transition cursor-pointer"
+                                    title={isAdmin ? "Dismiss as admin" : "Make group admin"}
+                                  >
+                                    <FaUserCog size={15} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveMember(memberId, displayName)}
+                                    className="p-1.5 rounded-full hover:bg-red-500/10 text-gray-400 hover:text-red-500 transition cursor-pointer"
+                                    title="Remove from group"
+                                  >
+                                    <RxCross2 size={16} />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
+
+                        <div
+                          onClick={() => setContactInfoTab("memberChanges")}
+                          className={`flex items-center justify-between p-3 mt-1 -mx-1 rounded-xl cursor-pointer transition-colors border-t border-black/5 dark:border-white/5 ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                            }`}
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-[#1b3445] text-[#53bdeb] flex items-center justify-center shrink-0">
+                              <MdHistory size={18} />
+                            </div>
+                            <div className="min-w-0">
+                              <h5 className={`text-[14px] font-medium leading-snug ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                                Past members
+                              </h5>
+                              <p className="text-[12px] opacity-60 truncate">
+                                View member changes from the last 60 days
+                              </p>
+                            </div>
+                          </div>
+                          <MdChevronRight size={18} className="text-[#8696a0] shrink-0" />
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -2583,6 +2988,270 @@ const ContactInfo = () => {
                       </div>
                     </div>
                   </motion.div>
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "groupPermissions" && (
+              <motion.div
+                key="tab-group-permissions"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="flex-1 overflow-y-auto px-5 py-4 scrollbar-thin space-y-6"
+              >
+                <div>
+                  <h4 className={`text-xs font-medium mb-3 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                    Members can:
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3.5">
+                        <FiEdit2 size={18} className="text-gray-400 shrink-0 mt-0.5" />
+                        <div>
+                          <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                            Edit group settings
+                          </h5>
+                          <p className="text-[12px] opacity-60 leading-relaxed mt-0.5">
+                            This includes the name, icon, description, disappearing message timer, and the ability to pin, keep or unkeep messages.
+                          </p>
+                        </div>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.editGroupSettings}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("editGroupSettings")}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3.5">
+                        <MdOutlineChat size={18} className="text-gray-400 shrink-0" />
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Send new messages
+                        </h5>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.sendMessages}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("sendMessages")}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3.5">
+                        <FiUserPlus size={18} className="text-gray-400 shrink-0" />
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Add other members
+                        </h5>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.addMembers}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("addMembers")}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3.5">
+                        <FiLink size={18} className="text-gray-400 shrink-0" />
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Invite via link
+                        </h5>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.inviteViaLink}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("inviteViaLink")}
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3.5">
+                        <MdHistory size={18} className="text-gray-400 shrink-0 mt-0.5" />
+                        <div>
+                          <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                            Send message history
+                          </h5>
+                          <p className="text-[12px] opacity-60 leading-relaxed mt-0.5">
+                            Past messages can be sent to new members.
+                          </p>
+                        </div>
+                      </div>
+                      <WhatsAppSwitch
+                        checked={groupPermissions.sendMessageHistory}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={() => handleTogglePermission("sendMessageHistory")}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <h4 className={`text-xs font-medium mb-3 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                    Admins can:
+                  </h4>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3.5">
+                      <div className="relative shrink-0 text-gray-400 mt-1">
+                        <FaUserCheck size={16} />
+                      </div>
+                      <div>
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Approve new members
+                        </h5>
+                        <p className="text-[12px] opacity-60 leading-relaxed mt-0.5">
+                          When turned on, admins must approve anyone who wants to join this group.{" "}
+                          <span className="text-[#00a884] font-medium hover:underline cursor-pointer">
+                            Learn more
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <WhatsAppSwitch
+                      checked={groupPermissions.approveNewMembers}
+                      disabled={!isCurrentUserAdmin}
+                      onChange={() => handleTogglePermission("approveNewMembers")}
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <h4 className={`text-xs font-medium mb-3 ${theme === "dark" ? "text-gray-400" : "text-gray-500"}`}>
+                    Group admins
+                  </h4>
+                  <div
+                    onClick={() => {
+                      if (isCurrentUserAdmin) {
+                        setShowEditAdminsModal(true);
+                      } else {
+                        toast.info("Only group admins can edit admins");
+                      }
+                    }}
+                    className={`flex items-start justify-between p-2.5 -mx-2 rounded-xl transition-colors cursor-pointer ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                      }`}
+                  >
+                    <div className="flex items-start gap-3.5 min-w-0">
+                      <FaUserCog size={18} className="text-gray-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Edit group admins
+                        </h5>
+                        <p className="text-[12px] opacity-60 leading-relaxed mt-0.5 truncate">
+                          {adminDisplayNames || "No admins"}
+                        </p>
+                      </div>
+                    </div>
+                    <MdChevronRight size={18} className="text-gray-400 shrink-0 mt-1" />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <div
+                    onClick={() => setContactInfoTab("memberChanges")}
+                    className={`flex items-center justify-between p-2.5 -mx-2 rounded-xl transition-colors cursor-pointer ${theme === "dark" ? "hover:bg-white/5" : "hover:bg-black/5"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <MdHistory size={18} className="text-gray-400 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <h5 className={`text-[14px] font-medium ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                          Member changes
+                        </h5>
+                        <p className="text-[12px] opacity-60 leading-relaxed mt-0.5 truncate">
+                          See who has left or been removed
+                        </p>
+                      </div>
+                    </div>
+                    <MdChevronRight size={18} className="text-gray-400 shrink-0" />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {contactInfoTab === "memberChanges" && (
+              <motion.div
+                key="tab-member-changes"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="flex-1 flex flex-col overflow-y-auto scrollbar-thin"
+              >
+                <div className="px-6 py-5 text-center">
+                  <p className="text-[13px] text-[#8696a0] leading-relaxed max-w-sm mx-auto">
+                    See updates from the last 60 days like username changes or who has left or been removed.{" "}
+                    <span
+                      onClick={() =>
+                        toast.info(
+                          "Only member changes from the last 60 days are shown in this list."
+                        )
+                      }
+                      className="text-[#00a884] font-medium hover:underline cursor-pointer"
+                    >
+                      Learn more
+                    </span>
+                  </p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-2">
+                  {isLoadingMemberChanges ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                      <div className="w-7 h-7 border-2 border-[#00a884] border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs text-[#8696a0]">Loading updates...</span>
+                    </div>
+                  ) : memberChanges.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                      <div className="w-12 h-12 rounded-full bg-[#1b3445]/40 text-[#53bdeb] flex items-center justify-center mb-3">
+                        <MdHistory size={24} />
+                      </div>
+                      <h4 className={`text-sm font-medium mb-1 ${theme === "dark" ? "text-gray-200" : "text-gray-800"}`}>
+                        No member changes
+                      </h4>
+                      <p className="text-xs text-[#8696a0] max-w-xs leading-relaxed">
+                        No one has left or been removed from this group in the last 60 days.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {memberChanges.map((change, idx) => {
+                        const changeUser = change.user || {};
+                        const avatar = changeUser.profilePicture;
+                        return (
+                          <div
+                            key={change._id || idx}
+                            className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-colors ${theme === "dark" ? "hover:bg-white/[0.03]" : "hover:bg-black/[0.02]"
+                              }`}
+                          >
+                            <div className="w-11 h-11 rounded-full bg-[#1a3848] text-[#53bdeb] flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                              {avatar ? (
+                                <img
+                                  src={avatar}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <FaUser size={18} />
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <h4
+                                className={`text-[15px] font-semibold leading-snug truncate ${theme === "dark" ? "text-white" : "text-gray-900"
+                                  }`}
+                              >
+                                {change.text}
+                              </h4>
+                              <p className="text-[12px] text-[#8696a0] mt-0.5 font-normal">
+                                {formatMemberChangeDate(change.timestamp)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -4020,6 +4689,31 @@ const ContactInfo = () => {
               items={previewModalFile.items}
               initialIndex={previewModalIndex}
               theme={theme}
+            />
+          )}
+
+          {showAddMemberModal && (
+            <AddMemberModal
+              isOpen={showAddMemberModal}
+              onClose={() => setShowAddMemberModal(false)}
+              onOpenPermissions={() => {
+                setShowAddMemberModal(false);
+                setContactInfoTab("groupPermissions");
+              }}
+              groupParticipants={groupParticipants}
+              convId={chatId}
+              theme={theme}
+            />
+          )}
+
+          {showEditAdminsModal && (
+            <EditGroupAdminsModal
+              isOpen={showEditAdminsModal}
+              onClose={() => setShowEditAdminsModal(false)}
+              groupParticipants={groupParticipants}
+              groupAdmins={groupAdmins}
+              currentUserId={user?._id?.toString()}
+              convId={chatId}
             />
           )}
           <div

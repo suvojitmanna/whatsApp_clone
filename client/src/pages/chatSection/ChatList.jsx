@@ -1193,12 +1193,12 @@ const ChatList = ({ contacts }) => {
               onClick={() => setShowThreeDotsMenu((prev) => !prev)}
               title="Menu"
               className={`p-2 rounded-full transition-colors cursor-pointer ${showThreeDotsMenu
-                  ? theme === "dark"
-                    ? "bg-white/10 text-[#e9edef]"
-                    : "bg-black/10 text-[#111b21]"
-                  : theme === "dark"
-                    ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
-                    : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
+                ? theme === "dark"
+                  ? "bg-white/10 text-[#e9edef]"
+                  : "bg-black/10 text-[#111b21]"
+                : theme === "dark"
+                  ? "text-[#aebac1] hover:text-[#e9edef] hover:bg-white/10"
+                  : "text-[#54656f] hover:text-[#111b21] hover:bg-black/5"
                 }`}
             >
               <HiDotsVertical size={19} />
@@ -1212,8 +1212,8 @@ const ChatList = ({ contacts }) => {
                   exit={{ opacity: 0, scale: 0.9, y: -4 }}
                   transition={{ duration: 0.12 }}
                   className={`absolute right-0 top-full mt-2 z-50 min-w-[190px] rounded-2xl shadow-2xl border p-1.5 select-none ${theme === "dark"
-                      ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/80"
-                      : "bg-white border-gray-200 text-gray-900 shadow-xl"
+                    ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/80"
+                    : "bg-white border-gray-200 text-gray-900 shadow-xl"
                     }`}
                 >
                   <button
@@ -1223,8 +1223,8 @@ const ChatList = ({ contacts }) => {
                       setShowNewGroupModal(true);
                     }}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl cursor-pointer transition-colors ${theme === "dark"
-                        ? "hover:bg-[#182229] text-[#e9edef]"
-                        : "hover:bg-gray-100 text-gray-800"
+                      ? "hover:bg-[#182229] text-[#e9edef]"
+                      : "hover:bg-gray-100 text-gray-800"
                       }`}
                   >
                     <FaUsers size={16} className="text-[#00a884] shrink-0" />
@@ -1238,8 +1238,8 @@ const ChatList = ({ contacts }) => {
                       openNewListPanel();
                     }}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl cursor-pointer transition-colors ${theme === "dark"
-                        ? "hover:bg-[#182229] text-[#e9edef]"
-                        : "hover:bg-gray-100 text-gray-800"
+                      ? "hover:bg-[#182229] text-[#e9edef]"
+                      : "hover:bg-gray-100 text-gray-800"
                       }`}
                   >
                     <MdList size={18} className="text-gray-400 shrink-0" />

@@ -2202,12 +2202,12 @@ const MessageBuble = ({
                         <div
                           onClick={handleCopyCallUrl}
                           className={`mt-2 px-3 py-2 rounded-xl flex items-center justify-between gap-2 border transition-all cursor-pointer group ${isUserMessage
-                              ? isDark
-                                ? "bg-black/20 hover:bg-black/30 border-white/5"
-                                : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
-                              : isDark
-                                ? "bg-white/[0.06] hover:bg-white/[0.09] border-white/5"
-                                : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
+                            ? isDark
+                              ? "bg-black/20 hover:bg-black/30 border-white/5"
+                              : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
+                            : isDark
+                              ? "bg-white/[0.06] hover:bg-white/[0.09] border-white/5"
+                              : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
                             }`}
                           title="Click to copy link"
                         >
@@ -2349,28 +2349,28 @@ const MessageBuble = ({
                       <div
                         onClick={handleCallBack}
                         className={`flex items-start justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer group/callcard ${isUserMessage
-                            ? isDark
-                              ? "bg-black/15 hover:bg-black/25"
-                              : "bg-black/[0.04] hover:bg-black/[0.07]"
-                            : isDark
-                              ? "bg-white/[0.06] hover:bg-white/[0.09]"
-                              : "bg-black/[0.04] hover:bg-black/[0.07]"
+                          ? isDark
+                            ? "bg-black/15 hover:bg-black/25"
+                            : "bg-black/[0.04] hover:bg-black/[0.07]"
+                          : isDark
+                            ? "bg-white/[0.06] hover:bg-white/[0.09]"
+                            : "bg-black/[0.04] hover:bg-black/[0.07]"
                           }`}
                         title={`Click to call ${peerName || "contact"}`}
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div
                             className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover/callcard:scale-105 ${isMissed
+                              ? isDark
+                                ? "bg-[#ea0038]/20"
+                                : "bg-[#fde8ec]"
+                              : isUserMessage
                                 ? isDark
-                                  ? "bg-[#ea0038]/20"
-                                  : "bg-[#fde8ec]"
-                                : isUserMessage
-                                  ? isDark
-                                    ? "bg-white/10"
-                                    : "bg-[#c2ecc3]"
-                                  : isDark
-                                    ? "bg-[#182229]"
-                                    : "bg-black/10"
+                                  ? "bg-white/10"
+                                  : "bg-[#c2ecc3]"
+                                : isDark
+                                  ? "bg-[#182229]"
+                                  : "bg-black/10"
                               }`}
                           >
                             {isVideo ? (
@@ -2417,20 +2417,20 @@ const MessageBuble = ({
                           <div className="min-w-0 flex-1 pt-0.5">
                             <h4
                               className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${isMissed
-                                  ? "text-[#ea0038]"
-                                  : isDark
-                                    ? "text-white"
-                                    : "text-[#111b21]"
+                                ? "text-[#ea0038]"
+                                : isDark
+                                  ? "text-white"
+                                  : "text-[#111b21]"
                                 }`}
                             >
                               {title}
                             </h4>
                             <p
                               className={`text-[13px] font-normal mt-1 leading-tight truncate ${isMissed
-                                  ? "text-[#ea0038] font-medium"
-                                  : isDark
-                                    ? "text-[#8696a0]"
-                                    : "text-[#667781]"
+                                ? "text-[#ea0038] font-medium"
+                                : isDark
+                                  ? "text-[#8696a0]"
+                                  : "text-[#667781]"
                                 }`}
                             >
                               {durationText}

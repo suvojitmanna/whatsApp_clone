@@ -876,7 +876,6 @@ export const useChatStore = create((set, get) => ({
     socket.off("new_group_created");
     socket.off("group_message_receipt_update");
 
-
     get().fetchBlockedUsers();
 
     socket.on("user_public_key_updated", ({ userId, publicKey }) => {
@@ -1340,7 +1339,7 @@ export const useChatStore = create((set, get) => ({
 
           if (
             !existingDeliveredTo.some(
-              (d) => String(d.user?._id || d.user || d) === String(userId)
+              (d) => String(d.user?._id || d.user || d) === String(userId),
             )
           ) {
             existingDeliveredTo.push({ user: userId, deliveredAt: timestamp });
@@ -1348,7 +1347,7 @@ export const useChatStore = create((set, get) => ({
           if (
             action === "read" &&
             !existingReadBy.some(
-              (r) => String(r.user?._id || r.user || r) === String(userId)
+              (r) => String(r.user?._id || r.user || r) === String(userId),
             )
           ) {
             existingReadBy.push({ user: userId, readAt: timestamp });
@@ -1362,13 +1361,12 @@ export const useChatStore = create((set, get) => ({
           ? syncMessagesCache(
               state.messagesCache,
               state.currentConversation._id,
-              nextMessages
+              nextMessages,
             )
           : state.messagesCache;
         return { messages: nextMessages, messagesCache: nextCache };
       });
     });
-
 
     socket.on("reaction_update", ({ messageId, reactions }) => {
       const cleanReactions = (reactions || []).filter((r) =>
@@ -1670,21 +1668,32 @@ export const useChatStore = create((set, get) => ({
       const active = useLayoutStore.getState().selectedContact;
       if (
         active &&
+        typeof active === "object" &&
         (String(active._id) === strId ||
           String(active.conversation?._id) === strId)
       ) {
-        useLayoutStore.getState().setSelectedContact((prev) => ({
-          ...prev,
-          ...updatedConv,
-          username: updatedConv.groupName || prev?.username,
-          name: updatedConv.groupName || prev?.name,
-          groupName: updatedConv.groupName,
-          groupDescription: updatedConv.groupDescription,
-          conversation: {
-            ...prev?.conversation,
+        useLayoutStore.getState().setSelectedContact((prev) => {
+          if (!prev || typeof prev !== "object") return updatedConv;
+          return {
+            ...prev,
             ...updatedConv,
-          },
-        }));
+            username: updatedConv.groupName || prev?.username,
+            name: updatedConv.groupName || prev?.name,
+            groupName: updatedConv.groupName || prev?.groupName,
+            groupDescription:
+              updatedConv.groupDescription !== undefined
+                ? updatedConv.groupDescription
+                : prev?.groupDescription,
+            groupPermissions:
+              updatedConv.groupPermissions || prev?.groupPermissions,
+            groupAdmin: updatedConv.groupAdmin || prev?.groupAdmin,
+            participants: updatedConv.participants || prev?.participants,
+            conversation: {
+              ...prev?.conversation,
+              ...updatedConv,
+            },
+          };
+        });
       }
     });
 
@@ -2810,16 +2819,20 @@ export const useChatStore = create((set, get) => ({
         const isFromMetaAi = Boolean(
           decryptedMessage.isMetaAi ||
           decryptedMessage.sender?.username === "Meta AI" ||
-          String(decryptedMessage.sender?._id || decryptedMessage.sender) === "66f000000000000000000001"
+          String(decryptedMessage.sender?._id || decryptedMessage.sender) ===
+            "66f000000000000000000001",
         );
         if (isFromMetaAi) {
           const nowIso = new Date().toISOString();
           const replyToId = String(
-            decryptedMessage.replyTo?._id || decryptedMessage.replyTo || ""
+            decryptedMessage.replyTo?._id || decryptedMessage.replyTo || "",
           );
           nextMessages = nextMessages.map((msg) => {
-            const isUserMsg = String(msg.sender?._id || msg.sender) === String(myId);
-            const isTarget = replyToId ? String(msg._id) === replyToId : isUserMsg;
+            const isUserMsg =
+              String(msg.sender?._id || msg.sender) === String(myId);
+            const isTarget = replyToId
+              ? String(msg._id) === replyToId
+              : isUserMsg;
             if (isTarget && msg.messageStatus !== "read") {
               return {
                 ...msg,
@@ -3478,30 +3491,62 @@ export const useChatStore = create((set, get) => ({
   updateGroupInfo: (conversationId, updateData) => {
     if (!conversationId) return;
     const strId = conversationId.toString();
-    set((state) => ({
-      conversations: {
-        ...state.conversations,
-        data: state.conversations?.data?.map((conv) => {
-          if (String(conv._id) === strId) {
-            return { ...conv, ...updateData };
-          }
-          return conv;
-        }),
-      },
-      users: state.users?.map((u) => {
-        if (String(u._id) === strId || String(u.conversation?._id) === strId) {
+    set((state) => {
+      const convList = Array.isArray(state.conversations?.data)
+        ? state.conversations.data
+        : Array.isArray(state.conversations)
+          ? state.conversations
+          : [];
+      const updatedConvs = convList.map((conv) => {
+        if (String(conv._id) === strId) {
           return {
-            ...u,
+            ...conv,
             ...updateData,
-            conversation: {
-              ...u.conversation,
-              ...updateData,
+            groupPermissions: {
+              ...(conv.groupPermissions || {}),
+              ...(updateData.groupPermissions || {}),
             },
           };
         }
-        return u;
-      }),
-    }));
+        return conv;
+      });
+
+      const updatedUsers = Array.isArray(state.users)
+        ? state.users.map((u) => {
+            if (
+              String(u._id) === strId ||
+              String(u.conversation?._id) === strId
+            ) {
+              return {
+                ...u,
+                ...updateData,
+                groupPermissions: {
+                  ...(u.groupPermissions ||
+                    u.conversation?.groupPermissions ||
+                    {}),
+                  ...(updateData.groupPermissions || {}),
+                },
+                conversation: {
+                  ...u.conversation,
+                  ...updateData,
+                  groupPermissions: {
+                    ...(u.conversation?.groupPermissions || {}),
+                    ...(updateData.groupPermissions || {}),
+                  },
+                },
+              };
+            }
+            return u;
+          })
+        : state.users;
+
+      return {
+        conversations: Array.isArray(state.conversations?.data)
+          ? { ...state.conversations, data: updatedConvs }
+          : updatedConvs,
+        users: updatedUsers,
+      };
+    });
   },
 
   cleanup: () => {
