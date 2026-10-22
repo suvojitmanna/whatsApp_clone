@@ -874,6 +874,8 @@ export const useChatStore = create((set, get) => ({
     socket.off("request_reencrypt_message");
     socket.off("message_reencrypted");
     socket.off("new_group_created");
+    socket.off("group_message_receipt_update");
+
 
     get().fetchBlockedUsers();
 
@@ -1318,6 +1320,55 @@ export const useChatStore = create((set, get) => ({
         deliveredAt: payload?.deliveredAt,
       });
     });
+
+    socket.on("group_message_receipt_update", (payload) => {
+      if (!payload?.messageId) return;
+      const { messageId, userId, action, timestamp, newStatus } = payload;
+      set((state) => {
+        const nextMessages = state.messages.map((msg) => {
+          if (String(msg._id) !== String(messageId)) return msg;
+          const nextMsg = { ...msg };
+          if (newStatus) {
+            nextMsg.messageStatus = newStatus;
+          }
+          const existingReadBy = Array.isArray(nextMsg.readBy)
+            ? [...nextMsg.readBy]
+            : [];
+          const existingDeliveredTo = Array.isArray(nextMsg.deliveredTo)
+            ? [...nextMsg.deliveredTo]
+            : [];
+
+          if (
+            !existingDeliveredTo.some(
+              (d) => String(d.user?._id || d.user || d) === String(userId)
+            )
+          ) {
+            existingDeliveredTo.push({ user: userId, deliveredAt: timestamp });
+          }
+          if (
+            action === "read" &&
+            !existingReadBy.some(
+              (r) => String(r.user?._id || r.user || r) === String(userId)
+            )
+          ) {
+            existingReadBy.push({ user: userId, readAt: timestamp });
+          }
+          nextMsg.readBy = existingReadBy;
+          nextMsg.deliveredTo = existingDeliveredTo;
+          return nextMsg;
+        });
+
+        const nextCache = state.currentConversation?._id
+          ? syncMessagesCache(
+              state.messagesCache,
+              state.currentConversation._id,
+              nextMessages
+            )
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
+    });
+
 
     socket.on("reaction_update", ({ messageId, reactions }) => {
       const cleanReactions = (reactions || []).filter((r) =>

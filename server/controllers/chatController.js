@@ -12,6 +12,11 @@ const {
   META_AI_USER_ID,
   processMetaAiQuery,
 } = require("../services/aiService.js");
+const {
+  onGroupMessageCreated,
+  processMultipleGroupReceipts,
+} = require("../services/groupStatusService.js");
+
 
 function getDisappearingDurationMs(duration) {
   if (!duration || duration === "Off") return null;
@@ -567,24 +572,49 @@ exports.sendMessage = async (req, res) => {
         },
       });
 
-    if (req.io && isGroup) {
-      const messagePayload = {
-        ...populatedMessage.toObject(),
-        conversationId: conversation._id.toString(),
-      };
+    if (isGroup) {
+      if (req.io) {
+        await onGroupMessageCreated(
+          message,
+          conversation,
+          senderId,
+          req.io,
+          req.socketUserMap
+        );
+      }
+      const updatedPopulatedMessage = await Message.findById(message._id)
+        .populate("sender", "username profilePicture publicKey")
+        .populate("receiver", "username profilePicture publicKey")
+        .populate("replyTo")
+        .populate("deliveredTo.user", "username profilePicture phoneNumber about")
+        .populate("readBy.user", "username profilePicture phoneNumber about")
+        .populate({
+          path: "statusId",
+          populate: {
+            path: "user",
+            select: "username profilePicture",
+          },
+        });
 
-      conversation.participants.forEach((p) => {
-        const pIdStr = (p._id || p).toString();
-        if (pIdStr !== senderId.toString()) {
-          req.io.to(pIdStr).emit("receive_message", messagePayload);
-          if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
-            const sId = req.socketUserMap.get(pIdStr);
-            if (sId && sId !== pIdStr) {
-              req.io.to(sId).emit("receive_message", messagePayload);
+      if (req.io) {
+        const messagePayload = {
+          ...(updatedPopulatedMessage || populatedMessage).toObject(),
+          conversationId: conversation._id.toString(),
+        };
+
+        conversation.participants.forEach((p) => {
+          const pIdStr = (p._id || p).toString();
+          if (pIdStr !== senderId.toString()) {
+            req.io.to(pIdStr).emit("receive_message", messagePayload);
+            if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
+              const sId = req.socketUserMap.get(pIdStr);
+              if (sId && sId !== pIdStr) {
+                req.io.to(sId).emit("receive_message", messagePayload);
+              }
             }
           }
-        }
-      });
+        });
+      }
     } else if (req.io && !isSenderBlockedByReceiver && receiverRoom) {
       const receiverSocketId =
         req.socketUserMap && typeof req.socketUserMap.get === "function"
@@ -840,6 +870,26 @@ exports.getMessages = async (req, res) => {
       }
     }
 
+    if (conversation.isGroup) {
+      const unreadGroupMessages = await Message.find({
+        conversation: conversationId,
+        sender: { $ne: userId },
+        "readBy.user": { $ne: userId },
+        deletedFor: { $ne: userId },
+      }).select("_id");
+
+      if (unreadGroupMessages.length > 0) {
+        const unreadGroupIds = unreadGroupMessages.map((m) => m._id);
+        await processMultipleGroupReceipts(
+          unreadGroupIds,
+          userId,
+          "read",
+          req.io,
+          req.socketUserMap
+        );
+      }
+    }
+
     const unreadMessages = await Message.find({
       conversation: conversationId,
       receiver: userId,
@@ -938,12 +988,16 @@ exports.markAsRead = async (req, res) => {
   const { messageIds } = req.body;
 
   try {
-    let messages = await Message.find({
+    if (!messageIds || !messageIds.length) {
+      return response(res, 200, "No message IDs provided", []);
+    }
+
+    const allMessages = await Message.find({
       _id: { $in: messageIds },
-      receiver: userId,
+      sender: { $ne: userId },
     });
 
-    if (!messages.length) {
+    if (!allMessages.length) {
       return response(
         res,
         200,
@@ -952,75 +1006,89 @@ exports.markAsRead = async (req, res) => {
       );
     }
 
-    const now = new Date();
-    await Message.updateMany(
-      {
-        _id: { $in: messageIds },
-        receiver: userId,
-      },
-      {
-        $set: { messageStatus: "read", readAt: now },
-      },
-    );
-    await Message.updateMany(
-      {
-        _id: { $in: messageIds },
-        receiver: userId,
-        deliveredAt: null,
-      },
-      {
-        $set: { deliveredAt: now },
-      },
+    const groupMessages = allMessages.filter((m) => !m.receiver);
+    let directMessages = allMessages.filter(
+      (m) => m.receiver && m.receiver.toString() === userId.toString(),
     );
 
-    const convIds = [
-      ...new Set(
-        messages.map((m) => m.conversation?.toString()).filter(Boolean),
-      ),
-    ];
-    if (convIds.length > 0) {
-      await Conversation.updateMany(
-        { _id: { $in: convIds } },
-        { $set: { unreadCount: 0 } },
+    if (groupMessages.length > 0) {
+      const groupMsgIds = groupMessages.map((m) => m._id.toString());
+      await processMultipleGroupReceipts(
+        groupMsgIds,
+        userId,
+        "read",
+        req.io,
+        req.socketUserMap,
       );
     }
 
-    messages = messages.map((msg) => ({
-      ...msg._doc,
-      messageStatus: "read",
-      readAt: now,
-      deliveredAt: msg.deliveredAt || now,
-    }));
+    const now = new Date();
+    if (directMessages.length > 0) {
+      const directIds = directMessages.map((m) => m._id);
+      await Message.updateMany(
+        { _id: { $in: directIds } },
+        { $set: { messageStatus: "read", readAt: now } },
+      );
+      await Message.updateMany(
+        { _id: { $in: directIds }, deliveredAt: null },
+        { $set: { deliveredAt: now } },
+      );
 
-    if (req.io) {
-      const readMessageIds = messageIds.map(String);
-      const senderIds = [
-        ...new Set(messages.map((m) => m.sender?.toString()).filter(Boolean)),
+      const convIds = [
+        ...new Set(
+          directMessages.map((m) => m.conversation?.toString()).filter(Boolean),
+        ),
       ];
+      if (convIds.length > 0) {
+        await Conversation.updateMany(
+          { _id: { $in: convIds } },
+          { $set: { unreadCount: 0 } },
+        );
+      }
 
-      senderIds.forEach((senderId) => {
-        const sId = senderId.toString();
-        const payload = {
-          messageIds: readMessageIds,
-          messageStatus: "read",
-          readAt: now.toISOString(),
-          deliveredAt: now.toISOString(),
-        };
-        req.io.to(sId).emit("message_status_update_bulk", payload);
-        req.io.to(sId).emit("message_read", payload);
+      directMessages = directMessages.map((msg) => ({
+        ...msg._doc,
+        messageStatus: "read",
+        readAt: now,
+        deliveredAt: msg.deliveredAt || now,
+      }));
 
-        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
-          const senderSocketId = req.socketUserMap.get(sId);
-          if (senderSocketId) {
-            req.io
-              .to(senderSocketId)
-              .emit("message_status_update_bulk", payload);
-            req.io.to(senderSocketId).emit("message_read", payload);
+      if (req.io) {
+        const readMessageIds = directIds.map(String);
+        const senderIds = [
+          ...new Set(
+            directMessages.map((m) => m.sender?.toString()).filter(Boolean),
+          ),
+        ];
+
+        senderIds.forEach((senderId) => {
+          const sId = senderId.toString();
+          const payload = {
+            messageIds: readMessageIds,
+            messageStatus: "read",
+            readAt: now.toISOString(),
+            deliveredAt: now.toISOString(),
+          };
+          req.io.to(sId).emit("message_status_update_bulk", payload);
+          req.io.to(sId).emit("message_read", payload);
+
+          if (
+            req.socketUserMap &&
+            typeof req.socketUserMap.get === "function"
+          ) {
+            const senderSocketId = req.socketUserMap.get(sId);
+            if (senderSocketId) {
+              req.io
+                .to(senderSocketId)
+                .emit("message_status_update_bulk", payload);
+              req.io.to(senderSocketId).emit("message_read", payload);
+            }
           }
-        }
-      });
+        });
+      }
     }
-    return response(res, 200, "Messages marked as read", messages);
+
+    return response(res, 200, "Messages marked as read", allMessages);
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");

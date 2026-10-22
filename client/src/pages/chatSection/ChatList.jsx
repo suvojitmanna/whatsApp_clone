@@ -1920,12 +1920,82 @@ const ChatList = ({ contacts }) => {
                                     />
                                   );
                                 }
-                                if (status === "send" || status === "sent") {
+
+                                const isGroupChat = Boolean(
+                                  contact?.isGroup ||
+                                  contact?.conversation?.isGroup ||
+                                  (!lastMsg?.receiver &&
+                                    (contact?.participants?.length > 2 ||
+                                      contact?.conversation?.participants?.length > 2))
+                                );
+
+                                if (isGroupChat) {
+                                  const rawParticipants =
+                                    contact?.participants ||
+                                    contact?.conversation?.participants ||
+                                    [];
+                                  const otherParticipants = rawParticipants
+                                    .map((p) => (p?._id || p?.userId || p?.id || p)?.toString())
+                                    .filter((pId) => Boolean(pId) && pId !== currentUserId);
+
+                                  if (otherParticipants.length > 0) {
+                                    const readIds = new Set(
+                                      (lastMsg?.readBy || []).map((r) =>
+                                        (r?.user?._id || r?.user || r?.userId || r)?.toString()
+                                      )
+                                    );
+                                    const deliveredIds = new Set(
+                                      (lastMsg?.deliveredTo || []).map((d) =>
+                                        (d?.user?._id || d?.user || d?.userId || d)?.toString()
+                                      )
+                                    );
+
+                                    const allRead =
+                                      status === "read" ||
+                                      otherParticipants.every((pId) => readIds.has(pId));
+
+                                    if (allRead) {
+                                      return (
+                                        <FaCheckDouble
+                                          size={12}
+                                          className="inline mr-1 text-[#53bdeb] shrink-0"
+                                          title="Read by all"
+                                        />
+                                      );
+                                    }
+
+                                    const allDelivered =
+                                      status === "delivered" ||
+                                      otherParticipants.every(
+                                        (pId) => deliveredIds.has(pId) || readIds.has(pId)
+                                      );
+
+                                    if (allDelivered) {
+                                      return (
+                                        <FaCheckDouble
+                                          size={12}
+                                          className="inline mr-1 text-[#8696a0] shrink-0"
+                                          title="Delivered to all"
+                                        />
+                                      );
+                                    }
+
+                                    return (
+                                      <FiCheck
+                                        size={13}
+                                        className="inline mr-1 text-[#8696a0] shrink-0"
+                                        title="Sent"
+                                      />
+                                    );
+                                  }
+                                }
+
+                                if (status === "read") {
                                   return (
-                                    <FiCheck
-                                      size={13}
-                                      className="inline mr-1 text-[#8696a0] shrink-0"
-                                      title="Sent"
+                                    <FaCheckDouble
+                                      size={12}
+                                      className="inline mr-1 text-[#53bdeb] shrink-0"
+                                      title="Read"
                                     />
                                   );
                                 }
@@ -1938,12 +2008,12 @@ const ChatList = ({ contacts }) => {
                                     />
                                   );
                                 }
-                                if (status === "read") {
+                                if (status === "send" || status === "sent") {
                                   return (
-                                    <FaCheckDouble
-                                      size={12}
-                                      className="inline mr-1 text-[#53bdeb] shrink-0"
-                                      title="Read"
+                                    <FiCheck
+                                      size={13}
+                                      className="inline mr-1 text-[#8696a0] shrink-0"
+                                      title="Sent"
                                     />
                                   );
                                 }

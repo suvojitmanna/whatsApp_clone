@@ -195,6 +195,20 @@ const ContactInfo = () => {
 
   const getGroupOnlineCount = useChatStore((state) => state.getGroupOnlineCount);
   const onlineUsers = useChatStore((state) => state.onlineUsers);
+  const checkUserStatus = useChatStore((state) => state.checkUserStatus);
+
+  useEffect(() => {
+    if (isGroup && groupParticipants.length > 0 && typeof checkUserStatus === "function") {
+      const myIdStr = user?._id?.toString();
+      groupParticipants.forEach((p) => {
+        const pId = (p?._id || p)?.toString();
+        if (pId && pId !== myIdStr) {
+          checkUserStatus(pId);
+        }
+      });
+    }
+  }, [isGroup, groupParticipants, user?._id, checkUserStatus]);
+
   const groupOnlineCount = useMemo(() => {
     if (!isGroup || !getGroupOnlineCount) return 0;
     return getGroupOnlineCount(groupParticipants, user?._id);
@@ -2418,7 +2432,17 @@ const ContactInfo = () => {
                           const memberId = (member?._id || member)?.toString();
                           const isMe = memberId === user?._id?.toString();
                           const isAdmin = groupAdmins.includes(memberId);
-                          const isMemberOnline = onlineUsers.includes(memberId);
+                          const isMemberOnline = isMe
+                            ? true
+                            : Boolean(
+                                isUserOnline
+                                  ? isUserOnline(memberId)
+                                  : onlineUsers instanceof Map
+                                  ? onlineUsers.get(memberId)?.isOnline
+                                  : Array.isArray(onlineUsers)
+                                  ? onlineUsers.includes(memberId)
+                                  : member?.isOnline
+                              );
                           const displayName = isMe ? "You" : (member?.username || member?.name || "Participant");
 
                           return (

@@ -54,13 +54,9 @@ const NewGroupModal = ({ isOpen, onClose }) => {
   const { setSelectedContact } = useLayoutStore();
   const allUsers = useChatStore((state) => state.users) || [];
   const fetchConversations = useChatStore((state) => state.fetchConversations);
-
-  // Screen navigation: 1 = Add group members, 2 = New group info, 3 = Group permissions
   const [screen, setScreen] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState([]);
-
-  // Step 2 Form States
   const [groupName, setGroupName] = useState("");
   const [groupImageFile, setGroupImageFile] = useState(null);
   const [groupImagePreview, setGroupImagePreview] = useState("");
@@ -68,8 +64,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
   const [disappearingDuration, setDisappearingDuration] = useState("Off");
   const [showDisappearingModal, setShowDisappearingModal] = useState(false);
   const [tempDisappearingDuration, setTempDisappearingDuration] = useState("Off");
-
-  // Step 3 Group Permissions States
   const [permissions, setPermissions] = useState({
     editGroupSettings: true,
     sendMessages: true,
@@ -77,13 +71,10 @@ const NewGroupModal = ({ isOpen, onClose }) => {
     inviteViaLink: true,
     approveNewMembers: false,
   });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const fileInputRef = useRef(null);
   const emojiPickerRef = useRef(null);
 
-  // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
       setScreen(1);
@@ -105,7 +96,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
-  // Close emoji picker on outside click
   useEffect(() => {
     const handleOutsideClick = (e) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
@@ -118,7 +108,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [showEmojiPicker]);
 
-  // Candidate users (excluding self and Meta AI)
   const candidateUsers = useMemo(() => {
     const currentId = currentUser?._id?.toString();
     return allUsers.filter((u) => {
@@ -130,7 +119,6 @@ const NewGroupModal = ({ isOpen, onClose }) => {
     });
   }, [allUsers, currentUser]);
 
-  // Group contacts alphabetically
   const groupedUsers = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     const filtered = candidateUsers.filter(

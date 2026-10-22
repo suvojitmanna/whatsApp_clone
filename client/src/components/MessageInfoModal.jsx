@@ -86,7 +86,6 @@ const MessageInfoModal = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  // Resolve group status and participant list
   const { isGroup, readByList, deliveredToList, remainingList } = useMemo(() => {
     if (!msg) {
       return { isGroup: false, readByList: [], deliveredToList: [], remainingList: [] };
@@ -103,7 +102,6 @@ const MessageInfoModal = ({
       selectedContact?.participants ||
       [];
 
-    // Normalize participant list to full user objects
     const participantMap = new Map();
     rawParticipants.forEach((p) => {
       if (!p) return;
@@ -131,7 +129,6 @@ const MessageInfoModal = ({
     const senderId = (msg.sender?._id || msg.sender)?.toString();
     const currentUserId = (currentUser?._id || currentUser?.userId)?.toString();
 
-    // Map readBy
     const readMap = new Map();
     if (Array.isArray(msg.readBy)) {
       msg.readBy.forEach((item) => {
@@ -152,12 +149,11 @@ const MessageInfoModal = ({
       });
     }
 
-    // Map deliveredTo
     const deliveredMap = new Map();
     if (Array.isArray(msg.deliveredTo)) {
       msg.deliveredTo.forEach((item) => {
         const uId = (item.user?._id || item.user || item.userId)?.toString();
-        if (!uId || readMap.has(uId)) return; // Already read
+        if (!uId || readMap.has(uId)) return;
         const userObj =
           typeof item.user === "object" && item.user.username
             ? item.user
@@ -175,8 +171,6 @@ const MessageInfoModal = ({
       });
     }
 
-    // If it's a group chat but readBy / deliveredTo arrays are not yet fully populated,
-    // gracefully infer from messageStatus & participants
     if (isGroupChat && participantMap.size > 0 && readMap.size === 0 && deliveredMap.size === 0) {
       const recipientIds = Array.from(participantMap.keys()).filter((id) => id !== senderId);
       if (msg.messageStatus === "read") {
@@ -198,11 +192,10 @@ const MessageInfoModal = ({
       }
     }
 
-    // Identify remaining members
     const remaining = [];
     if (isGroupChat && participantMap.size > 0) {
       participantMap.forEach((userObj, id) => {
-        if (id === senderId) return; // Skip sender
+        if (id === senderId) return;
         if (!readMap.has(id) && !deliveredMap.has(id)) {
           remaining.push({ user: userObj });
         }
@@ -248,7 +241,6 @@ const MessageInfoModal = ({
   const readTime = formatReceiptTime(readDate);
   const readDateLabel = formatReceiptDate(readDate);
 
-  // Filter group participants by search
   const filteredReadBy = readByList.filter((item) =>
     (item.user?.username || "").toLowerCase().includes(searchQuery.toLowerCase())
   );

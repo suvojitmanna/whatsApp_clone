@@ -248,7 +248,21 @@ const MessageBuble = ({
     message?.sender?.isAI ||
     message?.sender?.username === "Meta AI"
   );
+  const isMetaAiChat = Boolean(
+    selectedContact?.isAI ||
+    selectedContact?.isMetaAi ||
+    selectedContact?.username === "Meta AI" ||
+    String(selectedContact?._id) === META_AI_USER_ID ||
+    String(selectedContact?.id) === META_AI_USER_ID ||
+    layoutSelectedContact?.isAI ||
+    layoutSelectedContact?.isMetaAi ||
+    layoutSelectedContact?.username === "Meta AI" ||
+    String(layoutSelectedContact?._id) === META_AI_USER_ID ||
+    String(layoutSelectedContact?.id) === META_AI_USER_ID
+  );
+  const isMetaAi = isMetaAiMessage || isMetaAiChat;
   const isDark = theme === "dark";
+
   const isSticker = message.contentType === "sticker";
   const isDisappearingExpired = useMemo(() => {
     if (!message || message.isKept || message.deletedForEveryone) return false;
@@ -735,12 +749,90 @@ const MessageBuble = ({
         />
       );
     }
-    if (status === "send" || status === "sent") {
+
+    const activeContact = selectedContact || layoutSelectedContact;
+    const conversationObj =
+      activeContact?.conversation ||
+      currentConversation ||
+      (typeof message.conversation === "object" ? message.conversation : null);
+
+    const isGroupChat = Boolean(
+      activeContact?.isGroup ||
+      activeContact?.isGroupChat ||
+      conversationObj?.isGroup ||
+      (!message.receiver &&
+        (activeContact?.participants?.length > 2 ||
+          conversationObj?.participants?.length > 2))
+    );
+
+    if (isGroupChat) {
+      const rawParticipants =
+        activeContact?.participants ||
+        conversationObj?.participants ||
+        [];
+
+      const otherParticipants = rawParticipants
+        .map((p) => (p?._id || p?.userId || p?.id || p)?.toString())
+        .filter((pId) => Boolean(pId) && pId !== currentUserId);
+
+      if (otherParticipants.length > 0) {
+        const readIds = new Set(
+          (message.readBy || []).map((r) =>
+            (r?.user?._id || r?.user || r?.userId || r)?.toString()
+          )
+        );
+        const deliveredIds = new Set(
+          (message.deliveredTo || []).map((d) =>
+            (d?.user?._id || d?.user || d?.userId || d)?.toString()
+          )
+        );
+
+        const allRead =
+          status === "read" ||
+          otherParticipants.every((pId) => readIds.has(pId));
+
+        if (allRead) {
+          return (
+            <FaCheckDouble
+              size={isOverlay ? 12 : 11}
+              className="text-[#53bdeb] shrink-0"
+              title="Read by all"
+            />
+          );
+        }
+
+        const allDelivered =
+          status === "delivered" ||
+          otherParticipants.every(
+            (pId) => deliveredIds.has(pId) || readIds.has(pId)
+          );
+
+        if (allDelivered) {
+          return (
+            <FaCheckDouble
+              size={isOverlay ? 12 : 11}
+              className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
+              title="Delivered to all"
+            />
+          );
+        }
+
+        return (
+          <FiCheck
+            size={isOverlay ? 13 : 13}
+            className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
+            title="Sent"
+          />
+        );
+      }
+    }
+
+    if (status === "read") {
       return (
-        <FiCheck
-          size={isOverlay ? 13 : 13}
-          className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
-          title="Sent"
+        <FaCheckDouble
+          size={isOverlay ? 12 : 11}
+          className="text-[#53bdeb] shrink-0"
+          title="Read"
         />
       );
     }
@@ -753,12 +845,12 @@ const MessageBuble = ({
         />
       );
     }
-    if (status === "read") {
+    if (status === "send" || status === "sent") {
       return (
-        <FaCheckDouble
-          size={isOverlay ? 12 : 11}
-          className="text-[#53bdeb] shrink-0"
-          title="Read"
+        <FiCheck
+          size={isOverlay ? 13 : 13}
+          className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
+          title="Sent"
         />
       );
     }
@@ -2573,7 +2665,9 @@ const MessageBuble = ({
                         setShowReportModal={setShowReportModal}
                         setDeleteModal={setDeleteModal}
                         onEnterSelectMode={onEnterSelectMode}
+                        isMetaAi={isMetaAi}
                       />
+
                     </motion.div>
                   </>
                 )}

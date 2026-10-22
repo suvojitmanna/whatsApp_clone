@@ -30,6 +30,8 @@ import useLayoutStore from "../../store/layoutStore";
 import ReportModal from "../../components/ReportModal";
 import BlockModal from "../../components/BlockModal";
 import { WhatsAppMediaFolderIcon } from "../../components/Media";
+import { META_AI_USER_ID } from "../../components/common/MetaAiIcon";
+
 
 const ChatHeaderMenu = ({
   isOpen,
@@ -103,6 +105,32 @@ const ChatHeaderMenu = ({
   const targetUserId = useMemo(() => {
     return getTargetUserId(selectedContact, user?._id);
   }, [selectedContact, user?._id]);
+
+  const isMetaAi = useMemo(() => {
+    return Boolean(
+      selectedContact?.isAI ||
+      selectedContact?.isMetaAi ||
+      selectedContact?.username === "Meta AI" ||
+      String(selectedContact?._id) === META_AI_USER_ID ||
+      String(selectedContact?.id) === META_AI_USER_ID ||
+      String(targetUserId) === META_AI_USER_ID ||
+      (selectedContact?.conversation?.participants &&
+        selectedContact.conversation.participants.some(
+          (p) =>
+            p?.username === "Meta AI" ||
+            p?.isAI ||
+            String(p?._id || p) === META_AI_USER_ID
+        )) ||
+      (selectedContact?.participants &&
+        selectedContact.participants.some(
+          (p) =>
+            p?.username === "Meta AI" ||
+            p?.isAI ||
+            String(p?._id || p) === META_AI_USER_ID
+        ))
+    );
+  }, [selectedContact, targetUserId]);
+
 
   const isBlocked = useMemo(() => {
     if (!blockedContacts || blockedContacts.length === 0) return false;
@@ -404,8 +432,10 @@ const ChatHeaderMenu = ({
     };
   }, [isOpen, onClose]);
 
-  const contactName =
-    selectedContact?.username || selectedContact?.name || "this contact";
+  const contactName = isMetaAi
+    ? "Meta AI"
+    : selectedContact?.username || selectedContact?.name || "this contact";
+
 
   const itemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7px] gap-3.5 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] ${isDark
     ? "hover:bg-white/10 hover:border-white/15 hover:text-white"
@@ -464,16 +494,154 @@ const ChatHeaderMenu = ({
                 }`}
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  if (onOpenContactInfo) {
-                    onOpenContactInfo();
-                  } else {
-                    useLayoutStore.getState().openContactInfoWithTab("info");
-                  }
-                }}
+              {isMetaAi ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenContactInfo) {
+                        onOpenContactInfo();
+                      } else {
+                        useLayoutStore.getState().openContactInfoWithTab("info");
+                      }
+                    }}
+                    className={itemClass}
+                  >
+                    <FiInfo size={18} className="text-[#8696a0] shrink-0" />
+                    <span className="truncate">Contact info</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onSearchClick?.();
+                    }}
+                    className={itemClass}
+                  >
+                    <FiSearch size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Search</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onClose();
+                      onSelectMessages?.();
+                    }}
+                    className={itemClass}
+                  >
+                    <FiCheckSquare size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Select message</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenChatTheme) {
+                        onOpenChatTheme();
+                      } else {
+                        useLayoutStore.getState().openContactInfoWithTab("chatTheme");
+                      }
+                    }}
+                    className={itemClass}
+                  >
+                    <IoColorPaletteOutline
+                      size={18}
+                      className="text-[#8696a0] shrink-0"
+                    />
+                    <span className="truncate">Chat theme</span>
+                    <MdChevronRight
+                      size={16}
+                      className="text-[#8696a0] ml-auto shrink-0"
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleFavorite}
+                    className={itemClass}
+                  >
+                    <FiHeart
+                      size={18}
+                      className={`shrink-0 ${
+                        isFavorite
+                          ? "text-rose-500 fill-rose-500"
+                          : "text-[#8696a0]"
+                      }`}
+                    />
+                    <span className="truncate">
+                      {isFavorite ? "Remove from favourites" : "Add to favourites"}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportChat}
+                    className={itemClass}
+                  >
+                    <FiDownload size={18} className="text-[#8696a0] shrink-0" />
+                    <span>Export chat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCloseChat}
+                    className={itemClass}
+                  >
+                    <RxCrossCircled
+                      size={18}
+                      className="text-[#8696a0] shrink-0"
+                    />
+                    <span>Close chat</span>
+                  </button>
+
+                  <div
+                    className={`my-1 border-t ${
+                      isDark ? "border-white/10" : "border-black/10"
+                    }`}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDialog({ type: "clear" })}
+                    className={dangerItemClass}
+                  >
+                    <FiMinusCircle
+                      size={18}
+                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
+                    />
+                    <span>Clear chat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDialog({ type: "delete" })}
+                    className={dangerItemClass}
+                  >
+                    <RiDeleteBin6Line
+                      size={18}
+                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
+                    />
+                    <span>Delete chat</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onOpenContactInfo) {
+                        onOpenContactInfo();
+                      } else {
+                        useLayoutStore.getState().openContactInfoWithTab("info");
+                      }
+                    }}
                 className={itemClass}
               >
                 <FiInfo size={18} className="text-[#8696a0] shrink-0" />
@@ -865,7 +1033,10 @@ const ChatHeaderMenu = ({
                 />
                 <span>Delete chat</span>
               </button>
-            </motion.div>
+            </>
+          )}
+        </motion.div>
+
           </>,
           document.body
         )}

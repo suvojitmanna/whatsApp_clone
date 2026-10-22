@@ -36,11 +36,33 @@ const MessageMenu = ({
     setShowReportModal,
     setDeleteModal,
     onEnterSelectMode,
+    isMetaAi: propIsMetaAi,
 }) => {
     const chatToggleStar = useChatStore((state) => state.toggleStarMessage);
     const chatUnpinMessage = useChatStore((state) => state.unpinMessage);
     const layoutSetSelectedMessageInfo = useLayoutStore(
         (state) => state.setSelectedMessageInfo
+    );
+    const layoutSelectedContact = useLayoutStore((state) => state.selectedContact);
+    const chatSelectedContact = useChatStore((state) => state.selectedContact);
+    const activeContact = layoutSelectedContact || chatSelectedContact;
+    const senderId = (
+        message?.sender?._id ||
+        message?.sender?.id ||
+        message?.sender
+    )?.toString();
+
+    const isMetaAi = Boolean(
+        propIsMetaAi ||
+        message?.isMetaAi ||
+        senderId === META_AI_USER_ID ||
+        message?.sender?.isAI ||
+        message?.sender?.username === "Meta AI" ||
+        activeContact?.isAI ||
+        activeContact?.isMetaAi ||
+        activeContact?.username === "Meta AI" ||
+        String(activeContact?._id) === META_AI_USER_ID ||
+        String(activeContact?.id) === META_AI_USER_ID
     );
 
     const toggleStarMessage = propToggleStarMessage || chatToggleStar;
@@ -102,6 +124,163 @@ const MessageMenu = ({
         message?.content ||
         message?.imageOrVideoUrl
     );
+
+    if (isMetaAi) {
+        return (
+            <>
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        setSelectedMessageInfo?.(message);
+                    }}
+                    className={itemClass}
+                >
+                    <IoIosInformationCircleOutline
+                        size={19}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Message info</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        if (onReply) {
+                            onReply(message);
+                        }
+                    }}
+                    className={itemClass}
+                >
+                    <LuReply
+                        size={18}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Reply</span>
+                </button>
+
+                {hasCopyableText && (
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            setShowOptions?.(false);
+                            const isImg =
+                                message?.contentType === "image" ||
+                                Boolean(
+                                    message?.imageOrVideoUrl &&
+                                    !message?.imageOrVideoUrl.match(/\.(mp4|webm|mov|mkv)($|\?)/i) &&
+                                    message?.contentType !== "video"
+                                );
+
+                            if (isImg && message?.imageOrVideoUrl) {
+                                try {
+                                    await copyImageToClipboard(message.imageOrVideoUrl);
+                                    toast.success("Image copied to clipboard");
+                                    return;
+                                } catch (e) {
+                                    console.error("Failed to copy image:", e);
+                                    toast.error("Failed to copy image to clipboard");
+                                    return;
+                                }
+                            }
+
+                            const textToCopy =
+                                message?.contentType === "text"
+                                    ? message?.content || ""
+                                    : message?.imageOrVideoUrl || message?.content || "";
+                            if (textToCopy) {
+                                navigator.clipboard?.writeText(textToCopy);
+                                toast.success("Copied to clipboard");
+                            }
+                        }}
+                        className={itemClass}
+                    >
+                        <FaRegCopy
+                            size={16}
+                            className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                        />
+                        <span>Copy</span>
+                    </button>
+                )}
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        setShowReactions?.(true);
+                    }}
+                    className={itemClass}
+                >
+                    <BsEmojiSmile
+                        size={18}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>React</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        setShowForwardModal?.(true);
+                    }}
+                    className={itemClass}
+                >
+                    <LuForward
+                        size={18}
+                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                    />
+                    <span>Forward</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        const nowStarred = toggleStarMessage?.(message?._id, message);
+                        if (nowStarred) {
+                            toast.success("Message starred");
+                        } else {
+                            toast.info("Message unstarred");
+                        }
+                    }}
+                    className={itemClass}
+                >
+                    {isStarred ? (
+                        <FaStar size={16} className="shrink-0 text-amber-400 fill-amber-400" />
+                    ) : (
+                        <FaRegStar
+                            size={16}
+                            className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
+                        />
+                    )}
+                    <span>{isStarred ? "Unstar" : "Star"}</span>
+                </button>
+
+                <div
+                    className={`my-1 border-t ${isDark ? "border-[#2a3942]/80" : "border-black/10"
+                        }`}
+                />
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setDeleteModal?.(message);
+                        setShowOptions?.(false);
+                    }}
+                    className={dangerItemClass}
+                >
+                    <RiDeleteBin6Line
+                        size={17}
+                        className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors"
+                    />
+                    <span>Delete</span>
+                </button>
+            </>
+        );
+    }
+
 
     const isMediaDownloadable = Boolean(
         ["document", "image", "video", "audio"].includes(message?.contentType) &&

@@ -82,7 +82,6 @@ const MessageInfoPanel = () => {
 
   const msg = liveMsg || selectedMessageInfo;
 
-  // Resolve group status & participants
   const { isGroup, readByList, deliveredToList, remainingList } = useMemo(() => {
     if (!msg) {
       return { isGroup: false, readByList: [], deliveredToList: [], remainingList: [] };
@@ -123,7 +122,6 @@ const MessageInfoPanel = () => {
 
     const senderId = (msg.sender?._id || msg.sender)?.toString();
 
-    // Map readBy
     const readMap = new Map();
     if (Array.isArray(msg.readBy)) {
       msg.readBy.forEach((item) => {
@@ -144,7 +142,6 @@ const MessageInfoPanel = () => {
       });
     }
 
-    // Map deliveredTo
     const deliveredMap = new Map();
     if (Array.isArray(msg.deliveredTo)) {
       msg.deliveredTo.forEach((item) => {
@@ -167,7 +164,6 @@ const MessageInfoPanel = () => {
       });
     }
 
-    // Fallback inference for existing group messages without populated arrays
     if (isGroupChat && participantMap.size > 0 && readMap.size === 0 && deliveredMap.size === 0) {
       const recipientIds = Array.from(participantMap.keys()).filter((id) => id !== senderId);
       if (msg.messageStatus === "read") {
@@ -189,7 +185,6 @@ const MessageInfoPanel = () => {
       }
     }
 
-    // Identify remaining members
     const remaining = [];
     if (isGroupChat && participantMap.size > 0) {
       participantMap.forEach((userObj, id) => {
@@ -643,7 +638,6 @@ const MessageInfoPanel = () => {
               )}
             </div>
           ) : (
-            /* 1:1 CHAT VIEW */
             <div
               className={`mt-4 border-y divide-y shadow-sm ${isDark
                 ? "bg-[#111b21] border-[#222d34] divide-[#222d34]"
