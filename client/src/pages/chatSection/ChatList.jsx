@@ -2235,7 +2235,7 @@ const ChatList = ({ contacts }) => {
                             (contact?.isGroup &&
                               selectedContact?.isGroup &&
                               String(contact.conversation?._id || contact._id) ===
-                                String(selectedContact.conversation?._id || selectedContact._id)))
+                              String(selectedContact.conversation?._id || selectedContact._id)))
                         );
 
                         if (isCurrentOpen) {

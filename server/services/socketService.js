@@ -290,8 +290,6 @@ function initializeSocket(server) {
       });
     });
 
-
-
     socket.on("add_reaction", async ({ messageId, emoji, reactionUserId }) => {
       try {
         if (!messageId || !reactionUserId) return;
@@ -498,10 +496,16 @@ function initializeSocket(server) {
           }
 
           let pinnedByPayload = pinnedBy;
-          const pinnedByUserId = (pinnedBy?._id || pinnedBy?.id || pinnedBy)?.toString();
+          const pinnedByUserId = (
+            pinnedBy?._id ||
+            pinnedBy?.id ||
+            pinnedBy
+          )?.toString();
           if (pinnedByUserId) {
             try {
-              const userDoc = await User.findById(pinnedByUserId).select("username profilePicture");
+              const userDoc = await User.findById(pinnedByUserId).select(
+                "username profilePicture",
+              );
               if (userDoc) {
                 pinnedByPayload = {
                   _id: userDoc._id.toString(),

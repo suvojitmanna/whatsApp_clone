@@ -1,43 +1,143 @@
 const activeGroupCalls = new Map();
 const groupToCallMap = new Map();
 
-const handleVideoCallEvent = (socket, io, onlineUsers) => {
-  const broadcastGroupCallUpdate = (groupCall) => {
-    if (!groupCall) return;
-    const joinedList = Array.from(groupCall.participants.values()).map((p) => ({
-      userId: p.userId,
-      username: p.username,
-      profilePicture: p.profilePicture,
-      joinedAt: p.joinedAt || Date.now(),
-    }));
+const endGroupCall = (callId, io, onlineUsers, reason = "Call ended") => {
+  const groupCall = activeGroupCalls.get(callId);
+  if (!groupCall) return;
 
-    const updatePayload = {
-      callId: groupCall.callId,
-      groupId: groupCall.groupId,
-      groupName: groupCall.groupName,
-      groupAvatar: groupCall.groupAvatar,
-      callType: groupCall.callType,
-      callerId: groupCall.callerId,
-      callerName: groupCall.callerInfo?.username || "Someone",
-      callerAvatar: groupCall.callerInfo?.profilePicture || "",
-      isActive: true,
-      status: "ongoing",
-      joinedParticipants: joinedList,
-    };
+  if (groupCall.ringTimeout) {
+    clearTimeout(groupCall.ringTimeout);
+    groupCall.ringTimeout = null;
+  }
 
-    const targetUserIds = new Set([
-      ...Array.from(groupCall.participants.keys()),
-      ...Array.from(groupCall.pendingReceivers),
-    ]);
+  activeGroupCalls.delete(callId);
+  if (groupCall.groupId) {
+    groupToCallMap.delete(groupCall.groupId);
+  }
 
-    targetUserIds.forEach((uId) => {
-      const sock = onlineUsers.get(uId);
-      if (sock) {
-        io.to(sock).emit("active_group_call_update", updatePayload);
-      }
-    });
+  const allTargets = new Set([
+    ...Array.from(groupCall.participants.keys()),
+    ...Array.from(groupCall.pendingReceivers),
+  ]);
+
+  allTargets.forEach((uId) => {
+    const sock = onlineUsers.get(uId);
+    if (sock && io) {
+      io.to(sock).emit("active_group_call_update", {
+        callId: groupCall.callId,
+        groupId: groupCall.groupId,
+        isActive: false,
+        status: "ended",
+        joinedParticipants: [],
+      });
+      io.to(sock).emit("call_ended", {
+        callId: groupCall.callId,
+        reason,
+      });
+    }
+  });
+};
+
+const broadcastGroupCallUpdate = (groupCall, io, onlineUsers) => {
+  if (!groupCall) return;
+
+  if (groupCall.hasConnected && groupCall.participants.size < 2) {
+    endGroupCall(groupCall.callId, io, onlineUsers, "Call ended - everyone else left the call");
+    return;
+  }
+
+  if (groupCall.participants.size === 0) {
+    endGroupCall(groupCall.callId, io, onlineUsers, "Call ended");
+    return;
+  }
+
+  const joinedList = Array.from(groupCall.participants.values()).map((p) => ({
+    userId: p.userId,
+    username: p.username,
+    profilePicture: p.profilePicture,
+    joinedAt: p.joinedAt || Date.now(),
+  }));
+
+  const updatePayload = {
+    callId: groupCall.callId,
+    groupId: groupCall.groupId,
+    groupName: groupCall.groupName,
+    groupAvatar: groupCall.groupAvatar,
+    callType: groupCall.callType,
+    callerId: groupCall.callerId,
+    callerName: groupCall.callerInfo?.username || "Someone",
+    callerAvatar: groupCall.callerInfo?.profilePicture || "",
+    isActive: true,
+    status: groupCall.hasConnected ? "ongoing" : "ringing",
+    joinedParticipants: joinedList,
   };
 
+  const targetUserIds = new Set([
+    ...Array.from(groupCall.participants.keys()),
+    ...Array.from(groupCall.pendingReceivers),
+  ]);
+
+  targetUserIds.forEach((uId) => {
+    const sock = onlineUsers.get(uId);
+    if (sock && io) {
+      io.to(sock).emit("active_group_call_update", updatePayload);
+    }
+  });
+};
+
+const handleParticipantLeaveGroupCall = (groupCall, leavingUserId, io, onlineUsers, reason) => {
+  if (!groupCall || !leavingUserId) return;
+  const strLeavingId = leavingUserId.toString();
+
+  groupCall.participants.delete(strLeavingId);
+  groupCall.pendingReceivers.delete(strLeavingId);
+
+  // Notify any remaining participants that this user left
+  groupCall.participants.forEach((p) => {
+    const pSocket = onlineUsers.get(p.userId);
+    if (pSocket && io) {
+      io.to(pSocket).emit("group_call_participant_left", {
+        callId: groupCall.callId,
+        groupId: groupCall.groupId,
+        userId: strLeavingId,
+        joinedParticipants: Array.from(groupCall.participants.values()).map((pt) => ({
+          userId: pt.userId,
+          username: pt.username,
+          profilePicture: pt.profilePicture,
+        })),
+      });
+    }
+  });
+
+  // Check if active participants in group call drop below 2
+  if (groupCall.participants.size === 0) {
+    endGroupCall(groupCall.callId, io, onlineUsers, reason || "Call ended");
+  } else if (groupCall.hasConnected && groupCall.participants.size < 2) {
+    endGroupCall(groupCall.callId, io, onlineUsers, "Call ended - everyone else left the call");
+  } else if (!groupCall.hasConnected && groupCall.participants.size < 2 && strLeavingId === groupCall.callerId) {
+    endGroupCall(groupCall.callId, io, onlineUsers, "Call ended by caller");
+  } else {
+    broadcastGroupCallUpdate(groupCall, io, onlineUsers);
+  }
+};
+
+const handleUserCallDisconnect = (userId, io, onlineUsers) => {
+  if (!userId) return;
+  const strUserId = userId.toString();
+
+  for (const [callId, groupCall] of activeGroupCalls.entries()) {
+    if (groupCall.participants.has(strUserId)) {
+      handleParticipantLeaveGroupCall(groupCall, strUserId, io, onlineUsers, "Call ended - participant disconnected");
+    } else if (groupCall.pendingReceivers.has(strUserId)) {
+      groupCall.pendingReceivers.delete(strUserId);
+      if (!groupCall.hasConnected && groupCall.pendingReceivers.size === 0 && groupCall.participants.size <= 1) {
+        endGroupCall(callId, io, onlineUsers, "Call ended");
+      }
+    }
+  }
+};
+
+const handleVideoCallEvent = (socket, io, onlineUsers) => {
   socket.on(
     "initiate_call",
     ({
@@ -106,6 +206,13 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
           joinedAt: Date.now(),
         });
 
+        const ringTimeout = setTimeout(() => {
+          const c = activeGroupCalls.get(callId);
+          if (c && !c.hasConnected && c.participants.size < 2) {
+            endGroupCall(callId, io, onlineUsers, "No answer");
+          }
+        }, 45000);
+
         const newGroupCall = {
           callId,
           groupId: strGroupId,
@@ -117,6 +224,8 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
           pendingReceivers: targetIds,
           participants: participantsMap,
           startedAt: Date.now(),
+          hasConnected: false,
+          ringTimeout,
         };
 
         activeGroupCalls.set(callId, newGroupCall);
@@ -124,9 +233,10 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
           groupToCallMap.set(strGroupId, callId);
         }
 
-        broadcastGroupCallUpdate(newGroupCall);
+        broadcastGroupCallUpdate(newGroupCall, io, onlineUsers);
         return;
       }
+
       const strReceiverId = (receiverId?._id || receiverId)?.toString();
       const receiverSocketId = onlineUsers.get(strReceiverId);
 
@@ -173,6 +283,12 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
           joinedAt: Date.now(),
         };
         groupCall.participants.set(answeringUserId, newParticipant);
+        groupCall.hasConnected = true;
+
+        if (groupCall.ringTimeout) {
+          clearTimeout(groupCall.ringTimeout);
+          groupCall.ringTimeout = null;
+        }
 
         const callerSocketId = onlineUsers.get(groupCall.callerId);
         if (callerSocketId) {
@@ -215,9 +331,10 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
           }
         });
 
-        broadcastGroupCallUpdate(groupCall);
+        broadcastGroupCallUpdate(groupCall, io, onlineUsers);
         return;
       }
+
       const callerSocketId = onlineUsers.get(strCallerId);
       if (callerSocketId) {
         io.to(callerSocketId).emit("call_accepted", {
@@ -261,6 +378,12 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       joinedAt: Date.now(),
     };
     groupCall.participants.set(joiningUserId, newParticipant);
+    groupCall.hasConnected = true;
+
+    if (groupCall.ringTimeout) {
+      clearTimeout(groupCall.ringTimeout);
+      groupCall.ringTimeout = null;
+    }
 
     const existingParticipantsList = Array.from(groupCall.participants.values()).filter(
       (p) => p.userId !== joiningUserId,
@@ -291,7 +414,7 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       }
     });
 
-    broadcastGroupCallUpdate(groupCall);
+    broadcastGroupCallUpdate(groupCall, io, onlineUsers);
   });
 
   socket.on("get_active_group_call", ({ groupId, callId }, callback) => {
@@ -302,7 +425,13 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       if (mappedId) groupCall = activeGroupCalls.get(mappedId);
     }
 
-    if (groupCall && groupCall.participants.size > 0) {
+    const isCallStillValid = Boolean(
+      groupCall &&
+      groupCall.participants.size > 0 &&
+      (!groupCall.hasConnected || groupCall.participants.size >= 2)
+    );
+
+    if (isCallStillValid) {
       const payload = {
         callId: groupCall.callId,
         groupId: groupCall.groupId,
@@ -313,7 +442,7 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
         callerName: groupCall.callerInfo?.username || "Someone",
         callerAvatar: groupCall.callerInfo?.profilePicture || "",
         isActive: true,
-        status: "ongoing",
+        status: groupCall.hasConnected ? "ongoing" : "ringing",
         joinedParticipants: Array.from(groupCall.participants.values()).map((p) => ({
           userId: p.userId,
           username: p.username,
@@ -327,6 +456,7 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       socket.emit("active_group_call_update", {
         groupId: strGroupId,
         isActive: false,
+        status: "ended",
         joinedParticipants: [],
       });
     }
@@ -341,48 +471,7 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
     if (!groupCall) return;
 
     const leavingUserId = (socket.userId || socket.id)?.toString();
-    groupCall.participants.delete(leavingUserId);
-    groupCall.pendingReceivers.delete(leavingUserId);
-
-    groupCall.participants.forEach((p) => {
-      const pSocket = onlineUsers.get(p.userId);
-      if (pSocket) {
-        io.to(pSocket).emit("group_call_participant_left", {
-          callId: groupCall.callId,
-          groupId: groupCall.groupId,
-          userId: leavingUserId,
-          joinedParticipants: Array.from(groupCall.participants.values()).map((pt) => ({
-            userId: pt.userId,
-            username: pt.username,
-            profilePicture: pt.profilePicture,
-          })),
-        });
-      }
-    });
-
-    if (groupCall.participants.size === 0) {
-      activeGroupCalls.delete(groupCall.callId);
-      if (groupCall.groupId) groupToCallMap.delete(groupCall.groupId);
-
-      const allTargets = new Set([
-        ...groupCall.pendingReceivers,
-        leavingUserId,
-      ]);
-      allTargets.forEach((tId) => {
-        const tSocket = onlineUsers.get(tId);
-        if (tSocket) {
-          io.to(tSocket).emit("active_group_call_update", {
-            callId: groupCall.callId,
-            groupId: groupCall.groupId,
-            isActive: false,
-            joinedParticipants: [],
-          });
-          io.to(tSocket).emit("call_ended", { callId: groupCall.callId });
-        }
-      });
-    } else {
-      broadcastGroupCallUpdate(groupCall);
-    }
+    handleParticipantLeaveGroupCall(groupCall, leavingUserId, io, onlineUsers, "Call ended - participant left");
   });
 
   socket.on("reject_call", ({ callerId, callId, isGroup, groupId }) => {
@@ -413,13 +502,7 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       }
 
       if (groupCall.pendingReceivers.size === 0 && groupCall.participants.size <= 1) {
-        activeGroupCalls.delete(callId);
-        if (groupCall.groupId) groupToCallMap.delete(groupCall.groupId);
-
-        const callerSocketId = onlineUsers.get(groupCall.callerId || strCallerId);
-        if (callerSocketId) {
-          io.to(callerSocketId).emit("call_rejected", { callId });
-        }
+        endGroupCall(groupCall.callId, io, onlineUsers, "Call declined");
       }
       return;
     }
@@ -450,48 +533,7 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
     }
 
     if (groupCall) {
-      groupCall.participants.delete(endingUserId);
-      groupCall.pendingReceivers.delete(endingUserId);
-
-      groupCall.participants.forEach((p) => {
-        const pSocket = onlineUsers.get(p.userId);
-        if (pSocket) {
-          io.to(pSocket).emit("group_call_participant_left", {
-            callId: groupCall.callId,
-            groupId: groupCall.groupId,
-            userId: endingUserId,
-            joinedParticipants: Array.from(groupCall.participants.values()).map((pt) => ({
-              userId: pt.userId,
-              username: pt.username,
-              profilePicture: pt.profilePicture,
-            })),
-          });
-        }
-      });
-
-      if (groupCall.participants.size === 0) {
-        activeGroupCalls.delete(callId);
-        if (groupCall.groupId) groupToCallMap.delete(groupCall.groupId);
-
-        const allTargets = new Set([
-          ...groupCall.pendingReceivers,
-          endingUserId,
-        ]);
-        allTargets.forEach((tId) => {
-          const tSocket = onlineUsers.get(tId);
-          if (tSocket) {
-            io.to(tSocket).emit("active_group_call_update", {
-              callId: groupCall.callId,
-              groupId: groupCall.groupId,
-              isActive: false,
-              joinedParticipants: [],
-            });
-            io.to(tSocket).emit("call_ended", { callId });
-          }
-        });
-      } else {
-        broadcastGroupCallUpdate(groupCall);
-      }
+      handleParticipantLeaveGroupCall(groupCall, endingUserId, io, onlineUsers, "Call ended");
       return;
     }
 
@@ -499,6 +541,11 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
     if (participantSocketId) {
       io.to(participantSocketId).emit("call_ended", { callId });
     }
+  });
+
+  socket.on("disconnect", () => {
+    const disconnectedUserId = (socket.userId || socket.id)?.toString();
+    handleUserCallDisconnect(disconnectedUserId, io, onlineUsers);
   });
 
   socket.on("webrtc_offer", ({ offer, receiverId, targetUserId, senderId, callId }) => {
@@ -552,4 +599,4 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
 };
 
 export default handleVideoCallEvent;
-export { handleVideoCallEvent };
+export { handleVideoCallEvent, handleUserCallDisconnect, endGroupCall };

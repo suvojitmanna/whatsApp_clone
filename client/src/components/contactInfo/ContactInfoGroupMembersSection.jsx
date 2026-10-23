@@ -130,13 +130,13 @@ const ContactInfoGroupMembersSection = ({
   }, [groupParticipants, participantSearchTerm, showAllMembers, memberTags]);
 
   const itemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7.5px] gap-3 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] group select-none ${theme === "dark"
-      ? "text-[#d1d7db] hover:text-white hover:bg-white/10 hover:border-white/15"
-      : "text-[#111b21] hover:text-black hover:bg-black/5 hover:border-black/10"
+    ? "text-[#d1d7db] hover:text-white hover:bg-white/10 hover:border-white/15"
+    : "text-[#111b21] hover:text-black hover:bg-black/5 hover:border-black/10"
     }`;
 
   const dangerItemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7.5px] gap-3 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] group select-none ${theme === "dark"
-      ? "hover:bg-red-500/15 hover:border-red-400/25 text-red-400"
-      : "hover:bg-red-50 hover:border-red-300 text-red-600"
+    ? "hover:bg-red-500/15 hover:border-red-400/25 text-red-400"
+    : "hover:bg-red-50 hover:border-red-300 text-red-600"
     }`;
 
   const menuDividerClass = `my-1 border-t ${theme === "dark" ? "border-white/10" : "border-black/10"
@@ -311,12 +311,12 @@ const ContactInfoGroupMembersSection = ({
                               setOpenMemberMenuId((prev) => (prev === memberId ? null : memberId));
                             }}
                             className={`p-1 rounded-full transition-colors cursor-pointer ${theme === "dark"
-                                ? isMenuOpen
-                                  ? "opacity-100 text-[#e9edef] bg-white/10"
-                                  : "text-[#8696a0] hover:text-[#e9edef] hover:bg-white/10 opacity-0 group-hover:opacity-100"
-                                : isMenuOpen
-                                  ? "opacity-100 text-[#111b21] bg-black/5"
-                                  : "text-[#667781] hover:text-[#111b21] hover:bg-black/5 opacity-0 group-hover:opacity-100"
+                              ? isMenuOpen
+                                ? "opacity-100 text-[#e9edef] bg-white/10"
+                                : "text-[#8696a0] hover:text-[#e9edef] hover:bg-white/10 opacity-0 group-hover:opacity-100"
+                              : isMenuOpen
+                                ? "opacity-100 text-[#111b21] bg-black/5"
+                                : "text-[#667781] hover:text-[#111b21] hover:bg-black/5 opacity-0 group-hover:opacity-100"
                               }`}
                             title="Member options"
                           >

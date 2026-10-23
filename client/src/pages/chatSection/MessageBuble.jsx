@@ -608,7 +608,7 @@ const MessageBuble = ({
           p.conversationId ||
           p.conversation
         )?._id?.toString() ||
-        (p.message?.conversation || p.conversationId || p.conversation)?.toString();
+          (p.message?.conversation || p.conversationId || p.conversation)?.toString();
 
         if (pMsgId === msgIdStr) return true;
         return pConv && (pConv === currConv || pConv === msgConv || pConv === secConv);
@@ -1006,9 +1006,9 @@ const MessageBuble = ({
       )}
 
       <div className={`flex-1 flex min-w-0 ${isUserMessage
-          ? "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
-          : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
-          }`}
+        ? "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
+        : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
+        }`}
       >
         {isGroupChat && !isUserMessage && (
           <div className="shrink-0 mr-1.5 self-start mt-0.5 select-none">
@@ -1040,9 +1040,9 @@ const MessageBuble = ({
         )}
 
         <div className={`${bubbleContentClass} relative group ${isActive
-            ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
-            : ""
-            }`}
+          ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
+          : ""
+          }`}
           ref={bubbleRef}
           data-bubble="true"
           onContextMenu={isSelectMode ? undefined : handleContextMenu}

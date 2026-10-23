@@ -202,8 +202,8 @@ const ContactInfoPrivacyTab = ({
             type="button"
             onClick={() => setContactInfoTab("info")}
             className={`px-5 py-2 rounded-full font-medium text-[13px] cursor-pointer transition-all ${isDark
-                ? "bg-white/10 hover:bg-white/15 text-white"
-                : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+              ? "bg-white/10 hover:bg-white/15 text-white"
+              : "bg-gray-200 hover:bg-gray-300 text-gray-800"
               }`}
           >
             OK
@@ -321,8 +321,8 @@ const ContactInfoPrivacyTab = ({
           >
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${advancedPrivacy.enabled
-                  ? "translate-x-5 bg-white"
-                  : "translate-x-0 bg-[#8696a0]"
+                ? "translate-x-5 bg-white"
+                : "translate-x-0 bg-[#8696a0]"
                 }`}
             />
           </button>

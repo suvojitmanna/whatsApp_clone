@@ -569,7 +569,10 @@ export const useChatStore = create((set, get) => ({
     let effectivePinnedBy = pinnedBy;
     if (pinnedBy && typeof pinnedBy === "object" && pinnedBy.username) {
       effectivePinnedBy = pinnedBy;
-    } else if (pinnedBy && (pinnedBy._id || pinnedBy.id || pinnedBy).toString() === currentUserId) {
+    } else if (
+      pinnedBy &&
+      (pinnedBy._id || pinnedBy.id || pinnedBy).toString() === currentUserId
+    ) {
       effectivePinnedBy = user
         ? {
             _id: currentUserId,
@@ -622,7 +625,9 @@ export const useChatStore = create((set, get) => ({
     const isGroupConv = Boolean(
       message?.isGroup ||
       message?.isGroupChat ||
-      (message?.conversation && typeof message.conversation === "object" && message.conversation.isGroup)
+      (message?.conversation &&
+        typeof message.conversation === "object" &&
+        message.conversation.isGroup),
     );
 
     const candidatePeerId = [
@@ -662,8 +667,7 @@ export const useChatStore = create((set, get) => ({
         );
 
       const isMatch =
-        (resolvedConvId && cId === resolvedConvId) ||
-        isDirectChatMatch;
+        (resolvedConvId && cId === resolvedConvId) || isDirectChatMatch;
 
       if (cId && isMatch) {
         return {
@@ -702,7 +706,9 @@ export const useChatStore = create((set, get) => ({
         );
         const selContactId = String(sel._id || "");
         const isSelMatch =
-          (resolvedConvId && (selConvId === resolvedConvId || selContactId === resolvedConvId)) ||
+          (resolvedConvId &&
+            (selConvId === resolvedConvId ||
+              selContactId === resolvedConvId)) ||
           (!sel.isGroup && candidatePeerId && selContactId === candidatePeerId);
 
         if (isSelMatch) {
@@ -768,7 +774,8 @@ export const useChatStore = create((set, get) => ({
     const keysToRemove = new Set();
     if (convIdStr) keysToRemove.add(convIdStr);
     if (candidatePeerId) keysToRemove.add(candidatePeerId);
-    if (currentUserId && updated[currentUserId]) keysToRemove.add(currentUserId);
+    if (currentUserId && updated[currentUserId])
+      keysToRemove.add(currentUserId);
 
     Object.keys(updated).forEach((key) => {
       const pin = updated[key];
@@ -832,7 +839,8 @@ export const useChatStore = create((set, get) => ({
         );
         const selContactId = String(sel._id || "");
         const isSelMatch =
-          (convIdStr && (selConvId === convIdStr || selContactId === convIdStr)) ||
+          (convIdStr &&
+            (selConvId === convIdStr || selContactId === convIdStr)) ||
           (!sel.isGroup && candidatePeerId && selContactId === candidatePeerId);
 
         if (isSelMatch) {
@@ -2054,7 +2062,7 @@ export const useChatStore = create((set, get) => ({
           const isGroup = Boolean(
             conv.isGroup ||
             conv.isGroupChat ||
-            (conv.participants && conv.participants.length > 2)
+            (conv.participants && conv.participants.length > 2),
           );
           const peer = !isGroup
             ? conv.participants?.find(
@@ -2297,7 +2305,7 @@ export const useChatStore = create((set, get) => ({
       formData.get("isGroup") === true ||
       selectedContact?.isGroup ||
       selectedContact?.isGroupChat ||
-      selectedContact?.conversation?.isGroup
+      selectedContact?.conversation?.isGroup,
     );
 
     const { conversations } = get();
@@ -2308,7 +2316,9 @@ export const useChatStore = create((set, get) => ({
       (isActuallyGroup
         ? selectedContact?._id ||
           selectedContact?.id ||
-          (typeof selectedContact?.conversation === "string" ? selectedContact?.conversation : null) ||
+          (typeof selectedContact?.conversation === "string"
+            ? selectedContact?.conversation
+            : null) ||
           receiverId
         : null) ||
       null;
@@ -2322,7 +2332,7 @@ export const useChatStore = create((set, get) => ({
             Boolean(conv.isGroup) &&
             (String(conv._id || conv.id) === String(receiverId) ||
               String(conv._id || conv.id) === String(selectedContact?._id) ||
-              String(conv._id || conv.id) === String(selectedContact?.id))
+              String(conv._id || conv.id) === String(selectedContact?.id)),
         );
         if (groupConv) {
           conversationId = (groupConv._id || groupConv.id)?.toString();
@@ -2332,8 +2342,12 @@ export const useChatStore = create((set, get) => ({
         const conversation = conversations.data.find(
           (conv) =>
             !conv.isGroup &&
-            conv.participants?.some((p) => String(p?._id || p) === String(senderId)) &&
-            conv.participants?.some((p) => String(p?._id || p) === String(receiverId)),
+            conv.participants?.some(
+              (p) => String(p?._id || p) === String(senderId),
+            ) &&
+            conv.participants?.some(
+              (p) => String(p?._id || p) === String(receiverId),
+            ),
         );
 
         if (conversation) {
@@ -2485,7 +2499,9 @@ export const useChatStore = create((set, get) => ({
     if (pollDataRaw) {
       try {
         parsedPollData =
-          typeof pollDataRaw === "string" ? JSON.parse(pollDataRaw) : pollDataRaw;
+          typeof pollDataRaw === "string"
+            ? JSON.parse(pollDataRaw)
+            : pollDataRaw;
       } catch (e) {}
     }
 
@@ -2493,7 +2509,9 @@ export const useChatStore = create((set, get) => ({
     if (eventDataRaw) {
       try {
         parsedEventData =
-          typeof eventDataRaw === "string" ? JSON.parse(eventDataRaw) : eventDataRaw;
+          typeof eventDataRaw === "string"
+            ? JSON.parse(eventDataRaw)
+            : eventDataRaw;
       } catch (e) {}
     }
 
@@ -2573,18 +2591,24 @@ export const useChatStore = create((set, get) => ({
           ),
         );
 
-        const isGroupTarget = isActuallyGroup && Boolean(conv.isGroup) && Boolean(
-          (conversationId && convIdStr === String(conversationId)) ||
-          (receiverId && convIdStr === String(receiverId)) ||
-          (selectedContact?._id && convIdStr === String(selectedContact._id)) ||
-          (selectedContact?.id && convIdStr === String(selectedContact.id)) ||
-          (selectedContact?.conversation?._id && convIdStr === String(selectedContact.conversation._id))
-        );
+        const isGroupTarget =
+          isActuallyGroup &&
+          Boolean(conv.isGroup) &&
+          Boolean(
+            (conversationId && convIdStr === String(conversationId)) ||
+            (receiverId && convIdStr === String(receiverId)) ||
+            (selectedContact?._id &&
+              convIdStr === String(selectedContact._id)) ||
+            (selectedContact?.id && convIdStr === String(selectedContact.id)) ||
+            (selectedContact?.conversation?._id &&
+              convIdStr === String(selectedContact.conversation._id)),
+          );
 
-        const isDirectTarget = !conv.isGroup && !isActuallyGroup && (
-          (conversationId && convIdStr === String(conversationId)) ||
-          (hasSender && hasReceiver)
-        );
+        const isDirectTarget =
+          !conv.isGroup &&
+          !isActuallyGroup &&
+          ((conversationId && convIdStr === String(conversationId)) ||
+            (hasSender && hasReceiver));
 
         const isTarget = isGroupTarget || isDirectTarget;
 
@@ -2613,11 +2637,18 @@ export const useChatStore = create((set, get) => ({
       const layout = useLayoutStore.getState();
       const sel = layout?.selectedContact;
       if (sel) {
-        const selConvId = (sel.conversation?._id || (typeof sel.conversation === "string" ? sel.conversation : null) || (sel.isGroup ? sel._id : null))?.toString();
+        const selConvId = (
+          sel.conversation?._id ||
+          (typeof sel.conversation === "string" ? sel.conversation : null) ||
+          (sel.isGroup ? sel._id : null)
+        )?.toString();
         const selId = (sel._id || sel.id)?.toString();
         const isSelMatch =
-          (conversationId && (selConvId === String(conversationId) || selId === String(conversationId))) ||
-          (isActuallyGroup && (selId === String(receiverId) || selConvId === String(receiverId)));
+          (conversationId &&
+            (selConvId === String(conversationId) ||
+              selId === String(conversationId))) ||
+          (isActuallyGroup &&
+            (selId === String(receiverId) || selConvId === String(receiverId)));
         if (isSelMatch) {
           layout.updateSelectedContact({
             conversation: {
@@ -2694,20 +2725,27 @@ export const useChatStore = create((set, get) => ({
             ),
           );
 
-          const isGroupTarget = isActuallyGroup && Boolean(conv.isGroup) && Boolean(
-            (resolvedConvId && convIdStr === String(resolvedConvId)) ||
-            (conversationId && convIdStr === String(conversationId)) ||
-            (receiverId && convIdStr === String(receiverId)) ||
-            (selectedContact?._id && convIdStr === String(selectedContact._id)) ||
-            (selectedContact?.id && convIdStr === String(selectedContact.id)) ||
-            (selectedContact?.conversation?._id && convIdStr === String(selectedContact.conversation._id))
-          );
+          const isGroupTarget =
+            isActuallyGroup &&
+            Boolean(conv.isGroup) &&
+            Boolean(
+              (resolvedConvId && convIdStr === String(resolvedConvId)) ||
+              (conversationId && convIdStr === String(conversationId)) ||
+              (receiverId && convIdStr === String(receiverId)) ||
+              (selectedContact?._id &&
+                convIdStr === String(selectedContact._id)) ||
+              (selectedContact?.id &&
+                convIdStr === String(selectedContact.id)) ||
+              (selectedContact?.conversation?._id &&
+                convIdStr === String(selectedContact.conversation._id)),
+            );
 
-          const isDirectTarget = !conv.isGroup && !isActuallyGroup && (
-            (resolvedConvId && convIdStr === String(resolvedConvId)) ||
-            (conversationId && convIdStr === String(conversationId)) ||
-            (hasSender && hasReceiver)
-          );
+          const isDirectTarget =
+            !conv.isGroup &&
+            !isActuallyGroup &&
+            ((resolvedConvId && convIdStr === String(resolvedConvId)) ||
+              (conversationId && convIdStr === String(conversationId)) ||
+              (hasSender && hasReceiver));
 
           const isTarget = isGroupTarget || isDirectTarget;
 
@@ -2735,16 +2773,28 @@ export const useChatStore = create((set, get) => ({
         const layout = useLayoutStore.getState();
         const sel = layout?.selectedContact;
         if (sel) {
-          const selConvId = (sel.conversation?._id || (typeof sel.conversation === "string" ? sel.conversation : null) || (sel.isGroup ? sel._id : null))?.toString();
+          const selConvId = (
+            sel.conversation?._id ||
+            (typeof sel.conversation === "string" ? sel.conversation : null) ||
+            (sel.isGroup ? sel._id : null)
+          )?.toString();
           const selId = (sel._id || sel.id)?.toString();
           const isSelMatch =
-            (resolvedConvId && (selConvId === String(resolvedConvId) || selId === String(resolvedConvId))) ||
-            (conversationId && (selConvId === String(conversationId) || selId === String(conversationId))) ||
-            (isActuallyGroup && (selId === String(receiverId) || selConvId === String(receiverId)));
+            (resolvedConvId &&
+              (selConvId === String(resolvedConvId) ||
+                selId === String(resolvedConvId))) ||
+            (conversationId &&
+              (selConvId === String(conversationId) ||
+                selId === String(conversationId))) ||
+            (isActuallyGroup &&
+              (selId === String(receiverId) ||
+                selConvId === String(receiverId)));
           if (isSelMatch) {
             layout.updateSelectedContact({
               conversation: {
-                ...(typeof sel.conversation === "object" ? sel.conversation : {}),
+                ...(typeof sel.conversation === "object"
+                  ? sel.conversation
+                  : {}),
                 lastMessage: savedMessage,
                 updatedAt: savedMessage.createdAt || new Date().toISOString(),
               },
@@ -2866,9 +2916,18 @@ export const useChatStore = create((set, get) => ({
           data: state.conversations?.data?.map((conv) => {
             const cId = (conv?._id || conv?.id)?.toString();
             const isTarget =
-              resolvedConvId && (cId === String(resolvedConvId) || (isActuallyGroup && (cId === String(effectiveReceiverId) || cId === String(groupId))));
+              resolvedConvId &&
+              (cId === String(resolvedConvId) ||
+                (isActuallyGroup &&
+                  (cId === String(effectiveReceiverId) ||
+                    cId === String(groupId))));
             return isTarget
-              ? { ...conv, lastMessage: optimisticCallMsg, unreadCount: 0, updatedAt: new Date().toISOString() }
+              ? {
+                  ...conv,
+                  lastMessage: optimisticCallMsg,
+                  unreadCount: 0,
+                  updatedAt: new Date().toISOString(),
+                }
               : conv;
           }),
         },
@@ -2925,9 +2984,18 @@ export const useChatStore = create((set, get) => ({
             data: state.conversations?.data?.map((conv) => {
               const cId = (conv?._id || conv?.id)?.toString();
               const isTarget =
-                resolvedConvId && (cId === String(resolvedConvId) || (isActuallyGroup && (cId === String(effectiveReceiverId) || cId === String(groupId))));
+                resolvedConvId &&
+                (cId === String(resolvedConvId) ||
+                  (isActuallyGroup &&
+                    (cId === String(effectiveReceiverId) ||
+                      cId === String(groupId))));
               return isTarget
-                ? { ...conv, lastMessage: savedMsg, unreadCount: 0, updatedAt: savedMsg.createdAt || new Date().toISOString() }
+                ? {
+                    ...conv,
+                    lastMessage: savedMsg,
+                    unreadCount: 0,
+                    updatedAt: savedMsg.createdAt || new Date().toISOString(),
+                  }
                 : conv;
             }),
           },
@@ -3100,9 +3168,18 @@ export const useChatStore = create((set, get) => ({
             data: state.conversations?.data?.map((conv) => {
               const cId = (conv?._id || conv?.id)?.toString();
               const isTarget =
-                resolvedConvId && (cId === String(resolvedConvId) || (isActuallyGroup && (cId === String(effectiveReceiverId) || cId === String(groupId))));
+                resolvedConvId &&
+                (cId === String(resolvedConvId) ||
+                  (isActuallyGroup &&
+                    (cId === String(effectiveReceiverId) ||
+                      cId === String(groupId))));
               return isTarget
-                ? { ...conv, lastMessage: savedMsg, unreadCount: 0, updatedAt: savedMsg.createdAt || new Date().toISOString() }
+                ? {
+                    ...conv,
+                    lastMessage: savedMsg,
+                    unreadCount: 0,
+                    updatedAt: savedMsg.createdAt || new Date().toISOString(),
+                  }
                 : conv;
             }),
           },
@@ -3295,8 +3372,7 @@ export const useChatStore = create((set, get) => ({
         );
 
         const isMsgGroup = Boolean(
-          decryptedMessage.isGroup ||
-          decryptedMessage.conversation?.isGroup
+          decryptedMessage.isGroup || decryptedMessage.conversation?.isGroup,
         );
         const isTarget =
           Boolean(targetConvId && cId === targetConvId) ||
@@ -3310,7 +3386,8 @@ export const useChatStore = create((set, get) => ({
 
         const isDuplicateLast = Boolean(
           conv.lastMessage &&
-          String(conv.lastMessage._id || conv.lastMessage.id || "") === String(decryptedMessage._id || "")
+          String(conv.lastMessage._id || conv.lastMessage.id || "") ===
+            String(decryptedMessage._id || ""),
         );
 
         let nextUnread = conv.unreadCount || 0;
@@ -3326,7 +3403,7 @@ export const useChatStore = create((set, get) => ({
             incomingUnread !== null
               ? incomingUnread
               : isDuplicateLast
-                ? (conv.unreadCount || 0)
+                ? conv.unreadCount || 0
                 : (conv.unreadCount || 0) + 1;
         } else if (isSentByCurrentUser) {
           nextUnread = conv.unreadCount || 0;
@@ -3343,8 +3420,7 @@ export const useChatStore = create((set, get) => ({
         const uId = (u._id || u.id)?.toString();
         const uConvId = (u.conversation?._id || u.conversation)?.toString();
         const isMsgGroup = Boolean(
-          decryptedMessage.isGroup ||
-          decryptedMessage.conversation?.isGroup
+          decryptedMessage.isGroup || decryptedMessage.conversation?.isGroup,
         );
         const isMatch =
           Boolean(targetConvId && uConvId === targetConvId) ||
@@ -3353,7 +3429,11 @@ export const useChatStore = create((set, get) => ({
         if (isMatch && u.conversation) {
           const isDuplicateLast = Boolean(
             u.conversation.lastMessage &&
-            String(u.conversation.lastMessage._id || u.conversation.lastMessage.id || "") === String(decryptedMessage._id || "")
+            String(
+              u.conversation.lastMessage._id ||
+                u.conversation.lastMessage.id ||
+                "",
+            ) === String(decryptedMessage._id || ""),
           );
 
           let nextUnread = u.conversation.unreadCount || 0;
@@ -3369,7 +3449,7 @@ export const useChatStore = create((set, get) => ({
               incomingUnread !== null
                 ? incomingUnread
                 : isDuplicateLast
-                  ? (u.conversation.unreadCount || 0)
+                  ? u.conversation.unreadCount || 0
                   : (u.conversation.unreadCount || 0) + 1;
           }
 
@@ -3447,7 +3527,7 @@ export const useChatStore = create((set, get) => ({
             msg.conversation?.isGroup ||
             selectedContact?.isGroup ||
             selectedContact?.isGroupChat ||
-            currentConversation?.isGroup
+            currentConversation?.isGroup,
           );
           if (isGroupMsg) {
             const hasMyRead =

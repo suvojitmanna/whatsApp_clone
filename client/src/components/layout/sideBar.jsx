@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
+import useStatusStore from "../../store/statusStore";
 import { useChatStore } from "../../store/chatStore";
 import { FaWhatsapp, FaUserCircle, FaCog } from "react-icons/fa";
 import { MdOutlineCall, MdRadioButtonChecked } from "react-icons/md";
@@ -18,7 +19,38 @@ const sideBar = () => {
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const { activeTab, setActiveTab, selectedContact, setSelectedContact, isMediaModalOpen, openMediaModal } = useLayoutStore();
+  const { statuses, fetchStatuses, initializeSocket, cleanupSocket } = useStatusStore();
   const isDark = theme === "dark";
+
+  useEffect(() => {
+    if (user?._id) {
+      fetchStatuses();
+      initializeSocket();
+    }
+    return () => {
+      cleanupSocket();
+    };
+  }, [user?._id, fetchStatuses, initializeSocket, cleanupSocket]);
+
+  const hasUnreadStatus = useMemo(() => {
+    if (!user?._id || !Array.isArray(statuses) || statuses.length === 0) return false;
+    const currentUserId = user._id.toString();
+    const now = new Date();
+
+    return statuses.some((status) => {
+      const statusUserId = (status.user?._id || status.user)?.toString();
+      if (!statusUserId || statusUserId === currentUserId) return false;
+      if (status.expireAt && new Date(status.expireAt) <= now) return false;
+      const isViewed =
+        Array.isArray(status.viewers) &&
+        status.viewers.some((viewer) => {
+          const vId = (viewer.user?._id || viewer.user || viewer)?.toString();
+          return vId === currentUserId;
+        });
+
+      return !isViewed;
+    });
+  }, [statuses, user?._id]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -37,14 +69,21 @@ const sideBar = () => {
   const getIconClass = (tabName) => {
     const isActive =
       activeTab === tabName || (tabName === "media" && isMediaModalOpen);
+    const isStatusTab = tabName === "status";
+    const highlightStatus = isStatusTab && hasUnreadStatus && !isActive;
+
     return `relative transition-all duration-300 ease-in-out p-3 rounded-2xl flex items-center justify-center cursor-pointer border
       ${isActive
         ? theme === "dark"
           ? "bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)] border-emerald-500/40 ring-1 ring-emerald-500/30"
           : "bg-emerald-50 text-emerald-600 shadow-sm border-emerald-500/30 ring-1 ring-emerald-500/20"
-        : theme === "dark"
-          ? "border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 hover:border-gray-600/40"
-          : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-100 hover:border-gray-300/60"
+        : highlightStatus
+          ? theme === "dark"
+            ? "border-emerald-500/40 text-[#25d366] bg-emerald-500/10 shadow-[0_0_12px_rgba(37,211,102,0.25)] hover:bg-emerald-500/20"
+            : "border-emerald-500/30 text-[#25d366] bg-emerald-50 shadow-xs hover:bg-emerald-100/60"
+          : theme === "dark"
+            ? "border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-700/50 hover:border-gray-600/40"
+            : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-100 hover:border-gray-300/60"
       }`;
   };
 
@@ -75,14 +114,24 @@ const sideBar = () => {
           </motion.div>
         </Link>
 
-        <Link to="/status" title="Status" aria-label="Status">
+        <Link to="/status" title="Status" aria-label="Status" className="relative group">
           <motion.div
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             className={getIconClass("status")}
             title="Status"
           >
-            <MdRadioButtonChecked className="h-6 w-6" />
+            <MdRadioButtonChecked
+              className={`h-6 w-6 transition-colors duration-200 ${
+                hasUnreadStatus && activeTab !== "status" ? "text-[#25d366]" : ""
+              }`}
+            />
+            {hasUnreadStatus && (
+              <span
+                className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#25d366] ring-2 ring-[#f0f2f5] dark:ring-[#111b21] shadow-xs"
+                title="New status update"
+              />
+            )}
           </motion.div>
         </Link>
 

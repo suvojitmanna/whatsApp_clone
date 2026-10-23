@@ -252,9 +252,9 @@ const FileViewerModal = ({
       const curId = String(messageId);
       return Boolean(
         pMsgId &&
-          curId &&
-          pMsgId === curId &&
-          (!p.expiresAt || p.expiresAt > Date.now())
+        curId &&
+        pMsgId === curId &&
+        (!p.expiresAt || p.expiresAt > Date.now())
       );
     });
   }, [pinnedMessages, messageId]);
@@ -511,9 +511,8 @@ const FileViewerModal = ({
               type="button"
               onClick={handlePinToggle}
               title={isPinned ? "Unpin" : "Pin"}
-              className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
-                isPinned ? "text-[#00a884]" : "hover:text-white"
-              }`}
+              className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${isPinned ? "text-[#00a884]" : "hover:text-white"
+                }`}
             >
               {isPinned ? <BsPinFill size={18} /> : <BsPin size={18} />}
             </button>
@@ -523,9 +522,8 @@ const FileViewerModal = ({
                 type="button"
                 onClick={() => setShowReactionPicker((prev) => !prev)}
                 title={myReaction ? `Reacted ${myReaction.emoji}` : "React"}
-                className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
-                  myReaction ? "text-[#00a884]" : "hover:text-white"
-                }`}
+                className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${myReaction ? "text-[#00a884]" : "hover:text-white"
+                  }`}
               >
                 {myReaction?.emoji ? (
                   <span className="text-[17px] leading-none select-none">
@@ -552,11 +550,10 @@ const FileViewerModal = ({
                           key={emoji}
                           type="button"
                           onClick={() => handleSelectReaction(emoji)}
-                          className={`w-9 h-9 flex items-center justify-center text-xl rounded-full transition-transform hover:scale-125 cursor-pointer ${
-                            isSelected
-                              ? "bg-white/20 scale-110 ring-1 ring-[#00a884]"
-                              : "hover:bg-white/10"
-                          }`}
+                          className={`w-9 h-9 flex items-center justify-center text-xl rounded-full transition-transform hover:scale-125 cursor-pointer ${isSelected
+                            ? "bg-white/20 scale-110 ring-1 ring-[#00a884]"
+                            : "hover:bg-white/10"
+                            }`}
                           title={
                             isSelected ? "Remove reaction" : `React with ${emoji}`
                           }
@@ -715,8 +712,8 @@ const FileViewerModal = ({
                     type="button"
                     onClick={() => setCurrentIndex(idx)}
                     className={`relative w-12 h-12 rounded-sm overflow-hidden shrink-0 transition-all cursor-pointer ${isActive
-                        ? "border-[2.5px] border-[#00a884] ring-1 ring-[#00a884]/40 scale-105 z-10 opacity-100"
-                        : "opacity-60 hover:opacity-100 border border-white/10"
+                      ? "border-[2.5px] border-[#00a884] ring-1 ring-[#00a884]/40 scale-105 z-10 opacity-100"
+                      : "opacity-60 hover:opacity-100 border border-white/10"
                       }`}
                   >
                     {isItemVideo ? (

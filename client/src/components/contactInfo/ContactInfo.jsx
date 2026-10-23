@@ -307,6 +307,31 @@ const ContactInfo = () => {
     return null;
   }, [viewingMember, isGroup, targetUserId, selectedContact]);
 
+  const viewingMemberConv = useMemo(() => {
+    if (!viewingMember) return null;
+    const mId = (viewingMember._id || viewingMember.id)?.toString();
+    if (!mId) return null;
+    const convList = Array.isArray(conversations?.data)
+      ? conversations.data
+      : [];
+    return convList.find(
+      (c) =>
+        !c.isGroup &&
+        !c.isGroupChat &&
+        c.participants?.some(
+          (p) => (p?._id || p)?.toString() === mId
+        )
+    );
+  }, [viewingMember, conversations?.data]);
+
+  const effectiveChatId = useMemo(() => {
+    if (viewingMember) {
+      const mId = (viewingMember._id || viewingMember.id)?.toString();
+      return (viewingMemberConv?._id || mId || chatId)?.toString();
+    }
+    return chatId;
+  }, [viewingMember, viewingMemberConv?._id, chatId]);
+
   const commonGroups = useMemo(() => {
     const currentUserId = user?._id?.toString();
     if (
@@ -482,21 +507,21 @@ const ContactInfo = () => {
       const map = JSON.parse(
         localStorage.getItem("whatsapp_contact_lists") || "{}"
       );
-      return (chatId && map[chatId]) || [];
+      return (effectiveChatId && map[effectiveChatId]) || [];
     } catch {
       return [];
     }
   });
 
   useEffect(() => {
-    if (!chatId) return;
+    if (!effectiveChatId) return;
     try {
       const map = JSON.parse(
         localStorage.getItem("whatsapp_contact_lists") || "{}"
       );
-      setContactLists(map[chatId] || []);
+      setContactLists(map[effectiveChatId] || []);
     } catch { }
-  }, [chatId]);
+  }, [effectiveChatId]);
 
   const chatStarredMessages = useMemo(() => {
     if (!starredMessages) return [];
@@ -520,6 +545,18 @@ const ContactInfo = () => {
         )?.toString();
         const sId = (msg.sender?._id || msg.sender)?.toString();
         const rId = (msg.receiver?._id || msg.receiver)?.toString();
+
+        if (viewingMember) {
+          const vId = (viewingMember._id || viewingMember.id)?.toString();
+          const vConvId = viewingMemberConv?._id?.toString();
+          return (
+            sId === vId ||
+            rId === vId ||
+            (vConvId && convId === vConvId) ||
+            convId === effectiveChatId
+          );
+        }
+
         return (
           convId === chatId ||
           sId === chatId ||
@@ -530,30 +567,30 @@ const ContactInfo = () => {
         );
       })
       .sort((a, b) => (b.starredAt || 0) - (a.starredAt || 0));
-  }, [starredMessages, messages, chatId, selectedContact?._id]);
+  }, [starredMessages, messages, chatId, selectedContact?._id, viewingMember, viewingMemberConv?._id, effectiveChatId]);
 
   const chatKeptMessages = useMemo(() => {
-    if (!chatId) return [];
+    if (!effectiveChatId) return [];
     try {
       const keptMessagesMap = JSON.parse(
         localStorage.getItem("whatsapp_kept_messages") || "{}"
       );
-      if (!keptMessagesMap?.[chatId]) return [];
-      return Object.values(keptMessagesMap[chatId]).sort(
+      if (!keptMessagesMap?.[effectiveChatId]) return [];
+      return Object.values(keptMessagesMap[effectiveChatId]).sort(
         (a, b) => (b.keptAt || 0) - (a.keptAt || 0)
       );
     } catch {
       return [];
     }
-  }, [chatId]);
+  }, [effectiveChatId]);
 
-  const activeChatThemeId = (chatId && chatThemes?.[chatId]) || "default";
+  const activeChatThemeId = (effectiveChatId && chatThemes?.[effectiveChatId]) || "default";
   const activeChatTheme = getChatTheme(activeChatThemeId);
-  const customBubbleColor = chatId && chatBubbleColors?.[chatId];
+  const customBubbleColor = effectiveChatId && chatBubbleColors?.[effectiveChatId];
   const activeBubbleColor = customBubbleColor || activeChatTheme.bubbleColor;
-  const doodlesEnabled = chatId ? chatDoodles?.[chatId] !== false : true;
+  const doodlesEnabled = effectiveChatId ? chatDoodles?.[effectiveChatId] !== false : true;
   const disappearingDuration =
-    (chatId && disappearingDurations?.[chatId]) || defaultMessageTimer || "Off";
+    (effectiveChatId && disappearingDurations?.[effectiveChatId]) || defaultMessageTimer || "Off";
 
   const cursorTooltipRef = useRef(null);
   const updateCursorTooltip = useCallback((e, text) => {
@@ -573,15 +610,15 @@ const ContactInfo = () => {
   }, []);
 
   const handleResetTheme = () => {
-    if (chatId) {
-      resetChatTheme(chatId);
+    if (effectiveChatId) {
+      resetChatTheme(effectiveChatId);
       toast.success("Chat theme reset to default");
     }
   };
 
   const handleResetBubbleColor = () => {
-    if (chatId) {
-      resetChatBubbleColor(chatId);
+    if (effectiveChatId) {
+      resetChatBubbleColor(effectiveChatId);
       toast.info("Chat bubble reset to theme default");
     }
   };
@@ -696,6 +733,15 @@ const ContactInfo = () => {
   };
 
   const handleExecuteClearChat = async () => {
+    if (viewingMember) {
+      const memberId = (viewingMember._id || viewingMember.id)?.toString();
+      const memberConv = viewingMemberConv?._id?.toString();
+      await clearChat(memberConv || chatId, memberId);
+      toast.success(
+        `Chat with ${viewingMember?.username || viewingMember?.name || "contact"} cleared`
+      );
+      return;
+    }
     const targetId = targetUserId || selectedContact?._id;
     await clearChat(chatId, targetId);
     toast.success("Chat cleared");
@@ -1076,7 +1122,8 @@ const ContactInfo = () => {
                 theme={theme}
                 user={user}
                 selectedContact={selectedContact}
-                chatId={chatId}
+                chatId={effectiveChatId}
+                groupChatId={chatId}
                 isGroup={isGroup}
                 isMetaAi={isMetaAi}
                 targetUserId={targetUserId}
@@ -1151,7 +1198,7 @@ const ContactInfo = () => {
                 <ContactInfoPrivacyTab
                   contactInfoTab={contactInfoTab}
                   setContactInfoTab={setContactInfoTab}
-                  chatId={chatId}
+                  chatId={effectiveChatId}
                   theme={theme}
                 />
               )}
@@ -1161,7 +1208,7 @@ const ContactInfo = () => {
                 <ContactInfoDisappearingTab
                   contactInfoTab={contactInfoTab}
                   setContactInfoTab={setContactInfoTab}
-                  chatId={chatId}
+                  chatId={effectiveChatId}
                   disappearingDurations={disappearingDurations}
                   setDisappearingDuration={setDisappearingDuration}
                   defaultMessageTimer={defaultMessageTimer}
@@ -1178,7 +1225,7 @@ const ContactInfo = () => {
                 <ContactInfoThemeTab
                   contactInfoTab={contactInfoTab}
                   setContactInfoTab={setContactInfoTab}
-                  chatId={chatId}
+                  chatId={effectiveChatId}
                   chatThemes={chatThemes}
                   chatBubbleColors={chatBubbleColors}
                   chatDoodles={chatDoodles}
@@ -1193,10 +1240,10 @@ const ContactInfo = () => {
             {(contactInfoTab === "starred" || contactInfoTab === "kept") && (
               <ContactInfoStarredTab
                 contactInfoTab={contactInfoTab}
-                chatId={chatId}
+                chatId={effectiveChatId}
                 theme={theme}
                 user={user}
-                selectedContact={selectedContact}
+                selectedContact={viewingMember || selectedContact}
                 starredMessages={starredMessages}
                 messages={messages}
                 toggleStarMessage={toggleStarMessage}
@@ -1225,8 +1272,8 @@ const ContactInfo = () => {
 
             {contactInfoTab === "lists" && (
               <ContactInfoListsTab
-                chatId={chatId}
-                selectedContact={selectedContact}
+                chatId={effectiveChatId}
+                selectedContact={viewingMember || selectedContact}
                 theme={theme}
               />
             )}
