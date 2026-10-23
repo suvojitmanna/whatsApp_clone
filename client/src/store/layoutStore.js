@@ -72,6 +72,7 @@ const useLayoutStore = create(
           return {
             selectedContact: nextContact,
             selectedMessageInfo: null,
+            viewingMember: null,
           };
         });
       },
@@ -100,6 +101,17 @@ const useLayoutStore = create(
 
       contactInfoTab: "info",
       previousContactInfoTab: "info",
+      viewingMember: null,
+      setViewingMember: (member) => set({ viewingMember: member }),
+      openContactInfoWithMember: (member) =>
+        set({
+          showContactInfo: true,
+          contactInfoTab: "info",
+          viewingMember: member,
+          selectedPollMessage: null,
+          selectedPollMessageId: null,
+          selectedMessageInfo: null,
+        }),
       setShowContactInfo: (value) =>
         set((state) => ({
           showContactInfo: value,
@@ -109,7 +121,11 @@ const useLayoutStore = create(
                 selectedPollMessageId: null,
                 selectedMessageInfo: null,
               }
-            : { contactInfoTab: "info", previousContactInfoTab: "info" }),
+            : {
+                contactInfoTab: "info",
+                previousContactInfoTab: "info",
+                viewingMember: null,
+              }),
         })),
       setContactInfoTab: (tab) =>
         set((state) => ({

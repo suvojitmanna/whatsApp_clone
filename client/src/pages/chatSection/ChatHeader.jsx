@@ -281,8 +281,8 @@ const ChatHeader = ({
                 setShowContactInfo(true);
               }}
               className={`text-xs sm:text-sm truncate cursor-pointer hover:underline ${theme === "dark"
-                  ? "text-gray-400 hover:text-emerald-400"
-                  : "text-gray-500 hover:text-emerald-600"
+                ? "text-gray-400 hover:text-emerald-400"
+                : "text-gray-500 hover:text-emerald-600"
                 } transition-colors`}
               title="Click here for group info"
             >

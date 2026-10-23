@@ -235,6 +235,9 @@ const MessageBuble = ({
   const setShowContactInfo = useLayoutStore(
     (state) => state.setShowContactInfo
   );
+  const openContactInfoWithMember = useLayoutStore(
+    (state) => state.openContactInfoWithMember
+  );
   const storeUser = useUserStore((state) => state.user);
   const effectiveUser = currentUser || storeUser;
   const currentUserId = (effectiveUser?._id || effectiveUser?.id)?.toString();
@@ -382,6 +385,76 @@ const MessageBuble = ({
   }, [isGroupChat, isUserMessage, senderId, activeContact, conversationObj, isSenderAdmin]);
 
   const isSticker = message.contentType === "sticker";
+
+  const handleOpenSenderContactInfo = useCallback(
+    (e) => {
+      if (isSelectMode) return;
+      e.stopPropagation();
+      if (!senderId || isUserMessage || isMetaAiMessage) return;
+
+      const rawParticipants =
+        activeContact?.participants ||
+        activeContact?.conversation?.participants ||
+        conversationObj?.participants ||
+        [];
+      let targetMember = null;
+      if (Array.isArray(rawParticipants)) {
+        targetMember = rawParticipants.find(
+          (p) => (p?._id || p?.id || p)?.toString() === senderId
+        );
+      }
+
+      if (targetMember && typeof targetMember === "object") {
+        targetMember = {
+          ...targetMember,
+          _id: targetMember._id || senderId,
+          username: targetMember.username || senderDisplayName,
+          profilePicture:
+            targetMember.profilePicture ||
+            targetMember.profilePic ||
+            targetMember.avatar ||
+            senderAvatar,
+        };
+      } else if (typeof message?.sender === "object" && message.sender) {
+        targetMember = {
+          ...message.sender,
+          _id: message.sender._id || senderId,
+          username: message.sender.username || senderDisplayName,
+          profilePicture:
+            message.sender.profilePicture ||
+            message.sender.profilePic ||
+            message.sender.avatar ||
+            senderAvatar,
+        };
+      } else {
+        targetMember = {
+          _id: senderId,
+          username: senderDisplayName,
+          profilePicture: senderAvatar,
+        };
+      }
+
+      if (openContactInfoWithMember) {
+        openContactInfoWithMember(targetMember);
+      } else {
+        useLayoutStore.getState().setViewingMember?.(targetMember);
+        setShowContactInfo(true);
+      }
+    },
+    [
+      isSelectMode,
+      senderId,
+      isUserMessage,
+      isMetaAiMessage,
+      activeContact,
+      conversationObj,
+      senderDisplayName,
+      senderAvatar,
+      message?.sender,
+      openContactInfoWithMember,
+      setShowContactInfo,
+    ]
+  );
   const isDisappearingExpired = useMemo(() => {
     if (!message || message.isKept || message.deletedForEveryone) return false;
     if (message.isDisappearing) {
@@ -1138,11 +1211,7 @@ const MessageBuble = ({
           <div className="shrink-0 mr-1.5 self-start mt-0.5 select-none">
             {isFirstInSequence ? (
               <div
-                onClick={(e) => {
-                  if (isSelectMode) return;
-                  e.stopPropagation();
-                  setShowContactInfo(true);
-                }}
+                onClick={handleOpenSenderContactInfo}
                 className="cursor-pointer transition-transform hover:scale-105 active:scale-95"
                 title={senderDisplayName}
               >
@@ -1247,11 +1316,7 @@ const MessageBuble = ({
               {isGroupChat && !isUserMessage && !isMetaAiMessage && isFirstInSequence && !isSticker && (
                 <div className="flex items-center gap-1.5 mb-1 select-none">
                   <span
-                    onClick={(e) => {
-                      if (isSelectMode) return;
-                      e.stopPropagation();
-                      setShowContactInfo(true);
-                    }}
+                    onClick={handleOpenSenderContactInfo}
                     className="text-[12.8px] font-semibold leading-tight truncate hover:underline cursor-pointer"
                     style={{ color: senderColor }}
                     title={senderDisplayName}
@@ -2293,11 +2358,7 @@ const MessageBuble = ({
                     {isGroupChat && !isUserMessage && !isMetaAiMessage && isFirstInSequence && (
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 mb-1.5 rounded-[7.5px] bg-[#202c33] dark:bg-[#202c33] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] select-none">
                         <span
-                          onClick={(e) => {
-                            if (isSelectMode) return;
-                            e.stopPropagation();
-                            setShowContactInfo(true);
-                          }}
+                          onClick={handleOpenSenderContactInfo}
                           className="text-[12.5px] font-semibold leading-tight truncate hover:underline cursor-pointer"
                           style={{ color: senderColor }}
                           title={senderDisplayName}
