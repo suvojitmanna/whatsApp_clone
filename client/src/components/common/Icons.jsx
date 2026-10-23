@@ -1935,11 +1935,90 @@ export const LockClosedIcon = ({
   );
 };
 
+export const WhatsAppAiSparklesLargeIcon = ({
+  size = 64,
+  width,
+  height,
+  className = "text-[#25d366]",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      width={w}
+      height={h}
+      fill="currentColor"
+      className={className}
+      {...props}
+    >
+      <circle cx="28" cy="30" r="5.5" />
+      <path d="M52 14 C52 13 53 12 54 12 C55 12 56 13 56 14 L56 18 L60 18 C61 18 62 19 62 20 C62 21 61 22 60 22 L56 22 L56 26 C56 27 55 28 54 28 C53 28 52 27 52 26 L52 22 L48 22 C47 22 46 21 46 20 C46 19 47 18 48 18 L52 18 Z" />
+      <path d="M72 23 C73 21 75 21 76 22 L83 31 C84 32 83 34 81 35 L71 36 C69 36 68 34 69 33 Z" />
+      <path d="M50 26 C50 39 39 50 26 50 C39 50 50 61 50 74 C50 61 61 50 74 50 C61 50 50 39 50 26 Z" />
+    </svg>
+  );
+};
+
+export const AiLockQualityIcon = ({
+  size = 20,
+  width,
+  height,
+  className = "text-[#8696a0]",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="currentColor"
+      className={className}
+      {...props}
+    >
+      <path
+        fillRule="evenodd"
+        d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+};
+
+export const GenerativeAiSparkleIcon = ({
+  size = 20,
+  width,
+  height,
+  className = "text-[#8696a0]",
+  ...props
+}) => {
+  const w = width ?? size;
+  const h = height ?? size;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="currentColor"
+      className={className}
+      {...props}
+    >
+      <path d="M12 2C12 7.52 7.52 12 2 12C7.52 12 12 16.48 12 22C12 16.48 16.48 12 22 12C16.48 12 12 7.52 12 2Z" />
+      <circle cx="19" cy="5" r="2" />
+      <circle cx="5" cy="19" r="1.5" />
+    </svg>
+  );
+};
+
 export {
   MetaAiRing,
   MetaAiBadge,
   META_AI_USER_ID,
   META_AI_AVATAR,
 } from "./MetaAiIcon";
+
 
 

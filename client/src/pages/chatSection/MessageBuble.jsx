@@ -1144,8 +1144,8 @@ const MessageBuble = ({
       >
         <div
           className={`max-w-[520px] px-3.5 py-1.5 rounded-lg text-xs font-normal leading-[18px] shadow-sm text-center inline-flex items-center justify-center gap-1.5 transition-colors border select-none ${isDark
-              ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0]"
-              : "bg-white border-black/5 text-[#54656f]"
+            ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0]"
+            : "bg-white border-black/5 text-[#54656f]"
             }`}
         >
           <span>{systemText}</span>
@@ -1326,8 +1326,8 @@ const MessageBuble = ({
                   {senderTag ? (
                     <span
                       className={`text-[10px] font-medium px-1.5 py-0.2 rounded-full border leading-tight shrink-0 ${isDark
-                          ? "bg-white/10 text-white/80 border-white/15"
-                          : "bg-black/5 text-gray-700 border-black/10"
+                        ? "bg-white/10 text-white/80 border-white/15"
+                        : "bg-black/5 text-gray-700 border-black/10"
                         }`}
                     >
                       {senderTag}
@@ -2368,8 +2368,8 @@ const MessageBuble = ({
                         {senderTag ? (
                           <span
                             className={`text-[10px] font-medium px-1.5 py-0.2 rounded-full border leading-tight shrink-0 ${isDark
-                                ? "bg-white/10 text-white/80 border-white/15"
-                                : "bg-black/5 text-gray-700 border-black/10"
+                              ? "bg-white/10 text-white/80 border-white/15"
+                              : "bg-black/5 text-gray-700 border-black/10"
                               }`}
                           >
                             {senderTag}
