@@ -430,17 +430,17 @@ const Call = () => {
                       const displayAvatar = isGroup ? (call.groupAvatar || call.contactAvatar) : call.contactAvatar;
                       const groupCallOpts = isGroup
                         ? {
-                            isGroup: true,
-                            groupId: call.groupId,
-                            groupName: call.groupName || displayName,
-                            groupAvatar: call.groupAvatar || displayAvatar,
-                            participantIds:
-                              call.participantIds ||
-                              (call.participants
-                                ? call.participants.map((p) => p._id || p.id || p)
-                                : []),
-                            participants: call.participants,
-                          }
+                          isGroup: true,
+                          groupId: call.groupId,
+                          groupName: call.groupName || displayName,
+                          groupAvatar: call.groupAvatar || displayAvatar,
+                          participantIds:
+                            call.participantIds ||
+                            (call.participants
+                              ? call.participants.map((p) => p._id || p.id || p)
+                              : []),
+                          participants: call.participants,
+                        }
                         : {};
 
                       return (
@@ -509,11 +509,10 @@ const Call = () => {
 
                                 {isGroup && (
                                   <span
-                                    className={`text-[11px] px-1.5 py-0.2 rounded font-medium ${
-                                      isDark
+                                    className={`text-[11px] px-1.5 py-0.2 rounded font-medium ${isDark
                                         ? "bg-[#202c33] text-[#8696a0]"
                                         : "bg-[#e9edef] text-[#54656f]"
-                                    }`}
+                                      }`}
                                   >
                                     Group
                                   </span>

@@ -1358,7 +1358,10 @@ export const useChatStore = create((set, get) => ({
         });
 
         let nextConversations = state.conversations;
-        if (state.conversations?.data && Array.isArray(state.conversations.data)) {
+        if (
+          state.conversations?.data &&
+          Array.isArray(state.conversations.data)
+        ) {
           let convsChanged = false;
           const updatedData = state.conversations.data.map((conv) => {
             const lastMsg = conv.lastMessage;
@@ -1380,7 +1383,10 @@ export const useChatStore = create((set, get) => ({
                   (d) => String(d.user?._id || d.user || d) === String(userId),
                 )
               ) {
-                existingDeliveredTo.push({ user: userId, deliveredAt: timestamp });
+                existingDeliveredTo.push({
+                  user: userId,
+                  deliveredAt: timestamp,
+                });
               }
               if (
                 action === "read" &&
@@ -2529,10 +2535,18 @@ export const useChatStore = create((set, get) => ({
       groupId ||
       selectedContact?.isGroup ||
       selectedContact?.isGroupChat ||
-      selectedContact?.conversation?.isGroup
+      selectedContact?.conversation?.isGroup,
     );
-    const resolvedGroupId = groupId || (isActuallyGroup ? (conversationId || selectedContact?._id || selectedContact?.conversation?._id) : null);
-    const effectiveReceiverId = isActuallyGroup ? resolvedGroupId : (receiverId || selectedContact?._id);
+    const resolvedGroupId =
+      groupId ||
+      (isActuallyGroup
+        ? conversationId ||
+          selectedContact?._id ||
+          selectedContact?.conversation?._id
+        : null);
+    const effectiveReceiverId = isActuallyGroup
+      ? resolvedGroupId
+      : receiverId || selectedContact?._id;
     if (!effectiveReceiverId || !currentUserId) return;
 
     const resolvedConvId =
@@ -2566,7 +2580,10 @@ export const useChatStore = create((set, get) => ({
       receiver: isActuallyGroup
         ? {
             _id: resolvedGroupId,
-            groupName: selectedContact?.groupName || selectedContact?.username || "Group",
+            groupName:
+              selectedContact?.groupName ||
+              selectedContact?.username ||
+              "Group",
             profilePicture: selectedContact?.profilePicture,
             isGroup: true,
           }
@@ -2692,10 +2709,18 @@ export const useChatStore = create((set, get) => ({
       groupId ||
       selectedContact?.isGroup ||
       selectedContact?.isGroupChat ||
-      selectedContact?.conversation?.isGroup
+      selectedContact?.conversation?.isGroup,
     );
-    const resolvedGroupId = groupId || (isActuallyGroup ? (conversationId || selectedContact?._id || selectedContact?.conversation?._id) : null);
-    const effectiveReceiverId = isActuallyGroup ? resolvedGroupId : (receiverId || selectedContact?._id);
+    const resolvedGroupId =
+      groupId ||
+      (isActuallyGroup
+        ? conversationId ||
+          selectedContact?._id ||
+          selectedContact?.conversation?._id
+        : null);
+    const effectiveReceiverId = isActuallyGroup
+      ? resolvedGroupId
+      : receiverId || selectedContact?._id;
     if (!effectiveReceiverId || !currentUserId) return;
 
     const resolvedConvId =
@@ -2734,7 +2759,10 @@ export const useChatStore = create((set, get) => ({
       receiver: isActuallyGroup
         ? {
             _id: resolvedGroupId,
-            groupName: selectedContact?.groupName || selectedContact?.username || "Group",
+            groupName:
+              selectedContact?.groupName ||
+              selectedContact?.username ||
+              "Group",
             profilePicture: selectedContact?.profilePicture,
             isGroup: true,
           }

@@ -332,41 +332,36 @@ const ChatHeader = ({
         )}
       </div>
 
-      {/* Right-side Action Buttons */}
       <div className="flex items-center gap-1 sm:gap-2 ml-auto shrink-0 relative">
         {!isMetaAi && (
           isGroup ? (
-            /* WhatsApp Group Call Dropdown */
             <div className="relative" ref={callDropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsCallDropdownOpen((prev) => !prev)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
-                  isCallDropdownOpen
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${isCallDropdownOpen
                     ? theme === "dark"
                       ? "bg-[#2a3942] border-[#374248] text-white"
                       : "bg-gray-200 border-gray-300 text-gray-900"
                     : theme === "dark"
                       ? "border-transparent text-[#aebac1] hover:text-white hover:bg-white/10"
                       : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-black/5"
-                }`}
+                  }`}
                 title="Call group"
               >
                 <LuVideo className="h-5 w-5" />
                 <FaCaretDown
-                  className={`h-2.5 w-2.5 transition-transform duration-200 ${
-                    isCallDropdownOpen ? "rotate-180" : ""
-                  }`}
+                  className={`h-2.5 w-2.5 transition-transform duration-200 ${isCallDropdownOpen ? "rotate-180" : ""
+                    }`}
                 />
               </button>
 
               {isCallDropdownOpen && (
                 <div
-                  className={`absolute right-0 top-full mt-2 w-52 sm:w-56 rounded-2xl py-2 shadow-2xl z-50 border transition-all animate-in fade-in zoom-in-95 duration-150 ${
-                    theme === "dark"
+                  className={`absolute right-0 top-full mt-2 w-52 sm:w-56 rounded-2xl py-2 shadow-2xl z-50 border transition-all animate-in fade-in zoom-in-95 duration-150 ${theme === "dark"
                       ? "bg-[#233138] border-[#374248] text-[#e9edef]"
                       : "bg-white border-gray-100 text-[#111b21] shadow-[0_10px_35px_rgba(0,0,0,0.12)]"
-                  }`}
+                    }`}
                 >
                   <button
                     type="button"
@@ -374,11 +369,10 @@ const ChatHeader = ({
                       setIsCallDropdownOpen(false);
                       handleAudioCall?.();
                     }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${
-                      theme === "dark"
+                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
                         ? "hover:bg-[#182229] text-[#e9edef]"
                         : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                      }`}
                   >
                     <LuPhone className="h-[18px] w-[18px] text-[#aebac1]" />
                     <span className="font-normal">Voice call</span>
@@ -390,20 +384,18 @@ const ChatHeader = ({
                       setIsCallDropdownOpen(false);
                       handleVideoCall?.();
                     }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${
-                      theme === "dark"
+                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
                         ? "hover:bg-[#182229] text-[#e9edef]"
                         : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                      }`}
                   >
                     <LuVideo className="h-[18px] w-[18px] text-[#aebac1]" />
                     <span className="font-normal">Video call</span>
                   </button>
 
                   <div
-                    className={`my-1 border-t ${
-                      theme === "dark" ? "border-white/10" : "border-gray-200/80"
-                    }`}
+                    className={`my-1 border-t ${theme === "dark" ? "border-white/10" : "border-gray-200/80"
+                      }`}
                   />
 
                   <button
@@ -412,11 +404,10 @@ const ChatHeader = ({
                       setIsCallDropdownOpen(false);
                       setShowSelectPeopleModal(true);
                     }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${
-                      theme === "dark"
+                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
                         ? "hover:bg-[#182229] text-[#e9edef]"
                         : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                      }`}
                   >
                     <LuUserCheck className="h-[18px] w-[18px] text-[#aebac1]" />
                     <span className="font-normal">Select people</span>
@@ -452,11 +443,10 @@ const ChatHeader = ({
                         toast.error("Failed to send call link");
                       }
                     }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${
-                      theme === "dark"
+                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
                         ? "hover:bg-[#182229] text-[#e9edef]"
                         : "hover:bg-[#f5f6f6] text-[#111b21]"
-                    }`}
+                      }`}
                   >
                     <LuLink className="h-[18px] w-[18px] text-[#aebac1]" />
                     <span className="font-normal">Send call link</span>
@@ -465,7 +455,6 @@ const ChatHeader = ({
               )}
             </div>
           ) : (
-            /* 1-on-1 calls */
             <div className="flex items-center space-x-1 sm:space-x-2">
               <button
                 className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer text-gray-600 dark:text-[#aebac1] hover:text-emerald-500"
@@ -486,16 +475,13 @@ const ChatHeader = ({
           )
         )}
 
-        {/* Vertical divider */}
         {!isMetaAi && (
           <div
-            className={`h-5 w-[1px] mx-0.5 sm:mx-1 ${
-              theme === "dark" ? "bg-white/15" : "bg-gray-300"
-            }`}
+            className={`h-5 w-[1px] mx-0.5 sm:mx-1 ${theme === "dark" ? "bg-white/15" : "bg-gray-300"
+              }`}
           />
         )}
 
-        {/* Search */}
         <div className="relative" ref={searchIconRef}>
           <button
             onClick={() => setIsSearchOpen(true)}
@@ -609,7 +595,6 @@ const ChatHeader = ({
           </div>
         </div>
 
-        {/* 3-dots Menu button */}
         <button
           ref={headerMenuBtnRef}
           onClick={(e) => {
@@ -639,7 +624,6 @@ const ChatHeader = ({
         </button>
       </div>
 
-      {/* Select People Modal */}
       {showSelectPeopleModal && (
         <GroupCallModal
           isOpen={showSelectPeopleModal}
