@@ -1,7 +1,9 @@
-const multer = require("multer");
-const cloudinary = require("cloudinary").v2;
-require("dotenv").config();
-const fs = require("fs");
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+import dotenv from "dotenv";
+import fs from "fs";
+
+dotenv.config();
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -185,7 +187,7 @@ const multerMiddleware = multer({
   dest: "uploads/",
 }).single("media");
 
-module.exports = {
+export {
   cloudinary,
   uploadFileToCloudinary,
   deleteFileFromCloudinary,
@@ -194,3 +196,11 @@ module.exports = {
   multerMiddleware,
 };
 
+export default {
+  cloudinary,
+  uploadFileToCloudinary,
+  deleteFileFromCloudinary,
+  deleteMultipleFilesFromCloudinary,
+  extractCloudinaryInfo,
+  multerMiddleware,
+};

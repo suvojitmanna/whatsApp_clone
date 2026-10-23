@@ -1,14 +1,15 @@
-const { Server } = require("socket.io");
-const User = require("../models/user");
-const Message = require("../models/message");
-const Conversation = require("../models/ConverSation");
-const handleVideoCallEvent = require("./videoCallService");
-const socketMiddleware = require("../middleware/socketMiddleware");
-const { deleteFileFromCloudinary } = require("../config/cloudinary");
-const {
+import { Server } from "socket.io";
+import mongoose from "mongoose";
+import User from "../models/user.js";
+import Message from "../models/message.js";
+import Conversation from "../models/ConverSation.js";
+import handleVideoCallEvent from "./videoCallService.js";
+import socketMiddleware from "../middleware/socketMiddleware.js";
+import { deleteFileFromCloudinary } from "../config/cloudinary.js";
+import {
   onUserConnectedGroupDelivery,
   processMultipleGroupReceipts,
-} = require("./groupStatusService");
+} from "./groupStatusService.js";
 
 const onlineUsers = new Map();
 const typingUsers = new Map();
@@ -289,7 +290,7 @@ function initializeSocket(server) {
       });
     });
 
-    const mongoose = require("mongoose");
+
 
     socket.on("add_reaction", async ({ messageId, emoji, reactionUserId }) => {
       try {
@@ -868,4 +869,5 @@ function initializeSocket(server) {
   return io;
 }
 
-module.exports = { initializeSocket };
+export { initializeSocket };
+export default { initializeSocket };

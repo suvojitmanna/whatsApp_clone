@@ -36,6 +36,9 @@ const Layout = ({
   const showProfilePicture = useLayoutStore(
     (state) => state.showProfilePicture,
   );
+  const profilePictureData = useLayoutStore(
+    (state) => state.profilePictureData,
+  );
 
   const setShowProfilePicture = useLayoutStore(
     (state) => state.setShowProfilePicture,
@@ -118,20 +121,27 @@ const Layout = ({
           <ProfilePicture
             isOpen={showProfilePicture}
             onClose={() => setShowProfilePicture(false)}
-            image={selectedContact?.profilePicture}
-            username={selectedContact?.username}
+            image={
+              profilePictureData?.image ??
+              (selectedContact?.groupProfileImage || selectedContact?.profilePicture)
+            }
+            username={
+              profilePictureData?.username ??
+              (selectedContact?.groupName || selectedContact?.username)
+            }
             isMetaAi={Boolean(
-              selectedContact?.isAI ||
-              selectedContact?.username === "Meta AI" ||
-              String(selectedContact?._id) === META_AI_USER_ID ||
-              String(selectedContact?.id) === META_AI_USER_ID ||
-              (Array.isArray(selectedContact?.participants) &&
-                selectedContact.participants.some(
-                  (p) =>
-                    p?.isAI ||
-                    p?.username === "Meta AI" ||
-                    String(p?._id || p) === META_AI_USER_ID
-                ))
+              profilePictureData?.isMetaAi ??
+              (selectedContact?.isAI ||
+                selectedContact?.username === "Meta AI" ||
+                String(selectedContact?._id) === META_AI_USER_ID ||
+                String(selectedContact?.id) === META_AI_USER_ID ||
+                (Array.isArray(selectedContact?.participants) &&
+                  selectedContact.participants.some(
+                    (p) =>
+                      p?.isAI ||
+                      p?.username === "Meta AI" ||
+                      String(p?._id || p) === META_AI_USER_ID
+                  )))
             )}
           />
         )}

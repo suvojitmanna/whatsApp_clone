@@ -1,5 +1,5 @@
-const jwt = require("jsonwebtoken");
-const response = require("../utils/responseHandeler");
+import jwt from "jsonwebtoken";
+import response from "../utils/responseHandeler.js";
 
 const authMiddleware = (req, res, next) => {
   const token =
@@ -17,4 +17,5 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware;
+export default authMiddleware;
+export { authMiddleware };

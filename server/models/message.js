@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const messageSchema = new mongoose.Schema(
   {
@@ -58,8 +58,17 @@ const messageSchema = new mongoose.Schema(
         "call",
         "call_link",
         "ai_image",
+        "system",
       ],
       default: "text",
+    },
+    isSystemMessage: {
+      type: Boolean,
+      default: false,
+    },
+    systemAction: {
+      type: String,
+      default: null,
     },
     isMetaAi: {
       type: Boolean,
@@ -210,5 +219,7 @@ messageSchema.index({ conversation: 1, createdAt: 1 });
 messageSchema.index({ conversation: 1, receiver: 1, messageStatus: 1 });
 messageSchema.index({ conversation: 1, disappearingExpiresAt: 1 });
 
-module.exports =
-  mongoose.models.Message || mongoose.model("Message", messageSchema);
+const Message = mongoose.models.Message || mongoose.model("Message", messageSchema);
+
+export default Message;
+export { Message };

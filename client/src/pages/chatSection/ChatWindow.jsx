@@ -49,9 +49,11 @@ import ChatHeaderMenu from "./ChatHeaderMenu";
 import ChatHeader from "./ChatHeader";
 import BlockModal from "../../components/BlockModal";
 import ReportModal from "../../components/ReportModal";
+import GroupCallModal from "../../components/GroupCallModal";
 import NewCallLinkModal from "../calls/NewCallLinkModal";
 import { getPinActorAndLabel } from "./ChatList";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
+import { isGroupSystemMessage, getFormattedGroupSystemText } from "../../utils/systemMessageUtils";
 
 function getDisappearingDurationMs(duration) {
   if (!duration || duration === "Off") return null;
@@ -110,6 +112,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showDeleteSelectedModal, setShowDeleteSelectedModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showGroupCallModal, setShowGroupCallModal] = useState(false);
+  const [groupCallModalType, setGroupCallModalType] = useState("audio");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showBlockedMenu, setShowBlockedMenu] = useState(false);
   const blockedMenuRef = useRef(null);
@@ -1842,6 +1846,25 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     );
   };
 
+  const renderGroupSystemNotification = (msg) => {
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const currentUserName = user?.username || user?.name;
+    const text = getFormattedGroupSystemText(msg, currentUserId, currentUserName);
+
+    return (
+      <div className="flex justify-center my-2 select-none px-4">
+        <div
+          className={`max-w-[520px] px-3.5 py-1.5 rounded-lg text-xs font-normal leading-[18px] shadow-sm text-center inline-flex items-center justify-center gap-1.5 transition-colors border select-none ${theme === "dark"
+            ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0]"
+            : "bg-white border-black/5 text-[#54656f]"
+            }`}
+        >
+          <span>{text}</span>
+        </div>
+      </div>
+    );
+  };
+
   const renderDateSeparator = (
     date,
     includePinNotification = false
@@ -1994,30 +2017,142 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     addReaction(messageId, emoji);
   };
 
+  const isGroupChat = Boolean(
+    selectedContact?.isGroup ||
+    selectedContact?.isGroupChat ||
+    selectedContact?.conversation?.isGroup
+  );
+
+  const groupParticipants = useMemo(() => {
+    if (!isGroupChat) return [];
+    return (
+      selectedContact?.participants ||
+      selectedContact?.conversation?.participants ||
+      []
+    );
+  }, [selectedContact, isGroupChat]);
+
+  const groupAdmins = useMemo(() => {
+    if (!isGroupChat) return [];
+    const raw =
+      selectedContact?.groupAdmin ||
+      selectedContact?.conversation?.groupAdmin ||
+      [];
+    return Array.isArray(raw) ? raw : [raw];
+  }, [selectedContact, isGroupChat]);
+
   const handleVideoCall = () => {
-    if (selectedContact) {
+    if (!selectedContact) return;
+    if (isGroupChat) {
+      const myIdStr = user?._id?.toString();
+      const otherMembers = groupParticipants.filter((p) => {
+        const pId = (p?._id || p)?.toString();
+        return pId && pId !== myIdStr;
+      });
+
+      if (otherMembers.length === 0) {
+        toast.info("No other participants in this group to call");
+        return;
+      }
+
+      const otherMemberIds = otherMembers
+        .map((p) => (p?._id || p)?.toString())
+        .filter(Boolean);
+
       const { initiateCall } = useVideoCallStore.getState();
-      const avatar = selectedContact?.profilePicture;
-      initiateCall(
-        selectedContact?._id,
-        selectedContact?.username,
-        avatar,
-        "video",
-      );
+      const avatar =
+        selectedContact?.profilePicture ||
+        selectedContact?.groupProfileImage ||
+        "";
+      const displayName =
+        selectedContact?.groupName ||
+        selectedContact?.name ||
+        selectedContact?.username ||
+        "Group";
+      const gId = (selectedContact?._id || selectedContact?.id)?.toString();
+
+      if (typeof initiateCall === "function") {
+        initiateCall(
+          otherMemberIds[0],
+          displayName,
+          avatar,
+          "video",
+          {
+            isGroup: true,
+            groupId: gId,
+            groupName: displayName,
+            groupAvatar: avatar,
+            participantIds: otherMemberIds,
+          }
+        );
+      }
+      return;
     }
+    const { initiateCall } = useVideoCallStore.getState();
+    const avatar = selectedContact?.profilePicture;
+    initiateCall(
+      selectedContact?._id,
+      selectedContact?.username,
+      avatar,
+      "video",
+    );
   };
 
   const handleAudioCall = () => {
-    if (selectedContact) {
+    if (!selectedContact) return;
+    if (isGroupChat) {
+      const myIdStr = user?._id?.toString();
+      const otherMembers = groupParticipants.filter((p) => {
+        const pId = (p?._id || p)?.toString();
+        return pId && pId !== myIdStr;
+      });
+
+      if (otherMembers.length === 0) {
+        toast.info("No other participants in this group to call");
+        return;
+      }
+
+      const otherMemberIds = otherMembers
+        .map((p) => (p?._id || p)?.toString())
+        .filter(Boolean);
+
       const { initiateCall } = useVideoCallStore.getState();
-      const avatar = selectedContact?.profilePicture;
-      initiateCall(
-        selectedContact?._id,
-        selectedContact?.username,
-        avatar,
-        "audio",
-      );
+      const avatar =
+        selectedContact?.profilePicture ||
+        selectedContact?.groupProfileImage ||
+        "";
+      const displayName =
+        selectedContact?.groupName ||
+        selectedContact?.name ||
+        selectedContact?.username ||
+        "Group";
+      const gId = (selectedContact?._id || selectedContact?.id)?.toString();
+
+      if (typeof initiateCall === "function") {
+        initiateCall(
+          otherMemberIds[0],
+          displayName,
+          avatar,
+          "audio",
+          {
+            isGroup: true,
+            groupId: gId,
+            groupName: displayName,
+            groupAvatar: avatar,
+            participantIds: otherMemberIds,
+          }
+        );
+      }
+      return;
     }
+    const { initiateCall } = useVideoCallStore.getState();
+    const avatar = selectedContact?.profilePicture;
+    initiateCall(
+      selectedContact?._id,
+      selectedContact?.username,
+      avatar,
+      "audio",
+    );
   };
 
   useOutsideClick(emojiPickerRef, () => {
@@ -2423,8 +2558,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                             );
                           }
 
+                          if (isGroupSystemMessage(msg)) {
+                            return (
+                              <div key={msg._id || `sys-${index}`}>
+                                {renderGroupSystemNotification(msg)}
+                              </div>
+                            );
+                          }
+
                           const prevMsg =
-                            index > 0 && !msgs[index - 1]?.isDisappearingSystemEvent
+                            index > 0 &&
+                              !msgs[index - 1]?.isDisappearingSystemEvent &&
+                              !isGroupSystemMessage(msgs[index - 1])
                               ? msgs[index - 1]
                               : null;
                           const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
@@ -3177,6 +3322,23 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             setShowStickerModal(false);
             stickerInputRef.current?.click();
           }}
+          theme={theme}
+        />
+      )}
+
+      {showGroupCallModal && (
+        <GroupCallModal
+          isOpen={showGroupCallModal}
+          onClose={() => setShowGroupCallModal(false)}
+          groupParticipants={groupParticipants}
+          groupAdmins={groupAdmins}
+          groupName={
+            selectedContact?.groupName ||
+            selectedContact?.name ||
+            selectedContact?.username ||
+            "Group"
+          }
+          initialCallType={groupCallModalType}
           theme={theme}
         />
       )}

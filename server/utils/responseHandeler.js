@@ -13,4 +13,5 @@ const response = (res, statusCode, message, data = null, errors = null) => {
   return res.status(statusCode).json(responseObject);
 };
 
-module.exports = response;
+export default response;
+export { response };

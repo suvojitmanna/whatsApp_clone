@@ -1,13 +1,13 @@
-const express = require("express");
-const chatController = require("../controllers/chatController.js");
-const authMiddleware = require("../middleware/authMiddleware.js");
-const { multerMiddleware } = require("../config/cloudinary.js");
+import express from "express";
+import * as chatController from "../controllers/chatController.js";
+import authMiddleware from "../middleware/authMiddleware.js";
+import { multerMiddleware } from "../config/cloudinary.js";
 
 const router = express.Router();
 
 router.post("/send-message", authMiddleware, multerMiddleware, chatController.sendMessage,);
 router.post("/group", authMiddleware, multerMiddleware, chatController.createGroup);
-router.put("/group/:conversationId", authMiddleware, chatController.updateGroup);
+router.put("/group/:conversationId", authMiddleware, multerMiddleware, chatController.updateGroup);
 router.get("/group/:conversationId/member-changes", authMiddleware, chatController.getMemberChanges);
 router.get("/conversation", authMiddleware, chatController.getConversation);
 router.get("/conversation/:conversationId/messages", authMiddleware, chatController.getMessages,);
@@ -25,4 +25,4 @@ router.put("/conversation/:conversationId/disappearing", authMiddleware, chatCon
 router.post("/disappearing-duration", authMiddleware, chatController.setDisappearingDuration);
 router.post("/meta-ai", authMiddleware, chatController.askMetaAi);
 
-module.exports = router;
+export default router;

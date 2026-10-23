@@ -1,6 +1,8 @@
-const { subtle } = require('crypto').webcrypto;
-const mongoose = require('mongoose');
-require('dotenv').config({ path: './server/.env' });
+import { webcrypto } from "crypto";
+const { subtle } = webcrypto;
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+dotenv.config({ path: "./server/.env" });
 
 async function run() {
   await mongoose.connect(process.env.MONGO_URI);

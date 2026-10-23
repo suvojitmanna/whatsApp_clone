@@ -26,6 +26,8 @@ const useLayoutStore = create(
       selectedPollMessageId: null,
       isChatSearchOpen: false,
       setIsChatSearchOpen: (val) => set({ isChatSearchOpen: val }),
+      showProfilePicture: false,
+      profilePictureData: null,
 
       isMediaModalOpen: false,
       mediaModalScope: "all",
@@ -70,12 +72,16 @@ const useLayoutStore = create(
           return {
             selectedContact: nextContact,
             selectedMessageInfo: null,
+            viewingMember: null,
           };
         });
       },
       updateSelectedContact: (updatesOrFn) =>
         set((state) => {
-          if (!state.selectedContact || typeof state.selectedContact === "function") {
+          if (
+            !state.selectedContact ||
+            typeof state.selectedContact === "function"
+          ) {
             return { selectedContact: null };
           }
           const updates =
@@ -95,6 +101,17 @@ const useLayoutStore = create(
 
       contactInfoTab: "info",
       previousContactInfoTab: "info",
+      viewingMember: null,
+      setViewingMember: (member) => set({ viewingMember: member }),
+      openContactInfoWithMember: (member) =>
+        set({
+          showContactInfo: true,
+          contactInfoTab: "info",
+          viewingMember: member,
+          selectedPollMessage: null,
+          selectedPollMessageId: null,
+          selectedMessageInfo: null,
+        }),
       setShowContactInfo: (value) =>
         set((state) => ({
           showContactInfo: value,
@@ -104,7 +121,11 @@ const useLayoutStore = create(
                 selectedPollMessageId: null,
                 selectedMessageInfo: null,
               }
-            : { contactInfoTab: "info", previousContactInfoTab: "info" }),
+            : {
+                contactInfoTab: "info",
+                previousContactInfoTab: "info",
+                viewingMember: null,
+              }),
         })),
       setContactInfoTab: (tab) =>
         set((state) => ({
@@ -500,7 +521,11 @@ const useLayoutStore = create(
             chatBubbleColors: nextBubbles,
           };
         }),
-      setShowProfilePicture: (value) => set({ showProfilePicture: value }),
+      setShowProfilePicture: (value, data = null) =>
+        set({
+          showProfilePicture: value,
+          profilePictureData: value ? data || null : null,
+        }),
       setSelectedPollDetails: (pollMessage) =>
         set({
           selectedPollMessage: pollMessage,

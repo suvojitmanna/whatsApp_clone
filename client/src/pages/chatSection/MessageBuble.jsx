@@ -50,6 +50,7 @@ import ReportModal from "../../components/ReportModal";
 import MessageMenu from "./MessageMenu";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { MetaAiMarkdown, MetaAiImageCard, MetaAiFeedbackBar } from "../../components/common/MetaAiContent";
+import { isGroupSystemMessage, getFormattedGroupSystemText } from "../../utils/systemMessageUtils";
 
 import {
   WhatsAppPinIcon,
@@ -231,6 +232,12 @@ const MessageBuble = ({
   const setSelectedMessageInfo = useLayoutStore(
     (state) => state.setSelectedMessageInfo
   );
+  const setShowContactInfo = useLayoutStore(
+    (state) => state.setShowContactInfo
+  );
+  const openContactInfoWithMember = useLayoutStore(
+    (state) => state.openContactInfoWithMember
+  );
   const storeUser = useUserStore((state) => state.user);
   const effectiveUser = currentUser || storeUser;
   const currentUserId = (effectiveUser?._id || effectiveUser?.id)?.toString();
@@ -263,7 +270,191 @@ const MessageBuble = ({
   const isMetaAi = isMetaAiMessage || isMetaAiChat;
   const isDark = theme === "dark";
 
+  const activeContact = selectedContact || layoutSelectedContact;
+  const conversationObj =
+    activeContact?.conversation ||
+    currentConversation ||
+    (typeof message.conversation === "object" ? message.conversation : null);
+
+  const isGroupChat = Boolean(
+    activeContact?.isGroup ||
+    activeContact?.isGroupChat ||
+    conversationObj?.isGroup ||
+    (!message.receiver &&
+      (activeContact?.participants?.length > 2 ||
+        conversationObj?.participants?.length > 2))
+  );
+
+  const senderDisplayName = useMemo(() => {
+    if (message?.sender?.username) return message.sender.username;
+    if (message?.sender?.name) return message.sender.name;
+
+    const rawParticipants =
+      activeContact?.participants ||
+      activeContact?.conversation?.participants ||
+      conversationObj?.participants ||
+      [];
+    if (Array.isArray(rawParticipants)) {
+      const found = rawParticipants.find(
+        (p) => (p?._id || p?.id || p)?.toString() === senderId
+      );
+      if (found?.username) return found.username;
+      if (found?.name) return found.name;
+      if (found?.phoneNumber) return found.phoneNumber;
+    }
+    return message?.sender?.phoneNumber || "Participant";
+  }, [message?.sender, senderId, activeContact, conversationObj]);
+
+  const senderAvatar = useMemo(() => {
+    if (message?.sender?.profilePicture) return message.sender.profilePicture;
+    if (message?.sender?.profilePic) return message.sender.profilePic;
+    if (message?.sender?.avatar) return message.sender.avatar;
+
+    const rawParticipants =
+      activeContact?.participants ||
+      activeContact?.conversation?.participants ||
+      conversationObj?.participants ||
+      [];
+    if (Array.isArray(rawParticipants)) {
+      const found = rawParticipants.find(
+        (p) => (p?._id || p?.id || p)?.toString() === senderId
+      );
+      if (found?.profilePicture) return found.profilePicture;
+      if (found?.profilePic) return found.profilePic;
+      if (found?.avatar) return found.avatar;
+    }
+    return null;
+  }, [message?.sender, senderId, activeContact, conversationObj]);
+
+  const senderColor = useMemo(() => {
+    const colors = [
+      "#25d366", // WhatsApp Green
+      "#53bdeb", // Sky Blue
+      "#e542a3", // Magenta
+      "#f39c12", // Amber/Orange
+      "#9c27b0", // Purple
+      "#00bcd4", // Cyan
+      "#ff7043", // Coral
+      "#8bc34a", // Lime
+      "#ba68c8", // Lavender
+      "#20c997", // Teal
+      "#e91e63", // Rose
+      "#d97706", // Gold
+    ];
+    const key = senderId || senderDisplayName || "user";
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = key.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }, [senderId, senderDisplayName]);
+
+  const isSenderAdmin = useMemo(() => {
+    if (!isGroupChat || !senderId) return false;
+    const admins =
+      activeContact?.groupAdmin ||
+      activeContact?.conversation?.groupAdmin ||
+      conversationObj?.groupAdmin ||
+      [];
+    if (!Array.isArray(admins)) return false;
+    return admins.some(
+      (a) => (a?._id || a?.id || a)?.toString() === senderId
+    );
+  }, [isGroupChat, senderId, activeContact, conversationObj]);
+
+  const senderTag = useMemo(() => {
+    if (!isGroupChat || isUserMessage || !senderId) return "";
+    const rawTags =
+      activeContact?.memberTags ||
+      activeContact?.conversation?.memberTags ||
+      conversationObj?.memberTags ||
+      [];
+    if (Array.isArray(rawTags)) {
+      const sIdStr = senderId.toString();
+      const found = rawTags.find(
+        (mt) => (mt.user?._id || mt.user)?.toString() === sIdStr
+      );
+      if (found?.tag && found.tag.trim()) {
+        return found.tag.trim();
+      }
+    }
+    if (isSenderAdmin) {
+      return "Admin";
+    }
+    return "";
+  }, [isGroupChat, isUserMessage, senderId, activeContact, conversationObj, isSenderAdmin]);
+
   const isSticker = message.contentType === "sticker";
+
+  const handleOpenSenderContactInfo = useCallback(
+    (e) => {
+      if (isSelectMode) return;
+      e.stopPropagation();
+      if (!senderId || isUserMessage || isMetaAiMessage) return;
+
+      const rawParticipants =
+        activeContact?.participants ||
+        activeContact?.conversation?.participants ||
+        conversationObj?.participants ||
+        [];
+      let targetMember = null;
+      if (Array.isArray(rawParticipants)) {
+        targetMember = rawParticipants.find(
+          (p) => (p?._id || p?.id || p)?.toString() === senderId
+        );
+      }
+
+      if (targetMember && typeof targetMember === "object") {
+        targetMember = {
+          ...targetMember,
+          _id: targetMember._id || senderId,
+          username: targetMember.username || senderDisplayName,
+          profilePicture:
+            targetMember.profilePicture ||
+            targetMember.profilePic ||
+            targetMember.avatar ||
+            senderAvatar,
+        };
+      } else if (typeof message?.sender === "object" && message.sender) {
+        targetMember = {
+          ...message.sender,
+          _id: message.sender._id || senderId,
+          username: message.sender.username || senderDisplayName,
+          profilePicture:
+            message.sender.profilePicture ||
+            message.sender.profilePic ||
+            message.sender.avatar ||
+            senderAvatar,
+        };
+      } else {
+        targetMember = {
+          _id: senderId,
+          username: senderDisplayName,
+          profilePicture: senderAvatar,
+        };
+      }
+
+      if (openContactInfoWithMember) {
+        openContactInfoWithMember(targetMember);
+      } else {
+        useLayoutStore.getState().setViewingMember?.(targetMember);
+        setShowContactInfo(true);
+      }
+    },
+    [
+      isSelectMode,
+      senderId,
+      isUserMessage,
+      isMetaAiMessage,
+      activeContact,
+      conversationObj,
+      senderDisplayName,
+      senderAvatar,
+      message?.sender,
+      openContactInfoWithMember,
+      setShowContactInfo,
+    ]
+  );
   const isDisappearingExpired = useMemo(() => {
     if (!message || message.isKept || message.deletedForEveryone) return false;
     if (message.isDisappearing) {
@@ -750,21 +941,6 @@ const MessageBuble = ({
       );
     }
 
-    const activeContact = selectedContact || layoutSelectedContact;
-    const conversationObj =
-      activeContact?.conversation ||
-      currentConversation ||
-      (typeof message.conversation === "object" ? message.conversation : null);
-
-    const isGroupChat = Boolean(
-      activeContact?.isGroup ||
-      activeContact?.isGroupChat ||
-      conversationObj?.isGroup ||
-      (!message.receiver &&
-        (activeContact?.participants?.length > 2 ||
-          conversationObj?.participants?.length > 2))
-    );
-
     if (isGroupChat) {
       const rawParticipants =
         activeContact?.participants ||
@@ -788,7 +964,7 @@ const MessageBuble = ({
         );
 
         const allRead =
-          status === "read" ||
+          otherParticipants.length > 0 &&
           otherParticipants.every((pId) => readIds.has(pId));
 
         if (allRead) {
@@ -825,6 +1001,14 @@ const MessageBuble = ({
           />
         );
       }
+
+      return (
+        <FiCheck
+          size={isOverlay ? 13 : 13}
+          className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
+          title="Sent"
+        />
+      );
     }
 
     if (status === "read") {
@@ -947,6 +1131,29 @@ const MessageBuble = ({
   if (!message || isDisappearingExpired) return null;
   const msgDOMId = (message?._id?._id || message?._id || message?.temp)?.toString();
 
+  if (isGroupSystemMessage(message)) {
+    const systemText = getFormattedGroupSystemText(
+      message,
+      currentUserId,
+      currentUser?.username || currentUser?.name
+    );
+    return (
+      <div
+        id={msgDOMId ? `msg-${msgDOMId}` : undefined}
+        className="w-full flex justify-center my-2 select-none px-4"
+      >
+        <div
+          className={`max-w-[520px] px-3.5 py-1.5 rounded-lg text-xs font-normal leading-[18px] shadow-sm text-center inline-flex items-center justify-center gap-1.5 transition-colors border select-none ${isDark
+            ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0]"
+            : "bg-white border-black/5 text-[#54656f]"
+            }`}
+        >
+          <span>{systemText}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       id={msgDOMId ? `msg-${msgDOMId}` : undefined}
@@ -1000,6 +1207,35 @@ const MessageBuble = ({
           : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
           }`}
       >
+        {isGroupChat && !isUserMessage && (
+          <div className="shrink-0 mr-1.5 self-start mt-0.5 select-none">
+            {isFirstInSequence ? (
+              <div
+                onClick={handleOpenSenderContactInfo}
+                className="cursor-pointer transition-transform hover:scale-105 active:scale-95"
+                title={senderDisplayName}
+              >
+                {senderAvatar ? (
+                  <img
+                    src={senderAvatar}
+                    alt={senderDisplayName}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shadow-sm border border-black/10 dark:border-white/10"
+                  />
+                ) : (
+                  <div
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white text-[11px] sm:text-[12px] font-semibold shadow-sm"
+                    style={{ backgroundColor: senderColor }}
+                  >
+                    {(senderDisplayName[0] || "U").toUpperCase()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="w-7 sm:w-8" />
+            )}
+          </div>
+        )}
+
         <div
           ref={bubbleRef}
           data-bubble="true"
@@ -1077,6 +1313,28 @@ const MessageBuble = ({
               onClick={() => setShowReactions((prev) => !prev)}
               className="relative"
             >
+              {isGroupChat && !isUserMessage && !isMetaAiMessage && isFirstInSequence && !isSticker && (
+                <div className="flex items-center gap-1.5 mb-1 select-none">
+                  <span
+                    onClick={handleOpenSenderContactInfo}
+                    className="text-[12.8px] font-semibold leading-tight truncate hover:underline cursor-pointer"
+                    style={{ color: senderColor }}
+                    title={senderDisplayName}
+                  >
+                    {senderDisplayName}
+                  </span>
+                  {senderTag ? (
+                    <span
+                      className={`text-[10px] font-medium px-1.5 py-0.2 rounded-full border leading-tight shrink-0 ${isDark
+                        ? "bg-white/10 text-white/80 border-white/15"
+                        : "bg-black/5 text-gray-700 border-black/10"
+                        }`}
+                    >
+                      {senderTag}
+                    </span>
+                  ) : null}
+                </div>
+              )}
               {isMetaAiMessage && !isUserMessage && (
                 <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-black/5 dark:border-white/5 select-none">
                   <MetaAiRing size={15} showInnerIcon={false} />
@@ -2097,6 +2355,28 @@ const MessageBuble = ({
 
                 {message.contentType === "sticker" && (
                   <div className="relative p-1">
+                    {isGroupChat && !isUserMessage && !isMetaAiMessage && isFirstInSequence && (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 mb-1.5 rounded-[7.5px] bg-[#202c33] dark:bg-[#202c33] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] select-none">
+                        <span
+                          onClick={handleOpenSenderContactInfo}
+                          className="text-[12.5px] font-semibold leading-tight truncate hover:underline cursor-pointer"
+                          style={{ color: senderColor }}
+                          title={senderDisplayName}
+                        >
+                          {senderDisplayName}
+                        </span>
+                        {senderTag ? (
+                          <span
+                            className={`text-[10px] font-medium px-1.5 py-0.2 rounded-full border leading-tight shrink-0 ${isDark
+                              ? "bg-white/10 text-white/80 border-white/15"
+                              : "bg-black/5 text-gray-700 border-black/10"
+                              }`}
+                          >
+                            {senderTag}
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
                     <img
                       src={message.imageOrVideoUrl}
                       alt="Sticker"

@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const conversationSchema = new mongoose.Schema(
   {
@@ -41,6 +41,20 @@ const conversationSchema = new mongoose.Schema(
       sendMessageHistory: { type: Boolean, default: true },
       approveNewMembers: { type: Boolean, default: false },
     },
+    memberTags: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        tag: {
+          type: String,
+          default: "",
+          trim: true,
+          maxlength: 30,
+        },
+      },
+    ],
     memberChanges: [
       {
         user: {
@@ -112,4 +126,5 @@ const Conversation =
   mongoose.models.Conversation ||
   mongoose.model("Conversation", conversationSchema);
 
-module.exports = Conversation;
+export default Conversation;
+export { Conversation };

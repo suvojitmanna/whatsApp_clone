@@ -1,5 +1,5 @@
-const nodemailer = require("nodemailer");
-const dotenv = require("dotenv");
+import nodemailer from "nodemailer";
+import dotenv from "dotenv";
 dotenv.config();
 
 const transport = nodemailer.createTransport({
@@ -58,4 +58,5 @@ const sendOtpToEmail = async (email, otp) => {
   });
 };
 
-module.exports = sendOtpToEmail;
+export default sendOtpToEmail;
+export { sendOtpToEmail };
