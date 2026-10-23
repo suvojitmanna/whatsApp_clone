@@ -1549,7 +1549,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       const isGroupChat = Boolean(
         selectedContact?.isGroup ||
         selectedContact?.isGroupChat ||
-        selectedContact?.conversation?.isGroup
+        selectedContact?.groupName ||
+        selectedContact?.conversation?.isGroup ||
+        selectedContact?.conversation?.groupName ||
+        currentConversation?.isGroup ||
+        currentConversation?.groupName ||
+        (Array.isArray(selectedContact?.participants) && selectedContact.participants.length > 2) ||
+        (Array.isArray(selectedContact?.conversation?.participants) && selectedContact.conversation.participants.length > 2) ||
+        Boolean(selectedContact?.groupAdmin || selectedContact?.conversation?.groupAdmin)
       );
       const effectiveConversationId =
         conversationId ||
@@ -2020,7 +2027,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const isGroupChat = Boolean(
     selectedContact?.isGroup ||
     selectedContact?.isGroupChat ||
-    selectedContact?.conversation?.isGroup
+    selectedContact?.groupName ||
+    selectedContact?.conversation?.isGroup ||
+    selectedContact?.conversation?.groupName ||
+    currentConversation?.isGroup ||
+    currentConversation?.groupName ||
+    (Array.isArray(selectedContact?.participants) && selectedContact.participants.length > 2) ||
+    (Array.isArray(selectedContact?.conversation?.participants) && selectedContact.conversation.participants.length > 2) ||
+    Boolean(selectedContact?.groupAdmin || selectedContact?.conversation?.groupAdmin)
   );
 
   const groupParticipants = useMemo(() => {
@@ -2574,7 +2588,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                               : null;
                           const prevSenderId = (prevMsg?.sender?._id || prevMsg?.sender)?.toString();
                           const currentSenderId = (msg?.sender?._id || msg?.sender)?.toString();
-                          const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId;
+                          const isTimeGap =
+                            prevMsg &&
+                            msg?.createdAt &&
+                            prevMsg?.createdAt &&
+                            new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() > 3 * 60 * 1000;
+                          const isFirstInSequence = !prevMsg || prevSenderId !== currentSenderId || isTimeGap;
 
                           const isMatch =
                             searchTerm &&
@@ -2592,6 +2611,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
                               chatBubbleColor={theme === "dark" ? activeBubbleColor : undefined}
                               currentUser={user}
                               selectedContact={selectedContact}
+                              isGroupChat={isGroupChat}
                               onReact={handleReaction}
                               deleteMessage={deleteMessage}
                               onEdit={editMessage}
@@ -3338,8 +3358,57 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             selectedContact?.username ||
             "Group"
           }
+          groupId={(selectedContact?._id || selectedContact?.id || selectedContact?.conversation?._id)?.toString()}
+          groupAvatar={selectedContact?.profilePicture || selectedContact?.groupProfileImage || ""}
           initialCallType={groupCallModalType}
           theme={theme}
+          onStartCall={(target, callType) => {
+            setShowGroupCallModal(false);
+            const { initiateCall } = useVideoCallStore.getState();
+            if (typeof initiateCall !== "function") {
+              toast.error("Call service not ready. Please try again.");
+              return;
+            }
+
+            const avatar =
+              selectedContact?.profilePicture ||
+              selectedContact?.groupProfileImage ||
+              "";
+            const displayName =
+              selectedContact?.groupName ||
+              selectedContact?.name ||
+              selectedContact?.username ||
+              "Group";
+            const gId = (selectedContact?._id || selectedContact?.id || selectedContact?.conversation?._id)?.toString();
+
+            if (Array.isArray(target)) {
+              const otherMemberIds = target
+                .map((p) => (p?._id || p)?.toString())
+                .filter(Boolean);
+              if (otherMemberIds.length === 0) {
+                toast.info("No members selected to call");
+                return;
+              }
+              initiateCall(
+                otherMemberIds[0],
+                displayName,
+                avatar,
+                callType || "audio",
+                {
+                  isGroup: true,
+                  groupId: gId,
+                  groupName: displayName,
+                  groupAvatar: avatar,
+                  participantIds: otherMemberIds,
+                }
+              );
+            } else if (target) {
+              const mId = (target?._id || target?.id || target)?.toString();
+              const mName = target?.username || target?.name || "Participant";
+              const mAvatar = target?.profilePicture || "";
+              initiateCall(mId, mName, mAvatar, callType || "audio");
+            }
+          }}
         />
       )}
 

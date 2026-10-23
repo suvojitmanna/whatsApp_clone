@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -569,8 +569,8 @@ const ChatHeaderMenu = ({
                     <FiHeart
                       size={18}
                       className={`shrink-0 ${isFavorite
-                          ? "text-rose-500 fill-rose-500"
-                          : "text-[#8696a0]"
+                        ? "text-rose-500 fill-rose-500"
+                        : "text-[#8696a0]"
                         }`}
                     />
                     <span className="truncate">

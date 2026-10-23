@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect } from "react";
+import { toast } from "react-toastify";
 import useVideoCallStore from "../../store/videoCallStore";
 import useUserStore from "../../store/useUserStore";
 import VideoCallModel from "./videoCallModel";
@@ -51,6 +52,9 @@ const VideoCallManager = () => {
     };
 
     const handleCallEnded = ({ reason }) => {
+      if (reason) {
+        toast.info(reason);
+      }
       setCallStatus("failed");
       setTimeout(() => {
         endCall();

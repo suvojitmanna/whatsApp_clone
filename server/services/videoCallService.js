@@ -13,13 +13,18 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       groupAvatar,
       callType,
       callerInfo,
+      callId: clientCallId,
     }) => {
+      const strCallerId = (callerId?._id || callerId)?.toString();
+
       if (isGroup && Array.isArray(receiverIds) && receiverIds.length > 0) {
-        const callId = `${callerId}-${groupId || "group"}-${Date.now()}`;
+        const callId =
+          clientCallId ||
+          `${strCallerId}-${groupId || "group"}-${Date.now()}`;
         const targetIds = new Set(
           receiverIds
             .map((id) => (id?._id || id)?.toString())
-            .filter((id) => id && id !== callerId?.toString()),
+            .filter((id) => id && id !== strCallerId),
         );
 
         let onlineCount = 0;
@@ -28,13 +33,13 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
           if (receiverSocketId) {
             onlineCount++;
             io.to(receiverSocketId).emit("incoming_call", {
-              callerId,
+              callerId: strCallerId,
               callerName: callerInfo?.username || "Someone",
               callerAvatar: callerInfo?.profilePicture || "",
               callId,
               callType,
               isGroup: true,
-              groupId,
+              groupId: groupId?.toString(),
               groupName: groupName || "Group Call",
               groupAvatar: groupAvatar || "",
             });
@@ -50,8 +55,9 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
           });
         } else {
           activeGroupCalls.set(callId, {
-            callerId: callerId?.toString(),
-            groupId,
+            callId,
+            callerId: strCallerId,
+            groupId: groupId?.toString(),
             pendingReceivers: targetIds,
             answeredBy: null,
             callType,
@@ -60,21 +66,24 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
         return;
       }
 
-      const receiverSocketId = onlineUsers.get(receiverId);
+      const strReceiverId = (receiverId?._id || receiverId)?.toString();
+      const receiverSocketId = onlineUsers.get(strReceiverId);
 
       if (receiverSocketId) {
-        const callId = `${callerId}-${receiverId}-${Date.now()}`;
+        const callId =
+          clientCallId || `${strCallerId}-${strReceiverId}-${Date.now()}`;
 
         io.to(receiverSocketId).emit("incoming_call", {
-          callerId,
+          callerId: strCallerId,
           callerName: callerInfo?.username || "Someone",
           callerAvatar: callerInfo?.profilePicture || "",
           callId,
           callType,
+          isGroup: false,
         });
       } else {
-        console.log(`server: Receiver ${receiverId} is offline`);
-        socket.emit("call_failed", { reason: "user is offline" });
+        console.log(`server: Receiver ${strReceiverId} is offline`);
+        socket.emit("call_failed", { reason: "User is offline" });
       }
     },
   );
@@ -82,11 +91,27 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
   socket.on(
     "accept_call",
     ({ callerId, receiverInfo, callId, isGroup, groupId }) => {
-      const callerSocketId = onlineUsers.get(callerId);
+      const strCallerId = (callerId?._id || callerId)?.toString();
+      const callerSocketId = onlineUsers.get(strCallerId);
 
-      const groupCall = activeGroupCalls.get(callId);
+      // Search activeGroupCalls by callId, or fallback to groupId/callerId matching
+      let groupCall = activeGroupCalls.get(callId);
+      if (!groupCall && (isGroup || groupId)) {
+        for (const [gCallId, gCall] of activeGroupCalls.entries()) {
+          if (
+            (groupId && gCall.groupId === groupId?.toString()) ||
+            gCall.callerId === strCallerId
+          ) {
+            groupCall = gCall;
+            callId = gCallId;
+            break;
+          }
+        }
+      }
+
+      const answeringUserId = (socket.userId || socket.id)?.toString();
+
       if (groupCall) {
-        const answeringUserId = socket.userId?.toString();
         groupCall.answeredBy = answeringUserId;
 
         groupCall.pendingReceivers.forEach((pId) => {
@@ -105,28 +130,51 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       if (callerSocketId) {
         io.to(callerSocketId).emit("call_accepted", {
           callId,
-          receiverId: socket.userId,
+          receiverId: answeringUserId,
           receiverName: receiverInfo?.username,
           receiverAvatar: receiverInfo?.profilePicture,
           isGroup: Boolean(isGroup || groupCall),
           groupId: groupId || groupCall?.groupId,
         });
       } else {
-        console.log(`server: Caller ${callerId} not found`);
-        socket.emit("call_failed", { reason: "caller is offline" });
+        console.log(`server: Caller ${strCallerId} not found`);
+        socket.emit("call_failed", { reason: "Caller is offline" });
       }
     },
   );
 
-  socket.on("reject_call", ({ callerId, callId }) => {
-    const groupCall = activeGroupCalls.get(callId);
-    if (groupCall) {
-      const rejectingUserId = socket.userId?.toString();
-      groupCall.pendingReceivers.delete(rejectingUserId);
+  socket.on("reject_call", ({ callerId, callId, isGroup, groupId }) => {
+    const strCallerId = (callerId?._id || callerId)?.toString();
+    const rejectingUserId = (socket.userId || socket.id)?.toString();
 
-      if (!groupCall.answeredBy && groupCall.pendingReceivers.size === 0) {
+    let groupCall = activeGroupCalls.get(callId);
+    if (!groupCall && (isGroup || groupId)) {
+      for (const [gCallId, gCall] of activeGroupCalls.entries()) {
+        if (
+          (groupId && gCall.groupId === groupId?.toString()) ||
+          gCall.callerId === strCallerId
+        ) {
+          groupCall = gCall;
+          callId = gCallId;
+          break;
+        }
+      }
+    }
+
+    if (groupCall) {
+      if (rejectingUserId) {
+        groupCall.pendingReceivers.delete(rejectingUserId);
+      }
+
+      // If call is already answered by someone else, a rejection from another member should NOT end the call!
+      if (groupCall.answeredBy) {
+        return;
+      }
+
+      // Only emit call_rejected to caller if ALL pending members have rejected
+      if (groupCall.pendingReceivers.size === 0) {
         activeGroupCalls.delete(callId);
-        const callerSocketId = onlineUsers.get(callerId);
+        const callerSocketId = onlineUsers.get(groupCall.callerId || strCallerId);
         if (callerSocketId) {
           io.to(callerSocketId).emit("call_rejected", {
             callId,
@@ -136,18 +184,33 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       return;
     }
 
-    const callerSocketId = onlineUsers.get(callerId);
+    const callerSocketId = onlineUsers.get(strCallerId);
     if (callerSocketId) {
       io.to(callerSocketId).emit("call_rejected", {
         callId,
       });
     } else {
-      console.log(`server: Caller ${callerId} not found`);
+      console.log(`server: Caller ${strCallerId} not found`);
     }
   });
 
-  socket.on("end_call", ({ participantId, callId }) => {
-    const groupCall = activeGroupCalls.get(callId);
+  socket.on("end_call", ({ participantId, callId, isGroup, groupId }) => {
+    const strParticipantId = (participantId?._id || participantId)?.toString();
+
+    let groupCall = activeGroupCalls.get(callId);
+    if (!groupCall && (isGroup || groupId)) {
+      for (const [gCallId, gCall] of activeGroupCalls.entries()) {
+        if (
+          (groupId && gCall.groupId === groupId?.toString()) ||
+          gCall.callerId === socket.userId?.toString()
+        ) {
+          groupCall = gCall;
+          callId = gCallId;
+          break;
+        }
+      }
+    }
+
     if (groupCall) {
       activeGroupCalls.delete(callId);
       groupCall.pendingReceivers.forEach((pId) => {
@@ -169,59 +232,62 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       return;
     }
 
-    const participantSocketId = onlineUsers.get(participantId);
+    const participantSocketId = onlineUsers.get(strParticipantId);
     if (participantSocketId) {
       io.to(participantSocketId).emit("call_ended", {
         callId,
       });
     } else {
-      console.log(`server: Participant ${participantId} not found`);
+      console.log(`server: Participant ${strParticipantId} not found`);
     }
   });
 
   socket.on("webrtc_offer", ({ offer, receiverId, callId }) => {
-    const receiverSocketId = onlineUsers.get(receiverId);
+    const strReceiverId = (receiverId?._id || receiverId)?.toString();
+    const receiverSocketId = onlineUsers.get(strReceiverId);
 
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("webrtc_offer", {
         offer,
-        senderId: socket.userId,
+        senderId: (socket.userId || socket.id)?.toString(),
         callId,
       });
-      console.log(`server offer forward to ${receiverId}`);
+      console.log(`server offer forward to ${strReceiverId}`);
     } else {
-      console.log(`server: Receiver ${receiverId} not found for offer`);
-      socket.emit("call_failed", { reason: "receiver offline" });
+      console.log(`server: Receiver ${strReceiverId} not found for offer`);
+      socket.emit("call_failed", { reason: "Recipient is not reachable" });
     }
   });
 
   socket.on("webrtc_answer", ({ answer, receiverId, callId }) => {
-    const receiverSocketId = onlineUsers.get(receiverId);
+    const strReceiverId = (receiverId?._id || receiverId)?.toString();
+    const receiverSocketId = onlineUsers.get(strReceiverId);
 
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("webrtc_answer", {
         answer,
-        senderId: socket.userId,
+        senderId: (socket.userId || socket.id)?.toString(),
         callId,
       });
     } else {
-      console.log(`server: Receiver ${receiverId} not found for answer`);
-      socket.emit("call_failed", { reason: "receiver offline" });
+      console.log(`server: Receiver ${strReceiverId} not found for answer`);
+      socket.emit("call_failed", { reason: "Caller is not reachable" });
     }
   });
 
   socket.on("webrtc_ice_candidate", ({ candidate, receiverId, callId }) => {
-    const receiverSocketId = onlineUsers.get(receiverId);
+    const strReceiverId = (receiverId?._id || receiverId)?.toString();
+    const receiverSocketId = onlineUsers.get(strReceiverId);
 
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("webrtc_ice_candidate", {
         candidate,
-        senderId: socket.userId,
+        senderId: (socket.userId || socket.id)?.toString(),
         callId,
       });
     } else {
-      console.log(`server: Receiver ${receiverId} not found for ICE`);
-      socket.emit("call_failed", { reason: "receiver offline" });
+      // Do NOT emit call_failed for an unrouted ICE candidate - candidates stream continuously and must not kill active calls
+      console.log(`server: Receiver ${strReceiverId} not found for ICE candidate`);
     }
   });
 };

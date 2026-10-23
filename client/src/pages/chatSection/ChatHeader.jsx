@@ -339,17 +339,17 @@ const ChatHeader = ({
               <button
                 type="button"
                 onClick={() => setIsCallDropdownOpen((prev) => !prev)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${isCallDropdownOpen
-                    ? theme === "dark"
-                      ? "bg-[#2a3942] border-[#374248] text-white"
-                      : "bg-gray-200 border-gray-300 text-gray-900"
-                    : theme === "dark"
-                      ? "border-transparent text-[#aebac1] hover:text-white hover:bg-white/10"
-                      : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-black/5"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all cursor-pointer ${isCallDropdownOpen
+                  ? theme === "dark"
+                    ? "bg-[#2a3942] border-[#374248] text-white"
+                    : "bg-gray-200 border-gray-300 text-gray-900"
+                  : theme === "dark"
+                    ? "border-transparent text-[#aebac1] hover:text-white hover:bg-white/10"
+                    : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-black/5"
                   }`}
                 title="Call group"
               >
-                <LuVideo className="h-5 w-5" />
+                <LuVideo size={25} />
                 <FaCaretDown
                   className={`h-2.5 w-2.5 transition-transform duration-200 ${isCallDropdownOpen ? "rotate-180" : ""
                     }`}
@@ -359,8 +359,8 @@ const ChatHeader = ({
               {isCallDropdownOpen && (
                 <div
                   className={`absolute right-0 top-full mt-2 w-52 sm:w-56 rounded-2xl py-2 shadow-2xl z-50 border transition-all animate-in fade-in zoom-in-95 duration-150 ${theme === "dark"
-                      ? "bg-[#233138] border-[#374248] text-[#e9edef]"
-                      : "bg-white border-gray-100 text-[#111b21] shadow-[0_10px_35px_rgba(0,0,0,0.12)]"
+                    ? "bg-[#233138] border-[#374248] text-[#e9edef]"
+                    : "bg-white border-gray-100 text-[#111b21] shadow-[0_10px_35px_rgba(0,0,0,0.12)]"
                     }`}
                 >
                   <button
@@ -370,8 +370,8 @@ const ChatHeader = ({
                       handleAudioCall?.();
                     }}
                     className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
-                        ? "hover:bg-[#182229] text-[#e9edef]"
-                        : "hover:bg-[#f5f6f6] text-[#111b21]"
+                      ? "hover:bg-[#182229] text-[#e9edef]"
+                      : "hover:bg-[#f5f6f6] text-[#111b21]"
                       }`}
                   >
                     <LuPhone className="h-[18px] w-[18px] text-[#aebac1]" />
@@ -385,8 +385,8 @@ const ChatHeader = ({
                       handleVideoCall?.();
                     }}
                     className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
-                        ? "hover:bg-[#182229] text-[#e9edef]"
-                        : "hover:bg-[#f5f6f6] text-[#111b21]"
+                      ? "hover:bg-[#182229] text-[#e9edef]"
+                      : "hover:bg-[#f5f6f6] text-[#111b21]"
                       }`}
                   >
                     <LuVideo className="h-[18px] w-[18px] text-[#aebac1]" />
@@ -405,8 +405,8 @@ const ChatHeader = ({
                       setShowSelectPeopleModal(true);
                     }}
                     className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
-                        ? "hover:bg-[#182229] text-[#e9edef]"
-                        : "hover:bg-[#f5f6f6] text-[#111b21]"
+                      ? "hover:bg-[#182229] text-[#e9edef]"
+                      : "hover:bg-[#f5f6f6] text-[#111b21]"
                       }`}
                   >
                     <LuUserCheck className="h-[18px] w-[18px] text-[#aebac1]" />
@@ -444,8 +444,8 @@ const ChatHeader = ({
                       }
                     }}
                     className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
-                        ? "hover:bg-[#182229] text-[#e9edef]"
-                        : "hover:bg-[#f5f6f6] text-[#111b21]"
+                      ? "hover:bg-[#182229] text-[#e9edef]"
+                      : "hover:bg-[#f5f6f6] text-[#111b21]"
                       }`}
                   >
                     <LuLink className="h-[18px] w-[18px] text-[#aebac1]" />

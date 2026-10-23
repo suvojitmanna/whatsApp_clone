@@ -1,0 +1,12 @@
+export { default as ContactInfoHeader } from "./ContactInfoHeader";
+export { default as ContactInfoMainTab } from "./ContactInfoMainTab";
+export { default as ContactInfoSecurityTab } from "./ContactInfoSecurityTab";
+export { default as ContactInfoPrivacyTab } from "./ContactInfoPrivacyTab";
+export { default as ContactInfoDisappearingTab } from "./ContactInfoDisappearingTab";
+export { default as ContactInfoThemeTab } from "./ContactInfoThemeTab";
+export { default as ContactInfoStarredTab } from "./ContactInfoStarredTab";
+export { default as ContactInfoGroupPermissionsTab } from "./ContactInfoGroupPermissionsTab";
+export { default as ContactInfoMemberChangesTab } from "./ContactInfoMemberChangesTab";
+export { default as ContactInfoListsTab } from "./ContactInfoListsTab";
+export { default as ContactInfoGroupMembersSection } from "./ContactInfoGroupMembersSection";
+export * from "./shared";

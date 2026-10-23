@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo, useEffect, useLayoutEffect } from "react";
+import React, { useRef, useState, useMemo, useEffect, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -125,6 +125,7 @@ const MessageBuble = ({
   isFirstInSequence = true,
   onReply,
   selectedContact,
+  isGroupChat: propIsGroupChat,
   isSelectMode = false,
   isSelected = false,
   onToggleSelect,
@@ -277,12 +278,18 @@ const MessageBuble = ({
     (typeof message.conversation === "object" ? message.conversation : null);
 
   const isGroupChat = Boolean(
-    activeContact?.isGroup ||
-    activeContact?.isGroupChat ||
-    conversationObj?.isGroup ||
-    (!message.receiver &&
-      (activeContact?.participants?.length > 2 ||
-        conversationObj?.participants?.length > 2))
+    propIsGroupChat ?? (
+      activeContact?.isGroup ||
+      activeContact?.isGroupChat ||
+      activeContact?.groupName ||
+      conversationObj?.isGroup ||
+      conversationObj?.groupName ||
+      message?.isGroup ||
+      message?.conversation?.isGroup ||
+      Boolean(activeContact?.groupAdmin || conversationObj?.groupAdmin) ||
+      (Array.isArray(activeContact?.participants) && activeContact.participants.length > 2) ||
+      (Array.isArray(conversationObj?.participants) && conversationObj.participants.length > 2)
+    )
   );
 
   const senderDisplayName = useMemo(() => {
@@ -302,6 +309,17 @@ const MessageBuble = ({
       if (found?.name) return found.name;
       if (found?.phoneNumber) return found.phoneNumber;
     }
+
+    const allChatUsers = useChatStore.getState()?.users || [];
+    if (Array.isArray(allChatUsers)) {
+      const foundUser = allChatUsers.find(
+        (u) => (u?._id || u?.id)?.toString() === senderId
+      );
+      if (foundUser?.username) return foundUser.username;
+      if (foundUser?.name) return foundUser.name;
+      if (foundUser?.phoneNumber) return foundUser.phoneNumber;
+    }
+
     return message?.sender?.phoneNumber || "Participant";
   }, [message?.sender, senderId, activeContact, conversationObj]);
 

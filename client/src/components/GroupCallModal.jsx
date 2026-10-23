@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
 import { FiSearch } from "react-icons/fi";
-import { FaPhone, FaVideo, FaUser, FaUsers } from "react-icons/fa";
+import { FaPhone, FaVideo, FaUsers, FaCheck } from "react-icons/fa";
 import { toast } from "react-toastify";
 import useUserStore from "../store/useUserStore";
 import { useChatStore } from "../store/chatStore";
@@ -35,6 +35,8 @@ const GroupCallModal = ({
   groupParticipants = [],
   groupAdmins = [],
   groupName = "Group",
+  groupId,
+  groupAvatar = "",
   initialCallType = "audio",
   theme = "dark",
   onStartCall,
@@ -45,11 +47,13 @@ const GroupCallModal = ({
 
   const [callType, setCallType] = useState(initialCallType || "audio");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState(new Set());
 
   useEffect(() => {
     if (isOpen) {
       setCallType(initialCallType || "audio");
       setSearchQuery("");
+      setSelectedMemberIds(new Set());
     }
   }, [isOpen, initialCallType]);
 
@@ -83,7 +87,10 @@ const GroupCallModal = ({
         return Boolean(onlineUsers.get(strId)?.isOnline);
       }
       if (Array.isArray(onlineUsers)) {
-        return onlineUsers.includes(strId);
+        return onlineUsers.some((u) => (u?._id || u)?.toString() === strId);
+      }
+      if (onlineUsers && typeof onlineUsers === "object") {
+        return Boolean(onlineUsers[strId]?.isOnline || onlineUsers[strId]);
       }
       return false;
     },
@@ -105,15 +112,19 @@ const GroupCallModal = ({
     return [...members].sort((a, b) => {
       const aId = (a?._id || a)?.toString();
       const bId = (b?._id || b)?.toString();
+      const aSelected = selectedMemberIds.has(aId);
+      const bSelected = selectedMemberIds.has(bId);
+      if (aSelected !== bSelected) return aSelected ? -1 : 1;
+
       const aOnline = checkOnlineStatus(aId);
       const bOnline = checkOnlineStatus(bId);
-
       if (aOnline !== bOnline) return aOnline ? -1 : 1;
+
       const aName = (a?.username || a?.name || "").toLowerCase();
       const bName = (b?.username || b?.name || "").toLowerCase();
       return aName.localeCompare(bName);
     });
-  }, [otherParticipants, searchQuery, checkOnlineStatus]);
+  }, [otherParticipants, searchQuery, checkOnlineStatus, selectedMemberIds]);
 
   const onlineCount = useMemo(() => {
     return otherParticipants.filter((m) => {
@@ -122,40 +133,50 @@ const GroupCallModal = ({
     }).length;
   }, [otherParticipants, checkOnlineStatus]);
 
-  const handleInitiateCall = (member, selectedType) => {
+  const selectedMembers = useMemo(() => {
+    return otherParticipants.filter((p) => {
+      const pId = (p?._id || p)?.toString();
+      return selectedMemberIds.has(pId);
+    });
+  }, [otherParticipants, selectedMemberIds]);
+
+  const handleToggleMember = (member) => {
     if (!member) return;
-    const mId = (member._id || member.id || member)?.toString();
-
-    if (typeof onStartCall === "function") {
-      onStartCall(member, selectedType);
-      onClose();
-      return;
-    }
-
-    const { initiateCall } = useVideoCallStore.getState();
-    const avatar = member?.profilePicture;
-    const name = member?.username || member?.name || "Participant";
-
-    if (typeof initiateCall === "function") {
-      initiateCall(mId, name, avatar, selectedType);
-    } else {
-      toast.error("Call service not ready. Please try again.");
-    }
-    onClose();
+    const mId = (member?._id || member?.id || member)?.toString();
+    if (!mId) return;
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(mId)) {
+        next.delete(mId);
+      } else {
+        next.add(mId);
+      }
+      return next;
+    });
   };
 
-  const handleCallAll = (selectedType = callType) => {
-    if (otherParticipants.length === 0) {
-      toast.info("No members in this group to call");
+  const handleSelectAll = () => {
+    if (selectedMemberIds.size === otherParticipants.length) {
+      setSelectedMemberIds(new Set());
+    } else {
+      const allIds = new Set(
+        otherParticipants
+          .map((p) => (p?._id || p)?.toString())
+          .filter(Boolean)
+      );
+      setSelectedMemberIds(allIds);
+    }
+  };
+
+  const handleCallSelected = (selectedType = callType) => {
+    const targets = selectedMembers.length > 0 ? selectedMembers : otherParticipants;
+    if (targets.length === 0) {
+      toast.info("Please select at least one member to call");
       return;
     }
 
-    const otherMemberIds = otherParticipants
-      .map((p) => (p?._id || p)?.toString())
-      .filter(Boolean);
-
     if (typeof onStartCall === "function") {
-      onStartCall(otherParticipants, selectedType);
+      onStartCall(targets, selectedType);
       onClose();
       return;
     }
@@ -166,14 +187,20 @@ const GroupCallModal = ({
       return;
     }
 
+    const otherMemberIds = targets
+      .map((p) => (p?._id || p)?.toString())
+      .filter(Boolean);
+
     initiateCall(
       otherMemberIds[0],
       groupName || "Group",
-      "",
+      groupAvatar || "",
       selectedType,
       {
         isGroup: true,
+        groupId: groupId,
         groupName: groupName || "Group",
+        groupAvatar: groupAvatar || "",
         participantIds: otherMemberIds,
       }
     );
@@ -196,13 +223,13 @@ const GroupCallModal = ({
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.18 }}
           onClick={(e) => e.stopPropagation()}
-          className={`w-full max-w-[430px] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border transition-colors ${isDark
+          className={`w-full max-w-[440px] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] border transition-colors ${isDark
             ? "bg-[#111b21] text-gray-200 border-[#222e35]"
             : "bg-white text-gray-800 border-gray-200"
             }`}
         >
           <div
-            className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? "border-white/5" : "border-gray-100"
+            className={`flex items-center justify-between px-5 py-3.5 border-b ${isDark ? "border-white/5" : "border-gray-100"
               }`}
           >
             <div className="flex items-center gap-3">
@@ -213,17 +240,17 @@ const GroupCallModal = ({
                   }`}
               >
                 {callType === "video" ? (
-                  <FaVideo className="text-lg" />
+                  <FaVideo className="text-base" />
                 ) : (
                   <FaPhone className="text-base" />
                 )}
               </div>
               <div className="min-w-0">
                 <h3
-                  className={`text-[16.5px] font-semibold tracking-tight truncate ${isDark ? "text-white" : "text-gray-900"
+                  className={`text-[16px] font-semibold tracking-tight truncate ${isDark ? "text-white" : "text-gray-900"
                     }`}
                 >
-                  {callType === "video" ? "Start Video Call" : "Start Voice Call"}
+                  {callType === "video" ? "Group Video Call" : "Group Voice Call"}
                 </h3>
                 <p
                   className={`text-[12px] truncate ${isDark ? "text-[#8696a0]" : "text-gray-500"
@@ -282,14 +309,42 @@ const GroupCallModal = ({
           </div>
 
           <div className="p-4 pb-2 space-y-2.5">
-            <button
-              type="button"
-              onClick={() => handleCallAll(callType)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[13.5px] font-semibold bg-[#00a884] hover:bg-[#02906f] text-white shadow-md active:scale-[0.99] transition cursor-pointer"
-            >
-              {callType === "video" ? <FaVideo size={14} /> : <FaPhone size={13} />}
-              <span>Call All Members ({otherParticipants.length})</span>
-            </button>
+            {selectedMembers.length > 0 && (
+              <div className="flex items-center gap-1.5 overflow-x-auto py-1 px-0.5 scrollbar-thin">
+                {selectedMembers.map((m) => {
+                  const mId = (m?._id || m?.id || m)?.toString();
+                  const mName = m?.username || m?.name || "Participant";
+                  const mPic = m?.profilePicture;
+                  return (
+                    <div
+                      key={mId}
+                      onClick={() => handleToggleMember(m)}
+                      className={`flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full text-[12px] font-medium transition-all shrink-0 cursor-pointer ${isDark
+                        ? "bg-[#202c33] text-[#e9edef] hover:bg-[#2a3942]"
+                        : "bg-emerald-50 text-emerald-900 border border-emerald-200 hover:bg-emerald-100"
+                        }`}
+                      title={`Remove ${mName}`}
+                    >
+                      <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center shrink-0">
+                        {mPic && !mPic.includes("default-avatar") ? (
+                          <img src={mPic} alt={mName} className="w-full h-full object-cover" />
+                        ) : (
+                          <div
+                            className="w-full h-full flex items-center justify-center text-white text-[9px] font-bold"
+                            style={{ backgroundColor: getAvatarColor(mName) }}
+                          >
+                            {(mName[0] || "U").toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <span className="max-w-[80px] truncate">{mName}</span>
+                      <RxCross2 size={13} className="text-gray-400 hover:text-red-400 shrink-0 ml-0.5" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div
               className={`relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-full border transition-all ${isDark
                 ? "bg-[#202c33] border-transparent focus-within:border-[#00a884] focus-within:ring-1 focus-within:ring-[#00a884]"
@@ -304,12 +359,11 @@ const GroupCallModal = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search member to call..."
+                placeholder="Search member to select..."
                 className={`w-full bg-transparent text-[13.5px] focus:outline-none ${isDark
                   ? "text-white placeholder-[#8696a0]"
                   : "text-gray-900 placeholder-gray-400"
                   }`}
-                autoFocus
               />
               {searchQuery && (
                 <button
@@ -323,9 +377,24 @@ const GroupCallModal = ({
             </div>
 
             <div className="flex items-center justify-between px-1 text-[12px]">
-              <span className={isDark ? "text-[#8696a0]" : "text-gray-500"}>
-                Choose a member to connect
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={isDark ? "text-[#8696a0]" : "text-gray-500"}>
+                  {selectedMembers.length > 0
+                    ? `${selectedMembers.length} of ${otherParticipants.length} selected`
+                    : "Select members to call"}
+                </span>
+                {otherParticipants.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleSelectAll}
+                    className="text-[#00a884] font-medium hover:underline cursor-pointer transition ml-1"
+                  >
+                    {selectedMemberIds.size === otherParticipants.length
+                      ? "Deselect All"
+                      : "Select All"}
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-1.5 font-medium text-emerald-500">
                 <span className="relative flex h-2 w-2">
                   {onlineCount > 0 && (
@@ -375,14 +444,19 @@ const GroupCallModal = ({
                 const displayName =
                   member?.username || member?.name || "Participant";
                 const profilePic = member?.profilePicture;
+                const isSelected = selectedMemberIds.has(memberId);
 
                 return (
                   <div
                     key={memberId}
-                    onClick={() => handleInitiateCall(member, callType)}
-                    className={`group flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer ${isDark
-                      ? "hover:bg-[#202c33] active:bg-[#222e35]"
-                      : "hover:bg-gray-100 active:bg-gray-200"
+                    onClick={() => handleToggleMember(member)}
+                    className={`group flex items-center justify-between p-2.5 rounded-xl transition-all cursor-pointer select-none ${isSelected
+                      ? isDark
+                        ? "bg-[#202c33] border border-[#00a884]/40"
+                        : "bg-emerald-50/80 border border-[#00a884]/30"
+                      : isDark
+                        ? "hover:bg-[#202c33]/60 active:bg-[#222e35] border border-transparent"
+                        : "hover:bg-gray-100/80 active:bg-gray-200 border border-transparent"
                       }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -441,41 +515,17 @@ const GroupCallModal = ({
                       </div>
                     </div>
 
-                    <div
-                      className="flex items-center gap-1.5 shrink-0 ml-2"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleInitiateCall(member, "audio")}
-                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${isOnline
-                          ? isDark
-                            ? "hover:bg-[#16312e] text-[#00a884] hover:scale-105"
-                            : "hover:bg-emerald-50 text-[#00897b] hover:scale-105"
+                    <div className="flex items-center gap-2 shrink-0 ml-3">
+                      <div
+                        className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all duration-200 ${isSelected
+                          ? "bg-[#00a884] border-[#00a884] text-white shadow-xs scale-105"
                           : isDark
-                            ? "text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]"
-                            : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+                            ? "border-[#8696a0]/50 group-hover:border-[#00a884]"
+                            : "border-gray-300 group-hover:border-[#00a884]"
                           }`}
-                        title={isOnline ? "Start voice call" : "User is offline"}
                       >
-                        <FaPhone size={14} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleInitiateCall(member, "video")}
-                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${isOnline
-                          ? isDark
-                            ? "hover:bg-[#16312e] text-[#00a884] hover:scale-105"
-                            : "hover:bg-emerald-50 text-[#00897b] hover:scale-105"
-                          : isDark
-                            ? "text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]"
-                            : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                          }`}
-                        title={isOnline ? "Start video call" : "User is offline"}
-                      >
-                        <FaVideo size={15} />
-                      </button>
+                        {isSelected && <FaCheck size={11} className="text-white" />}
+                      </div>
                     </div>
                   </div>
                 );
@@ -483,17 +533,32 @@ const GroupCallModal = ({
             )}
           </div>
 
+          <div className="p-4 pt-3 pb-3 border-t border-black/5 dark:border-white/5 space-y-2">
+            <button
+              type="button"
+              onClick={() => handleCallSelected(callType)}
+              className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-[14px] font-semibold bg-[#00a884] hover:bg-[#02906f] active:scale-[0.99] text-white shadow-md transition cursor-pointer"
+            >
+              {callType === "video" ? <FaVideo size={15} /> : <FaPhone size={14} />}
+              <span>
+                {selectedMembers.length > 0
+                  ? `Start ${callType === "video" ? "Video" : "Voice"} Call (${selectedMembers.length})`
+                  : `Call All Members (${otherParticipants.length})`}
+              </span>
+            </button>
+          </div>
+
           <div
-            className={`px-5 py-3 border-t text-[11.5px] flex items-center justify-between ${isDark
-              ? "border-white/5 bg-[#182229]/50 text-[#8696a0]"
-              : "border-gray-100 bg-gray-50 text-gray-500"
+            className={`px-5 py-3 border-t text-[11.5px] flex items-center justify-between font-semibold ${isDark
+              ? "border-white/5 bg-[#182229]/50 "
+              : "border-gray-100 bg-gray-50"
               }`}
           >
-            <span>End-to-end encrypted calls</span>
+            <span className="text-green-500">End-to-end encrypted calls</span>
             <button
               type="button"
               onClick={onClose}
-              className={`hover:underline cursor-pointer ${isDark ? "text-gray-300" : "text-gray-700"
+              className={`hover:underline cursor-pointer text-sm font-semibold ${isDark ? " text-green-500" : " text-emerald-500"
                 }`}
             >
               Cancel

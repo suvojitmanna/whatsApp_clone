@@ -19,9 +19,6 @@ import {
   FaCompress,
 } from "react-icons/fa";
 
-const defaultAvatar =
-  "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80";
-
 const VideoCallModel = ({ socket }) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -729,7 +726,7 @@ const VideoCallModel = ({ socket }) => {
                 <div className="absolute -inset-2 rounded-full border-2 border-[#00a884]/50 animate-pulse pointer-events-none" />
                 <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-[#00a884] shadow-2xl bg-[#202c33]">
                   <img
-                    src={displayInfo?.avatar || defaultAvatar}
+                    src={displayInfo?.avatar}
                     alt={displayInfo?.name || "Caller"}
                     className="w-full h-full object-cover"
                   />
@@ -873,7 +870,7 @@ const VideoCallModel = ({ socket }) => {
                     )}
                     <div className="relative w-36 h-36 rounded-full overflow-hidden border-4 border-[#2a3942] shadow-2xl bg-[#202c33]">
                       <img
-                        src={displayInfo?.avatar || defaultAvatar}
+                        src={displayInfo?.avatar}
                         alt={displayInfo?.name}
                         className="w-full h-full object-cover"
                       />
