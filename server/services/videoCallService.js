@@ -92,7 +92,6 @@ const handleParticipantLeaveGroupCall = (groupCall, leavingUserId, io, onlineUse
   groupCall.participants.delete(strLeavingId);
   groupCall.pendingReceivers.delete(strLeavingId);
 
-  // Notify any remaining participants that this user left
   groupCall.participants.forEach((p) => {
     const pSocket = onlineUsers.get(p.userId);
     if (pSocket && io) {
@@ -109,7 +108,6 @@ const handleParticipantLeaveGroupCall = (groupCall, leavingUserId, io, onlineUse
     }
   });
 
-  // Check if active participants in group call drop below 2
   if (groupCall.participants.size === 0) {
     endGroupCall(groupCall.callId, io, onlineUsers, reason || "Call ended");
   } else if (groupCall.hasConnected && groupCall.participants.size < 2) {

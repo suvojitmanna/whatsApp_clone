@@ -1,5 +1,5 @@
-import React from "react";
-import { FaCamera, FaFileAlt, FaHeadphones, FaImage, FaMicrophone } from "react-icons/fa";
+import React, { useState, useMemo, useEffect } from "react";
+import { FaCamera, FaFileAlt, FaHeadphones, FaImage, FaMicrophone, FaUsers } from "react-icons/fa";
 import { IoSend } from "react-icons/io5";
 import { FaSquarePollHorizontal } from "react-icons/fa6";
 import { MdEventNote, MdBlock, MdLink, MdAddReaction } from "react-icons/md";
@@ -9,6 +9,20 @@ import EmojiPicker from "emoji-picker-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MetaAiRing } from "../../../components/common/MetaAiIcon";
 import ReplyPreviewBar from "./ReplyPreviewBar";
+
+const getAvatarColor = (name) => {
+  const colors = [
+    "#00a884", "#128c7e", "#25d366", "#34b7f1", "#e542a3",
+    "#9c27b0", "#673ab7", "#3f51b5", "#2196f3", "#00bcd4",
+    "#009688", "#4caf50", "#8bc34a", "#cddc39", "#ffeb3b",
+    "#ffc107", "#ff9800", "#ff5722", "#795548", "#607d8b"
+  ];
+  let hash = 0;
+  for (let i = 0; i < (name || "").length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+};
 
 export const ChatInputBar = ({
   theme,
@@ -47,7 +61,87 @@ export const ChatInputBar = ({
   handleSendMessage,
   isSending,
   selectedFiles = [],
+  isGroupChat = false,
+  groupParticipants = [],
+  groupAdmins = [],
 }) => {
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const filteredMentionItems = useMemo(() => {
+    if (!showMentionPopover) return [];
+    const items = [];
+    const q = (mentionQuery || "").trim().toLowerCase();
+
+    // 1. Group chat mentions: @all / @everyone
+    if (isGroupChat) {
+      if (!q || "all".includes(q) || "everyone".includes(q) || "@all".includes(q)) {
+        items.push({
+          type: "all",
+          id: "all",
+          tag: "@all",
+          name: "@all",
+          badge: "Everyone",
+          description: "Notify all members in this group",
+        });
+      }
+
+      const currentUid = (user?._id || user?.id)?.toString();
+      const adminSet = new Set((groupAdmins || []).map(String));
+
+      (groupParticipants || []).forEach((member) => {
+        const mId = (member?._id || member?.id || member)?.toString();
+        const username =
+          member?.username ||
+          member?.name ||
+          member?.displayName ||
+          "Member";
+        const isMe = Boolean(currentUid && mId && mId === currentUid);
+        const isAdmin = Boolean(mId && adminSet.has(mId));
+
+        const matches =
+          !q ||
+          username.toLowerCase().includes(q) ||
+          (member?.about && member.about.toLowerCase().includes(q)) ||
+          (member?.phoneNumber && member.phoneNumber.includes(q));
+
+        if (matches) {
+          items.push({
+            type: "member",
+            id: mId || username,
+            tag: `@${username}`,
+            name: username,
+            isMe,
+            isAdmin,
+            avatar:
+              member?.profilePicture ||
+              member?.profilePic ||
+              member?.avatar,
+            description: member?.about || (isAdmin ? "Group admin" : `@${username}`),
+          });
+        }
+      });
+    }
+
+    // 2. Meta AI
+    if (!q || "meta ai".includes(q) || "llama".includes(q) || "@meta".includes(q)) {
+      items.push({
+        type: "meta_ai",
+        id: "meta_ai",
+        tag: "@Meta AI",
+        name: "Meta AI",
+        badge: "AI",
+        description: "with Llama • Ask anything or type /imagine",
+      });
+    }
+
+    return items;
+  }, [showMentionPopover, isGroupChat, mentionQuery, groupParticipants, groupAdmins, user]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [mentionQuery, showMentionPopover]);
+
   if (isBlocked) {
     return (
       <div
@@ -373,31 +467,100 @@ export const ChatInputBar = ({
           )}
         </div>
 
-        {showMentionPopover && (
+        {showMentionPopover && filteredMentionItems.length > 0 && (
           <div
-            className={`absolute left-4 bottom-full mb-3 w-72 rounded-2xl shadow-2xl border overflow-hidden z-50 animate-fade-in ${theme === "dark"
-              ? "bg-[#202c33] border-white/10 text-white"
-              : "bg-white border-black/10 text-gray-900"
+            className={`absolute left-2 sm:left-4 bottom-full mb-3 w-[300px] sm:w-[350px] max-w-[calc(100vw-24px)] rounded-2xl shadow-2xl border overflow-hidden z-50 animate-fade-in ${theme === "dark"
+              ? "bg-[#202c33] border-white/10 text-white shadow-[0_12px_28px_rgba(0,0,0,0.55)]"
+              : "bg-white border-black/10 text-gray-900 shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
               }`}
           >
             <div className="px-3.5 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 border-b border-black/5 dark:border-white/5 select-none flex items-center justify-between">
-              <span>Mention</span>
-              <span className="text-[10px] text-gray-400 normal-case">Tab to insert</span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00a884]" />
+                {isGroupChat ? "Group Mentions" : "Mention"}
+              </span>
+              <span className="text-[10px] text-gray-400 normal-case">
+                ↑↓ to navigate • Tab/Enter to tag
+              </span>
             </div>
-            <div
-              onClick={handleSelectMention}
-              className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/10" : "hover:bg-black/5"
-                }`}
-            >
-              <MetaAiRing size={32} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-sm">Meta AI</span>
-                </div>
-                <p className="text-xs text-gray-400 truncate">
-                  with Llama • Ask anything or type /imagine
-                </p>
-              </div>
+
+            <div className="max-h-64 overflow-y-auto custom-scrollbar p-1 select-none">
+              {filteredMentionItems.map((item, idx) => {
+                const isSelected = idx === selectedIndex;
+                return (
+                  <div
+                    key={item.id}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                    onClick={() => handleSelectMention(item.tag)}
+                    className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${isSelected
+                      ? theme === "dark"
+                        ? "bg-white/10"
+                        : "bg-black/5"
+                      : theme === "dark"
+                        ? "hover:bg-white/5"
+                        : "hover:bg-black/[0.03]"
+                      }`}
+                  >
+                    {item.type === "all" ? (
+                      <div className="w-9 h-9 rounded-full bg-[#00a884]/20 text-[#00a884] flex items-center justify-center font-bold text-base shrink-0">
+                        @
+                      </div>
+                    ) : item.type === "meta_ai" ? (
+                      <div className="shrink-0">
+                        <MetaAiRing size={32} />
+                      </div>
+                    ) : item.avatar ? (
+                      <img
+                        src={item.avatar}
+                        alt={item.name}
+                        className="w-9 h-9 rounded-full object-cover shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+                        style={{ backgroundColor: getAvatarColor(item.name) }}
+                      >
+                        {(item.name[0] || "U").toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-[13.5px] truncate">
+                          {item.name}
+                        </span>
+                        {item.isMe && (
+                          <span className="text-[11px] text-gray-400 font-normal">
+                            (You)
+                          </span>
+                        )}
+                        {item.badge && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded-full bg-[#00a884]/20 text-[#00a884]">
+                            {item.badge}
+                          </span>
+                        )}
+                        {item.isAdmin && (
+                          <span
+                            className={`text-[10.5px] font-medium px-1.5 py-0.2 rounded ${theme === "dark"
+                              ? "bg-[#16312e] text-[#00a884]"
+                              : "bg-[#e0f0e9] text-[#00897b]"
+                              }`}
+                          >
+                            Admin
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11.5px] text-gray-400 truncate mt-0.5">
+                        {item.description}
+                      </p>
+                    </div>
+
+                    <span className="text-[11px] font-mono text-gray-400 opacity-60 shrink-0">
+                      {item.tag}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -409,18 +572,37 @@ export const ChatInputBar = ({
           onChange={(e) => {
             const val = e.target.value;
             setMessage(val);
-            const lastWord = val.split(/\s/).pop();
-            if (lastWord && lastWord.startsWith("@") && !isMetaAiChat) {
+            const cursor = e.target.selectionStart ?? val.length;
+            const textBefore = val.slice(0, cursor);
+            const lastToken = textBefore.split(/\s/).pop() || "";
+            if (lastToken.startsWith("@") && !isMetaAiChat) {
+              setMentionQuery(lastToken.slice(1));
               setShowMentionPopover(true);
             } else {
               setShowMentionPopover(false);
+              setMentionQuery("");
             }
           }}
           onKeyDown={(e) => {
-            if (showMentionPopover && (e.key === "Tab" || e.key === "Enter")) {
-              e.preventDefault();
-              handleSelectMention();
-              return;
+            if (showMentionPopover && filteredMentionItems.length > 0) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setSelectedIndex((prev) => (prev + 1) % filteredMentionItems.length);
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setSelectedIndex((prev) => (prev - 1 + filteredMentionItems.length) % filteredMentionItems.length);
+                return;
+              }
+              if (e.key === "Tab" || e.key === "Enter") {
+                e.preventDefault();
+                const selected = filteredMentionItems[selectedIndex] || filteredMentionItems[0];
+                if (selected) {
+                  handleSelectMention(selected.tag);
+                }
+                return;
+              }
             }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -436,7 +618,9 @@ export const ChatInputBar = ({
           placeholder={
             isMetaAiChat
               ? "Ask Meta AI or type /imagine..."
-              : "Type a message or @Meta AI"
+              : isGroupChat
+                ? "Type a message or @ to tag..."
+                : "Type a message or @Meta AI"
           }
           className={`flex-1 min-w-0 w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-sm sm:text-base transition-colors ${theme === "dark"
             ? "text-white placeholder-gray-400 hover:placeholder-gray-300"

@@ -167,6 +167,43 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       currentConversation.participants.length > 2)
   );
 
+  const groupAdmins = useMemo(() => {
+    const raw =
+      selectedContact?.groupAdmin ||
+      selectedContact?.conversation?.groupAdmin ||
+      currentConversation?.groupAdmin ||
+      [];
+    const list = Array.isArray(raw) ? raw : [raw];
+    return list
+      .filter(Boolean)
+      .map((a) => (a?._id || a)?.toString())
+      .filter(Boolean);
+  }, [selectedContact, currentConversation]);
+
+  const groupParticipants = useMemo(() => {
+    const raw =
+      selectedContact?.participants ||
+      selectedContact?.conversation?.participants ||
+      currentConversation?.participants ||
+      [];
+    const list = Array.isArray(raw) ? [...raw] : [];
+    const myIdStr = (user?._id || user?.id)?.toString();
+    list.sort((a, b) => {
+      const aId = (a?._id || a)?.toString();
+      const bId = (b?._id || b)?.toString();
+      if (aId === myIdStr) return -1;
+      if (bId === myIdStr) return 1;
+      const aIsAdmin = groupAdmins.includes(aId);
+      const bIsAdmin = groupAdmins.includes(bId);
+      if (aIsAdmin && !bIsAdmin) return -1;
+      if (!aIsAdmin && bIsAdmin) return 1;
+      const aName = (a?.username || a?.name || "").toLowerCase();
+      const bName = (b?.username || b?.name || "").toLowerCase();
+      return aName.localeCompare(bName);
+    });
+    return list;
+  }, [selectedContact, currentConversation, user?._id, user?.id, groupAdmins]);
+
   const conversationId = (
     selectedContact?.conversation?._id ||
     (typeof selectedContact?.conversation === "string" ? selectedContact?.conversation : null) ||
@@ -235,14 +272,35 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     return () => window.removeEventListener("meta_ai_prefill", handlePrefill);
   }, []);
 
-  const handleSelectMention = () => {
-    const words = message.split(/\s/);
-    words.pop();
-    words.push("@Meta AI ");
-    setMessage(words.join(" "));
-    setShowMentionPopover(false);
-    if (messageInputRef.current) {
-      messageInputRef.current.focus();
+  const handleSelectMention = (tagText = "@Meta AI") => {
+    const input = messageInputRef.current;
+    const currentVal = message || "";
+    const cursor = input?.selectionStart ?? currentVal.length;
+    const textBefore = currentVal.slice(0, cursor);
+    const textAfter = currentVal.slice(cursor);
+
+    const lastAtIndex = textBefore.lastIndexOf("@");
+    if (lastAtIndex !== -1) {
+      const prefix = textBefore.slice(0, lastAtIndex);
+      const newMsg = `${prefix}${tagText} ${textAfter}`;
+      setMessage(newMsg);
+      setShowMentionPopover(false);
+      requestAnimationFrame(() => {
+        if (input) {
+          input.focus();
+          const newPos = prefix.length + tagText.length + 1;
+          input.setSelectionRange(newPos, newPos);
+        }
+      });
+    } else {
+      const words = currentVal.split(/\s/);
+      words.pop();
+      words.push(`${tagText} `);
+      setMessage(words.join(" "));
+      setShowMentionPopover(false);
+      if (input) {
+        input.focus();
+      }
     }
   };
 
@@ -1823,24 +1881,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     addReaction(messageId, emoji);
   };
 
-  const groupParticipants = useMemo(() => {
-    if (!isGroupChat) return [];
-    return (
-      selectedContact?.participants ||
-      selectedContact?.conversation?.participants ||
-      []
-    );
-  }, [selectedContact, isGroupChat]);
-
-  const groupAdmins = useMemo(() => {
-    if (!isGroupChat) return [];
-    const raw =
-      selectedContact?.groupAdmin ||
-      selectedContact?.conversation?.groupAdmin ||
-      [];
-    return Array.isArray(raw) ? raw : [raw];
-  }, [selectedContact, isGroupChat]);
-
   const handleVideoCall = () => {
     if (!selectedContact) return;
     if (isGroupChat) {
@@ -2461,6 +2501,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               handleSendMessage={handleSendMessage}
               isSending={isSending}
               selectedFiles={selectedFiles}
+              isGroupChat={isGroupChat}
+              groupParticipants={groupParticipants}
+              groupAdmins={groupAdmins}
             />
           )}
         </div>

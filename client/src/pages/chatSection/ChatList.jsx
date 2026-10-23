@@ -2255,11 +2255,55 @@ const ChatList = ({ contacts }) => {
                           lastMsgSenderId === currentUserId
                         );
 
+                        const hasMentionInChat = (() => {
+                          const isGroup = Boolean(
+                            contact?.isGroup ||
+                            contact?.isGroupChat ||
+                            contact?.conversation?.isGroup ||
+                            (contact?.conversation?.participants && contact.conversation.participants.length > 2)
+                          );
+                          if (!isGroup) return false;
+                          const myUsername = (user?.username || user?.name || "")?.toLowerCase();
+                          const lastContent = (contact?.conversation?.lastMessage?.content || "").toLowerCase();
+                          return Boolean(
+                            lastContent.includes("@all") ||
+                            lastContent.includes("@everyone") ||
+                            (myUsername && lastContent.includes(`@${myUsername}`))
+                          );
+                        })();
+
                         if (!isSenderOfLast && unread && unread > 0) {
                           return (
-                            <p className="w-5 h-5 rounded-full bg-[#25d366] flex items-center justify-center text-[11px] font-bold text-[#111b21] shrink-0">
-                              {unread}
-                            </p>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {hasMentionInChat && (
+                                <span
+                                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[12px] font-bold ${theme === "dark"
+                                    ? "bg-[#00a884]/20 text-[#00a884]"
+                                    : "bg-[#00a884]/15 text-[#00897b]"
+                                    }`}
+                                  title="You or everyone were mentioned"
+                                >
+                                  @
+                                </span>
+                              )}
+                              <p className="w-5 h-5 rounded-full bg-[#25d366] flex items-center justify-center text-[11px] font-bold text-[#111b21] shrink-0">
+                                {unread}
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        if (!isSenderOfLast && hasMentionInChat) {
+                          return (
+                            <span
+                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 ${theme === "dark"
+                                ? "bg-[#00a884]/20 text-[#00a884]"
+                                : "bg-[#00a884]/15 text-[#00897b]"
+                                }`}
+                              title="You or everyone were mentioned"
+                            >
+                              @
+                            </span>
                           );
                         }
 

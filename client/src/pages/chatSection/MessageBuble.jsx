@@ -711,6 +711,97 @@ const MessageBuble = ({
     [highlightText]
   );
 
+  const renderContentWithMentions = useCallback(
+    (text, term) => {
+      if (!text || typeof text !== "string") return text;
+
+      const mentionRegex = /(@all\b|@everyone\b|@Meta AI\b|@[a-zA-Z0-9_\.\-]+)/gi;
+      const parts = text.split(mentionRegex);
+
+      return parts.map((part, index) => {
+        if (!part) return null;
+        if (part.match(mentionRegex)) {
+          const lower = part.toLowerCase();
+          if (lower === "@all" || lower === "@everyone") {
+            return (
+              <span
+                key={index}
+                className={`font-semibold px-1 py-0.5 rounded transition-colors inline-block select-text ${isDark
+                  ? "text-[#53bdeb] bg-[#53bdeb]/15 hover:bg-[#53bdeb]/25"
+                  : "text-[#027eb5] bg-[#027eb5]/10 hover:bg-[#027eb5]/20"
+                  }`}
+                title="Mentioned all members in group"
+              >
+                {part}
+              </span>
+            );
+          }
+          if (lower === "@meta ai") {
+            return (
+              <span
+                key={index}
+                className="font-semibold text-blue-400 bg-blue-500/15 px-1 py-0.5 rounded inline-block cursor-pointer hover:bg-blue-500/25 transition-colors select-text"
+                title="Mentioned Meta AI"
+              >
+                {part}
+              </span>
+            );
+          }
+
+          const rawUsername = part.slice(1);
+          const myUsername = (effectiveUser?.username || effectiveUser?.name || "")?.toLowerCase();
+          const isMe = Boolean(myUsername && rawUsername.toLowerCase() === myUsername);
+
+          return (
+            <span
+              key={index}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rawParticipants =
+                  activeContact?.participants ||
+                  activeContact?.conversation?.participants ||
+                  conversationObj?.participants ||
+                  [];
+                const found = Array.isArray(rawParticipants)
+                  ? rawParticipants.find(
+                    (p) =>
+                      (p?.username || p?.name || "").toLowerCase() === rawUsername.toLowerCase()
+                  )
+                  : null;
+                if (found) {
+                  const openFn =
+                    openContactInfoWithMember ||
+                    useLayoutStore.getState().openContactInfoWithMember;
+                  if (openFn) openFn(found);
+                }
+              }}
+              className={`font-semibold px-1 py-0.5 rounded cursor-pointer transition-colors inline-block select-text ${isMe
+                ? "text-[#00a884] dark:text-[#25d366] bg-[#00a884]/20 hover:bg-[#00a884]/30 font-bold"
+                : isDark
+                  ? "text-[#53bdeb] bg-[#53bdeb]/15 hover:bg-[#53bdeb]/25"
+                  : "text-[#027eb5] bg-[#027eb5]/10 hover:bg-[#027eb5]/20"
+                }`}
+              title={isMe ? "You were mentioned" : `Mentioned @${rawUsername}`}
+            >
+              {part}
+            </span>
+          );
+        }
+
+        return term ? safeHighlight(part, term) : part;
+      });
+    },
+    [
+      isDark,
+      effectiveUser?.username,
+      effectiveUser?.name,
+      activeContact,
+      conversationObj,
+      openContactInfoWithMember,
+      safeHighlight,
+    ]
+  );
+
   const bubbleContentClass = useMemo(() => {
     if (isSticker) {
       return "bg-transparent shadow-none border-none p-0";
@@ -1212,9 +1303,7 @@ const MessageBuble = ({
                           </div>
                         ) : (
                           <span className="break-words whitespace-pre-wrap">
-                            {searchTerm
-                              ? safeHighlight(displayContent, searchTerm)
-                              : displayContent}
+                            {renderContentWithMentions(displayContent, searchTerm)}
                           </span>
                         )}
                         <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
