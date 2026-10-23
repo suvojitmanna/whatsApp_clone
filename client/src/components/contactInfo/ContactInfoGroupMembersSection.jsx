@@ -1,15 +1,11 @@
-import React, { useState, useRef, useMemo } from "react";
-import { FaUser, FaPhone, FaVideo } from "react-icons/fa";
+import React, { useState, useRef, useMemo, useEffect, useCallback } from "react";
+import { FaUser } from "react-icons/fa";
 import { FaUserShield } from "react-icons/fa6";
 import { FiUserPlus, FiTag, FiSearch } from "react-icons/fi";
 import { IoRemoveCircleOutline } from "react-icons/io5";
-import {
-  MdChevronRight,
-  MdKeyboardArrowDown,
-  MdHistory,
-  MdOutlineChat,
-} from "react-icons/md";
+import { MdChevronRight, MdKeyboardArrowDown, MdHistory } from "react-icons/md";
 import useOutsideClick from "../../hook/useOutsideClick";
+import { useChatStore } from "../../store/chatStore";
 
 const ContactInfoGroupMembersSection = ({
   theme,
@@ -30,9 +26,6 @@ const ContactInfoGroupMembersSection = ({
   handleToggleMemberAdmin,
   handleRemoveMember,
   handleSaveMemberTag,
-  handleMessageMember,
-  handleAudioCallMember,
-  handleVideoCallMember,
   memberTagPromptOpen,
   setMemberTagPromptOpen,
   editingMemberForTag,
@@ -45,6 +38,66 @@ const ContactInfoGroupMembersSection = ({
   const [showAllMembers, setShowAllMembers] = useState(false);
   const [openMemberMenuId, setOpenMemberMenuId] = useState(null);
   const memberMenuRef = useRef(null);
+  const storeOnlineUsers = useChatStore((state) => state.onlineUsers);
+  const storeIsUserOnline = useChatStore((state) => state.isUserOnline);
+  const checkUserStatus = useChatStore((state) => state.checkUserStatus);
+
+  useEffect(() => {
+    if (groupParticipants && groupParticipants.length > 0 && typeof checkUserStatus === "function") {
+      const myIdStr = user?._id?.toString();
+      groupParticipants.forEach((p) => {
+        const pId = (p?._id || p?.id || p)?.toString();
+        if (pId && pId !== myIdStr) {
+          checkUserStatus(pId);
+        }
+      });
+    }
+  }, [groupParticipants, checkUserStatus, user?._id]);
+
+  const checkMemberOnline = useCallback(
+    (member) => {
+      const memberId = (member?._id || member?.id || member)?.toString();
+      if (!memberId || memberId === user?._id?.toString()) return false;
+
+      if (typeof storeIsUserOnline === "function" && storeIsUserOnline(memberId)) {
+        return true;
+      }
+
+      if (typeof isUserOnline === "function" && isUserOnline(memberId)) {
+        return true;
+      }
+
+      const effectiveOnlineUsers = storeOnlineUsers || onlineUsers;
+      if (effectiveOnlineUsers instanceof Map && effectiveOnlineUsers.has(memberId)) {
+        return Boolean(effectiveOnlineUsers.get(memberId)?.isOnline);
+      }
+
+      if (
+        effectiveOnlineUsers &&
+        typeof effectiveOnlineUsers === "object" &&
+        !Array.isArray(effectiveOnlineUsers)
+      ) {
+        const entry = effectiveOnlineUsers[memberId];
+        if (typeof entry === "boolean") return entry;
+        if (entry && typeof entry === "object") return Boolean(entry.isOnline);
+      }
+
+      if (Array.isArray(effectiveOnlineUsers)) {
+        return effectiveOnlineUsers.some(
+          (u) => (u?._id || u?.id || u)?.toString() === memberId
+        );
+      }
+
+      return Boolean(member?.isOnline);
+    },
+    [storeIsUserOnline, isUserOnline, storeOnlineUsers, onlineUsers, user?._id]
+  );
+
+  const activeOnlineCount = useMemo(() => {
+    if (groupOnlineCount > 0) return groupOnlineCount;
+    if (!groupParticipants || !Array.isArray(groupParticipants)) return 0;
+    return groupParticipants.filter((m) => checkMemberOnline(m)).length;
+  }, [groupOnlineCount, groupParticipants, checkMemberOnline]);
 
   useOutsideClick(memberMenuRef, () => {
     if (openMemberMenuId) setOpenMemberMenuId(null);
@@ -76,11 +129,24 @@ const ContactInfoGroupMembersSection = ({
     return list;
   }, [groupParticipants, participantSearchTerm, showAllMembers, memberTags]);
 
+  const itemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7.5px] gap-3 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] group select-none ${theme === "dark"
+      ? "text-[#d1d7db] hover:text-white hover:bg-white/10 hover:border-white/15"
+      : "text-[#111b21] hover:text-black hover:bg-black/5 hover:border-black/10"
+    }`;
+
+  const dangerItemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7.5px] gap-3 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] group select-none ${theme === "dark"
+      ? "hover:bg-red-500/15 hover:border-red-400/25 text-red-400"
+      : "hover:bg-red-50 hover:border-red-300 text-red-600"
+    }`;
+
+  const menuDividerClass = `my-1 border-t ${theme === "dark" ? "border-white/10" : "border-black/10"
+    }`;
+
   return (
     <>
       <div
         id="group-members-section"
-        className={`rounded-xl border overflow-hidden ${theme === "dark"
+        className={`rounded-xl border ${theme === "dark"
           ? "bg-white/[0.03] border-transparent shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-md"
           : "bg-white border-gray-200 shadow-sm"
           }`}
@@ -89,9 +155,9 @@ const ContactInfoGroupMembersSection = ({
           <span className="text-[13.5px] font-medium text-[#8696a0]">
             {groupParticipants.length} {groupParticipants.length === 1 ? "member" : "members"}
           </span>
-          {groupOnlineCount > 0 && (
+          {activeOnlineCount > 0 && (
             <span className="text-[12px] font-medium text-[#00a884]">
-              {groupOnlineCount} online
+              {activeOnlineCount} online
             </span>
           )}
         </div>
@@ -132,7 +198,7 @@ const ContactInfoGroupMembersSection = ({
                   <button
                     type="button"
                     onClick={() => setParticipantSearchTerm("")}
-                    className="text-xs text-[#8696a0] hover:text-white"
+                    className={`text-xs text-[#8696a0] ${theme === "dark" ? "hover:text-white" : "hover:text-gray-900"}`}
                   >
                     Clear
                   </button>
@@ -141,7 +207,7 @@ const ContactInfoGroupMembersSection = ({
             </div>
           )}
 
-          <div ref={memberMenuRef} className="space-y-0.5">
+          <div className="space-y-0.5">
             {displayedParticipants.map((member, index) => {
               const memberId = (member?._id || member?.id || member)?.toString();
               const isMe = memberId === user?._id?.toString();
@@ -151,15 +217,9 @@ const ContactInfoGroupMembersSection = ({
               const memberAbout = member?.about || "Hey there! I am using WhatsApp.";
               const isAdmin = groupAdmins.some((a) => (a?._id || a)?.toString() === memberId);
               const memberTag = getMemberTag(memberId);
-              const isMemberOnline =
-                !isMe &&
-                (typeof isUserOnline === "function"
-                  ? isUserOnline(memberId)
-                  : Array.isArray(onlineUsers)
-                    ? onlineUsers.some((u) => (u?._id || u)?.toString() === memberId)
-                    : false);
+              const isMemberOnline = checkMemberOnline(member);
               const isMenuOpen = openMemberMenuId === memberId;
-              const isNearBottom = index >= displayedParticipants.length - 2 && displayedParticipants.length > 3;
+              const isNearBottom = index >= Math.max(1, displayedParticipants.length - 2);
 
               return (
                 <div
@@ -179,11 +239,11 @@ const ContactInfoGroupMembersSection = ({
                         : "hover:bg-gray-50"
                     }`}
                 >
-                  <div
-                    className={`relative shrink-0 w-10 h-10 rounded-full overflow-hidden flex items-center justify-center ${theme === "dark" ? "bg-[#2a3942]" : "bg-gray-100"
-                      } border ${theme === "dark" ? "border-transparent" : "border-gray-200"}`}
-                  >
-                    <div>
+                  <div className="relative shrink-0">
+                    <div
+                      className={`w-10 h-10 rounded-full overflow-hidden flex items-center justify-center ${theme === "dark" ? "bg-[#2a3942]" : "bg-gray-100"
+                        } border ${theme === "dark" ? "border-transparent" : "border-gray-200"}`}
+                    >
                       {member?.profilePicture && !member.profilePicture.includes("default-avatar") ? (
                         <img
                           src={member.profilePicture}
@@ -205,7 +265,11 @@ const ContactInfoGroupMembersSection = ({
                     </div>
 
                     {isMemberOnline && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#00a884] rounded-full border-2 border-[#111b21]" />
+                      <span
+                        className={`absolute bottom-0 right-0 w-3 h-3 bg-[#00a884] rounded-full border-2 ${theme === "dark" ? "border-[#111b21]" : "border-white"
+                          } shadow-sm z-10`}
+                        title="Online"
+                      />
                     )}
                   </div>
 
@@ -239,16 +303,20 @@ const ContactInfoGroupMembersSection = ({
                             Group admin
                           </span>
                         )}
-                        {!isMe && (
+                        {!isMe && isCurrentUserAdmin && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               setOpenMemberMenuId((prev) => (prev === memberId ? null : memberId));
                             }}
-                            className={`p-1 rounded-full text-[#8696a0] hover:text-[#e9edef] transition cursor-pointer ${isMenuOpen
-                              ? "opacity-100 text-[#e9edef]"
-                              : "opacity-0 group-hover:opacity-100"
+                            className={`p-1 rounded-full transition-colors cursor-pointer ${theme === "dark"
+                                ? isMenuOpen
+                                  ? "opacity-100 text-[#e9edef] bg-white/10"
+                                  : "text-[#8696a0] hover:text-[#e9edef] hover:bg-white/10 opacity-0 group-hover:opacity-100"
+                                : isMenuOpen
+                                  ? "opacity-100 text-[#111b21] bg-black/5"
+                                  : "text-[#667781] hover:text-[#111b21] hover:bg-black/5 opacity-0 group-hover:opacity-100"
                               }`}
                             title="Member options"
                           >
@@ -291,130 +359,49 @@ const ContactInfoGroupMembersSection = ({
                     )}
                   </div>
 
-                  {isMenuOpen && (
+                  {isMenuOpen && isCurrentUserAdmin && !isMe && (
                     <div
+                      ref={memberMenuRef}
                       onClick={(e) => e.stopPropagation()}
-                      className={`absolute right-3 ${isNearBottom ? "bottom-full mb-1" : "top-full mt-1"
-                        } z-50 w-56 rounded-2xl shadow-2xl py-2 border select-none ${theme === "dark"
-                          ? "bg-[#233138] border-white/10"
-                          : "bg-white border-black/10"
+                      className={`absolute right-3 ${isNearBottom ? "bottom-full mb-1.5" : "top-full mt-1.5"
+                        } z-50 w-52 rounded-2xl shadow-2xl py-1.5 border select-none transition-all duration-150 animate-in fade-in zoom-in-95 ${theme === "dark"
+                          ? "bg-[#233138] border-white/10 shadow-[0_12px_28px_rgba(0,0,0,0.5)]"
+                          : "bg-white border-black/10 shadow-[0_12px_28px_rgba(0,0,0,0.15)]"
                         }`}
                     >
-                      {!isMe && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMemberMenuId(null);
-                              handleMessageMember(member);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
-                          >
-                            <MdOutlineChat size={18} className="text-[#8696a0] shrink-0" />
-                            <span>Message {displayName}</span>
-                          </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenMemberMenuId(null);
+                          handleToggleMemberAdmin(memberId, isAdmin, displayName);
+                        }}
+                        className={itemClass}
+                      >
+                        <FaUserShield
+                          size={17}
+                          className="text-[#8696a0] group-hover:text-inherit shrink-0 transition-colors"
+                        />
+                        <span>{isAdmin ? "Dismiss as admin" : "Make group admin"}</span>
+                      </button>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMemberMenuId(null);
-                              setViewingMember(member);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
-                          >
-                            <FaUser size={16} className="text-[#8696a0] shrink-0" />
-                            <span>View {displayName}</span>
-                          </button>
+                      <div className={menuDividerClass} />
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMemberMenuId(null);
-                              handleAudioCallMember(member);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
-                          >
-                            <FaPhone size={15} className="text-[#8696a0] shrink-0" />
-                            <span>Audio call</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenMemberMenuId(null);
-                              handleVideoCallMember(member);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
-                          >
-                            <FaVideo size={15} className="text-[#8696a0] shrink-0" />
-                            <span>Video call</span>
-                          </button>
-                        </>
-                      )}
-
-                      {isCurrentUserAdmin && !isMe && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMemberMenuId(null);
-                            handleRemoveMember(memberId, displayName);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
-                        >
-                          <IoRemoveCircleOutline size={19} className="text-[#8696a0] shrink-0" />
-                          <span>Remove</span>
-                        </button>
-                      )}
-
-                      {isCurrentUserAdmin && !isMe && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMemberMenuId(null);
-                            handleToggleMemberAdmin(memberId, isAdmin, displayName);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
-                        >
-                          <FaUserShield size={18} className="text-[#8696a0] shrink-0" />
-                          <span>{isAdmin ? "Dismiss as admin" : "Make group admin"}</span>
-                        </button>
-                      )}
-
-                      {isCurrentUserAdmin && !isMe && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMemberMenuId(null);
-                            setEditingMemberForTag({
-                              id: memberId,
-                              name: displayName,
-                              currentTag: memberTag,
-                            });
-                            setUserMemberTag(memberTag || "");
-                            setMemberTagPromptOpen(true);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
-                        >
-                          <FiTag size={17} className="text-[#8696a0] shrink-0" />
-                          <span>{memberTag ? "Edit member tag" : "Add member tag"}</span>
-                        </button>
-                      )}
-
-                      {!isMe && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenMemberMenuId(null);
-                            setContactInfoTab("security");
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-[#e9edef] hover:bg-[#182229] transition-colors cursor-pointer text-left"
-                        >
-                          <span className="font-mono font-bold text-[13px] text-[#8696a0] w-[19px] text-center shrink-0">
-                            123
-                          </span>
-                          <span>Verify security code</span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenMemberMenuId(null);
+                          handleRemoveMember(memberId, displayName);
+                        }}
+                        className={dangerItemClass}
+                      >
+                        <IoRemoveCircleOutline
+                          size={18}
+                          className="shrink-0 transition-colors text-inherit"
+                        />
+                        <span className="truncate">
+                          Remove
+                        </span>
+                      </button>
                     </div>
                   )}
                 </div>

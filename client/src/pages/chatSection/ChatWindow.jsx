@@ -141,16 +141,55 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const online = isUserOnline(selectedContact?._id);
   const lastSeen = getUserLastSeen(selectedContact?._id);
-  const isSelectedContactGroup = Boolean(
+  const isGroupChat = Boolean(
     selectedContact?.isGroup ||
     selectedContact?.isGroupChat ||
-    selectedContact?.conversation?.isGroup
+    selectedContact?.conversation?.isGroup ||
+    currentConversation?.isGroup ||
+    (typeof selectedContact?.groupName === "string" &&
+      selectedContact.groupName.trim() !== "" &&
+      selectedContact.groupName !== selectedContact?.username) ||
+    (typeof selectedContact?.conversation?.groupName === "string" &&
+      selectedContact.conversation.groupName.trim() !== "") ||
+    (typeof currentConversation?.groupName === "string" &&
+      currentConversation.groupName.trim() !== "") ||
+    (Array.isArray(selectedContact?.groupAdmin) &&
+      selectedContact.groupAdmin.length > 0) ||
+    (Array.isArray(selectedContact?.conversation?.groupAdmin) &&
+      selectedContact.conversation.groupAdmin.length > 0) ||
+    (Array.isArray(currentConversation?.groupAdmin) &&
+      currentConversation.groupAdmin.length > 0) ||
+    (Array.isArray(selectedContact?.participants) &&
+      selectedContact.participants.length > 2) ||
+    (Array.isArray(selectedContact?.conversation?.participants) &&
+      selectedContact.conversation.participants.length > 2) ||
+    (Array.isArray(currentConversation?.participants) &&
+      currentConversation.participants.length > 2)
   );
+
   const conversationId = (
     selectedContact?.conversation?._id ||
     (typeof selectedContact?.conversation === "string" ? selectedContact?.conversation : null) ||
-    (isSelectedContactGroup ? currentConversation?._id : null)
+    (isGroupChat
+      ? selectedContact?._id || selectedContact?.id || currentConversation?._id
+      : currentConversation?._id)
   )?.toString();
+
+  const getSendRouting = () => {
+    const effectiveConversationId = isGroupChat
+      ? (conversationId ||
+        selectedContact?.conversation?._id ||
+        (selectedContact?.isGroup ? (selectedContact?._id || selectedContact?.id) : null) ||
+        currentConversation?._id)
+      : (conversationId ||
+        selectedContact?.conversation?._id ||
+        (typeof selectedContact?.conversation === "string" ? selectedContact?.conversation : null) ||
+        currentConversation?._id);
+    const receiverId = isGroupChat
+      ? (effectiveConversationId || selectedContact?._id || selectedContact?.id)
+      : (targetUserId || selectedContact?._id);
+    return { isGroupChat, effectiveConversationId, receiverId };
+  };
   const isTyping = isUserTyping(conversationId, selectedContact?._id);
 
   const isMetaAiChat = Boolean(
@@ -430,22 +469,28 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const currConv = currentConversation?._id?.toString();
     const selContactId = selectedContact?._id?.toString();
     const selConvId = (selectedContact?.conversation?._id || selectedContact?.conversation)?.toString();
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const isGroup = Boolean(
+      selectedContact?.isGroup ||
+      selectedContact?.isGroupChat ||
+      selectedContact?.conversation?.isGroup ||
+      currentConversation?.isGroup ||
+      (selectedContact?.conversation?.participants && selectedContact.conversation.participants.length > 2) ||
+      (currentConversation?.participants && currentConversation.participants.length > 2)
+    );
 
     let pin =
       (currConv && pinnedMessages?.[currConv]) ||
-      (selContactId && pinnedMessages?.[selContactId]) ||
-      (selConvId && pinnedMessages?.[selConvId]);
+      (selConvId && pinnedMessages?.[selConvId]) ||
+      (!isGroup && selContactId && selContactId !== currentUserId && pinnedMessages?.[selContactId]);
     if (!pin) {
       const allPins = Object.values(pinnedMessages || {});
       pin = allPins.find((p) => {
         if (!p?.message) return false;
         const msgConv = (p.message.conversation?._id || p.message.conversation || p.message.conversationId)?.toString();
-        const msgSender = (p.message.sender?._id || p.message.sender)?.toString();
-        const msgReceiver = (p.message.receiver?._id || p.message.receiver)?.toString();
         return (
           (currConv && msgConv === currConv) ||
-          (selConvId && msgConv === selConvId) ||
-          (selContactId && (msgSender === selContactId || msgReceiver === selContactId))
+          (selConvId && msgConv === selConvId)
         );
       });
     }
@@ -455,19 +500,27 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       selectedContact.conversation.pinnedMessage.message
     ) {
       const convPin = selectedContact.conversation.pinnedMessage;
-      const expires = convPin.expiresAt
-        ? new Date(convPin.expiresAt).getTime()
-        : null;
-      if (!expires || expires > Date.now()) {
-        pin = {
-          message: convPin.message,
-          duration: convPin.duration || "7 days",
-          pinnedAt: convPin.pinnedAt
-            ? new Date(convPin.pinnedAt).getTime()
-            : Date.now(),
-          expiresAt: expires,
-          pinnedBy: convPin.pinnedBy,
-        };
+      const msgConv = (
+        convPin.message?.conversation?._id ||
+        convPin.message?.conversation ||
+        convPin.message?.conversationId
+      )?.toString();
+      const belongs = !msgConv || (currConv && msgConv === currConv) || (selConvId && msgConv === selConvId);
+      if (belongs) {
+        const expires = convPin.expiresAt
+          ? new Date(convPin.expiresAt).getTime()
+          : null;
+        if (!expires || expires > Date.now()) {
+          pin = {
+            message: convPin.message,
+            duration: convPin.duration || "7 days",
+            pinnedAt: convPin.pinnedAt
+              ? new Date(convPin.pinnedAt).getTime()
+              : Date.now(),
+            expiresAt: expires,
+            pinnedBy: convPin.pinnedBy,
+          };
+        }
       }
     }
 
@@ -1430,40 +1483,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     setIsSending(true);
     try {
-      const isGroupChat = Boolean(
-        selectedContact?.isGroup ||
-        selectedContact?.isGroupChat ||
-        selectedContact?.conversation?.isGroup ||
-        currentConversation?.isGroup ||
-        (typeof selectedContact?.groupName === "string" &&
-          selectedContact.groupName.trim() !== "" &&
-          selectedContact.groupName !== selectedContact?.username) ||
-        (typeof selectedContact?.conversation?.groupName === "string" &&
-          selectedContact.conversation.groupName.trim() !== "") ||
-        (typeof currentConversation?.groupName === "string" &&
-          currentConversation.groupName.trim() !== "") ||
-        (Array.isArray(selectedContact?.groupAdmin) &&
-          selectedContact.groupAdmin.length > 0) ||
-        (Array.isArray(selectedContact?.conversation?.groupAdmin) &&
-          selectedContact.conversation.groupAdmin.length > 0) ||
-        (Array.isArray(currentConversation?.groupAdmin) &&
-          currentConversation.groupAdmin.length > 0) ||
-        (Array.isArray(selectedContact?.participants) &&
-          selectedContact.participants.length > 2) ||
-        (Array.isArray(selectedContact?.conversation?.participants) &&
-          selectedContact.conversation.participants.length > 2) ||
-        (Array.isArray(currentConversation?.participants) &&
-          currentConversation.participants.length > 2)
-      );
-      const effectiveConversationId = isGroupChat
-        ? (conversationId ||
-          selectedContact?.conversation?._id ||
-          (selectedContact?.isGroup ? (selectedContact?._id || selectedContact?.id) : null))
-        : (selectedContact?.conversation?._id ||
-          (typeof selectedContact?.conversation === "string" ? selectedContact?.conversation : null));
-      const receiverId = isGroupChat
-        ? (effectiveConversationId || selectedContact?._id)
-        : (targetUserId || selectedContact?._id);
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
       const replyData = replyingTo
         ? {
           _id: replyingTo._id,
@@ -1474,6 +1494,20 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           imageOrVideoUrl: replyingTo.imageOrVideoUrl || null,
         }
         : null;
+
+      setMessage("");
+      setReplyingTo(null);
+      selectedFiles.forEach((item) => {
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      });
+      setSelectedFiles([]);
+      setActiveFileIndex(0);
+      setIsStickerMode(false);
+      setShowFileMenu(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (documentInputRef.current) documentInputRef.current.value = "";
+      if (audioInputRef.current) audioInputRef.current.value = "";
+      if (stickerInputRef.current) stickerInputRef.current.value = "";
 
       if (selectedFiles.length > 0) {
         for (let i = 0; i < selectedFiles.length; i++) {
@@ -1530,20 +1564,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         }
       }
 
-      setMessage("");
-      setReplyingTo(null);
-      selectedFiles.forEach((item) => {
-        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-      });
-      setSelectedFiles([]);
-      setActiveFileIndex(0);
-      setIsStickerMode(false);
-      setShowFileMenu(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      if (documentInputRef.current) documentInputRef.current.value = "";
-      if (audioInputRef.current) audioInputRef.current.value = "";
-      if (stickerInputRef.current) stickerInputRef.current.value = "";
-
       if (selectedContact?._id) {
         const bottomPos = {
           isAtBottom: true,
@@ -1567,9 +1587,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleSendPoll = async ({ question, options, allowMultiple }) => {
     if (!selectedContact || !question.trim()) return;
     try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
       formData.append("messageStatus", "send");
       formData.append("contentType", "poll");
       formData.append("content", question.trim());
@@ -1593,9 +1621,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (!selectedContact || !contactInfo.name) return;
     setShowContactModal(false);
     try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
       formData.append("messageStatus", "send");
       formData.append("contentType", "contact");
       formData.append("content", `Contact: ${contactInfo.name}`);
@@ -1610,9 +1646,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleSendEvent = async (eventInfo) => {
     if (!selectedContact || !eventInfo.title) return;
     try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
       formData.append("messageStatus", "send");
       formData.append("contentType", "event");
       formData.append("content", `Event: ${eventInfo.title}`);
@@ -1668,9 +1712,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleSendSticker = async (stickerUrlOrFile) => {
     if (!selectedContact || !stickerUrlOrFile) return;
     try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+
       const formData = new FormData();
       formData.append("senderId", user?._id);
-      formData.append("receiverId", targetUserId || selectedContact?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
       formData.append("messageStatus", "send");
       formData.append("contentType", "sticker");
       formData.append("content", "Sticker");
@@ -1770,32 +1822,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleReaction = (messageId, emoji) => {
     addReaction(messageId, emoji);
   };
-
-  const isGroupChat = Boolean(
-    selectedContact?.isGroup ||
-    selectedContact?.isGroupChat ||
-    selectedContact?.conversation?.isGroup ||
-    currentConversation?.isGroup ||
-    (typeof selectedContact?.groupName === "string" &&
-      selectedContact.groupName.trim() !== "" &&
-      selectedContact.groupName !== selectedContact?.username) ||
-    (typeof selectedContact?.conversation?.groupName === "string" &&
-      selectedContact.conversation.groupName.trim() !== "") ||
-    (typeof currentConversation?.groupName === "string" &&
-      currentConversation.groupName.trim() !== "") ||
-    (Array.isArray(selectedContact?.groupAdmin) &&
-      selectedContact.groupAdmin.length > 0) ||
-    (Array.isArray(selectedContact?.conversation?.groupAdmin) &&
-      selectedContact.conversation.groupAdmin.length > 0) ||
-    (Array.isArray(currentConversation?.groupAdmin) &&
-      currentConversation.groupAdmin.length > 0) ||
-    (Array.isArray(selectedContact?.participants) &&
-      selectedContact.participants.length > 2) ||
-    (Array.isArray(selectedContact?.conversation?.participants) &&
-      selectedContact.conversation.participants.length > 2) ||
-    (Array.isArray(currentConversation?.participants) &&
-      currentConversation.participants.length > 2)
-  );
 
   const groupParticipants = useMemo(() => {
     if (!isGroupChat) return [];

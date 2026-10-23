@@ -32,12 +32,26 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
   const seenIds = new Set();
 
   (conversations?.data || []).forEach((conv) => {
-    const peer = conv.participants?.find(
-      (p) => String(p._id || p.id) !== String(user?._id || user?.id)
-    );
-    if (peer && !seenIds.has(peer._id)) {
-      seenIds.add(peer._id);
-      contactList.push(peer);
+    if (conv.isGroup) {
+      const gId = (conv._id || conv.id)?.toString();
+      if (gId && !seenIds.has(gId)) {
+        seenIds.add(gId);
+        contactList.push({
+          _id: gId,
+          username: conv.groupName || "Group",
+          profilePicture: conv.groupProfileImage || conv.profilePicture || "",
+          isGroup: true,
+          conversation: conv,
+        });
+      }
+    } else {
+      const peer = conv.participants?.find(
+        (p) => String(p._id || p.id) !== String(user?._id || user?.id)
+      );
+      if (peer && !seenIds.has(peer._id)) {
+        seenIds.add(peer._id);
+        contactList.push(peer);
+      }
     }
   });
 
@@ -78,10 +92,21 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
           continue;
         }
 
+        const targetConv = (conversations?.data || []).find(
+          (c) =>
+            String(c._id || c.id) === String(targetId) ||
+            (c.isGroup && String(c._id) === String(targetId))
+        );
+        const isGroupTarget = Boolean(targetConv?.isGroup);
+
         for (const msg of messageList) {
           const formData = new FormData();
           formData.append("senderId", user?._id || user?.id);
           formData.append("receiverId", targetId);
+          if (isGroupTarget) {
+            formData.append("conversationId", targetId);
+            formData.append("isGroup", "true");
+          }
           formData.append("messageStatus", "send");
           formData.append("contentType", msg.contentType || "text");
           formData.append("content", msg.content || "");
@@ -94,6 +119,30 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
           }
           if (msg.fileSize) {
             formData.append("fileSize", msg.fileSize);
+          }
+          if (msg.pollData) {
+            formData.append(
+              "pollData",
+              typeof msg.pollData === "string"
+                ? msg.pollData
+                : JSON.stringify(msg.pollData)
+            );
+          }
+          if (msg.eventData) {
+            formData.append(
+              "eventData",
+              typeof msg.eventData === "string"
+                ? msg.eventData
+                : JSON.stringify(msg.eventData)
+            );
+          }
+          if (msg.contactData) {
+            formData.append(
+              "contactData",
+              typeof msg.contactData === "string"
+                ? msg.contactData
+                : JSON.stringify(msg.contactData)
+            );
           }
 
           await sendMessage(formData);

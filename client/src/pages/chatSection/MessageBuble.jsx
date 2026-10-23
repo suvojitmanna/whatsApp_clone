@@ -580,16 +580,20 @@ const MessageBuble = ({
 
     const currConv = currentConversation?._id?.toString();
     const msgConv = (message?.conversation?._id || message?.conversation || message?.conversationId)?.toString();
-    const secConv = layoutSelectedContact?._id?.toString();
-    const sender = (message?.sender?._id || message?.sender)?.toString();
-    const receiver = (message?.receiver?._id || message?.receiver)?.toString();
+    const secConv = (layoutSelectedContact?.conversation?._id || layoutSelectedContact?.conversation)?.toString();
+    const selContactId = layoutSelectedContact?._id?.toString();
+    const isGroup = Boolean(
+      currentConversation?.isGroup ||
+      layoutSelectedContact?.isGroup ||
+      layoutSelectedContact?.isGroupChat ||
+      layoutSelectedContact?.conversation?.isGroup
+    );
 
     let pin =
       (currConv && pinnedMessages?.[currConv]) ||
       (msgConv && pinnedMessages?.[msgConv]) ||
       (secConv && pinnedMessages?.[secConv]) ||
-      (sender && pinnedMessages?.[sender]) ||
-      (receiver && pinnedMessages?.[receiver]);
+      (!isGroup && selContactId && selContactId !== currentUserId && pinnedMessages?.[selContactId]);
 
     if (!pin) {
       const allPins = Object.values(pinnedMessages || {});
@@ -597,8 +601,16 @@ const MessageBuble = ({
       pin = allPins.find((p) => {
         if (!p?.message) return false;
         const pMsgId = (p.message?._id?._id || p.message?._id)?.toString();
+        const pConv = (
+          p.message?.conversation?._id ||
+          p.message?.conversation ||
+          p.message?.conversationId ||
+          p.conversationId ||
+          p.conversation
+        )?._id?.toString() ||
+        (p.message?.conversation || p.conversationId || p.conversation)?.toString();
+
         if (pMsgId === msgIdStr) return true;
-        const pConv = (p.conversationId || p.conversation)?._id?.toString() || (p.conversationId || p.conversation)?.toString();
         return pConv && (pConv === currConv || pConv === msgConv || pConv === secConv);
       });
     }
@@ -609,7 +621,14 @@ const MessageBuble = ({
         selectedContact?.conversation?.pinnedMessage ||
         layoutSelectedContact?.conversation?.pinnedMessage;
       if (convPinned && convPinned.message) {
-        pin = convPinned;
+        const pConv = (
+          convPinned.message?.conversation?._id ||
+          convPinned.message?.conversation ||
+          convPinned.message?.conversationId
+        )?.toString();
+        if (!pConv || !currConv || pConv === currConv || pConv === msgConv || pConv === secConv) {
+          pin = convPinned;
+        }
       }
     }
 
@@ -621,6 +640,7 @@ const MessageBuble = ({
     layoutSelectedContact,
     selectedContact,
     isDeletedForEveryone,
+    currentUserId,
   ]);
 
   const isPinned = useMemo(() => {
@@ -1711,7 +1731,7 @@ const MessageBuble = ({
                 true,
                 currentUserId,
               );
-              toast.success(`Message pinned for ${duration}`);
+              toast.success("You pinned a message");
             }}
             message={message}
             theme={theme}

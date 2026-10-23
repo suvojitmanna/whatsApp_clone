@@ -199,10 +199,25 @@ export const getPinnedItemTypeAndLabel = (msg) => {
   return { type: "message", target: "a message" };
 };
 
-export const getPinActorAndLabel = (pin, currentUserId, defaultUsername = "Contact") => {
-  if (!pin) return { isMe: false, actor: "You", target: "a message", text: "You pinned a message" };
+export const getPinActorAndLabel = (
+  pin,
+  currentUserId,
+  defaultUsername = "Contact",
+  participants = [],
+) => {
+  if (!pin)
+    return {
+      isMe: false,
+      actor: "You",
+      target: "a message",
+      text: "You pinned a message",
+    };
 
-  const currentUidStr = (currentUserId?._id || currentUserId?.id || currentUserId)?.toString();
+  const currentUidStr = (
+    currentUserId?._id ||
+    currentUserId?.id ||
+    currentUserId
+  )?.toString();
   const pinnedById = (
     pin.pinnedBy?._id ||
     pin.pinnedBy?.id ||
@@ -219,7 +234,61 @@ export const getPinActorAndLabel = (pin, currentUserId, defaultUsername = "Conta
     isMe = Boolean(msgSender && currentUidStr && msgSender === currentUidStr);
   }
 
-  const actor = isMe ? "You" : (pin.pinnedBy?.username || defaultUsername || "Contact");
+  let actor = "You";
+  if (!isMe) {
+    let resolvedName = pin.pinnedBy?.username || pin.pinnedBy?.name;
+
+    if (!resolvedName && pinnedById) {
+      if (Array.isArray(participants) && participants.length > 0) {
+        const foundParticipant = participants.find((p) => {
+          const pId = (p?._id || p?.id || p)?.toString();
+          return pId === pinnedById;
+        });
+        if (foundParticipant) {
+          resolvedName =
+            foundParticipant.username ||
+            foundParticipant.name ||
+            foundParticipant.displayName;
+        }
+      }
+
+      if (!resolvedName) {
+        const storeUsers = useChatStore.getState().users || [];
+        const foundStoreUser = storeUsers.find((u) => {
+          const uId = (u?._id || u?.id)?.toString();
+          return uId === pinnedById;
+        });
+        if (foundStoreUser) {
+          resolvedName =
+            foundStoreUser.username ||
+            foundStoreUser.name ||
+            foundStoreUser.displayName;
+        }
+      }
+
+      if (!resolvedName && pin.message) {
+        const senderId = (
+          pin.message.sender?._id ||
+          pin.message.sender?.id ||
+          pin.message.sender
+        )?.toString();
+        if (senderId === pinnedById) {
+          resolvedName =
+            pin.message.sender?.username ||
+            pin.message.sender?.name;
+        }
+      }
+    }
+
+    if (!resolvedName) {
+      resolvedName =
+        defaultUsername && defaultUsername !== "Someone"
+          ? defaultUsername
+          : "User";
+    }
+
+    actor = resolvedName || "Contact";
+  }
 
   let msg = pin.message;
   if (!msg || typeof msg === "string" || !msg.contentType) {
@@ -244,15 +313,21 @@ export const getPinActorAndLabel = (pin, currentUserId, defaultUsername = "Conta
     isMe,
     actor,
     target,
-    text: `${actor} pinned ${target}`,
+    text: isMe ? "You pinned a message" : `${actor} pinned a message`,
   };
 };
 
 const getContactPin = (contact, pinnedMessages) => {
   if (!contact) return null;
-  const currentUserId = useUserStore.getState()?.user?._id;
+  const currentUserId = useUserStore.getState()?.user?._id?.toString();
   const convId = (contact.conversation?._id || contact.conversation)?.toString();
   const contactId = contact._id?.toString();
+  const isGroup = Boolean(
+    contact?.isGroup ||
+    contact?.isGroupChat ||
+    contact?.conversation?.isGroup ||
+    (contact?.conversation?.participants && contact.conversation.participants.length > 2)
+  );
   const isMsgDeleted = (msg) => {
     if (!msg) return true;
     if (msg.deletedForEveryone) return true;
@@ -280,7 +355,14 @@ const getContactPin = (contact, pinnedMessages) => {
       ? new Date(rawPin.expiresAt).getTime()
       : null;
     if (!expires || expires > Date.now()) {
-      if (!isMsgDeleted(rawPin.message)) {
+      const rawMsg = rawPin.message;
+      const rawMsgConv = (
+        rawMsg?.conversation?._id ||
+        rawMsg?.conversation ||
+        rawMsg?.conversationId
+      )?.toString();
+      const belongsToThisConv = !rawMsgConv || !convId || rawMsgConv === convId;
+      if (belongsToThisConv && !isMsgDeleted(rawPin.message)) {
         pin = { ...rawPin };
       }
     }
@@ -289,19 +371,18 @@ const getContactPin = (contact, pinnedMessages) => {
   if (!pin && pinnedMessages) {
     pin =
       (convId && pinnedMessages[convId]) ||
-      (contactId && pinnedMessages[contactId]);
+      (!isGroup && contactId && contactId !== currentUserId && pinnedMessages[contactId]);
 
-    if (!pin) {
+    if (!pin && convId) {
       const allPins = Object.values(pinnedMessages || {});
       pin = allPins.find((p) => {
         if (!p?.message) return false;
-        const msgConv = (p.message.conversation?._id || p.message.conversation || p.message.conversationId)?.toString();
-        const msgSender = (p.message.sender?._id || p.message.sender)?.toString();
-        const msgReceiver = (p.message.receiver?._id || p.message.receiver)?.toString();
-        return (
-          (convId && msgConv === convId) ||
-          (contactId && (msgSender === contactId || msgReceiver === contactId))
-        );
+        const msgConv = (
+          p.message.conversation?._id ||
+          p.message.conversation ||
+          p.message.conversationId
+        )?.toString();
+        return msgConv && msgConv === convId;
       });
     }
     if (pin) {
@@ -315,7 +396,7 @@ const getContactPin = (contact, pinnedMessages) => {
   if (typeof pin.message === "string" || !pin.message?.contentType) {
     const storePin =
       (convId && pinnedMessages?.[convId]) ||
-      (contactId && pinnedMessages?.[contactId]);
+      (!isGroup && contactId && contactId !== currentUserId && pinnedMessages?.[contactId]);
     if (storePin?.message && typeof storePin.message === "object" && storePin.message.contentType) {
       pin.message = storePin.message;
     } else {
@@ -324,7 +405,7 @@ const getContactPin = (contact, pinnedMessages) => {
         const chatMsgs = useChatStore.getState().messages;
         const msgs =
           (convId && chatMsgs?.[convId]) ||
-          (contactId && chatMsgs?.[contactId]) ||
+          (!isGroup && contactId && chatMsgs?.[contactId]) ||
           [];
         const found = msgs.find((m) => String(m._id || m.id) === String(msgId));
         if (found) {
@@ -1118,11 +1199,22 @@ const ChatList = ({ contacts }) => {
       if (!isPinnedA && isPinnedB) return 1;
       const pinA = getContactPin(a, pinnedMessages);
       const pinB = getContactPin(b, pinnedMessages);
+      const timePinA = pinA?.pinnedAt
+        ? new Date(pinA.pinnedAt).getTime()
+        : pinA
+          ? (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0)
+          : 0;
+      const timePinB = pinB?.pinnedAt
+        ? new Date(pinB.pinnedAt).getTime()
+        : pinB
+          ? (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0)
+          : 0;
+
       const timeA = Math.max(
         a?.conversation?.lastMessage?.createdAt
           ? new Date(a.conversation.lastMessage.createdAt).getTime()
           : (a?.conversation?.updatedAt ? new Date(a.conversation.updatedAt).getTime() : 0),
-        pinA?.pinnedAt ? new Date(pinA.pinnedAt).getTime() : 0,
+        timePinA,
         a?.conversation?.disappearingUpdatedAt ? new Date(a.conversation.disappearingUpdatedAt).getTime() : 0,
       );
 
@@ -1130,7 +1222,7 @@ const ChatList = ({ contacts }) => {
         b?.conversation?.lastMessage?.createdAt
           ? new Date(b.conversation.lastMessage.createdAt).getTime()
           : (b?.conversation?.updatedAt ? new Date(b.conversation.updatedAt).getTime() : 0),
-        pinB?.pinnedAt ? new Date(pinB.pinnedAt).getTime() : 0,
+        timePinB,
         b?.conversation?.disappearingUpdatedAt ? new Date(b.conversation.disappearingUpdatedAt).getTime() : 0,
       );
       return timeB - timeA;
@@ -1718,7 +1810,11 @@ const ChatList = ({ contacts }) => {
             const lastMsgTime = lastMsg?.createdAt
               ? new Date(lastMsg.createdAt).getTime()
               : (contact?.conversation?.updatedAt ? new Date(contact.conversation.updatedAt).getTime() : 0);
-            const pinTime = contactPin?.pinnedAt ? new Date(contactPin.pinnedAt).getTime() : 0;
+            const pinTime = contactPin?.pinnedAt
+              ? new Date(contactPin.pinnedAt).getTime()
+              : contactPin
+                ? (contact?.conversation?.updatedAt ? new Date(contact.conversation.updatedAt).getTime() : Date.now())
+                : 0;
             const disappearingTime = contact?.conversation?.disappearingUpdatedAt
               ? new Date(contact.conversation.disappearingUpdatedAt).getTime()
               : 0;
@@ -1867,10 +1963,21 @@ const ChatList = ({ contacts }) => {
 
                         if (contactPin && (pinTime >= lastMsgTime || !preview)) {
                           const currentUserId = (user?._id || user?.id)?.toString();
+                          const participants =
+                            contact?.participants ||
+                            contact?.conversation?.participants ||
+                            [];
+                          const isGroup = Boolean(
+                            contact?.isGroup ||
+                            contact?.isGroupChat ||
+                            contact?.conversation?.isGroup ||
+                            (contact?.conversation?.participants && contact.conversation.participants.length > 2)
+                          );
                           const { text: pinText } = getPinActorAndLabel(
                             contactPin,
                             currentUserId,
-                            contact?.username,
+                            isGroup ? "Someone" : contact?.username,
+                            participants,
                           );
 
                           return (
@@ -2027,10 +2134,21 @@ const ChatList = ({ contacts }) => {
 
                         if (contactPin) {
                           const currentUserId = (user?._id || user?.id)?.toString();
+                          const participants =
+                            contact?.participants ||
+                            contact?.conversation?.participants ||
+                            [];
+                          const isGroup = Boolean(
+                            contact?.isGroup ||
+                            contact?.isGroupChat ||
+                            contact?.conversation?.isGroup ||
+                            (contact?.conversation?.participants && contact.conversation.participants.length > 2)
+                          );
                           const { text: pinText } = getPinActorAndLabel(
                             contactPin,
                             currentUserId,
-                            contact?.username,
+                            isGroup ? "Someone" : contact?.username,
+                            participants,
                           );
 
                           return (
@@ -2113,7 +2231,11 @@ const ChatList = ({ contacts }) => {
                           (String(contact?._id) === String(selectedContact._id) ||
                             (contact?.conversation?._id &&
                               selectedContact?.conversation?._id &&
-                              String(contact.conversation._id) === String(selectedContact.conversation._id)))
+                              String(contact.conversation._id) === String(selectedContact.conversation._id)) ||
+                            (contact?.isGroup &&
+                              selectedContact?.isGroup &&
+                              String(contact.conversation?._id || contact._id) ===
+                                String(selectedContact.conversation?._id || selectedContact._id)))
                         );
 
                         if (isCurrentOpen) {
@@ -2215,7 +2337,7 @@ const ChatList = ({ contacts }) => {
                 </div>
               </div>
               <p className={`text-[13.5px] mb-5 leading-relaxed ${theme === "dark" ? "text-[#8696a0]" : "text-gray-600"
-                  }`}
+                }`}
               >
                 Chats in this list won't be deleted, only the list filter will be removed.
               </p>

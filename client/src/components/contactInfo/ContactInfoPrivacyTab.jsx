@@ -5,7 +5,10 @@ import { FaLock, FaPhone, FaCamera, FaMapMarkerAlt, FaCircle } from "react-icons
 import { MdOutlinePhotoSizeSelectActual } from "react-icons/md";
 import { BsStars } from "react-icons/bs";
 import { LuUpload } from "react-icons/lu";
-import { EndToEndEncryptionIllustration } from "../common/Icons";
+import {
+  EndToEndEncryptionIllustration,
+  AdvancedChatPrivacyIllustration,
+} from "../common/Icons";
 
 const ContactInfoPrivacyTab = ({
   contactInfoTab,
@@ -44,7 +47,7 @@ const ContactInfoPrivacyTab = ({
           disableLinkPreviews: false,
         });
       }
-    } catch {}
+    } catch { }
   }, [chatId]);
 
   const handleToggleAdvancedPrivacy = (key = "enabled") => {
@@ -55,10 +58,10 @@ const ContactInfoPrivacyTab = ({
       [key]: isNowEnabled,
       ...(key === "enabled"
         ? {
-            enabled: isNowEnabled,
-            protectIp: isNowEnabled,
-            disableLinkPreviews: isNowEnabled,
-          }
+          enabled: isNowEnabled,
+          protectIp: isNowEnabled,
+          disableLinkPreviews: isNowEnabled,
+        }
         : {}),
     };
     setAdvancedPrivacy(updated);
@@ -69,7 +72,7 @@ const ContactInfoPrivacyTab = ({
       all[chatId] = updated;
       localStorage.setItem("whatsapp_advanced_privacy", JSON.stringify(all));
       window.dispatchEvent(new Event("whatsapp_advanced_privacy_updated"));
-    } catch {}
+    } catch { }
     toast.success(
       updated.enabled
         ? "Advanced chat privacy turned on"
@@ -103,17 +106,15 @@ const ContactInfoPrivacyTab = ({
         <div className="w-full space-y-4 mb-6">
           <div className="flex items-center gap-3.5">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
-              }`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
+                }`}
             >
               <FaLock size={14} className="text-[#00a884]" />
             </div>
             <div className="flex-1 min-w-0">
               <h4
-                className={`text-[14px] font-medium leading-tight ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
+                className={`text-[14px] font-medium leading-tight ${isDark ? "text-white" : "text-gray-900"
+                  }`}
               >
                 Text and voice messages
               </h4>
@@ -122,17 +123,15 @@ const ContactInfoPrivacyTab = ({
           </div>
           <div className="flex items-center gap-3.5">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
-              }`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
+                }`}
             >
               <FaPhone size={13} className="text-[#00a884]" />
             </div>
             <div className="flex-1 min-w-0">
               <h4
-                className={`text-[14px] font-medium leading-tight ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
+                className={`text-[14px] font-medium leading-tight ${isDark ? "text-white" : "text-gray-900"
+                  }`}
               >
                 Audio and video calls
               </h4>
@@ -141,17 +140,15 @@ const ContactInfoPrivacyTab = ({
           </div>
           <div className="flex items-center gap-3.5">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
-              }`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
+                }`}
             >
               <FaCamera size={13} className="text-[#00a884]" />
             </div>
             <div className="flex-1 min-w-0">
               <h4
-                className={`text-[14px] font-medium leading-tight ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
+                className={`text-[14px] font-medium leading-tight ${isDark ? "text-white" : "text-gray-900"
+                  }`}
               >
                 Photos, videos and documents
               </h4>
@@ -160,17 +157,15 @@ const ContactInfoPrivacyTab = ({
           </div>
           <div className="flex items-center gap-3.5">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
-              }`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
+                }`}
             >
               <FaMapMarkerAlt size={14} className="text-[#00a884]" />
             </div>
             <div className="flex-1 min-w-0">
               <h4
-                className={`text-[14px] font-medium leading-tight ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
+                className={`text-[14px] font-medium leading-tight ${isDark ? "text-white" : "text-gray-900"
+                  }`}
               >
                 Location sharing
               </h4>
@@ -179,17 +174,15 @@ const ContactInfoPrivacyTab = ({
           </div>
           <div className="flex items-center gap-3.5">
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
-              }`}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isDark ? "bg-[#202c33] text-gray-300" : "bg-gray-100 text-gray-700"
+                }`}
             >
               <FaCircle size={13} className="text-[#00a884]" />
             </div>
             <div className="flex-1 min-w-0">
               <h4
-                className={`text-[14px] font-medium leading-tight ${
-                  isDark ? "text-white" : "text-gray-900"
-                }`}
+                className={`text-[14px] font-medium leading-tight ${isDark ? "text-white" : "text-gray-900"
+                  }`}
               >
                 Status updates
               </h4>
@@ -208,11 +201,10 @@ const ContactInfoPrivacyTab = ({
           <button
             type="button"
             onClick={() => setContactInfoTab("info")}
-            className={`px-5 py-2 rounded-full font-medium text-[13px] cursor-pointer transition-all ${
-              isDark
+            className={`px-5 py-2 rounded-full font-medium text-[13px] cursor-pointer transition-all ${isDark
                 ? "bg-white/10 hover:bg-white/15 text-white"
                 : "bg-gray-200 hover:bg-gray-300 text-gray-800"
-            }`}
+              }`}
           >
             OK
           </button>
@@ -231,86 +223,20 @@ const ContactInfoPrivacyTab = ({
         transition={{ duration: 0.15 }}
         className="flex flex-col flex-1 overflow-y-auto scrollbar-hide px-6 py-5 select-none"
       >
-        {/* Top illustration: Chat bubble with green padlock */}
         <div className="flex justify-center pt-2 pb-5 select-none">
-          <svg
-            width="104"
-            height="72"
-            viewBox="0 0 104 72"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            {/* Chat bubble body */}
-            <rect
-              x="12"
-              y="16"
-              width="58"
-              height="40"
-              rx="8"
-              fill={isDark ? "#1f2c34" : "#e7f8f0"}
-              stroke={isDark ? "#2a3942" : "#bbf7d0"}
-              strokeWidth="1.5"
-            />
-            {/* Bubble tail */}
-            <path
-              d="M12 44 L5 52 L16 52 Z"
-              fill={isDark ? "#1f2c34" : "#e7f8f0"}
-              stroke={isDark ? "#2a3942" : "#bbf7d0"}
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
-            {/* Bubble message lines */}
-            <line
-              x1="24"
-              y1="30"
-              x2="54"
-              y2="30"
-              stroke={isDark ? "#8696a0" : "#00a884"}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            />
-            <line
-              x1="24"
-              y1="40"
-              x2="44"
-              y2="40"
-              stroke={isDark ? "#8696a0" : "#00a884"}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            />
-            {/* Padlock shackle */}
-            <path
-              d="M60 24 V15 C60 9.5 64.5 5 70 5 C75.5 5 80 9.5 80 15 V24"
-              stroke="#00a884"
-              strokeWidth="4"
-              strokeLinecap="round"
-              fill="none"
-            />
-            {/* Padlock body */}
-            <rect x="52" y="22" width="36" height="32" rx="7" fill="#00a884" />
-            {/* Keyhole dot & slot */}
-            <circle cx="70" cy="35" r="2.8" fill={isDark ? "#111b21" : "#ffffff"} />
-            <rect
-              x="68.6"
-              y="35"
-              width="2.8"
-              height="6"
-              rx="1.4"
-              fill={isDark ? "#111b21" : "#ffffff"}
-            />
-          </svg>
+          <AdvancedChatPrivacyIllustration
+            isDark={isDark}
+            width={104}
+            height={72}
+          />
         </div>
 
-        {/* Main headline */}
         <h3
-          className={`text-[17px] sm:text-[18px] font-semibold leading-snug mb-3 text-center sm:text-left ${
-            isDark ? "text-[#e9edef]" : "text-gray-900"
-          }`}
+          className={`text-[17px] sm:text-[18px] font-semibold leading-snug mb-3 text-center sm:text-left ${isDark ? "text-[#e9edef]" : "text-gray-900"
+            }`}
         >
           Limit how messages and media from this chat can be shared outside of WhatsApp
         </h3>
-
-        {/* Description with Learn more */}
         <p className="text-[13px] leading-relaxed text-[#8696a0] mb-5">
           Your personal messages are protected with end-to-end encryption even if you don&apos;t turn on advanced chat privacy. No one outside of the chat, not even WhatsApp or Meta, can read, listen to, or share them.{" "}
           <button
@@ -321,13 +247,9 @@ const ContactInfoPrivacyTab = ({
             Learn more
           </button>
         </p>
-
-        {/* Subtitle */}
         <p className="text-[13px] text-[#8696a0] mb-4 font-normal">
           If you turn this on, people in this chat:
         </p>
-
-        {/* 3 bullet items */}
         <div className="space-y-4 mb-6">
           <div className="flex items-start gap-4">
             <MdOutlinePhotoSizeSelectActual
@@ -335,9 +257,8 @@ const ContactInfoPrivacyTab = ({
               className="text-[#8696a0] shrink-0 mt-0.5"
             />
             <p
-              className={`text-[13.5px] leading-snug ${
-                isDark ? "text-[#d1d7db]" : "text-gray-800"
-              }`}
+              className={`text-[13.5px] leading-snug ${isDark ? "text-[#d1d7db]" : "text-gray-800"
+                }`}
             >
               Can&apos;t save media to their device gallery automatically
             </p>
@@ -349,9 +270,8 @@ const ContactInfoPrivacyTab = ({
               className="text-[#8696a0] shrink-0 mt-0.5"
             />
             <p
-              className={`text-[13.5px] leading-snug ${
-                isDark ? "text-[#d1d7db]" : "text-gray-800"
-              }`}
+              className={`text-[13.5px] leading-snug ${isDark ? "text-[#d1d7db]" : "text-gray-800"
+                }`}
             >
               Can&apos;t use AI features like mentioning @Meta AI or summarising unread messages
             </p>
@@ -363,33 +283,27 @@ const ContactInfoPrivacyTab = ({
               className="text-[#8696a0] shrink-0 mt-0.5"
             />
             <p
-              className={`text-[13.5px] leading-snug ${
-                isDark ? "text-[#d1d7db]" : "text-gray-800"
-              }`}
+              className={`text-[13.5px] leading-snug ${isDark ? "text-[#d1d7db]" : "text-gray-800"
+                }`}
             >
               Can&apos;t export the chat
             </p>
           </div>
         </div>
 
-        {/* Divider */}
         <div
-          className={`h-px w-full my-5 ${
-            isDark ? "bg-white/10" : "bg-gray-200"
-          }`}
+          className={`h-px w-full my-5 ${isDark ? "bg-white/10" : "bg-gray-200"
+            }`}
         />
 
-        {/* Bottom toggle row */}
         <div
           onClick={() => handleToggleAdvancedPrivacy("enabled")}
-          className={`flex items-center justify-between p-3 -mx-2 rounded-xl cursor-pointer transition-colors ${
-            isDark ? "hover:bg-white/[0.04]" : "hover:bg-gray-100/70"
-          }`}
+          className={`flex items-center justify-between p-3 -mx-2 rounded-xl cursor-pointer transition-colors ${isDark ? "hover:bg-white/[0.04]" : "hover:bg-gray-100/70"
+            }`}
         >
           <span
-            className={`text-[15px] font-medium ${
-              isDark ? "text-[#e9edef]" : "text-gray-900"
-            }`}
+            className={`text-[15px] font-medium ${isDark ? "text-[#e9edef]" : "text-gray-900"
+              }`}
           >
             Advanced chat privacy
           </span>
@@ -402,16 +316,14 @@ const ContactInfoPrivacyTab = ({
               e.stopPropagation();
               handleToggleAdvancedPrivacy("enabled");
             }}
-            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
-              advancedPrivacy.enabled ? "bg-[#00a884]" : "bg-[#374248]"
-            }`}
+            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${advancedPrivacy.enabled ? "bg-[#00a884]" : "bg-[#374248]"
+              }`}
           >
             <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${
-                advancedPrivacy.enabled
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${advancedPrivacy.enabled
                   ? "translate-x-5 bg-white"
                   : "translate-x-0 bg-[#8696a0]"
-              }`}
+                }`}
             />
           </button>
         </div>

@@ -387,14 +387,26 @@ export const ChatModals = ({
           }
         }}
         onSendToChat={(contact, url, type, code) => {
-          const receiverId = (contact?._id || contact?.id || selectedContact?._id)?.toString();
-          if (receiverId) {
+          const isGroupChat = Boolean(
+            selectedContact?.isGroup ||
+            selectedContact?.isGroupChat ||
+            selectedContact?.conversation?.isGroup ||
+            currentConversation?.isGroup ||
+            (typeof selectedContact?.groupName === "string" && selectedContact.groupName.trim() !== "")
+          );
+          const effectiveConvId = isGroupChat
+            ? (selectedContact?._id || selectedContact?.id || currentConversation?._id || selectedContact?.conversation?._id)?.toString()
+            : (currentConversation?._id || selectedContact?.conversation?._id)?.toString();
+          const receiverId = (contact?._id || contact?.id || (isGroupChat ? effectiveConvId : selectedContact?._id))?.toString();
+          if (receiverId || effectiveConvId) {
             sendCallLinkMessage({
-              receiverId,
-              conversationId: currentConversation?._id || selectedContact?.conversation?._id,
+              receiverId: isGroupChat ? effectiveConvId : receiverId,
+              conversationId: effectiveConvId,
               callType: type || "video",
               linkCode: code,
               url,
+              isGroup: isGroupChat,
+              groupId: isGroupChat ? effectiveConvId : null,
             });
           }
         }}

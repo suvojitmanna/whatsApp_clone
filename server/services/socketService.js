@@ -410,17 +410,20 @@ function initializeSocket(server) {
           pollData: populated.pollData,
         };
         socket.emit("poll_update", payload);
-        const senderIdStr = message.sender.toString();
-        const receiverIdStr = message.receiver.toString();
-        io.to(senderIdStr).emit("poll_update", payload);
-        io.to(receiverIdStr).emit("poll_update", payload);
-        const senderSocketId = onlineUsers.get(senderIdStr);
-        const receiverSocketId = onlineUsers.get(receiverIdStr);
-        if (senderSocketId && senderSocketId !== socket.id) {
-          io.to(senderSocketId).emit("poll_update", payload);
-        }
-        if (receiverSocketId && receiverSocketId !== socket.id) {
-          io.to(receiverSocketId).emit("poll_update", payload);
+        const conv = await Conversation.findById(message.conversation).select(
+          "isGroup participants",
+        );
+        if (conv?.isGroup) {
+          conv.participants?.forEach((p) => {
+            io.to((p._id || p).toString()).emit("poll_update", payload);
+          });
+        } else {
+          if (message.sender) {
+            io.to(message.sender.toString()).emit("poll_update", payload);
+          }
+          if (message.receiver) {
+            io.to(message.receiver.toString()).emit("poll_update", payload);
+          }
         }
       } catch (error) {
         console.error("VOTE POLL ERROR:", error);
@@ -494,11 +497,28 @@ function initializeSocket(server) {
             }
           }
 
+          let pinnedByPayload = pinnedBy;
+          const pinnedByUserId = (pinnedBy?._id || pinnedBy?.id || pinnedBy)?.toString();
+          if (pinnedByUserId) {
+            try {
+              const userDoc = await User.findById(pinnedByUserId).select("username profilePicture");
+              if (userDoc) {
+                pinnedByPayload = {
+                  _id: userDoc._id.toString(),
+                  username: userDoc.username,
+                  profilePicture: userDoc.profilePicture,
+                };
+              }
+            } catch (e) {
+              console.error("Error resolving pinnedBy user for socket:", e);
+            }
+          }
+
           const payload = {
             conversationId: resolvedConvId || conversationId,
             message,
             duration,
-            pinnedBy,
+            pinnedBy: pinnedByPayload,
             secondaryId,
             receiverId,
             pinnedAt,

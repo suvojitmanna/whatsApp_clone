@@ -1049,6 +1049,79 @@ export const EndToEndEncryptionIllustration = ({
   </svg>
 );
 
+export const AdvancedChatPrivacyIllustration = ({
+  isDark = true,
+  width = 104,
+  height = 72,
+  className = "",
+  ...props
+}) => (
+  <svg
+    width={width}
+    height={height}
+    viewBox="0 0 104 72"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    {...props}
+  >
+    <rect
+      x="12"
+      y="16"
+      width="58"
+      height="40"
+      rx="8"
+      fill={isDark ? "#1f2c34" : "#e7f8f0"}
+      stroke={isDark ? "#2a3942" : "#bbf7d0"}
+      strokeWidth="1.5"
+    />
+    <path
+      d="M12 44 L5 52 L16 52 Z"
+      fill={isDark ? "#1f2c34" : "#e7f8f0"}
+      stroke={isDark ? "#2a3942" : "#bbf7d0"}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <line
+      x1="24"
+      y1="30"
+      x2="54"
+      y2="30"
+      stroke={isDark ? "#8696a0" : "#00a884"}
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+    <line
+      x1="24"
+      y1="40"
+      x2="44"
+      y2="40"
+      stroke={isDark ? "#8696a0" : "#00a884"}
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+    <path
+      d="M60 24 V15 C60 9.5 64.5 5 70 5 C75.5 5 80 9.5 80 15 V24"
+      stroke="#00a884"
+      strokeWidth="4"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <rect x="52" y="22" width="36" height="32" rx="7" fill="#00a884" />
+    <circle cx="70" cy="35" r="2.8" fill={isDark ? "#111b21" : "#ffffff"} />
+    <rect
+      x="68.6"
+      y="35"
+      width="2.8"
+      height="6"
+      rx="1.4"
+      fill={isDark ? "#111b21" : "#ffffff"}
+    />
+  </svg>
+);
+
+export const AdvancedPrivacyIllustration = AdvancedChatPrivacyIllustration;
+
 export const DisappearingMessagesIllustration = ({
   width = 200,
   height = 125,

@@ -1202,7 +1202,8 @@ const ContactInfoMainTab = ({
           {((viewingMember && isViewingMemberOnline) ||
             (!viewingMember && online && !isMetaAi && !isGroup)) && (
               <span
-                className="absolute bottom-2 right-2 w-4 h-4 bg-[#00a884] border-2 border-[#111b21] rounded-full shadow-md"
+                className={`absolute bottom-2 right-2 w-4 h-4 bg-[#00a884] border-2 ${theme === "dark" ? "border-[#111b21]" : "border-white"
+                  } rounded-full shadow-md z-10`}
                 title={
                   viewingMember
                     ? isViewingMemberOnline
@@ -1936,8 +1937,8 @@ const ContactInfoMainTab = ({
                         }`}
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-[#8696a0]">
-                          <LuShield size={19} />
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-[#1896e4] fill-[#1896e4]">
+                          <LuShield size={19} fill="#1896e4" />
                         </div>
 
                         <div className="min-w-0">
@@ -1976,7 +1977,7 @@ const ContactInfoMainTab = ({
 
                     <div className="min-w-0">
                       <h4
-                        className={`text-[14.5px] font-medium leading-tight ${theme === "dark" ? "text-[#e9edef]" : "text-gray-900"
+                        className={`text-[12.5px] font-medium leading-tight ${theme === "dark" ? "text-[#e9edef]" : "text-gray-900"
                           }`}
                       >
                         Chat theme
@@ -1988,13 +1989,6 @@ const ContactInfoMainTab = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div
-                      className="w-5 h-5 rounded-full border border-white/20 shadow-sm overflow-hidden"
-                      style={{
-                        backgroundColor:
-                          activeBubbleColor || activeChatTheme?.bubbleColor,
-                      }}
-                    />
                     <MdChevronRight size={19} className="text-[#8696a0]" />
                   </div>
                 </div>

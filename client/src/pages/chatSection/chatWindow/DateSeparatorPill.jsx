@@ -37,10 +37,21 @@ export const DateSeparatorPill = ({
       </span>
 
       {includePinNotification && activePin?.message && (() => {
+        const participants =
+          selectedContact?.participants ||
+          selectedContact?.conversation?.participants ||
+          [];
+        const isGroup = Boolean(
+          selectedContact?.isGroup ||
+          selectedContact?.isGroupChat ||
+          selectedContact?.conversation?.isGroup ||
+          (selectedContact?.conversation?.participants && selectedContact.conversation.participants.length > 2)
+        );
         const { text: pinNoticeText } = getPinActorAndLabel(
           activePin,
           user?._id || user?.id,
-          selectedContact?.username
+          isGroup ? "Someone" : selectedContact?.username,
+          participants
         );
         return (
           <button

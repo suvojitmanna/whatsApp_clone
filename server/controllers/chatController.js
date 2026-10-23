@@ -279,19 +279,12 @@ export const sendMessage = async (req, res) => {
     if (incomingConvId && mongoose.Types.ObjectId.isValid(incomingConvId)) {
       const foundConv = await Conversation.findById(incomingConvId);
       if (foundConv) {
-        if (foundConv.isGroup) {
-          if (explicitIsGroup || !receiverId) {
-            conversation = foundConv;
-            isGroup = true;
-          }
-        } else {
-          conversation = foundConv;
-          isGroup = false;
-        }
+        conversation = foundConv;
+        isGroup = Boolean(foundConv.isGroup);
       }
     }
 
-    if (!isGroup && explicitIsGroup && receiverId && mongoose.Types.ObjectId.isValid(receiverId)) {
+    if (!conversation && receiverId && mongoose.Types.ObjectId.isValid(receiverId)) {
       const possibleConv = await Conversation.findById(receiverId);
       if (possibleConv?.isGroup) {
         conversation = possibleConv;
@@ -583,7 +576,7 @@ export const sendMessage = async (req, res) => {
     }
     await conversation.save();
 
-    const populatedMessage = await Message.findById(message._id)
+    let populatedMessage = await Message.findById(message._id)
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey")
       .populate("replyTo")
@@ -629,33 +622,37 @@ export const sendMessage = async (req, res) => {
       }
 
       if (req.io) {
-        const messagePayload = {
+        const basePayload = {
           ...populatedMessage.toObject(),
           conversationId: conversation._id.toString(),
         };
 
-        conversation.participants.forEach((p) => {
-          const pIdStr = (p._id || p).toString();
-          if (pIdStr !== senderId.toString()) {
-            req.io.to(pIdStr).emit("receive_message", messagePayload);
-            if (
-              req.socketUserMap &&
-              typeof req.socketUserMap.get === "function"
-            ) {
-              const sId = req.socketUserMap.get(pIdStr);
-              if (sId && sId !== pIdStr) {
-                req.io.to(sId).emit("receive_message", messagePayload);
+        await Promise.all(
+          conversation.participants.map(async (p) => {
+            const pIdStr = (p._id || p).toString();
+            if (pIdStr !== senderId.toString()) {
+              let pUnreadCount = 1;
+              try {
+                pUnreadCount = await Message.countDocuments({
+                  conversation: conversation._id,
+                  sender: { $ne: new mongoose.Types.ObjectId(pIdStr) },
+                  "readBy.user": { $ne: new mongoose.Types.ObjectId(pIdStr) },
+                  isSystemMessage: { $ne: true },
+                  contentType: { $ne: "system" },
+                  deletedFor: { $ne: new mongoose.Types.ObjectId(pIdStr) },
+                });
+              } catch (e) {
+                console.error("Error computing group participant unread count:", e);
               }
+              req.io.to(pIdStr).emit("receive_message", {
+                ...basePayload,
+                unreadCount: pUnreadCount,
+              });
             }
-          }
-        });
+          })
+        );
       }
     } else if (req.io && !isSenderBlockedByReceiver && receiverRoom) {
-      const receiverSocketId =
-        req.socketUserMap && typeof req.socketUserMap.get === "function"
-          ? req.socketUserMap.get(receiverRoom)
-          : null;
-
       const targetReceiverId =
         effectiveReceiverId || (receiverId ? receiverId.toString() : null);
       let receiverUnreadCount = 1;
@@ -678,9 +675,6 @@ export const sendMessage = async (req, res) => {
       };
 
       req.io.to(receiverRoom).emit("receive_message", messagePayload);
-      if (receiverSocketId && receiverSocketId !== receiverRoom) {
-        req.io.to(receiverSocketId).emit("receive_message", messagePayload);
-      }
 
       if (isReceiverOnline) {
         const senderRoom = senderId.toString();
@@ -726,7 +720,15 @@ export const sendMessage = async (req, res) => {
       );
     }
 
-    return response(res, 201, "Message sent successfully", populatedMessage);
+    const returnData = {
+      ...(populatedMessage && typeof populatedMessage.toObject === "function"
+        ? populatedMessage.toObject()
+        : populatedMessage),
+      conversationId: conversation?._id?.toString() || message?.conversation?.toString(),
+      isGroup: Boolean(isGroup),
+    };
+
+    return response(res, 201, "Message sent successfully", returnData);
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");
@@ -786,6 +788,12 @@ export const getConversation = async (req, res) => {
           conversation: { $in: groupConvIds },
           sender: { $ne: new mongoose.Types.ObjectId(userId) },
           "readBy.user": { $ne: new mongoose.Types.ObjectId(userId) },
+          isSystemMessage: { $ne: true },
+          contentType: { $ne: "system" },
+          systemAction: null,
+          content: {
+            $not: /^(Group ".*" created|.+ added .+|.+ removed .+|.+ changed .+|.+ deleted .+|.+ left the group)$/i,
+          },
         });
       }
 
@@ -847,7 +855,7 @@ export const getMessages = async (req, res) => {
   try {
     const conversation = await Conversation.findById(conversationId)
       .select(
-        "participants disappearingDuration disappearingUpdatedAt lastMessage",
+        "participants disappearingDuration disappearingUpdatedAt lastMessage isGroup",
       )
       .lean();
     if (!conversation) {
@@ -1198,8 +1206,10 @@ export const deleteMessage = async (req, res) => {
           participants.length > 0 &&
           participants.every((p) => updatedDeletedFor.includes(p));
 
-        const isSelfChat =
-          message.sender.toString() === message.receiver.toString();
+        const isSelfChat = Boolean(
+          message.receiver &&
+          message.sender.toString() === message.receiver.toString()
+        );
         const shouldDeleteMedia =
           allParticipantsDeleted ||
           isSelfChat ||
@@ -1304,16 +1314,23 @@ export const deleteMessage = async (req, res) => {
           const unpinPayload = {
             conversationId: message.conversation.toString(),
             secondaryId: null,
-            receiverId: message.receiver.toString(),
+            receiverId: message.receiver ? message.receiver.toString() : null,
             unpinnedBy: userId,
           };
           req.io
             .to(message.conversation.toString())
             .emit("message_unpinned", unpinPayload);
-          req.io
-            .to(message.receiver.toString())
-            .emit("message_unpinned", unpinPayload);
-          req.io.to(userId.toString()).emit("message_unpinned", unpinPayload);
+
+          if (conv?.isGroup) {
+            conv.participants?.forEach((p) => {
+              req.io.to((p._id || p).toString()).emit("message_unpinned", unpinPayload);
+            });
+          } else {
+            if (message.receiver) {
+              req.io.to(message.receiver.toString()).emit("message_unpinned", unpinPayload);
+            }
+            req.io.to(userId.toString()).emit("message_unpinned", unpinPayload);
+          }
         }
       }
 
@@ -1349,20 +1366,16 @@ export const deleteMessage = async (req, res) => {
         req.io
           .to(message.conversation.toString())
           .emit("message_deleted", payload);
-        req.io.to(message.receiver.toString()).emit("message_deleted", payload);
-        req.io.to(userId.toString()).emit("message_deleted", payload);
 
-        if (req.socketUserMap instanceof Map) {
-          const receiverSocketId = req.socketUserMap.get(
-            message.receiver.toString(),
-          );
-          if (receiverSocketId) {
-            req.io.to(receiverSocketId).emit("message_deleted", payload);
+        if (conv?.isGroup) {
+          conv.participants?.forEach((p) => {
+            req.io.to((p._id || p).toString()).emit("message_deleted", payload);
+          });
+        } else {
+          if (message.receiver) {
+            req.io.to(message.receiver.toString()).emit("message_deleted", payload);
           }
-          const senderSocketId = req.socketUserMap.get(userId);
-          if (senderSocketId) {
-            req.io.to(senderSocketId).emit("message_deleted", payload);
-          }
+          req.io.to(userId.toString()).emit("message_deleted", payload);
         }
       }
 
@@ -1442,25 +1455,27 @@ export const editMessage = async (req, res) => {
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey");
 
-    if (req.io && req.socketUserMap instanceof Map) {
+    if (req.io) {
       const payload = {
         message: updatedMessage,
         messageId: messageId,
         conversationId: message.conversation.toString(),
       };
 
-      const receiverSocketId = req.socketUserMap.get(
-        message.receiver.toString(),
+      const conv = await Conversation.findById(message.conversation).select(
+        "isGroup participants",
       );
-
-      const senderSocketId = req.socketUserMap.get(userId.toString());
-
-      if (receiverSocketId) {
-        req.io.to(receiverSocketId).emit("message_edited", payload);
-      }
-
-      if (senderSocketId) {
-        req.io.to(senderSocketId).emit("message_edited", payload);
+      if (conv?.isGroup) {
+        conv.participants?.forEach((p) => {
+          req.io.to((p._id || p).toString()).emit("message_edited", payload);
+        });
+      } else {
+        if (message.receiver) {
+          req.io
+            .to(message.receiver.toString())
+            .emit("message_edited", payload);
+        }
+        req.io.to(userId.toString()).emit("message_edited", payload);
       }
     }
 
@@ -1546,21 +1561,21 @@ export const votePoll = async (req, res) => {
     };
 
     if (req.io) {
-      if (req.socketUserMap) {
-        const senderSocketId = req.socketUserMap.get(message.sender.toString());
-        const receiverSocketId = req.socketUserMap.get(
-          message.receiver.toString(),
-        );
-
-        if (senderSocketId) {
-          req.io.to(senderSocketId).emit("poll_update", payload);
+      const conv = await Conversation.findById(message.conversation).select(
+        "isGroup participants",
+      );
+      if (conv?.isGroup) {
+        conv.participants?.forEach((p) => {
+          req.io.to((p._id || p).toString()).emit("poll_update", payload);
+        });
+      } else {
+        if (message.sender) {
+          req.io.to(message.sender.toString()).emit("poll_update", payload);
         }
-        if (receiverSocketId) {
-          req.io.to(receiverSocketId).emit("poll_update", payload);
+        if (message.receiver) {
+          req.io.to(message.receiver.toString()).emit("poll_update", payload);
         }
       }
-      req.io.to(message.sender.toString()).emit("poll_update", payload);
-      req.io.to(message.receiver.toString()).emit("poll_update", payload);
 
       if (isReceiverVoting) {
         const statusPayload = {
@@ -1569,22 +1584,13 @@ export const votePoll = async (req, res) => {
           readAt: (message.readAt || new Date()).toISOString(),
           deliveredAt: (message.deliveredAt || new Date()).toISOString(),
         };
-        req.io
-          .to(message.sender.toString())
-          .emit("message_status_update", statusPayload);
-        req.io
-          .to(message.sender.toString())
-          .emit("message_read", statusPayload);
-        if (req.socketUserMap) {
-          const senderSocketId = req.socketUserMap.get(
-            message.sender.toString(),
-          );
-          if (senderSocketId && senderSocketId !== message.sender.toString()) {
-            req.io
-              .to(senderSocketId)
-              .emit("message_status_update", statusPayload);
-            req.io.to(senderSocketId).emit("message_read", statusPayload);
-          }
+        if (message.sender) {
+          req.io
+            .to(message.sender.toString())
+            .emit("message_status_update", statusPayload);
+          req.io
+            .to(message.sender.toString())
+            .emit("message_read", statusPayload);
         }
       }
     }

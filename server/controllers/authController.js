@@ -299,6 +299,12 @@ const getAllUsers = async (req, res) => {
         "readBy.user": {
           $ne: new mongoose.Types.ObjectId(loggedInUserId),
         },
+        isSystemMessage: { $ne: true },
+        contentType: { $ne: "system" },
+        systemAction: null,
+        content: {
+          $not: /^(Group ".*" created|.+ added .+|.+ removed .+|.+ changed .+|.+ deleted .+|.+ left the group)$/i,
+        },
       });
     }
 

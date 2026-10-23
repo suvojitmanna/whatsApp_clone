@@ -373,7 +373,7 @@ const FileViewerModal = ({
       currentUserId
     );
     setShowPinModal(false);
-    toast.success(`Message pinned for ${duration}`);
+    toast.success("You pinned a message");
   };
 
   const handleSelectReaction = async (emoji) => {
