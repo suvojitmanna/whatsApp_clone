@@ -1,0 +1,10 @@
+export { default as layout } from "./layout";
+export * from "./layout";
+export { default as homePage } from "./homePage";
+export * from "./homePage";
+export { default as sideBar } from "./sideBar";
+export * from "./sideBar";
+export { default as userDetails } from "./userDetails";
+export * from "./userDetails";
+export { default as profilePicture } from "./profilePicture";
+export * from "./profilePicture";
