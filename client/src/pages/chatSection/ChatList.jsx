@@ -33,9 +33,9 @@ import {
   ArchivedBoxIcon,
   MutedBellIcon,
 } from "../../components/common/Icons";
-import AddToListModal from "../../components/AddToListModal";
-import NewGroupModal from "../../components/NewGroupModal";
-import ListPanelOverChatList from "../../components/ListPanelOverChatList";
+import AddToListModal from "../../components/modals/AddToListModal";
+import NewGroupModal from "../../components/modals/NewGroupModal";
+import ListPanelOverChatList from "../../components/panels/ListPanelOverChatList";
 import ChatlistMenu from "./ChatlistMenu";
 import ChatHoverPreview from "./ChatHoverPreview";
 import {

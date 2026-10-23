@@ -12,7 +12,7 @@ import useOutsideClick from "../../hook/useOutsideClick";
 import useVideoCallStore from "../../store/videoCallStore";
 import useLayoutStore from "../../store/layoutStore";
 import { toast } from "react-toastify";
-import AttachInput from "../../components/AttachInput";
+import AttachInput from "../../components/media/AttachInput";
 import ChatHeader from "./ChatHeader";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { isGroupSystemMessage } from "../../utils/systemMessageUtils";

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import Layout from "../../components/layout";
+import Layout from "../../components/layout/layout";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
@@ -12,7 +12,7 @@ import { formatCallDate } from "../../utils/formatTime";
 import NewCallModal, { NewCallView } from "./NewCallModal";
 import PhoneNumberView from "./PhoneNumberView";
 import NewCallLinkModal from "./NewCallLinkModal";
-import EndToEndEncryption from "../../components/EndToEndEncryption";
+import EndToEndEncryption from "../../components/info/EndToEndEncryption";
 import {
   AddFavouritesModal,
   FavouritesView,

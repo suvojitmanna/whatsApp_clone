@@ -10,11 +10,11 @@ import { getOrCreateUserKeyPair } from "../../utils/cryptoUtils";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
 import { getDisappearingDurationMs } from "../../utils/formatTime";
-import ReactionDetailsModal from "../../components/ReactionDetailsModal";
-import FileViewerModal from "../../components/FileViewerModal";
-import ForwardModal from "../../components/ForwardModal";
-import PinDurationModal from "../../components/PinDurationModal";
-import ReportModal from "../../components/ReportModal";
+import ReactionDetailsModal from "../../components/modals/ReactionDetailsModal";
+import FileViewerModal from "../../components/modals/FileViewerModal";
+import ForwardModal from "../../components/modals/ForwardModal";
+import PinDurationModal from "../../components/modals/PinDurationModal";
+import ReportModal from "../../components/modals/ReportModal";
 import MessageMenu from "./MessageMenu";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { MetaAiMarkdown, MetaAiFeedbackBar, MetaAiImageCard } from "../../components/common/MetaAiContent";
@@ -121,6 +121,7 @@ const MessageBuble = ({
   const pinnedMessages = useChatStore((state) => state.pinnedMessages);
   const pinMessage = useChatStore((state) => state.pinMessage);
   const starredMessages = useChatStore((state) => state.starredMessages);
+  const isMessageStarred = useChatStore((state) => state.isMessageStarred);
   const layoutSelectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedPollDetails = useLayoutStore(
     (state) => state.setSelectedPollDetails
@@ -292,7 +293,10 @@ const MessageBuble = ({
   const handleOpenSenderContactInfo = useCallback(
     (e) => {
       if (isSelectMode) return;
-      e.stopPropagation();
+      if (e) {
+        e.preventDefault?.();
+        e.stopPropagation?.();
+      }
       if (!senderId || isUserMessage || isMetaAiMessage) return;
 
       const rawParticipants =
@@ -300,48 +304,80 @@ const MessageBuble = ({
         activeContact?.conversation?.participants ||
         conversationObj?.participants ||
         [];
-      let targetMember = null;
+      let foundInParticipants = null;
       if (Array.isArray(rawParticipants)) {
-        targetMember = rawParticipants.find(
+        foundInParticipants = rawParticipants.find(
           (p) => (p?._id || p?.id || p)?.toString() === senderId
         );
       }
 
-      if (targetMember && typeof targetMember === "object") {
-        targetMember = {
-          ...targetMember,
-          _id: targetMember._id || senderId,
-          username: targetMember.username || senderDisplayName,
-          profilePicture:
-            targetMember.profilePicture ||
-            targetMember.profilePic ||
-            targetMember.avatar ||
-            senderAvatar,
-        };
-      } else if (typeof message?.sender === "object" && message.sender) {
-        targetMember = {
-          ...message.sender,
-          _id: message.sender._id || senderId,
-          username: message.sender.username || senderDisplayName,
-          profilePicture:
-            message.sender.profilePicture ||
-            message.sender.profilePic ||
-            message.sender.avatar ||
-            senderAvatar,
-        };
-      } else {
-        targetMember = {
-          _id: senderId,
-          username: senderDisplayName,
-          profilePicture: senderAvatar,
-        };
-      }
+      const allUsers = useChatStore.getState()?.users || [];
+      const foundInStore = Array.isArray(allUsers)
+        ? allUsers.find((u) => (u?._id || u?.id)?.toString() === senderId)
+        : null;
+
+      const senderObj =
+        typeof message?.sender === "object" && message.sender !== null
+          ? message.sender
+          : null;
+
+      const partObj =
+        typeof foundInParticipants === "object" && foundInParticipants !== null
+          ? foundInParticipants
+          : null;
+
+      const resolvedMember = {
+        ...(partObj || {}),
+        ...(senderObj || {}),
+        ...(foundInStore || {}),
+        _id: senderId,
+        id: senderId,
+        username:
+          partObj?.username ||
+          senderObj?.username ||
+          foundInStore?.username ||
+          senderDisplayName,
+        name:
+          partObj?.name ||
+          senderObj?.name ||
+          foundInStore?.name ||
+          partObj?.username ||
+          senderObj?.username ||
+          senderDisplayName,
+        profilePicture:
+          partObj?.profilePicture ||
+          partObj?.profilePic ||
+          partObj?.avatar ||
+          senderObj?.profilePicture ||
+          senderObj?.profilePic ||
+          senderObj?.avatar ||
+          foundInStore?.profilePicture ||
+          foundInStore?.profilePic ||
+          senderAvatar ||
+          "",
+        phoneNumber:
+          partObj?.phoneNumber ||
+          senderObj?.phoneNumber ||
+          foundInStore?.phoneNumber ||
+          "",
+        about:
+          partObj?.about ||
+          senderObj?.about ||
+          foundInStore?.about ||
+          "Hey there! I am using WhatsApp.",
+        email:
+          partObj?.email ||
+          senderObj?.email ||
+          foundInStore?.email ||
+          "",
+      };
 
       if (openContactInfoWithMember) {
-        openContactInfoWithMember(targetMember);
+        openContactInfoWithMember(resolvedMember);
       } else {
-        useLayoutStore.getState().setViewingMember?.(targetMember);
-        setShowContactInfo(true);
+        useLayoutStore.getState().openContactInfoWithMember?.(resolvedMember) ||
+          (useLayoutStore.getState().setViewingMember?.(resolvedMember),
+          setShowContactInfo(true));
       }
     },
     [
@@ -523,12 +559,30 @@ const MessageBuble = ({
   }, [activePin, message]);
 
   const isStarred = useMemo(() => {
-    return Boolean(
-      starredMessages?.some(
-        (id) => String(id) === String(message._id?._id || message._id)
-      )
-    );
-  }, [starredMessages, message._id]);
+    if (message?.isStarred || message?.starred) return true;
+    const msgId = (message?._id?._id || message?._id || message?.temp)?.toString();
+    if (!msgId) return false;
+
+    if (typeof isMessageStarred === "function" && isMessageStarred(msgId)) {
+      return true;
+    }
+
+    if (!starredMessages) return false;
+
+    if (Array.isArray(starredMessages)) {
+      return starredMessages.some((item) => {
+        if (!item) return false;
+        const id = (item?._id || item?.messageId || item)?.toString();
+        return id === msgId;
+      });
+    }
+
+    if (typeof starredMessages === "object") {
+      return Boolean(starredMessages[msgId] || starredMessages[String(message?._id)]);
+    }
+
+    return false;
+  }, [starredMessages, isMessageStarred, message?._id, message?.temp, message?.isStarred, message?.starred]);
 
   const validReactions = (message.reactions || []).filter((r) =>
     Boolean(r && r.emoji)
@@ -734,9 +788,14 @@ const MessageBuble = ({
           <div className="shrink-0 mr-1.5 self-start mt-0.5 select-none">
             {isFirstInSequence ? (
               <div
-                onClick={handleOpenSenderContactInfo}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenSenderContactInfo(e);
+                }}
                 className="cursor-pointer transition-transform hover:scale-105 active:scale-95"
-                title={senderDisplayName}
+                title={`View ${senderDisplayName}'s contact info`}
               >
                 {senderAvatar ? (
                   <img
@@ -838,12 +897,19 @@ const MessageBuble = ({
               className="relative"
             >
               {isGroupChat && !isUserMessage && !isMetaAiMessage && isFirstInSequence && !isSticker && (
-                <div className="flex items-center gap-1.5 mb-1 select-none">
+                <div
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenSenderContactInfo(e);
+                  }}
+                  className="flex items-center gap-1.5 mb-1 select-none cursor-pointer group/sender w-fit"
+                  title={`View ${senderDisplayName}'s contact info`}
+                >
                   <span
-                    onClick={handleOpenSenderContactInfo}
-                    className="text-[12.8px] font-semibold leading-tight truncate hover:underline cursor-pointer"
+                    className="text-[12.8px] font-semibold leading-tight truncate group-hover/sender:underline"
                     style={{ color: senderColor }}
-                    title={senderDisplayName}
                   >
                     {senderDisplayName}
                   </span>

@@ -3,7 +3,7 @@ import useUserStore from "../../store/useUserStore";
 import useThemeStore from "../../store/themeStore";
 import { updateUserProfile } from "../../services/url.services";
 import { toast } from "react-toastify";
-import Layout from "../../components/layout";
+import Layout from "../../components/layout/layout";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   FaCamera,

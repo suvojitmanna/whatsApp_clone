@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import useThemeStore from "../../store/themeStore";
 import { logoutUser } from "../../services/user.services";
 import useUserStore from "../../store/useUserStore";
-import Layout from "../../components/layout";
+import Layout from "../../components/layout/layout";
 import {
   FaComment,
   FaMoon,

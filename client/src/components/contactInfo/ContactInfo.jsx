@@ -1,22 +1,22 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
-import axiosInstance from "../services/url.services";
-import useOutsideClick from "../hook/useOutsideClick";
-import useLayoutStore from "../store/layoutStore";
-import useThemeStore from "../store/themeStore";
-import useUserStore from "../store/useUserStore";
-import { useChatStore, getTargetUserId } from "../store/chatStore";
-import useVideoCallStore from "../store/videoCallStore";
-import { META_AI_USER_ID } from "./common/MetaAiIcon";
-import { getChatTheme } from "../utils/chatThemes";
-import ContactMedia from "./ContactMedia";
-import BlockModal from "./BlockModal";
-import ReportModal from "./ReportModal";
-import AboutAiMessagesModal from "./AboutAiMessagesModal";
-import AddMemberModal from "./AddMemberModal";
-import EditGroupAdminsModal from "./EditGroupAdminsModal";
-import GroupCallModal from "./GroupCallModal";
+import axiosInstance from "../../services/url.services";
+import useOutsideClick from "../../hook/useOutsideClick";
+import useLayoutStore from "../../store/layoutStore";
+import useThemeStore from "../../store/themeStore";
+import useUserStore from "../../store/useUserStore";
+import { useChatStore, getTargetUserId } from "../../store/chatStore";
+import useVideoCallStore from "../../store/videoCallStore";
+import { META_AI_USER_ID } from "../common/MetaAiIcon";
+import { getChatTheme } from "../../utils/chatThemes";
+import ContactMedia from "../media/ContactMedia";
+import BlockModal from "../modals/BlockModal";
+import ReportModal from "../modals/ReportModal";
+import AboutAiMessagesModal from "../modals/AboutAiMessagesModal";
+import AddMemberModal from "../modals/AddMemberModal";
+import EditGroupAdminsModal from "../modals/EditGroupAdminsModal";
+import GroupCallModal from "../modals/GroupCallModal";
 
 import {
   ContactInfoHeader,
@@ -29,11 +29,13 @@ import {
   ContactInfoGroupPermissionsTab,
   ContactInfoMemberChangesTab,
   ContactInfoListsTab,
+} from "./index.js";
+import {
   WhatsAppSwitch,
   ActionButton,
   formatMemberChangeDate,
   AVATAR_BG_COLORS,
-} from "./contactInfo/index.js";
+} from "./shared.jsx";
 
 export { WhatsAppSwitch, ActionButton, formatMemberChangeDate, AVATAR_BG_COLORS };
 
@@ -223,8 +225,15 @@ const ContactInfo = () => {
     }
   }, [layoutViewingMember]);
 
+  const prevContactIdRef = useRef(selectedContact?._id);
   useEffect(() => {
-    setViewingMember(null);
+    if (
+      prevContactIdRef.current !== undefined &&
+      prevContactIdRef.current !== selectedContact?._id
+    ) {
+      setViewingMember(null);
+    }
+    prevContactIdRef.current = selectedContact?._id;
   }, [selectedContact?._id, setViewingMember]);
 
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);

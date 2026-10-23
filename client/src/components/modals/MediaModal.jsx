@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useThemeStore from "../../store/themeStore";
-import Media from "../Media";
+import Media from "../media/Media";
 
 const MediaModal = ({
   isOpen = false,

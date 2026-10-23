@@ -12,7 +12,7 @@ import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
 import { useChatStore, getTargetUserId } from "../../store/chatStore";
-import BlockModal from "../../components/BlockModal";
+import BlockModal from "../../components/modals/BlockModal";
 import {
   getAllLists,
   isContactInList,

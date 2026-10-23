@@ -31,339 +31,35 @@ import { IoArrowForward } from "react-icons/io5";
 import { RiDeleteBin6Line } from "react-icons/ri";
 import { format, isToday, isYesterday } from "date-fns";
 import { toast } from "react-toastify";
-import useThemeStore from "../store/themeStore";
-import useUserStore from "../store/useUserStore";
-import useLayoutStore from "../store/layoutStore";
-import { useChatStore, decryptSingleMessage } from "../store/chatStore";
-import axiosInstance from "../services/url.services";
-import FileViewerModal from "./FileViewerModal";
-import ForwardModal from "./ForwardModal";
+import useThemeStore from "../../store/themeStore";
+import useUserStore from "../../store/useUserStore";
+import useLayoutStore from "../../store/layoutStore";
+import { useChatStore, decryptSingleMessage } from "../../store/chatStore";
+import axiosInstance from "../../services/url.services";
+import FileViewerModal from "../modals/FileViewerModal";
+import ForwardModal from "../modals/ForwardModal";
 import MediaMenu from "./MediaMenu";
-import { copyImageToClipboard } from "../utils/clipboardUtils";
-import { FALLBACK_DOCS, FALLBACK_LINKS, FALLBACK_MEDIA } from "../assets/rawData";
+import { copyImageToClipboard } from "../../utils/clipboardUtils";
+import { FALLBACK_DOCS, FALLBACK_LINKS, FALLBACK_MEDIA } from "../../assets/rawData";
 
-export { WhatsAppMediaFolderIcon } from "./common/Icons";
+export { WhatsAppMediaFolderIcon } from "../common/Icons";
 
-const formatDocSize = (bytes) => {
-  if (!bytes) return "";
-  if (
-    typeof bytes === "string" &&
-    (bytes.includes("KB") || bytes.includes("MB") || bytes.includes("GB"))
-  ) {
-    return bytes;
-  }
-  const num = Number(bytes);
-  if (isNaN(num) || num <= 0) return "";
-  if (num < 1024) return `${num} B`;
-  if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
-  return `${(num / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-const formatVideoDuration = (seconds) => {
-  if (!seconds || isNaN(seconds)) return null;
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-};
-
-const parseFileSize = (item) => {
-  if (!item) return 0;
-  const raw = item.fileSize ?? item.size ?? item.bytes;
-  if (raw !== undefined && raw !== null && raw !== "") {
-    if (typeof raw === "number") return raw;
-    if (typeof raw === "string") {
-      const clean = raw.trim().toUpperCase();
-      const num = parseFloat(clean);
-      if (!isNaN(num)) {
-        if (clean.endsWith("GB")) return num * 1024 * 1024 * 1024;
-        if (clean.endsWith("MB")) return num * 1024 * 1024;
-        if (clean.endsWith("KB")) return num * 1024;
-        return num;
-      }
-    }
-  }
-  if (item.mediaType === "video" || item.contentType === "video") {
-    return 5 * 1024 * 1024;
-  }
-  if (item.mediaType === "image" || item.contentType === "image" || item.imageOrVideoUrl) {
-    return 1 * 1024 * 1024;
-  }
-  return 0;
-};
-
-const getFileIcon = (fileName = "") => {
-  const ext = (fileName.split(".").pop() || "").toLowerCase();
-  if (ext === "pdf") {
-    return {
-      icon: <FaFilePdf size={18} className="text-rose-500" />,
-      bg: "bg-rose-500/10 border-rose-500/20 text-rose-500",
-      label: "PDF",
-    };
-  }
-  if (["doc", "docx", "txt", "rtf"].includes(ext)) {
-    return {
-      icon: <FaFileWord size={18} className="text-blue-500" />,
-      bg: "bg-blue-500/10 border-blue-500/20 text-blue-500",
-      label: ext.toUpperCase(),
-    };
-  }
-  if (["xls", "xlsx", "csv"].includes(ext)) {
-    return {
-      icon: <FaFileExcel size={18} className="text-emerald-500" />,
-      bg: "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
-      label: ext.toUpperCase(),
-    };
-  }
-  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
-    return {
-      icon: <FaFileArchive size={18} className="text-amber-500" />,
-      bg: "bg-amber-500/10 border-amber-500/20 text-amber-500",
-      label: ext.toUpperCase(),
-    };
-  }
-  return {
-    icon: <FaFileAlt size={18} className="text-gray-400" />,
-    bg: "bg-gray-500/10 border-gray-500/20 text-gray-400",
-    label: ext ? ext.toUpperCase() : "DOC",
-  };
-};
-
-const formatDateGroup = (date) => {
-  if (!date) return { primary: "Recent", sub: null, sortKey: 0 };
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return { primary: "Recent", sub: null, sortKey: 0 };
-
-  if (isToday(d)) {
-    return {
-      primary: "Today",
-      sub: format(d, "d MMMM yyyy"),
-      sortKey: d.getTime(),
-    };
-  }
-  if (isYesterday(d)) {
-    return {
-      primary: "Yesterday",
-      sub: format(d, "d MMMM yyyy"),
-      sortKey: d.getTime(),
-    };
-  }
-  return {
-    primary: format(d, "MMMM yyyy"),
-    sub: format(d, "d MMMM yyyy"),
-    sortKey: d.getTime(),
-  };
-};
-
-const calculateTotalSize = (items) => {
-  let totalBytes = 0;
-  items.forEach((item) => {
-    let bytes = 0;
-    const rawSize = item.fileSize || item.size;
-    if (typeof rawSize === "number" && rawSize > 0) {
-      bytes = rawSize;
-    } else if (typeof rawSize === "string" && rawSize.trim()) {
-      const s = rawSize.trim().toUpperCase();
-      const num = parseFloat(s);
-      if (!isNaN(num)) {
-        if (s.includes("GB")) bytes = num * 1024 * 1024 * 1024;
-        else if (s.includes("MB")) bytes = num * 1024 * 1024;
-        else if (s.includes("KB")) bytes = num * 1024;
-        else bytes = num;
-      }
-    }
-
-    if (!bytes) {
-      if (item.mediaType === "video" || item.contentType === "video") {
-        bytes = 9 * 1024 * 1024;
-      } else if (item.mediaType === "image" || item.contentType === "image") {
-        bytes = 1.8 * 1024 * 1024;
-      } else {
-        bytes = 2.4 * 1024 * 1024;
-      }
-    }
-    totalBytes += bytes;
-  });
-
-  return formatDocSize(totalBytes) || "0 MB";
-};
-
-const VideoThumbnail = ({ src, item }) => {
-  const [duration, setDuration] = useState(item.duration || null);
-
-  const handleMetadata = (e) => {
-    if (e.target.duration && !isNaN(e.target.duration) && isFinite(e.target.duration)) {
-      setDuration(Math.round(e.target.duration));
-    }
-  };
-
-  const durStr = duration ? formatVideoDuration(duration) : item.durationStr || "0:20";
-
-  return (
-    <>
-      <video
-        src={src}
-        preload="metadata"
-        onLoadedMetadata={handleMetadata}
-        className="w-full h-full object-cover pointer-events-none"
-        muted
-      />
-      {durStr && (
-        <div className="flex items-center gap-1.5 text-white text-[11px] font-medium drop-shadow-md">
-          <FaVideo size={10} className="text-white/90 shrink-0" />
-          <span>{durStr}</span>
-        </div>
-      )}
-    </>
-  );
-};
-
-const MediaSkeletonLoader = ({ activeTab, isDark }) => {
-  return (
-    <div className="space-y-6 select-none p-1">
-      <div className="space-y-1.5 px-1">
-        <div
-          className={`h-4 w-28 rounded-md animate-skeleton-shimmer ${isDark ? "bg-[#202c33]" : "bg-gray-200"
-            }`}
-        />
-        <div
-          className={`h-3 w-36 rounded-md animate-skeleton-shimmer ${isDark ? "bg-[#202c33]/60" : "bg-gray-100"
-            }`}
-        />
-      </div>
-
-      {activeTab === "media" && (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
-          {Array.from({ length: 15 }).map((_, idx) => (
-            <div
-              key={idx}
-              className={`aspect-square rounded-lg overflow-hidden relative animate-skeleton-shimmer ${isDark ? "bg-[#202c33]" : "bg-gray-200"
-                }`}
-            >
-              <div className="absolute inset-x-0 bottom-0 p-2 flex flex-col gap-1.5 pointer-events-none">
-                {idx % 3 === 0 && (
-                  <div
-                    className={`h-2.5 w-10 rounded ${isDark ? "bg-white/10" : "bg-black/10"
-                      }`}
-                  />
-                )}
-                <div
-                  className={`h-2.5 w-20 rounded ${isDark ? "bg-white/10" : "bg-black/10"
-                    }`}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {activeTab === "docs" && (
-        <div className="space-y-0">
-          {Array.from({ length: 3 }).map((_, idx) => (
-            <div key={idx}>
-              <div
-                className={`flex items-center justify-between p-3 rounded-xl animate-skeleton-shimmer ${isDark ? "bg-[#202c33]/70" : "bg-white"
-                  }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-11 h-11 rounded-xl ${isDark ? "bg-white/10" : "bg-gray-200"
-                      }`}
-                  />
-
-                  <div className="space-y-1.5">
-                    <div
-                      className={`h-3.5 w-48 rounded ${isDark ? "bg-white/15" : "bg-gray-300"
-                        }`}
-                    />
-
-                    <div
-                      className={`h-2.5 w-24 rounded ${isDark ? "bg-white/10" : "bg-gray-200"
-                        }`}
-                    />
-                  </div>
-                </div>
-
-                <div
-                  className={`w-8 h-8 rounded-full ${isDark ? "bg-white/10" : "bg-gray-200"
-                    }`}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {activeTab === "links" && (
-        <div className="space-y-2.5">
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <div
-              key={idx}
-              className={`p-3.5 rounded-xl border space-y-2 animate-skeleton-shimmer ${isDark
-                ? "bg-[#202c33]/70 border-white/5"
-                : "bg-white border-gray-200"
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-8 h-8 rounded-lg ${isDark ? "bg-white/10" : "bg-gray-200"
-                    }`}
-                />
-                <div
-                  className={`h-3 w-28 rounded ${isDark ? "bg-emerald-500/20" : "bg-emerald-100"
-                    }`}
-                />
-              </div>
-              <div
-                className={`h-3.5 w-3/4 rounded ${isDark ? "bg-white/15" : "bg-gray-300"
-                  }`}
-              />
-              <div
-                className={`h-2.5 w-1/2 rounded ${isDark ? "bg-white/10" : "bg-gray-200"
-                  }`}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const getSenderDisplay = (item) => {
-  if (!item) return "";
-  const s = item.sender;
-  if (!s) return item.senderName || item.senderDisplay || "";
-  if (typeof s === "string") return s;
-  return (
-    s.phoneNumber ||
-    s.phoneSuffix ||
-    s.username ||
-    item.senderName ||
-    item.senderDisplay ||
-    ""
-  );
-};
-
-const getAttachedMessage = (item) => {
-  if (!item) return "";
-  const content = item.content || item.caption || item.text || "";
-  if (typeof content !== "string") return "";
-  const trimmed = content.trim();
-  if (
-    !trimmed ||
-    trimmed.toLowerCase() === "image" ||
-    trimmed.toLowerCase() === "video" ||
-    trimmed.toLowerCase() === "photo" ||
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://")
-  ) {
-    return "";
-  }
-  if (item.isEncrypted && !item._isDecrypted) {
-    return "";
-  }
-  return trimmed;
-};
+import {
+  formatDocSize,
+  formatVideoDuration,
+  parseFileSize,
+  getFileIcon,
+  formatDateGroup,
+  calculateTotalSize,
+  getSenderDisplay,
+  getAttachedMessage,
+  VideoThumbnail,
+  MediaSkeletonLoader,
+  MediaTabContent,
+  DocsTabContent,
+  LinksTabContent,
+  MediaActionBar
+} from "./mediaView";
 
 const Media = ({
   contact = null,
@@ -1702,564 +1398,54 @@ const Media = ({
                   </div>
 
                   {activeTab === "media" && (
-                    <div
-                      className={`grid ${mode === "modal"
-                        ? "grid-cols-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4"
-                        : "grid-cols-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-5"
-                        } gap-2 sm:gap-2.5`}
-                    >
-                      {items.map((item) => {
-                        const isVideo = item.mediaType === "video";
-                        const itemId = item.messageId || item._id;
-                        const isSelected = selectedItems.some(
-                          (i) => (i.messageId || i._id) === itemId
-                        );
-                        const isStarred = Boolean(
-                          item.isStarred ||
-                          item.starred ||
-                          (isMessageStarred && isMessageStarred(itemId)) ||
-                          starredMessages?.[itemId]
-                        );
-                        const senderDisplay = getSenderDisplay(item);
-                        const attachedMessage = getAttachedMessage(item);
-                        const hoverText = attachedMessage || (isVideo ? "Video" : "Photo");
-
-                        return (
-                          <div
-                            key={itemId}
-                            onClick={() => {
-                              if (isSelectMode) {
-                                toggleSelectItem(item);
-                              } else {
-                                handleOpenViewer(item);
-                              }
-                            }}
-                            onContextMenu={(e) => {
-                              if (isSelectMode) return;
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setActiveMenu({
-                                item,
-                                position: {
-                                  top: e.clientY + 4,
-                                  left: e.clientX,
-                                  buttonTop: e.clientY,
-                                },
-                              });
-                            }}
-                            title={hoverText}
-                            className={`relative aspect-square rounded-lg overflow-hidden group cursor-pointer transition-all duration-200 select-none shadow-xs border-2 ${isDark ? "bg-[#202c33]" : "bg-gray-200"
-                              } ${isSelected
-                                ? "border-[#00a884] ring-2 ring-[#00a884]/40 brightness-95"
-                                : "border-transparent hover:border-[#00a884] hover:brightness-105"
-                              }`}
-                          >
-                            <div
-                              className={`absolute top-2 left-2 z-20 transition-all ${isSelectMode || isSelected
-                                ? "opacity-100 scale-100"
-                                : "opacity-0 group-hover:opacity-100 scale-100"
-                                }`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!isSelectMode) setIsSelectMode(true);
-                                toggleSelectItem(item);
-                              }}
-                            >
-                              {isSelected ? (
-                                <div className={`w-[19px] h-[19px] rounded-[4px] ${isDark ? "bg-white text-black" : "bg-[#111b21] text-white"} flex items-center justify-center font-bold shadow-md transition-transform active:scale-90`}>
-                                  <FaCheck size={11} className="stroke-[2]" />
-                                </div>
-                              ) : (
-                                <div className="w-[19px] h-[19px] rounded-[4px] border-[1.8px] border-white/85 bg-black/35 backdrop-blur-xs flex items-center justify-center group-hover:border-white hover:border-white transition-all active:scale-90" />
-                              )}
-                            </div>
-
-                            {!isSelectMode && (
-                              <div
-                                className={`absolute top-1 right-1 z-20 flex items-center justify-center rounded-full border p-1 cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
-                                  ? "opacity-100 bg-black/50 backdrop-blur-xs border-white/25 text-white shadow-md scale-105"
-                                  : "opacity-0 group-hover:opacity-100 border-transparent hover:bg-black/30 hover:backdrop-blur-xs hover:border-white/10 text-white"
-                                  }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  setActiveMenu((prev) =>
-                                    (prev?.item?.messageId || prev?.item?._id) === itemId
-                                      ? null
-                                      : {
-                                        item,
-                                        position: {
-                                          top: rect.bottom + 4,
-                                          left: rect.right - 210,
-                                          buttonTop: rect.top,
-                                        },
-                                      }
-                                  );
-                                }}
-                                title="Menu"
-                              >
-                                <MdOutlineKeyboardArrowDown size={20} />
-                              </div>
-                            )}
-
-                            {isVideo ? (
-                              <VideoThumbnail
-                                src={item.url || item.imageOrVideoUrl}
-                                item={item}
-                              />
-                            ) : (
-                              <div className="relative w-full h-full overflow-hidden rounded-xl group">
-                                <img
-                                  src={item.url || item.imageOrVideoUrl}
-                                  alt=""
-                                  loading="lazy"
-                                  className="w-full h-full object-fill transition-transform duration-500 group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                                  <div
-                                    className="absolute inset-y-0 -left-[150%] w-1/2 skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/40 to-transparent backdrop-blur-[2px] opacity-0 transition-all duration-700 ease-in-out group-hover:left-[150%] group-hover:opacity-100"
-                                  />
-                                </div>
-                              </div>
-                            )}
-
-                            {isVideo && (
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center shadow-lg backdrop-blur-xs group-hover:scale-110 transition-transform">
-                                  <FaPlay size={11} className="ml-0.5" />
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="absolute inset-x-0 bottom-0 p-2 sm:p-2.5 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end text-white pointer-events-none">
-                              <div className="flex items-center justify-between w-full min-w-0">
-                                {senderDisplay && (
-                                  <span className="text-[11.5px] sm:text-[12px] font-medium truncate text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] leading-tight">
-                                    {senderDisplay}
-                                  </span>
-                                )}
-                                {isStarred && (
-                                  <div className="shrink-0 ml-auto pl-1.5 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] flex items-center">
-                                    <FaStar size={11} className="text-white fill-white" />
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="grid grid-rows-[0fr] opacity-0 group-hover:grid-rows-[1fr] group-hover:opacity-100 transition-all duration-200">
-                                <div className="overflow-hidden">
-                                  {attachedMessage ? (
-                                    <p className="text-[11.5px] sm:text-[12px] font-medium text-white line-clamp-2 leading-tight drop-shadow-md mt-1">
-                                      {attachedMessage}
-                                    </p>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/90 drop-shadow-md mt-1">
-                                      {isVideo ? <FaVideo size={9} /> : <FaCamera size={9} />}
-                                      <span>{isVideo ? "Video" : "Photo"}</span>
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                            </div>
-
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <MediaTabContent
+                      items={items}
+                      mode={mode}
+                      isDark={isDark}
+                      selectedItems={selectedItems}
+                      isSelectMode={isSelectMode}
+                      setIsSelectMode={setIsSelectMode}
+                      toggleSelectItem={toggleSelectItem}
+                      handleOpenViewer={handleOpenViewer}
+                      activeMenu={activeMenu}
+                      setActiveMenu={setActiveMenu}
+                      isMessageStarred={isMessageStarred}
+                      starredMessages={starredMessages}
+                    />
                   )}
 
                   {activeTab === "docs" && (
-                    <div className="space-y-1.5">
-                      {items.map((item, index) => {
-                        const itemId = item.messageId || item._id;
-                        const isSelected = selectedItems.some(
-                          (i) => (i.messageId || i._id) === itemId
-                        );
-                        const isStarred = Boolean(
-                          item.isStarred ||
-                          item.starred ||
-                          (isMessageStarred && isMessageStarred(itemId)) ||
-                          starredMessages?.[itemId]
-                        );
-                        const docName =
-                          item.docName || item.fileName || "Document";
-                        const iconInfo = getFileIcon(docName);
-                        const docUrl = item.docUrl || item.fileUrl || item.url;
-                        const sizeStr = formatDocSize(item.fileSize);
-                        const dateDisplay = item.createdAt
-                          ? format(new Date(item.createdAt), "dd/MM/yyyy")
-                          : "";
-                        const attachedMessage = getAttachedMessage(item);
-                        const senderName = item.sender?.username || getSenderDisplay(item) || "Unknown";
-
-                        return (
-                          <React.Fragment key={itemId}>
-                            <div
-                              onClick={() => {
-                                if (isSelectMode) {
-                                  toggleSelectItem(item);
-                                } else {
-                                  handleOpenViewer(item);
-                                }
-                              }}
-                              onContextMenu={(e) => {
-                                if (isSelectMode) return;
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setActiveMenu({
-                                  item,
-                                  position: {
-                                    top: e.clientY + 4,
-                                    left: Math.max(10, Math.min(window.innerWidth - 220, e.clientX - 100)),
-                                    buttonTop: e.clientY,
-                                  },
-                                });
-                              }}
-                              className={`flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer group select-none border ${isSelected
-                                ? isDark
-                                  ? "bg-white/10 border-white/20 text-white"
-                                  : "bg-gray-100 border-gray-300 text-gray-900"
-                                : isDark
-                                  ? "bg-transparent hover:bg-[#202c33] border-transparent hover:border-white/15 text-white"
-                                  : "bg-transparent hover:bg-[#f0f2f5] border-transparent hover:border-gray-200 text-gray-900"
-                                }`}
-                            >
-                              <div className="w-[45%] sm:w-[40%] flex items-center gap-3 min-w-0 pr-3">
-                                <div
-                                  className={`shrink-0 transition-opacity duration-150 ${isSelectMode || isSelected
-                                    ? "opacity-100"
-                                    : "opacity-0 group-hover:opacity-100"
-                                    }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!isSelectMode) setIsSelectMode(true);
-                                    toggleSelectItem(item);
-                                  }}
-                                >
-                                  {isSelected ? (
-                                    <div className={`w-[19px] h-[19px] rounded-[4px] ${isDark ? "bg-white text-black" : "bg-[#111b21] text-white"} flex items-center justify-center font-bold shadow-md`}>
-                                      <FaCheck size={11} className="stroke-[2]" />
-                                    </div>
-                                  ) : (
-                                    <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/70 bg-black/20 group-hover:border-white hover:border-white" : "border-gray-400 bg-white group-hover:border-gray-600 hover:border-gray-600"} transition-colors`} />
-                                  )}
-                                </div>
-
-                                <div
-                                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${iconInfo.bg}`}
-                                >
-                                  {iconInfo.icon}
-                                </div>
-
-                                <div className="flex flex-col min-w-0">
-                                  <span className={`text-[14px] font-medium truncate leading-tight transition-colors ${isDark ? "text-white" : "text-gray-900"}`}>
-                                    {docName}
-                                  </span>
-                                  <div
-                                    className={`flex items-center gap-1.5 text-[11.5px] mt-1 ${isDark ? "text-[#8696a0]" : "text-gray-500"
-                                      }`}
-                                  >
-                                    {sizeStr && <span>{sizeStr}</span>}
-                                    {sizeStr && <span>•</span>}
-                                    <span>{iconInfo.label}</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="hidden md:flex flex-1 items-center justify-center px-4 min-w-0">
-                                <span
-                                  className={`text-[13px] truncate text-center max-w-[280px] ${attachedMessage
-                                    ? isDark
-                                      ? "text-[#d1d7db]"
-                                      : "text-gray-700"
-                                    : isDark
-                                      ? "text-[#8696a0]/40"
-                                      : "text-gray-400"
-                                    }`}
-                                  title={attachedMessage || ""}
-                                >
-                                  {attachedMessage || "—"}
-                                </span>
-                              </div>
-
-                              <div className="w-[35%] sm:w-[25%] flex items-center justify-end gap-2 shrink-0">
-                                <div className="flex flex-col items-end min-w-0 max-w-[120px] sm:max-w-[140px]">
-                                  <span className={`text-[12.5px] font-medium truncate w-full text-right ${isDark ? "text-[#e9edef]" : "text-gray-800"}`} title={senderName}>
-                                    {senderName}
-                                  </span>
-                                  {dateDisplay && (
-                                    <div className={`flex items-center gap-1 text-[11px] mt-0.5 ${isDark ? "text-[#8696a0]" : "text-gray-500"}`}>
-                                      {isStarred && (
-                                        <FaStar size={10} className={`${isDark ? "text-white/80" : "text-gray-600"} shrink-0`} />
-                                      )}
-                                      <span>{dateDisplay}</span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <button
-                                  type="button"
-                                  onClick={(e) =>
-                                    handleDownloadFile(e, docUrl, docName)
-                                  }
-                                  className={`p-2 rounded-full transition-colors ${isDark
-                                    ? "hover:bg-white/10 text-[#8696a0] hover:text-white"
-                                    : "hover:bg-gray-100 text-gray-500 hover:text-gray-800"
-                                    }`}
-                                  title="Download"
-                                >
-                                  <FiDownload size={16} />
-                                </button>
-
-                                {!isSelectMode && (
-                                  <div
-                                    className={`p-1.5 rounded-full cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
-                                      ? "opacity-100 bg-black/40 text-white shadow-md scale-105"
-                                      : isDark
-                                        ? "opacity-0 group-hover:opacity-100 hover:bg-black/20 text-[#8696a0] hover:text-white"
-                                        : "opacity-0 group-hover:opacity-100 hover:bg-gray-100 text-gray-500 hover:text-gray-800"
-                                      }`}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const rect = e.currentTarget.getBoundingClientRect();
-                                      setActiveMenu((prev) =>
-                                        (prev?.item?.messageId || prev?.item?._id) === itemId
-                                          ? null
-                                          : {
-                                            item,
-                                            position: {
-                                              top: rect.bottom + 4,
-                                              left: Math.max(10, rect.right - 210),
-                                              buttonTop: rect.top,
-                                            },
-                                          }
-                                      );
-                                    }}
-                                    title="Menu"
-                                  >
-                                    <MdOutlineKeyboardArrowDown size={18} />
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            {index < items.length - 1 && (
-                              <div
-                                className={`border-b ${isDark ? "border-[#222d34]" : "border-gray-200"
-                                  } my-2 mx-1`}
-                              />
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
+                    <DocsTabContent
+                      items={items}
+                      isDark={isDark}
+                      selectedItems={selectedItems}
+                      isSelectMode={isSelectMode}
+                      setIsSelectMode={setIsSelectMode}
+                      toggleSelectItem={toggleSelectItem}
+                      handleOpenViewer={handleOpenViewer}
+                      activeMenu={activeMenu}
+                      setActiveMenu={setActiveMenu}
+                      isMessageStarred={isMessageStarred}
+                      starredMessages={starredMessages}
+                      handleDownloadFile={handleDownloadFile}
+                    />
                   )}
 
                   {activeTab === "links" && (
-                    <div className="space-y-1.5">
-                      {items.map((item, index) => {
-                        const itemId = item.messageId || item._id;
-                        const isSelected = selectedItems.some(
-                          (i) => (i.messageId || i._id) === itemId
-                        );
-                        const isStarred = Boolean(
-                          item.isStarred ||
-                          item.starred ||
-                          (isMessageStarred && isMessageStarred(itemId)) ||
-                          starredMessages?.[itemId]
-                        );
-                        const attachedMessage = getAttachedMessage(item) || item.title || "";
-                        const senderName = item.sender?.username || getSenderDisplay(item) || "Unknown";
-                        const timeDisplay = item.createdAt
-                          ? format(new Date(item.createdAt), "MMM d, HH:mm")
-                          : "";
-
-                        return (
-                          <React.Fragment key={itemId}>
-                            <div
-                              onClick={() => {
-                                if (isSelectMode) toggleSelectItem(item);
-                              }}
-                              onContextMenu={(e) => {
-                                if (isSelectMode) return;
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setActiveMenu({
-                                  item,
-                                  position: {
-                                    top: e.clientY + 4,
-                                    left: Math.max(10, Math.min(window.innerWidth - 220, e.clientX - 100)),
-                                    buttonTop: e.clientY,
-                                  },
-                                });
-                              }}
-                              className={`flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer group select-none border ${isSelected
-                                ? isDark
-                                  ? "bg-white/10 border-white/20 text-white"
-                                  : "bg-gray-100 border-gray-300 text-gray-900"
-                                : isDark
-                                  ? "bg-transparent hover:bg-[#202c33] border-transparent hover:border-white/15 text-white"
-                                  : "bg-transparent hover:bg-[#f0f2f5] border-transparent hover:border-gray-200 text-gray-900"
-                                }`}
-                            >
-                            <div className="w-[45%] sm:w-[40%] flex items-center gap-3 min-w-0 pr-3">
-                              <div
-                                className={`shrink-0 transition-opacity duration-150 ${isSelectMode || isSelected
-                                  ? "opacity-100"
-                                  : "opacity-0 group-hover:opacity-100"
-                                  }`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!isSelectMode) setIsSelectMode(true);
-                                  toggleSelectItem(item);
-                                }}
-                              >
-                                {isSelected ? (
-                                  <div className={`w-[19px] h-[19px] rounded-[4px] ${isDark ? "bg-white text-black" : "bg-[#111b21] text-white"} flex items-center justify-center font-bold shadow-md`}>
-                                    <FaCheck size={11} className="stroke-[2]" />
-                                  </div>
-                                ) : (
-                                  <div className={`w-[19px] h-[19px] rounded-[4px] border-[1.8px] ${isDark ? "border-[#8696a0]/70 bg-black/20 group-hover:border-white hover:border-white" : "border-gray-400 bg-white group-hover:border-gray-600 hover:border-gray-600"} transition-colors`} />
-                                )}
-                              </div>
-
-                              <div
-                                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${isDark
-                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                                  : "bg-emerald-50 border-emerald-200 text-emerald-600"
-                                  }`}
-                              >
-                                <FiLink size={18} />
-                              </div>
-
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-[12px] font-semibold text-emerald-500 truncate uppercase tracking-wider">
-                                  {item.domain}
-                                </span>
-
-                                <a
-                                  href={item.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => {
-                                    if (isSelectMode) e.preventDefault();
-                                  }}
-                                  className={`text-[13.5px] font-medium truncate mt-0.5 hover:underline transition-colors ${isDark
-                                    ? "text-[#53bdeb] hover:text-[#7fd2f5]"
-                                    : "text-blue-600 hover:text-blue-800"
-                                    }`}
-                                >
-                                  {item.url}
-                                </a>
-                              </div>
-                            </div>
-
-                            <div className="hidden md:flex flex-1 items-center justify-center px-4 min-w-0">
-                              <span
-                                className={`text-[13px] truncate text-center max-w-[280px] ${attachedMessage
-                                  ? isDark
-                                    ? "text-[#d1d7db]"
-                                    : "text-gray-700"
-                                  : isDark
-                                    ? "text-[#8696a0]/40"
-                                    : "text-gray-400"
-                                  }`}
-                                title={attachedMessage || ""}
-                              >
-                                {attachedMessage || "—"}
-                              </span>
-                            </div>
-
-                            <div className="w-[35%] sm:w-[25%] flex items-center justify-end gap-1.5 shrink-0">
-                              <div className="flex flex-col items-end min-w-0 max-w-[120px] sm:max-w-[140px] mr-1">
-                                <span className={`text-[12.5px] font-medium truncate w-full text-right ${isDark ? "text-[#e9edef]" : "text-gray-800"}`} title={senderName}>
-                                  {senderName}
-                                </span>
-                                {timeDisplay && (
-                                  <div className={`flex items-center gap-1 text-[11px] mt-0.5 ${isDark ? "text-[#8696a0]" : "text-gray-500"}`}>
-                                    {isStarred && (
-                                      <FaStar size={10} className={`${isDark ? "text-white/80" : "text-gray-600"} shrink-0`} />
-                                    )}
-                                    <span>{timeDisplay}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleCopyLink(item.url, item._id)
-                                }
-                                className={`p-1.5 rounded-lg transition-colors ${copiedId === item._id
-                                  ? "text-emerald-500 bg-emerald-500/10"
-                                  : isDark
-                                    ? "text-[#8696a0] hover:text-white hover:bg-white/10"
-                                    : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                                  }`}
-                                title="Copy link"
-                              >
-                                {copiedId === item._id ? (
-                                  <MdCheck size={16} />
-                                ) : (
-                                  <MdOutlineContentCopy size={16} />
-                                )}
-                              </button>
-
-                              <a
-                                href={item.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`p-1.5 rounded-lg transition-colors ${isDark
-                                  ? "text-[#8696a0] hover:text-white hover:bg-white/10"
-                                  : "text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-                                  }`}
-                                title="Open link"
-                              >
-                                <FiExternalLink size={16} />
-                              </a>
-
-                              {!isSelectMode && (
-                                <div
-                                  className={`p-1.5 rounded-full cursor-pointer transition-all ${(activeMenu?.item?.messageId || activeMenu?.item?._id) === itemId
-                                    ? isDark
-                                      ? "opacity-100 bg-black/40 text-white shadow-md scale-105"
-                                      : "opacity-100 bg-gray-200 text-gray-900 shadow-md scale-105"
-                                    : isDark
-                                      ? "opacity-0 group-hover:opacity-100 hover:bg-black/20 text-[#8696a0] hover:text-white"
-                                      : "opacity-0 group-hover:opacity-100 hover:bg-gray-100 text-gray-500 hover:text-gray-800"
-                                    }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    setActiveMenu((prev) =>
-                                      (prev?.item?.messageId || prev?.item?._id) === itemId
-                                        ? null
-                                        : {
-                                          item,
-                                          position: {
-                                            top: rect.bottom + 4,
-                                            left: Math.max(10, rect.right - 210),
-                                            buttonTop: rect.top,
-                                          },
-                                        }
-                                    );
-                                  }}
-                                  title="Menu"
-                                >
-                                  <MdOutlineKeyboardArrowDown size={18} />
-                                </div>
-                              )}
-                            </div>
-                            </div>
-                            {index < items.length - 1 && (
-                              <div
-                                className={`border-b ${isDark ? "border-[#222d34]" : "border-gray-200"
-                                  } my-2 mx-1`}
-                              />
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
+                    <LinksTabContent
+                      items={items}
+                      isDark={isDark}
+                      selectedItems={selectedItems}
+                      isSelectMode={isSelectMode}
+                      setIsSelectMode={setIsSelectMode}
+                      toggleSelectItem={toggleSelectItem}
+                      activeMenu={activeMenu}
+                      setActiveMenu={setActiveMenu}
+                      isMessageStarred={isMessageStarred}
+                      starredMessages={starredMessages}
+                      handleCopyLink={handleCopyLink}
+                      copiedId={copiedId}
+                    />
                   )}
                 </div>
               );
@@ -2268,123 +1454,22 @@ const Media = ({
         )}
       </div>
 
-      {scope === "chat" && !isSelectMode && (
-        <div className={`shrink-0 h-[52px] border-t px-4 flex items-center justify-center select-none ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-white border-gray-200"}`}>
-          <button
-            type="button"
-            onClick={() => {
-              setScope("all");
-              setSelectedContactFilter("");
-            }}
-            className="flex items-center gap-2 text-[#00a884] hover:text-[#06cf9c] font-medium text-[14px] transition-colors cursor-pointer group"
-          >
-            {activeTab === "media" ? (
-              <HiOutlinePhotograph size={19} className="transition-transform group-hover:scale-105" />
-            ) : activeTab === "docs" ? (
-              <FaFileAlt size={16} className="transition-transform group-hover:scale-105" />
-            ) : (
-              <FiLink size={17} className="transition-transform group-hover:scale-105" />
-            )}
-            <span>
-              {activeTab === "media"
-                ? "View media from all chats"
-                : activeTab === "docs"
-                  ? "View docs from all chats"
-                  : "View links from all chats"}
-            </span>
-          </button>
-        </div>
-      )}
-
-      <AnimatePresence>
-        {isSelectMode && selectedItems.length > 0 && (
-          <motion.div
-            initial={{ y: 70, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 70, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 360, damping: 28 }}
-            className={`fixed bottom-0 inset-x-0 sm:absolute sm:inset-x-0 h-[60px] px-6 border-t flex items-center justify-between z-40 select-none shadow-2xl backdrop-blur-md ${isDark
-              ? "bg-[#202c33] border-[#2a3942] text-white"
-              : "bg-white border-gray-200 text-gray-900"
-              }`}
-          >
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={handleCancelSelect}
-                className={`p-2 rounded-full transition-colors cursor-pointer active:scale-95 ${isDark
-                  ? "text-[#aebac1] hover:text-white hover:bg-white/10"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
-                title="Cancel selection"
-              >
-                <RxCross2 size={20} />
-              </button>
-
-              <div className="flex items-center gap-2">
-                <span className="text-[14.5px] font-medium tracking-wide">
-                  {selectedItems.length} selected
-                </span>
-                <span className={`text-[12px] px-2 py-0.5 rounded-full ${isDark ? "bg-white/10 text-[#8696a0]" : "bg-gray-100 text-gray-600"}`}>
-                  {selectedTotalSize}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                type="button"
-                onClick={handleStarSelected}
-                className={`p-2.5 rounded-full transition-colors cursor-pointer active:scale-90 ${areAllStarred
-                  ? "text-amber-400 hover:bg-amber-400/10"
-                  : isDark
-                    ? "text-[#aebac1] hover:text-white hover:bg-white/10"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
-                title={areAllStarred ? "Unstar selected" : "Star selected"}
-              >
-                {areAllStarred ? <FaStar size={18} /> : <FaRegStar size={18} />}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(true)}
-                className={`p-2.5 rounded-full transition-colors cursor-pointer active:scale-90 ${isDark
-                  ? "text-[#aebac1] hover:text-rose-400 hover:bg-rose-500/10"
-                  : "text-gray-500 hover:text-rose-600 hover:bg-rose-50"
-                  }`}
-                title="Delete selected"
-              >
-                <RiDeleteBin6Line size={20} />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleForwardSelected}
-                className={`p-2.5 rounded-full transition-colors cursor-pointer active:scale-90 ${isDark
-                  ? "text-[#aebac1] hover:text-white hover:bg-white/10"
-                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
-                title="Forward selected"
-              >
-                <IoArrowForward size={20} />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDownloadSelected}
-                className={`p-2.5 rounded-full transition-colors cursor-pointer active:scale-90 ${isDark
-                  ? "text-[#aebac1] hover:text-white hover:bg-white/10"
-                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
-                title="Download selected"
-              >
-                <FiDownload size={19} />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <MediaActionBar
+        scope={scope}
+        isSelectMode={isSelectMode}
+        isDark={isDark}
+        setScope={setScope}
+        setSelectedContactFilter={setSelectedContactFilter}
+        activeTab={activeTab}
+        selectedItems={selectedItems}
+        handleCancelSelect={handleCancelSelect}
+        selectedTotalSize={selectedTotalSize}
+        handleStarSelected={handleStarSelected}
+        areAllStarred={areAllStarred}
+        setShowDeleteModal={setShowDeleteModal}
+        handleForwardSelected={handleForwardSelected}
+        handleDownloadSelected={handleDownloadSelected}
+      />
 
       {showDeleteModal && (
         <div

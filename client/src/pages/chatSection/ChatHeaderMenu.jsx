@@ -27,9 +27,9 @@ import { toast } from "react-toastify";
 import useUserStore from "../../store/useUserStore";
 import { useChatStore, getTargetUserId } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
-import ReportModal from "../../components/ReportModal";
-import BlockModal from "../../components/BlockModal";
-import { WhatsAppMediaFolderIcon } from "../../components/Media";
+import ReportModal from "../../components/modals/ReportModal";
+import BlockModal from "../../components/modals/BlockModal";
+import { WhatsAppMediaFolderIcon } from "../../components/media/Media";
 import { META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 
 

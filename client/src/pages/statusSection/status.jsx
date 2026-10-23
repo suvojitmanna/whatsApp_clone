@@ -3,16 +3,16 @@ import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import useStatusStore from "../../store/statusStore";
 import { useEffect } from "react";
-import Layout from "../../components/layout";
+import Layout from "../../components/layout/layout";
 import StatusPreview from "./statusPreview";
 import { motion } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
 import { FaCamera, FaEllipsisH, FaPlus } from "react-icons/fa";
 import formatTimestamp from "../../utils/formatTime";
 import StatusList from "./StatusList";
-import CameraModal from "../../components/CameraModal";
+import CameraModal from "../../components/modals/CameraModal";
 import useOutsideClick from "../../hook/useOutsideClick";
-import StatusPlaceholder from "../../components/StatusPlaceholder";
+import StatusPlaceholder from "../../components/info/StatusPlaceholder";
 import { StatusStoryRing } from "../../components/common/Icons";
 
 const status = () => {

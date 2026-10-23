@@ -7,7 +7,7 @@ import { useChatStore } from "../../store/chatStore";
 import { FaWhatsapp, FaUserCircle, FaCog } from "react-icons/fa";
 import { MdOutlineCall, MdRadioButtonChecked } from "react-icons/md";
 import { motion } from "framer-motion";
-import { WhatsAppMediaFolderIcon } from "../Media";
+import { WhatsAppMediaFolderIcon } from "../media/Media";
 import { MetaAiRing, META_AI_USER_ID, META_AI_AVATAR } from "../common/MetaAiIcon";
 
 const sideBar = () => {

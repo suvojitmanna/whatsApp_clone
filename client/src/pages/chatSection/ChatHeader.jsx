@@ -15,7 +15,7 @@ import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon"
 import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
 import useVideoCallStore from "../../store/videoCallStore";
-import GroupCallModal from "../../components/GroupCallModal";
+import GroupCallModal from "../../components/modals/GroupCallModal";
 
 const ChatHeader = ({
   handleChatContextMenu,

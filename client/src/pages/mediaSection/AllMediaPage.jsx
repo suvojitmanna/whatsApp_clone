@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import HomePage from "../../components/homePage";
-import MediaModal from "../../components/MediaModal";
+import HomePage from "../../components/layout/homePage";
+import MediaModal from "../../components/modals/MediaModal";
 import useLayoutStore from "../../store/layoutStore";
 
 const AllMediaPage = () => {

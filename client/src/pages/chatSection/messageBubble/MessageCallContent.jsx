@@ -253,7 +253,8 @@ export const MessageCallHistoryContent = ({
   };
 
   return (
-    <div className="flex flex-col min-w-[210px] max-w-[280px] select-none py-0.5">
+    <div className="flex flex-col min-w-[210px] max-w-[280px] select-none py-0.5"
+      onClick={handleCallBack}>
       <div className="flex items-center gap-3">
         <div
           className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isMissed
@@ -288,15 +289,6 @@ export const MessageCallHistoryContent = ({
             {durationText}
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={handleCallBack}
-          className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[#00a884] hover:bg-[#029676] text-white shrink-0 active:scale-95 transition-all cursor-pointer shadow-sm"
-          title="Call back"
-        >
-          Call back
-        </button>
       </div>
 
       <div className="flex items-center justify-end mt-1 px-1">

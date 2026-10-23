@@ -1,3 +1,4 @@
+export { default as ContactInfo } from "./ContactInfo";
 export { default as ContactInfoHeader } from "./ContactInfoHeader";
 export { default as ContactInfoMainTab } from "./ContactInfoMainTab";
 export { default as ContactInfoSecurityTab } from "./ContactInfoSecurityTab";
