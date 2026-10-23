@@ -1,3 +1,5 @@
+import User from "../models/user.js";
+
 const SYSTEM_PROMPT = `You are Meta AI, the intelligent virtual assistant on WhatsApp.
 Your personality is helpful, friendly, thoughtful, and concise.
 Rules:
@@ -358,8 +360,6 @@ async function processMetaAiQuery(prompt, chatHistory = []) {
   return await generateAiText(prompt, chatHistory);
 }
 
-const User = require("../models/user");
-
 async function ensureMetaAiUser() {
   try {
     let aiUser = await User.findById(META_AI_USER_ID);
@@ -417,7 +417,18 @@ async function ensureMetaAiUser() {
   }
 }
 
-module.exports = {
+export {
+  META_AI_USER_ID,
+  META_AI_AVATAR,
+  ensureMetaAiUser,
+  isImagePrompt,
+  extractImagePrompt,
+  generateAiImage,
+  generateAiText,
+  processMetaAiQuery,
+};
+
+export default {
   META_AI_USER_ID,
   META_AI_AVATAR,
   ensureMetaAiUser,

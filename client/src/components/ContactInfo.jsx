@@ -608,27 +608,41 @@ const ContactInfo = () => {
       return;
     }
 
-    if (otherMembers.length === 1) {
-      const singleMember = otherMembers[0];
-      const mId = (singleMember?._id || singleMember)?.toString();
-      const isOnline = isUserOnline ? isUserOnline(mId) : Boolean(singleMember?.isOnline);
-      if (!isOnline) {
-        toast.info("User is offline. Cannot initiate the call");
-        return;
-      }
-      const { initiateCall } = useVideoCallStore.getState();
-      const avatar = singleMember?.profilePicture;
-      initiateCall(
-        mId,
-        singleMember?.username || singleMember?.name || "Participant",
-        avatar,
-        callType
-      );
+    const otherMemberIds = otherMembers
+      .map((p) => (p?._id || p)?.toString())
+      .filter(Boolean);
+
+    const { initiateCall } = useVideoCallStore.getState();
+    if (typeof initiateCall !== "function") {
+      toast.error("Call service not ready. Please try again.");
       return;
     }
 
-    setGroupCallModalType(callType);
-    setShowGroupCallModal(true);
+    const avatar =
+      selectedContact?.profilePicture ||
+      selectedContact?.groupProfileImage ||
+      "";
+    const displayName =
+      selectedContact?.groupName ||
+      selectedContact?.name ||
+      selectedContact?.username ||
+      groupName ||
+      "Group";
+    const gId = (selectedContact?._id || selectedContact?.id || chatId)?.toString();
+
+    initiateCall(
+      otherMemberIds[0],
+      displayName,
+      avatar,
+      callType,
+      {
+        isGroup: true,
+        groupId: gId,
+        groupName: displayName,
+        groupAvatar: avatar,
+        participantIds: otherMemberIds,
+      }
+    );
   };
 
   const handleToggleBlockMember = (member) => {

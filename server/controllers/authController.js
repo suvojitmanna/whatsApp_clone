@@ -1,17 +1,17 @@
-const User = require("../models/user");
-const sendOtpToEmail = require("../services/emailService");
-const otpGenerate = require("../utils/otpGenerator");
-const response = require("../utils/responseHandeler");
-const twilloService = require("../services/twilloService.js");
-const generateToken = require("../utils/generateToken.js");
-const {
+import User from "../models/user.js";
+import sendOtpToEmail from "../services/emailService.js";
+import otpGenerate from "../utils/otpGenerator.js";
+import response from "../utils/responseHandeler.js";
+import twilloService from "../services/twilloService.js";
+import generateToken from "../utils/generateToken.js";
+import {
   uploadFileToCloudinary,
   deleteFileFromCloudinary,
-} = require("../config/cloudinary.js");
-const Conversation = require("../models/ConverSation.js");
-const Message = require("../models/message.js");
-const mongoose = require("mongoose");
-const { ensureMetaAiUser } = require("../services/aiService.js");
+} from "../config/cloudinary.js";
+import Conversation from "../models/ConverSation.js";
+import Message from "../models/message.js";
+import mongoose from "mongoose";
+import { ensureMetaAiUser } from "../services/aiService.js";
 
 const sendOtp = async (req, res) => {
   const { phoneNumber, phoneSuffix, email } = req.body;
@@ -390,7 +390,18 @@ const getUserPublicKey = async (req, res) => {
   }
 };
 
-module.exports = {
+export {
+  sendOtp,
+  verifyOtp,
+  updateProfile,
+  logout,
+  checkAuthenticated,
+  getAllUsers,
+  updatePublicKey,
+  getUserPublicKey,
+};
+
+export default {
   sendOtp,
   verifyOtp,
   updateProfile,

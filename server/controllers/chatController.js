@@ -1,21 +1,21 @@
-const {
+import {
   uploadFileToCloudinary,
   deleteFileFromCloudinary,
   deleteMultipleFilesFromCloudinary,
-} = require("../config/cloudinary");
-const response = require("../utils/responseHandeler.js");
-const Message = require("../models/message.js");
-const Conversation = require("../models/ConverSation.js");
-const User = require("../models/user.js");
-const mongoose = require("mongoose");
-const {
+} from "../config/cloudinary.js";
+import response from "../utils/responseHandeler.js";
+import Message from "../models/message.js";
+import Conversation from "../models/ConverSation.js";
+import User from "../models/user.js";
+import mongoose from "mongoose";
+import {
   META_AI_USER_ID,
   processMetaAiQuery,
-} = require("../services/aiService.js");
-const {
+} from "../services/aiService.js";
+import {
   onGroupMessageCreated,
   processMultipleGroupReceipts,
-} = require("../services/groupStatusService.js");
+} from "../services/groupStatusService.js";
 
 function getDisappearingDurationMs(duration) {
   if (!duration || duration === "Off") return null;
@@ -255,7 +255,7 @@ async function triggerMetaAiResponse({
   }
 }
 
-exports.sendMessage = async (req, res) => {
+export const sendMessage = async (req, res) => {
   try {
     let {
       senderId,
@@ -713,7 +713,7 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
-exports.getConversation = async (req, res) => {
+export const getConversation = async (req, res) => {
   const userId = req.user.userId;
   try {
     let conversation = await Conversation.find({
@@ -798,7 +798,7 @@ exports.getConversation = async (req, res) => {
   }
 };
 
-exports.getMessages = async (req, res) => {
+export const getMessages = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId } = req.params;
   try {
@@ -1009,7 +1009,7 @@ exports.getMessages = async (req, res) => {
   }
 };
 
-exports.markAsRead = async (req, res) => {
+export const markAsRead = async (req, res) => {
   const userId = req.user.userId;
   const { messageIds } = req.body;
 
@@ -1121,7 +1121,7 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
-exports.deleteMessage = async (req, res) => {
+export const deleteMessage = async (req, res) => {
   const userId = req.user.userId;
   const { messageId } = req.params;
   const { deleteFor } = req.body;
@@ -1335,7 +1335,7 @@ exports.deleteMessage = async (req, res) => {
   }
 };
 
-exports.editMessage = async (req, res) => {
+export const editMessage = async (req, res) => {
   const userId = req.user.userId;
   const { messageId } = req.params;
   const { content, eventData } = req.body;
@@ -1428,7 +1428,7 @@ exports.editMessage = async (req, res) => {
   }
 };
 
-exports.votePoll = async (req, res) => {
+export const votePoll = async (req, res) => {
   const { messageId } = req.params;
   const { optionIndex } = req.body;
   const userId = req.user?._id;
@@ -1553,7 +1553,7 @@ exports.votePoll = async (req, res) => {
   }
 };
 
-exports.blockUser = async (req, res) => {
+export const blockUser = async (req, res) => {
   try {
     const userId = req.user.userId;
     let { targetUserId } = req.body;
@@ -1595,7 +1595,7 @@ exports.blockUser = async (req, res) => {
   }
 };
 
-exports.unblockUser = async (req, res) => {
+export const unblockUser = async (req, res) => {
   try {
     const userId = req.user.userId;
     let { targetUserId } = req.body;
@@ -1731,7 +1731,7 @@ exports.unblockUser = async (req, res) => {
   }
 };
 
-exports.getBlockedUsers = async (req, res) => {
+export const getBlockedUsers = async (req, res) => {
   try {
     const userId = req.user.userId;
     const user = await User.findById(userId).select("blockedUsers");
@@ -1788,7 +1788,7 @@ const cleanupOrphanedMedia = async (query) => {
   }
 };
 
-exports.clearChat = async (req, res) => {
+export const clearChat = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId, targetUserId } = req.body;
 
@@ -1861,7 +1861,7 @@ exports.clearChat = async (req, res) => {
   }
 };
 
-exports.deleteChat = async (req, res) => {
+export const deleteChat = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId, targetUserId } = req.body;
 
@@ -1934,7 +1934,7 @@ exports.deleteChat = async (req, res) => {
   }
 };
 
-exports.getChatMedia = async (req, res) => {
+export const getChatMedia = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId } = req.query;
 
@@ -2092,7 +2092,7 @@ exports.getChatMedia = async (req, res) => {
   }
 };
 
-exports.setDisappearingDuration = async (req, res) => {
+export const setDisappearingDuration = async (req, res) => {
   try {
     const conversationId = req.params.conversationId || req.body.conversationId;
     const { duration, receiverId } = req.body;
@@ -2171,7 +2171,7 @@ exports.setDisappearingDuration = async (req, res) => {
   }
 };
 
-exports.askMetaAi = async (req, res) => {
+export const askMetaAi = async (req, res) => {
   try {
     const { prompt, conversationId } = req.body;
     if (!prompt || !prompt.trim()) {
@@ -2202,7 +2202,7 @@ exports.askMetaAi = async (req, res) => {
   }
 };
 
-exports.createGroup = async (req, res) => {
+export const createGroup = async (req, res) => {
   const creatorId = req.user.userId;
   let {
     name,
@@ -2321,7 +2321,7 @@ exports.createGroup = async (req, res) => {
   }
 };
 
-exports.updateGroup = async (req, res) => {
+export const updateGroup = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId } = req.params;
   let {
@@ -2735,7 +2735,7 @@ exports.updateGroup = async (req, res) => {
   }
 };
 
-exports.getMemberChanges = async (req, res) => {
+export const getMemberChanges = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId } = req.params;
 
@@ -2810,4 +2810,25 @@ exports.getMemberChanges = async (req, res) => {
     console.error("Error fetching member changes:", error);
     return response(res, 500, "Internal server error");
   }
+};
+
+export default {
+  sendMessage,
+  getConversation,
+  getMessages,
+  markAsRead,
+  deleteMessage,
+  editMessage,
+  votePoll,
+  blockUser,
+  unblockUser,
+  getBlockedUsers,
+  clearChat,
+  deleteChat,
+  getChatMedia,
+  setDisappearingDuration,
+  askMetaAi,
+  createGroup,
+  updateGroup,
+  getMemberChanges,
 };

@@ -2518,15 +2518,26 @@ export const useChatStore = create((set, get) => ({
     duration = "28 seconds",
     status = "completed",
     direction = "outgoing",
+    isGroup = false,
+    groupId = null,
   }) => {
     const currentUserId = (get().currentUser || useUserStore.getState().user)
       ?._id;
     const selectedContact = useLayoutStore.getState()?.selectedContact;
-    const effectiveReceiverId = receiverId || selectedContact?._id;
+    const isActuallyGroup = Boolean(
+      isGroup ||
+      groupId ||
+      selectedContact?.isGroup ||
+      selectedContact?.isGroupChat ||
+      selectedContact?.conversation?.isGroup
+    );
+    const resolvedGroupId = groupId || (isActuallyGroup ? (conversationId || selectedContact?._id || selectedContact?.conversation?._id) : null);
+    const effectiveReceiverId = isActuallyGroup ? resolvedGroupId : (receiverId || selectedContact?._id);
     if (!effectiveReceiverId || !currentUserId) return;
 
     const resolvedConvId =
       conversationId ||
+      resolvedGroupId ||
       get().currentConversation?._id ||
       selectedContact?.conversation?._id;
 
@@ -2552,11 +2563,18 @@ export const useChatStore = create((set, get) => ({
         username: useUserStore.getState().user?.username,
         profilePicture: useUserStore.getState().user?.profilePicture,
       },
-      receiver: {
-        _id: effectiveReceiverId,
-        username: selectedContact?.username,
-        profilePicture: selectedContact?.profilePicture,
-      },
+      receiver: isActuallyGroup
+        ? {
+            _id: resolvedGroupId,
+            groupName: selectedContact?.groupName || selectedContact?.username || "Group",
+            profilePicture: selectedContact?.profilePicture,
+            isGroup: true,
+          }
+        : {
+            _id: effectiveReceiverId,
+            username: selectedContact?.username,
+            profilePicture: selectedContact?.profilePicture,
+          },
       contentType: "call",
       content: `${title} • ${duration}`,
       callData: callPayload,
@@ -2595,6 +2613,9 @@ export const useChatStore = create((set, get) => ({
       formData.append("receiverId", effectiveReceiverId);
       if (resolvedConvId) {
         formData.append("conversationId", resolvedConvId);
+      }
+      if (isActuallyGroup) {
+        formData.append("isGroup", "true");
       }
       formData.append("contentType", "call");
       formData.append("content", `${title} • ${duration}`);
@@ -2660,15 +2681,26 @@ export const useChatStore = create((set, get) => ({
     callType = "video",
     linkCode,
     url,
+    isGroup = false,
+    groupId = null,
   }) => {
     const currentUserId = (get().currentUser || useUserStore.getState().user)
       ?._id;
     const selectedContact = useLayoutStore.getState()?.selectedContact;
-    const effectiveReceiverId = receiverId || selectedContact?._id;
+    const isActuallyGroup = Boolean(
+      isGroup ||
+      groupId ||
+      selectedContact?.isGroup ||
+      selectedContact?.isGroupChat ||
+      selectedContact?.conversation?.isGroup
+    );
+    const resolvedGroupId = groupId || (isActuallyGroup ? (conversationId || selectedContact?._id || selectedContact?.conversation?._id) : null);
+    const effectiveReceiverId = isActuallyGroup ? resolvedGroupId : (receiverId || selectedContact?._id);
     if (!effectiveReceiverId || !currentUserId) return;
 
     const resolvedConvId =
       conversationId ||
+      resolvedGroupId ||
       get().currentConversation?._id ||
       selectedContact?.conversation?._id;
 
@@ -2699,11 +2731,18 @@ export const useChatStore = create((set, get) => ({
         username: useUserStore.getState().user?.username,
         profilePicture: useUserStore.getState().user?.profilePicture,
       },
-      receiver: {
-        _id: effectiveReceiverId,
-        username: selectedContact?.username,
-        profilePicture: selectedContact?.profilePicture,
-      },
+      receiver: isActuallyGroup
+        ? {
+            _id: resolvedGroupId,
+            groupName: selectedContact?.groupName || selectedContact?.username || "Group",
+            profilePicture: selectedContact?.profilePicture,
+            isGroup: true,
+          }
+        : {
+            _id: effectiveReceiverId,
+            username: selectedContact?.username,
+            profilePicture: selectedContact?.profilePicture,
+          },
       contentType: "call_link",
       callLinkData: linkPayload,
       content: callUrl,
@@ -2740,6 +2779,9 @@ export const useChatStore = create((set, get) => ({
       formData.append("receiverId", effectiveReceiverId);
       if (resolvedConvId) {
         formData.append("conversationId", resolvedConvId);
+      }
+      if (isActuallyGroup) {
+        formData.append("isGroup", "true");
       }
       formData.append("contentType", "call_link");
       formData.append("content", callUrl);

@@ -1,7 +1,7 @@
-const express = require("express");
-const authController = require("../controllers/authController.js");
-const authMiddleware = require("../middleware/authMiddleware.js");
-const { multerMiddleware } = require("../config/cloudinary.js");
+import express from "express";
+import * as authController from "../controllers/authController.js";
+import authMiddleware from "../middleware/authMiddleware.js";
+import { multerMiddleware } from "../config/cloudinary.js";
 
 const router = express.Router();
 
@@ -14,4 +14,4 @@ router.get("/users", authMiddleware, authController.getAllUsers);
 router.put("/update-public-key", authMiddleware, authController.updatePublicKey);
 router.get("/public-key/:userId", authMiddleware, authController.getUserPublicKey);
 
-module.exports = router;
+export default router;

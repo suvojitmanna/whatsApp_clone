@@ -3,4 +3,5 @@ const otpGenerate = () => {
   return { otp };
 };
 
-module.exports = otpGenerate;
+export default otpGenerate;
+export { otpGenerate };

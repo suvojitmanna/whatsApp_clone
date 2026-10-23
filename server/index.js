@@ -1,16 +1,16 @@
-const express = require("express");
-const cookieParser = require("cookie-parser");
-const cors = require("cors");
-const dotenv = require("dotenv");
-const connectDb = require("./config/dbConnect");
-const bodyParser = require("body-parser");
+import express from "express";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import dotenv from "dotenv";
+import connectDb from "./config/dbConnect.js";
+import bodyParser from "body-parser";
 
-const authRoute = require("./routes/authRoute.js");
-const chatRoute = require("./routes/chatRoute.js");
-const statusRoute = require("./routes/statusRoute.js");
+import authRoute from "./routes/authRoute.js";
+import chatRoute from "./routes/chatRoute.js";
+import statusRoute from "./routes/statusRoute.js";
 
-const { initializeSocket } = require("./services/socketService");
-const http = require("http");
+import { initializeSocket } from "./services/socketService.js";
+import http from "http";
 
 dotenv.config();
 
@@ -49,4 +49,4 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = app;
+export default app;

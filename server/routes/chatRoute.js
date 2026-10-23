@@ -1,7 +1,7 @@
-const express = require("express");
-const chatController = require("../controllers/chatController.js");
-const authMiddleware = require("../middleware/authMiddleware.js");
-const { multerMiddleware } = require("../config/cloudinary.js");
+import express from "express";
+import * as chatController from "../controllers/chatController.js";
+import authMiddleware from "../middleware/authMiddleware.js";
+import { multerMiddleware } from "../config/cloudinary.js";
 
 const router = express.Router();
 
@@ -25,4 +25,4 @@ router.put("/conversation/:conversationId/disappearing", authMiddleware, chatCon
 router.post("/disappearing-duration", authMiddleware, chatController.setDisappearingDuration);
 router.post("/meta-ai", authMiddleware, chatController.askMetaAi);
 
-module.exports = router;
+export default router;

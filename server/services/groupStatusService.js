@@ -1,5 +1,5 @@
-const Message = require("../models/message");
-const Conversation = require("../models/ConverSation");
+import Message from "../models/message.js";
+import Conversation from "../models/ConverSation.js";
 
 async function processGroupMessageReceipt(
   messageId,
@@ -256,7 +256,14 @@ async function onUserConnectedGroupDelivery(userId, io, onlineUsers) {
   }
 }
 
-module.exports = {
+export {
+  processGroupMessageReceipt,
+  processMultipleGroupReceipts,
+  onGroupMessageCreated,
+  onUserConnectedGroupDelivery,
+};
+
+export default {
   processGroupMessageReceipt,
   processMultipleGroupReceipts,
   onGroupMessageCreated,

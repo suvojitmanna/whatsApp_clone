@@ -33,6 +33,7 @@ import {
   MdDelete,
   MdLockOutline,
   MdLink,
+  MdPeople,
 } from "react-icons/md";
 import { FaUserPlus } from "react-icons/fa";
 import { IoIosArrowDown } from "react-icons/io";
@@ -127,7 +128,8 @@ const Call = () => {
     if (!searchQuery.trim()) return callHistory;
     const q = searchQuery.toLowerCase();
     return callHistory.filter((c) =>
-      c.contactName?.toLowerCase().includes(q)
+      c.contactName?.toLowerCase().includes(q) ||
+      c.groupName?.toLowerCase().includes(q)
     );
   }, [callHistory, searchQuery]);
 
@@ -139,25 +141,39 @@ const Call = () => {
     );
   }, [favourites, searchQuery]);
 
-  const handleStartCall = (contact, callType = "audio") => {
+  const handleStartCall = (contact, callType = "audio", extraOptions = {}) => {
+    const isGroup = Boolean(contact.isGroup || extraOptions.isGroup || contact.groupName);
     const contactId = contact._id || contact.id || contact.contactId;
-    const contactName = contact.username || contact.name || contact.contactName;
+    const contactName = isGroup
+      ? (extraOptions.groupName || contact.groupName || contact.username || contact.name || contact.contactName)
+      : (contact.username || contact.name || contact.contactName);
     const contactAvatar =
       contact.profilePicture || contact.avatar || contact.contactAvatar;
 
+    const mergedOptions = {
+      isGroup,
+      groupId: extraOptions.groupId || (isGroup ? contactId : undefined),
+      groupName: extraOptions.groupName || (isGroup ? contactName : undefined),
+      groupAvatar: extraOptions.groupAvatar || (isGroup ? contactAvatar : undefined),
+      participantIds: extraOptions.participantIds || (contact.participants ? contact.participants.map((p) => p._id || p.id || p) : undefined),
+      participants: extraOptions.participants || contact.participants,
+      ...extraOptions,
+    };
+
     const { initiateCall } = useVideoCallStore.getState();
     if (typeof initiateCall === "function") {
-      initiateCall(contactId, contactName, contactAvatar, callType);
+      initiateCall(contactId, contactName, contactAvatar, callType, mergedOptions);
     } else {
       console.warn("initiateCall is not yet initialized on videoCallStore");
+      addCall({
+        contactId,
+        contactName,
+        contactAvatar,
+        callType,
+        direction: "outgoing",
+        ...mergedOptions,
+      });
     }
-    addCall({
-      contactId,
-      contactName,
-      contactAvatar,
-      callType,
-      direction: "outgoing",
-    });
   };
 
   const leftPanelContent = (
@@ -409,6 +425,23 @@ const Call = () => {
                       const isSelected = selectedCall?.id === call.id;
                       const isMissed = call.direction === "missed";
                       const isIncoming = call.direction === "incoming";
+                      const isGroup = Boolean(call.isGroup || call.groupName);
+                      const displayName = isGroup ? (call.groupName || call.contactName) : call.contactName;
+                      const displayAvatar = isGroup ? (call.groupAvatar || call.contactAvatar) : call.contactAvatar;
+                      const groupCallOpts = isGroup
+                        ? {
+                            isGroup: true,
+                            groupId: call.groupId,
+                            groupName: call.groupName || displayName,
+                            groupAvatar: call.groupAvatar || displayAvatar,
+                            participantIds:
+                              call.participantIds ||
+                              (call.participants
+                                ? call.participants.map((p) => p._id || p.id || p)
+                                : []),
+                            participants: call.participants,
+                          }
+                        : {};
 
                       return (
                         <div
@@ -426,18 +459,24 @@ const Call = () => {
                           <div className="flex items-center gap-3.5 min-w-0 flex-1">
                             <ContactAvatar
                               contact={{
-                                username: call.contactName,
-                                profilePicture: call.contactAvatar,
+                                username: displayName,
+                                profilePicture: displayAvatar,
                               }}
                               size={48}
                             />
 
                             <div className="min-w-0 flex-1">
                               <div
-                                className={`font-medium text-[16px] truncate leading-tight ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+                                className={`font-medium text-[16px] truncate leading-tight flex items-center gap-1.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
                                   }`}
                               >
-                                {call.contactName}
+                                {isGroup && (
+                                  <MdPeople
+                                    className="text-emerald-500 text-lg shrink-0"
+                                    title="Group call"
+                                  />
+                                )}
+                                <span className="truncate">{displayName}</span>
                               </div>
 
                               <div className="flex items-center gap-1.5 mt-1 text-[13px]">
@@ -467,6 +506,18 @@ const Call = () => {
                                       ? "Incoming"
                                       : "Outgoing"}
                                 </span>
+
+                                {isGroup && (
+                                  <span
+                                    className={`text-[11px] px-1.5 py-0.2 rounded font-medium ${
+                                      isDark
+                                        ? "bg-[#202c33] text-[#8696a0]"
+                                        : "bg-[#e9edef] text-[#54656f]"
+                                    }`}
+                                  >
+                                    Group
+                                  </span>
+                                )}
 
                                 {call.callType === "video" && (
                                   <MdOutlineVideocam
@@ -502,7 +553,8 @@ const Call = () => {
                                     username: call.contactName,
                                     profilePicture: call.contactAvatar,
                                   },
-                                  call.callType === "video" ? "video" : "audio"
+                                  call.callType === "video" ? "video" : "audio",
+                                  groupCallOpts
                                 );
                               }}
                               className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark
@@ -562,7 +614,8 @@ const Call = () => {
                                           username: call.contactName,
                                           profilePicture: call.contactAvatar,
                                         },
-                                        "audio"
+                                        "audio",
+                                        groupCallOpts
                                       );
                                     }}
                                     className={`w-[calc(100%-12px)] mx-1.5 px-3.5 py-2.5 flex items-center gap-3 text-[14px] font-medium rounded-xl transition-all duration-200 cursor-pointer ${isDark
@@ -584,7 +637,8 @@ const Call = () => {
                                           username: call.contactName,
                                           profilePicture: call.contactAvatar,
                                         },
-                                        "video"
+                                        "video",
+                                        groupCallOpts
                                       );
                                     }}
                                     className={`w-[calc(100%-12px)] mx-1.5 px-3.5 py-2.5 flex items-center gap-3 text-[14px] font-medium rounded-xl transition-all duration-200 cursor-pointer ${isDark
@@ -671,16 +725,18 @@ const Call = () => {
             <CallInfo
               call={selectedCall}
               onClose={() => setSelectedCall(null)}
-              onStartAudioCall={(id, name, avatar) =>
+              onStartAudioCall={(id, name, avatar, extraOptions) =>
                 handleStartCall(
                   { _id: id, username: name, profilePicture: avatar },
-                  "audio"
+                  "audio",
+                  extraOptions
                 )
               }
-              onStartVideoCall={(id, name, avatar) =>
+              onStartVideoCall={(id, name, avatar, extraOptions) =>
                 handleStartCall(
                   { _id: id, username: name, profilePicture: avatar },
-                  "video"
+                  "video",
+                  extraOptions
                 )
               }
               isMobile={true}
@@ -731,16 +787,18 @@ const Call = () => {
     <CallInfo
       call={selectedCall}
       onClose={() => setSelectedCall(null)}
-      onStartAudioCall={(id, name, avatar) =>
+      onStartAudioCall={(id, name, avatar, extraOptions) =>
         handleStartCall(
           { _id: id, username: name, profilePicture: avatar },
-          "audio"
+          "audio",
+          extraOptions
         )
       }
-      onStartVideoCall={(id, name, avatar) =>
+      onStartVideoCall={(id, name, avatar, extraOptions) =>
         handleStartCall(
           { _id: id, username: name, profilePicture: avatar },
-          "video"
+          "video",
+          extraOptions
         )
       }
       isMobile={false}

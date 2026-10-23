@@ -27,14 +27,22 @@ const VideoCallManager = () => {
       callerAvatar,
       callType,
       callId,
+      isGroup,
+      groupId,
+      groupName,
+      groupAvatar,
     }) => {
       setIsInitiator(false);
       setIncomingCall({
         callerId,
-        callerName,
-        callerAvatar,
+        callerName: isGroup && groupName ? `${groupName} (${callerName})` : callerName,
+        callerAvatar: isGroup && groupAvatar ? groupAvatar : callerAvatar,
         callId,
         isInitiator: false,
+        isGroup: Boolean(isGroup),
+        groupId,
+        groupName,
+        actualCallerName: callerName,
       });
 
       setCallType(callType);
@@ -59,8 +67,9 @@ const VideoCallManager = () => {
   }, [socket, setIncomingCall, setCallType, setCallStatus, setCallModalOpen, endCall, setIsInitiator]);
 
   const initiateCall = useCallback(
-    (receiverId, receiverName, receiverAvatar, callType = "video") => {
-      const callId = `${user?._id}-${receiverId}-${Date.now()}`;
+    (receiverId, receiverName, receiverAvatar, callType = "video", extraOptions = {}) => {
+      const isGroup = Boolean(extraOptions?.isGroup);
+      const callId = `${user?._id}-${extraOptions?.groupId || receiverId}-${Date.now()}`;
 
       const callData = {
         callId,
@@ -68,6 +77,10 @@ const VideoCallManager = () => {
         participantName: receiverName,
         participantAvatar: receiverAvatar,
         isInitiator: true,
+        isGroup,
+        groupId: extraOptions?.groupId,
+        groupName: extraOptions?.groupName || receiverName,
+        participantIds: extraOptions?.participantIds || [receiverId],
       };
 
       setIsInitiator(true);
@@ -79,10 +92,15 @@ const VideoCallManager = () => {
       socket.emit("initiate_call", {
         callerId: user?._id,
         receiverId,
+        receiverIds: extraOptions?.participantIds || (receiverId ? [receiverId] : []),
+        isGroup,
+        groupId: extraOptions?.groupId,
+        groupName: extraOptions?.groupName || receiverName,
+        groupAvatar: extraOptions?.groupAvatar || receiverAvatar,
         callType,
         callerInfo: {
-          username: user.username,
-          profilePicture: user.profilePicture,
+          username: user?.username,
+          profilePicture: user?.profilePicture,
         },
       });
     },

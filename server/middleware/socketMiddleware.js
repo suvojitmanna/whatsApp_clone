@@ -1,4 +1,4 @@
-const jwt = require("jsonwebtoken");
+import jwt from "jsonwebtoken";
 
 const socketMiddleware = (socket, next) => {
   try {
@@ -22,4 +22,5 @@ const socketMiddleware = (socket, next) => {
   }
 };
 
-module.exports = socketMiddleware;
+export default socketMiddleware;
+export { socketMiddleware };

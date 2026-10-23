@@ -1,4 +1,5 @@
-const { subtle } = require('crypto').webcrypto;
+import { webcrypto } from "crypto";
+const { subtle } = webcrypto;
 
 function arrayBufferToBase64(buffer) {
   return Buffer.from(buffer).toString('base64');

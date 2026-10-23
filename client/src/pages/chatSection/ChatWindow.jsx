@@ -1855,8 +1855,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       <div className="flex justify-center my-2 select-none px-4">
         <div
           className={`max-w-[520px] px-3.5 py-1.5 rounded-lg text-xs font-normal leading-[18px] shadow-sm text-center inline-flex items-center justify-center gap-1.5 transition-colors border select-none ${theme === "dark"
-              ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0]"
-              : "bg-white border-black/5 text-[#54656f]"
+            ? "bg-[#182229] border-[#222d34]/60 text-[#8696a0]"
+            : "bg-white border-black/5 text-[#54656f]"
             }`}
         >
           <span>{text}</span>
@@ -2044,8 +2044,48 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleVideoCall = () => {
     if (!selectedContact) return;
     if (isGroupChat) {
-      setGroupCallModalType("video");
-      setShowGroupCallModal(true);
+      const myIdStr = user?._id?.toString();
+      const otherMembers = groupParticipants.filter((p) => {
+        const pId = (p?._id || p)?.toString();
+        return pId && pId !== myIdStr;
+      });
+
+      if (otherMembers.length === 0) {
+        toast.info("No other participants in this group to call");
+        return;
+      }
+
+      const otherMemberIds = otherMembers
+        .map((p) => (p?._id || p)?.toString())
+        .filter(Boolean);
+
+      const { initiateCall } = useVideoCallStore.getState();
+      const avatar =
+        selectedContact?.profilePicture ||
+        selectedContact?.groupProfileImage ||
+        "";
+      const displayName =
+        selectedContact?.groupName ||
+        selectedContact?.name ||
+        selectedContact?.username ||
+        "Group";
+      const gId = (selectedContact?._id || selectedContact?.id)?.toString();
+
+      if (typeof initiateCall === "function") {
+        initiateCall(
+          otherMemberIds[0],
+          displayName,
+          avatar,
+          "video",
+          {
+            isGroup: true,
+            groupId: gId,
+            groupName: displayName,
+            groupAvatar: avatar,
+            participantIds: otherMemberIds,
+          }
+        );
+      }
       return;
     }
     const { initiateCall } = useVideoCallStore.getState();
@@ -2061,8 +2101,48 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleAudioCall = () => {
     if (!selectedContact) return;
     if (isGroupChat) {
-      setGroupCallModalType("audio");
-      setShowGroupCallModal(true);
+      const myIdStr = user?._id?.toString();
+      const otherMembers = groupParticipants.filter((p) => {
+        const pId = (p?._id || p)?.toString();
+        return pId && pId !== myIdStr;
+      });
+
+      if (otherMembers.length === 0) {
+        toast.info("No other participants in this group to call");
+        return;
+      }
+
+      const otherMemberIds = otherMembers
+        .map((p) => (p?._id || p)?.toString())
+        .filter(Boolean);
+
+      const { initiateCall } = useVideoCallStore.getState();
+      const avatar =
+        selectedContact?.profilePicture ||
+        selectedContact?.groupProfileImage ||
+        "";
+      const displayName =
+        selectedContact?.groupName ||
+        selectedContact?.name ||
+        selectedContact?.username ||
+        "Group";
+      const gId = (selectedContact?._id || selectedContact?.id)?.toString();
+
+      if (typeof initiateCall === "function") {
+        initiateCall(
+          otherMemberIds[0],
+          displayName,
+          avatar,
+          "audio",
+          {
+            isGroup: true,
+            groupId: gId,
+            groupName: displayName,
+            groupAvatar: avatar,
+            participantIds: otherMemberIds,
+          }
+        );
+      }
       return;
     }
     const { initiateCall } = useVideoCallStore.getState();

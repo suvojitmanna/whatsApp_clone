@@ -125,12 +125,6 @@ const GroupCallModal = ({
   const handleInitiateCall = (member, selectedType) => {
     if (!member) return;
     const mId = (member._id || member.id || member)?.toString();
-    const isOnline = checkOnlineStatus(mId) || Boolean(member?.isOnline);
-
-    if (!isOnline) {
-      toast.info("User is offline. Cannot initiate the call");
-      return;
-    }
 
     if (typeof onStartCall === "function") {
       onStartCall(member, selectedType);
@@ -147,6 +141,42 @@ const GroupCallModal = ({
     } else {
       toast.error("Call service not ready. Please try again.");
     }
+    onClose();
+  };
+
+  const handleCallAll = (selectedType = callType) => {
+    if (otherParticipants.length === 0) {
+      toast.info("No members in this group to call");
+      return;
+    }
+
+    const otherMemberIds = otherParticipants
+      .map((p) => (p?._id || p)?.toString())
+      .filter(Boolean);
+
+    if (typeof onStartCall === "function") {
+      onStartCall(otherParticipants, selectedType);
+      onClose();
+      return;
+    }
+
+    const { initiateCall } = useVideoCallStore.getState();
+    if (typeof initiateCall !== "function") {
+      toast.error("Call service not ready. Please try again.");
+      return;
+    }
+
+    initiateCall(
+      otherMemberIds[0],
+      groupName || "Group",
+      "",
+      selectedType,
+      {
+        isGroup: true,
+        groupName: groupName || "Group",
+        participantIds: otherMemberIds,
+      }
+    );
     onClose();
   };
 
@@ -252,6 +282,14 @@ const GroupCallModal = ({
           </div>
 
           <div className="p-4 pb-2 space-y-2.5">
+            <button
+              type="button"
+              onClick={() => handleCallAll(callType)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-[13.5px] font-semibold bg-[#00a884] hover:bg-[#02906f] text-white shadow-md active:scale-[0.99] transition cursor-pointer"
+            >
+              {callType === "video" ? <FaVideo size={14} /> : <FaPhone size={13} />}
+              <span>Call All Members ({otherParticipants.length})</span>
+            </button>
             <div
               className={`relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-full border transition-all ${isDark
                 ? "bg-[#202c33] border-transparent focus-within:border-[#00a884] focus-within:ring-1 focus-within:ring-[#00a884]"

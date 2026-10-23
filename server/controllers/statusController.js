@@ -1,12 +1,12 @@
-const {
+import {
   uploadFileToCloudinary,
   deleteFileFromCloudinary,
-} = require("../config/cloudinary");
-const response = require("../utils/responseHandeler.js");
-const Message = require("../models/message.js");
-const Status = require("../models/status.js");
+} from "../config/cloudinary.js";
+import response from "../utils/responseHandeler.js";
+import Message from "../models/message.js";
+import Status from "../models/status.js";
 
-exports.createStatus = async (req, res) => {
+export const createStatus = async (req, res) => {
   try {
     const { content, contentType, expireAt: inputExpireAt } = req.body;
     const file = req.file;
@@ -75,7 +75,7 @@ exports.createStatus = async (req, res) => {
   }
 };
 
-exports.getStatuses = async (req, res) => {
+export const getStatuses = async (req, res) => {
   try {
     const userId = req.user.userId;
     const statuses = await Status.find({
@@ -91,7 +91,7 @@ exports.getStatuses = async (req, res) => {
   }
 };
 
-exports.viewStatus = async (req, res) => {
+export const viewStatus = async (req, res) => {
   const { statusId } = req.params;
   const userId = req.user.userId;
 
@@ -142,7 +142,7 @@ exports.viewStatus = async (req, res) => {
   }
 };
 
-exports.deleteStatus = async (req, res) => {
+export const deleteStatus = async (req, res) => {
   const { statusId } = req.params;
   const userId = req.user.userId;
   try {
@@ -178,7 +178,7 @@ exports.deleteStatus = async (req, res) => {
   }
 };
 
-exports.statusReaction = async (req, res) => {
+export const statusReaction = async (req, res) => {
   try {
     const { statusId } = req.params;
     const { like } = req.body;
@@ -231,4 +231,12 @@ exports.statusReaction = async (req, res) => {
     console.error("STATUS REACTION ERROR:", error);
     return response(res, 500, "Internal server error");
   }
+};
+
+export default {
+  createStatus,
+  getStatuses,
+  viewStatus,
+  deleteStatus,
+  statusReaction,
 };

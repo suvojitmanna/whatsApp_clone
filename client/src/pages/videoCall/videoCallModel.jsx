@@ -269,7 +269,7 @@ const VideoCallModel = ({ socket }) => {
     setPeerConnection(pc);
     return pc;
   };
-  const initializeCallerCall = async () => {
+  const initializeCallerCall = async (targetReceiverId) => {
     try {
       setCallStatus("connecting");
 
@@ -284,9 +284,11 @@ const VideoCallModel = ({ socket }) => {
 
       await pc.setLocalDescription(offer);
 
+      const receiverId = targetReceiverId || currentCall?.participantId;
+
       socket.emit("webrtc_offer", {
         offer,
-        receiverId: currentCall?.participantId,
+        receiverId,
         callId: currentCall?.callId,
       });
     } catch (error) {
@@ -311,6 +313,8 @@ const VideoCallModel = ({ socket }) => {
       socket.emit("accept_call", {
         callerId: incomingCall?.callerId,
         callId: incomingCall?.callId,
+        isGroup: incomingCall?.isGroup,
+        groupId: incomingCall?.groupId,
         receiverInfo: {
           username: user?.username,
           profilePicture: user?.profilePicture,
@@ -322,6 +326,9 @@ const VideoCallModel = ({ socket }) => {
         participantId: incomingCall?.callerId,
         participantName: incomingCall?.callerName,
         participantAvatar: incomingCall?.callerAvatar,
+        isGroup: incomingCall?.isGroup,
+        groupId: incomingCall?.groupId,
+        groupName: incomingCall?.groupName,
         isInitiator: false,
       });
       setIsInitiator(false);
@@ -398,15 +405,71 @@ const VideoCallModel = ({ socket }) => {
         ? "declined"
         : "missed";
 
+    const isGroup = Boolean(currentCall?.isGroup || incomingCall?.isGroup);
+    const groupId = currentCall?.groupId || incomingCall?.groupId || null;
+    const groupName = isGroup ? (currentCall?.groupName || incomingCall?.groupName || participantName) : null;
+    const groupAvatar = isGroup ? (currentCall?.groupAvatar || incomingCall?.groupAvatar || participantAvatar) : null;
+
+    const callerId = isCaller ? user?._id : (incomingCall?.callerId || currentCall?.participantId);
+    const callerName = isCaller ? user?.username : (incomingCall?.actualCallerName || incomingCall?.callerName || "Caller");
+    const callerAvatar = isCaller ? user?.profilePicture : (incomingCall?.callerAvatar || "");
+
+    const answeredBy = wasAnswered ? (isCaller ? (currentCall?.answeredBy || currentCall?.participantId) : user?._id) : null;
+    const answeredByName = wasAnswered ? (isCaller ? (currentCall?.answeredByName || currentCall?.participantName) : user?.username) : null;
+
+    let groupParticipantsList = [];
+    if (isGroup) {
+      const gId = String(groupId || "");
+      const allConvs = useChatStore.getState()?.conversations || [];
+      const list = Array.isArray(allConvs) ? allConvs : (allConvs?.data || []);
+      const found = list.find((c) => String(c?._id || c?.id) === gId);
+      if (found && Array.isArray(found.participants) && found.participants.length > 0) {
+        groupParticipantsList = found.participants;
+      } else {
+        const activeContact = useLayoutStore.getState()?.selectedContact;
+        if (activeContact && (String(activeContact._id) === gId || String(activeContact.conversation?._id) === gId)) {
+          const parts = activeContact.participants || activeContact.conversation?.participants;
+          if (Array.isArray(parts) && parts.length > 0) groupParticipantsList = parts;
+        }
+      }
+      if (groupParticipantsList.length === 0 && Array.isArray(currentCall?.participantIds)) {
+        const allUsers = useChatStore.getState()?.users || [];
+        groupParticipantsList = currentCall.participantIds.map((pId) => {
+          const u = allUsers.find((userItem) => String(userItem._id) === String(pId));
+          return u || { _id: pId, username: "Participant" };
+        });
+      }
+      if (user && !groupParticipantsList.some((m) => String(m._id || m) === String(user._id))) {
+        groupParticipantsList.push(user);
+      }
+    }
+
     try {
       useCallStore.getState().addCall({
-        contactId: participantId,
-        contactName: participantName,
-        contactAvatar: participantAvatar,
+        contactId: isGroup ? (groupId || participantId) : participantId,
+        contactName: isGroup ? (groupName || participantName) : participantName,
+        contactAvatar: isGroup ? (groupAvatar || participantAvatar) : participantAvatar,
         callType: callType === "video" ? "video" : "audio",
         direction,
         duration: durationText,
         status: statusType,
+        isGroup,
+        groupId,
+        groupName: isGroup ? (groupName || participantName) : null,
+        groupAvatar: isGroup ? (groupAvatar || participantAvatar) : null,
+        callerId,
+        callerName,
+        callerAvatar,
+        answeredBy,
+        answeredByName,
+        speakingTime: isConnected ? durationText : "0 sec",
+        speakingSeconds: isConnected ? effectiveSeconds : 0,
+        participants: groupParticipantsList,
+        callTimeFormatted: new Date(callStartTimeRef.current || Date.now()).toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }),
       });
     } catch (e) {
       console.warn("Could not save to useCallStore:", e);
@@ -416,15 +479,21 @@ const VideoCallModel = ({ socket }) => {
       try {
         const activeContact = useLayoutStore.getState()?.selectedContact;
         const conv = useChatStore.getState()?.currentConversation;
-        const conversationId = conv?._id || activeContact?.conversation?._id;
+        const isGroupCall = Boolean(isGroup || currentCall?.isGroup || incomingCall?.isGroup);
+        const effectiveGroupId = groupId || currentCall?.groupId || incomingCall?.groupId;
+        const conversationId = isGroupCall
+          ? (effectiveGroupId || conv?._id || activeContact?.conversation?._id || activeContact?._id)
+          : (conv?._id || activeContact?.conversation?._id);
 
         useChatStore.getState().sendCallMessage?.({
-          receiverId: participantId,
+          receiverId: isGroupCall ? (effectiveGroupId || conversationId) : participantId,
           conversationId,
           callType: callType === "video" ? "video" : "audio",
           duration: durationText,
           status: statusType,
           direction: "outgoing",
+          isGroup: isGroupCall,
+          groupId: isGroupCall ? (effectiveGroupId || conversationId) : null,
         });
       } catch (e) {
         console.warn("Could not save call message to useChatStore:", e);
@@ -438,6 +507,8 @@ const VideoCallModel = ({ socket }) => {
       socket.emit("reject_call", {
         callerId: incomingCall?.callerId,
         callId: incomingCall?.callId,
+        isGroup: incomingCall?.isGroup,
+        groupId: incomingCall?.groupId,
       });
     }
     endCall();
@@ -492,6 +563,8 @@ const VideoCallModel = ({ socket }) => {
       socket.emit("end_call", {
         callId: callId,
         participantId: participantId,
+        isGroup: currentCall?.isGroup || incomingCall?.isGroup,
+        groupId: currentCall?.groupId || incomingCall?.groupId,
       });
     }
 
@@ -505,15 +578,26 @@ const VideoCallModel = ({ socket }) => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleCallAccepted = ({ receiverName }) => {
+    const handleCallAccepted = ({ receiverName, receiverId, isGroup, groupId }) => {
       callAcceptedRef.current = true;
       if (!callStartTimeRef.current) {
         callStartTimeRef.current = Date.now();
       }
       setCallStatus("connecting");
       if (currentCall) {
+        const targetId = receiverId || currentCall.participantId;
+        const updatedCall = {
+          ...currentCall,
+          participantId: targetId,
+          answeredBy: receiverId,
+          answeredByName: receiverName,
+          participantName: isGroup && currentCall.groupName
+            ? `${currentCall.groupName} (${receiverName})`
+            : receiverName || currentCall.participantName,
+        };
+        setCurrentCall(updatedCall);
         setTimeout(() => {
-          initializeCallerCall();
+          initializeCallerCall(targetId);
         }, 500);
       }
     };
