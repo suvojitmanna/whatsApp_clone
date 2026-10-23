@@ -73,18 +73,25 @@ const VideoCallManager = () => {
   const initiateCall = useCallback(
     (receiverId, receiverName, receiverAvatar, callType = "video", extraOptions = {}) => {
       const isGroup = Boolean(extraOptions?.isGroup);
-      const callId = `${user?._id}-${extraOptions?.groupId || receiverId}-${Date.now()}`;
+      const strReceiverId = (receiverId?._id || receiverId)?.toString();
+      const strGroupId = (extraOptions?.groupId?._id || extraOptions?.groupId)?.toString();
+      const callId = `${user?._id}-${strGroupId || strReceiverId}-${Date.now()}`;
+
+      const rawParticipantIds = extraOptions?.participantIds || (strReceiverId ? [strReceiverId] : []);
+      const normalizedParticipantIds = rawParticipantIds
+        .map((p) => (p?._id || p)?.toString())
+        .filter(Boolean);
 
       const callData = {
         callId,
-        participantId: receiverId,
+        participantId: strReceiverId,
         participantName: receiverName,
         participantAvatar: receiverAvatar,
         isInitiator: true,
         isGroup,
-        groupId: extraOptions?.groupId,
+        groupId: strGroupId,
         groupName: extraOptions?.groupName || receiverName,
-        participantIds: extraOptions?.participantIds || [receiverId],
+        participantIds: normalizedParticipantIds,
       };
 
       setIsInitiator(true);
@@ -94,11 +101,12 @@ const VideoCallManager = () => {
       setCallStatus("calling");
 
       socket.emit("initiate_call", {
-        callerId: user?._id,
-        receiverId,
-        receiverIds: extraOptions?.participantIds || (receiverId ? [receiverId] : []),
+        callId,
+        callerId: user?._id?.toString(),
+        receiverId: strReceiverId,
+        receiverIds: normalizedParticipantIds,
         isGroup,
-        groupId: extraOptions?.groupId,
+        groupId: strGroupId,
         groupName: extraOptions?.groupName || receiverName,
         groupAvatar: extraOptions?.groupAvatar || receiverAvatar,
         callType,
@@ -108,7 +116,7 @@ const VideoCallManager = () => {
         },
       });
     },
-    [user, socket, setCurrentCall, setCallType, setCallModalOpen, setCallStatus],
+    [user, socket, setCurrentCall, setCallType, setCallModalOpen, setCallStatus, setIsInitiator],
   );
 
   useEffect(() => {
