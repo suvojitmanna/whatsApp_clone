@@ -9,8 +9,8 @@ export const WhatsAppSwitch = ({ checked, onChange, disabled = false, className 
       if (!disabled && onChange) onChange(e);
     }}
     className={`w-11 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors shrink-0 ${checked
-        ? "bg-[#00a884] justify-end"
-        : "bg-transparent border-2 border-[#8696a0] justify-start"
+      ? "bg-[#00a884] justify-end"
+      : "bg-transparent border-2 border-[#8696a0] justify-start"
       } ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${className}`}
   >
     <div
@@ -41,16 +41,16 @@ export const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
   >
     <div
       className={`w-11 h-11 flex items-center justify-center rounded-full border transition-all duration-200 ${theme === "dark"
-          ? "bg-white/5 border-transparent text-[#00a884] group-hover:bg-white/10 group-hover:border-[#00a884]/40"
-          : "bg-white border-gray-200 text-[#00897b] group-hover:bg-gray-100 group-hover:border-[#00897b]/40"
+        ? "bg-white/5 border-transparent text-[#00a884] group-hover:bg-white/10 group-hover:border-[#00a884]/40"
+        : "bg-white border-gray-200 text-[#00897b] group-hover:bg-gray-100 group-hover:border-[#00897b]/40"
         } shadow-xs`}
     >
       {icon}
     </div>
     <span
       className={`text-[12px] font-normal tracking-tight transition-colors ${theme === "dark"
-          ? "text-[#00a884] group-hover:text-[#02906f]"
-          : "text-[#00897b] group-hover:text-[#00796b]"
+        ? "text-[#00a884] group-hover:text-[#02906f]"
+        : "text-[#00897b] group-hover:text-[#00796b]"
         }`}
     >
       {label}

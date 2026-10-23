@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
 import axiosInstance from "../../services/url.services";
-import useOutsideClick from "../../hook/useOutsideClick";
 import useLayoutStore from "../../store/layoutStore";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
@@ -207,23 +206,8 @@ const ContactInfo = () => {
     return getGroupOnlineCount(groupParticipants, user?._id);
   }, [isGroup, groupParticipants, user?._id, onlineUsers, getGroupOnlineCount]);
 
-  const [viewingMember, setViewingMemberState] = useState(
-    layoutViewingMember || null
-  );
-
-  const setViewingMember = useCallback(
-    (member) => {
-      setViewingMemberState(member);
-      setLayoutViewingMember?.(member);
-    },
-    [setLayoutViewingMember]
-  );
-
-  useEffect(() => {
-    if (layoutViewingMember !== undefined) {
-      setViewingMemberState(layoutViewingMember);
-    }
-  }, [layoutViewingMember]);
+  const viewingMember = layoutViewingMember || null;
+  const setViewingMember = setLayoutViewingMember;
 
   const prevContactIdRef = useRef(selectedContact?._id);
   useEffect(() => {
@@ -992,10 +976,43 @@ const ContactInfo = () => {
     });
   };
 
-  useOutsideClick(contactInfoRef, () => {
-    if (showBlockModal || showReportModal) return;
-    setShowContactInfo(false);
-  });
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        if (
+          showBlockModal ||
+          showReportModal ||
+          showAddMemberModal ||
+          showEditAdminsModal ||
+          showGroupCallModal ||
+          showAboutAiModal
+        ) {
+          return;
+        }
+        if (viewingMember) {
+          setViewingMember(null);
+        } else if (contactInfoTab !== "info") {
+          setContactInfoTab("info");
+        } else {
+          setShowContactInfo(false);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    viewingMember,
+    contactInfoTab,
+    showBlockModal,
+    showReportModal,
+    showAddMemberModal,
+    showEditAdminsModal,
+    showGroupCallModal,
+    showAboutAiModal,
+    setViewingMember,
+    setContactInfoTab,
+    setShowContactInfo,
+  ]);
 
   return (
     <AnimatePresence>

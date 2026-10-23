@@ -69,8 +69,8 @@ const HelpPage = () => {
             onClick={() => navigate(-1)}
             title="Go back"
             className={`p-2 rounded-full transition-all active:scale-90 ${isDark
-                ? "hover:bg-gray-700 text-white"
-                : "hover:bg-gray-100 text-gray-600"
+              ? "hover:bg-gray-700 text-white"
+              : "hover:bg-gray-100 text-gray-600"
               } cursor-pointer`}
           >
             <FaArrowLeft className="text-xl" />

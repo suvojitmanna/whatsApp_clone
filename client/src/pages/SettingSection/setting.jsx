@@ -93,9 +93,7 @@ const Settings = () => {
 
         <div className="p-4 md:p-5 pb-2 shrink-0">
           <h1 className="text-xl md:text-2xl font-bold mb-3">Settings</h1>
-
           <div className="h-[2px] w-full bg-gradient-to-r from-[#00a884] via-blue-500 to-purple-500 rounded-full mb-4" />
-
           <div className="relative mb-4 group">
             <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#00a884] transition-colors" />
 

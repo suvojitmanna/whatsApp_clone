@@ -88,37 +88,6 @@ const MessageInfoModal = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  const handleOpenMemberContact = (targetUser) => {
-    if (!targetUser) return;
-    const targetId = (targetUser._id || targetUser.id || targetUser)?.toString();
-    const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
-    if (targetId && currentUserId && targetId === currentUserId) return;
-
-    const foundInStore = allUsers.find(
-      (u) => (u?._id || u?.id)?.toString() === targetId
-    );
-    const resolved = {
-      ...(foundInStore || {}),
-      ...(typeof targetUser === "object" ? targetUser : {}),
-      _id: targetId,
-      id: targetId,
-      username: targetUser?.username || foundInStore?.username || "Contact",
-      name: targetUser?.name || targetUser?.username || foundInStore?.name || "Contact",
-      profilePicture:
-        targetUser?.profilePicture ||
-        targetUser?.profilePic ||
-        targetUser?.avatar ||
-        foundInStore?.profilePicture ||
-        "",
-      phoneNumber: targetUser?.phoneNumber || foundInStore?.phoneNumber || "",
-      about: targetUser?.about || foundInStore?.about || "Hey there! I am using WhatsApp.",
-      email: targetUser?.email || foundInStore?.email || "",
-    };
-
-    handleClose();
-    useLayoutStore.getState().openContactInfoWithMember(resolved);
-  };
-
   const { isGroup, readByList, deliveredToList, remainingList } = useMemo(() => {
     if (!msg) {
       return { isGroup: false, readByList: [], deliveredToList: [], remainingList: [] };
@@ -163,7 +132,6 @@ const MessageInfoModal = ({
       participantMap.set(id, userObj);
     });
 
-    // Also include any user objects present in readBy or deliveredTo
     if (Array.isArray(msg.readBy)) {
       msg.readBy.forEach((item) => {
         const id = (item.user?._id || item.user || item.userId)?.toString();
@@ -221,9 +189,19 @@ const MessageInfoModal = ({
               _id: uId,
               username: `User ${uId.slice(-4)}`,
             };
+        const rawDate =
+          item.readAt ||
+          item.timestamp ||
+          item.createdAt ||
+          msg.readAt ||
+          msg.updatedAt;
+        const readAtDate = rawDate ? new Date(rawDate) : null;
+        const validReadDate =
+          readAtDate && !isNaN(readAtDate.getTime()) ? readAtDate : null;
+
         readMap.set(uId, {
           user: userObj,
-          readAt: item.readAt ? new Date(item.readAt) : null,
+          readAt: validReadDate,
         });
       });
     }
@@ -233,7 +211,6 @@ const MessageInfoModal = ({
       msg.deliveredTo.forEach((item) => {
         const uId = (item.user?._id || item.user || item.userId)?.toString();
         if (!uId || uId === senderId) return;
-        // Member who has already read belongs strictly in "Read by", never in "Delivered to"
         if (readMap.has(uId)) return;
 
         const userObj =
@@ -244,9 +221,21 @@ const MessageInfoModal = ({
               _id: uId,
               username: `User ${uId.slice(-4)}`,
             };
+        const rawDate =
+          item.deliveredAt ||
+          item.timestamp ||
+          item.createdAt ||
+          msg.deliveredAt ||
+          msg.createdAt;
+        const deliveredAtDate = rawDate ? new Date(rawDate) : null;
+        const validDeliveredDate =
+          deliveredAtDate && !isNaN(deliveredAtDate.getTime())
+            ? deliveredAtDate
+            : null;
+
         deliveredMap.set(uId, {
           user: userObj,
-          deliveredAt: item.deliveredAt ? new Date(item.deliveredAt) : null,
+          deliveredAt: validDeliveredDate,
         });
       });
     }
@@ -283,8 +272,8 @@ const MessageInfoModal = ({
     msg.messageStatus === "delivered" || msg.messageStatus === "read";
   const deliveredDate = msg.deliveredAt
     ? new Date(msg.deliveredAt)
-    : isDelivered && msg.updatedAt
-      ? new Date(msg.updatedAt)
+    : isDelivered && (msg.readAt || msg.updatedAt || msg.createdAt)
+      ? new Date(msg.readAt || msg.updatedAt || msg.createdAt)
       : null;
   const deliveredTime = isDelivered && deliveredDate ? formatReceiptTime(deliveredDate) : "—";
   const deliveredDateLabel = isDelivered && deliveredDate ? formatReceiptDate(deliveredDate) : "";
@@ -292,8 +281,8 @@ const MessageInfoModal = ({
   const isRead = msg.messageStatus === "read";
   const readDate = msg.readAt
     ? new Date(msg.readAt)
-    : isRead && msg.updatedAt
-      ? new Date(msg.updatedAt)
+    : isRead && (msg.updatedAt || msg.deliveredAt || msg.createdAt)
+      ? new Date(msg.updatedAt || msg.deliveredAt || msg.createdAt)
       : null;
   const readTime = isRead && readDate ? formatReceiptTime(readDate) : "—";
   const readDateLabel = isRead && readDate ? formatReceiptDate(readDate) : "";
@@ -309,6 +298,31 @@ const MessageInfoModal = ({
   );
 
   const totalRecipients = readByList.length + deliveredToList.length + remainingList.length;
+  const isAllRead = isGroup
+    ? totalRecipients > 0 && readByList.length >= totalRecipients
+    : isRead;
+  const isAllDelivered = isGroup
+    ? totalRecipients > 0 && (readByList.length + deliveredToList.length) >= totalRecipients
+    : isDelivered;
+
+  const handleOpenMemberContact = (targetUser) => {
+    if (!targetUser) return;
+    const targetId = (
+      targetUser._id ||
+      targetUser.userId ||
+      targetUser.id ||
+      targetUser
+    )?.toString();
+    if (currentUser?._id && targetId === currentUser._id.toString()) return;
+    const openContact = useLayoutStore.getState().openContactInfoWithMember;
+    if (typeof openContact === "function") {
+      openContact(targetUser);
+    } else {
+      useLayoutStore.getState().setSelectedContact?.(targetUser);
+      useLayoutStore.getState().setShowContactInfo?.(true);
+    }
+    handleClose();
+  };
 
   const modalContent = (
     <AnimatePresence>
@@ -447,12 +461,14 @@ const MessageInfoModal = ({
               <div className="flex items-center justify-end gap-1.5 text-[11px] opacity-75 mt-2 select-none">
                 {msg.edited && <span className="italic mr-0.5">Edited</span>}
                 <span>{sentTime}</span>
-                {isRead ? (
-                  <FaCheckDouble size={11} className="text-[#53bdeb]" />
-                ) : isDelivered ? (
-                  <FaCheckDouble size={11} className="opacity-80" />
-                ) : (
-                  <FiCheck size={11} className="opacity-80" />
+                {msg.contentType !== "call" && (
+                  isAllRead ? (
+                    <FaCheckDouble size={11} className="text-[#53bdeb]" />
+                  ) : isAllDelivered ? (
+                    <FaCheckDouble size={11} className="opacity-80" />
+                  ) : (
+                    <FiCheck size={11} className="opacity-80" />
+                  )
                 )}
               </div>
             </div>
@@ -513,12 +529,11 @@ const MessageInfoModal = ({
                         return (
                           <div
                             key={item.user?._id || idx}
-                            onClick={() => !isSelf && handleOpenMemberContact(item.user)}
-                            className={`flex items-center justify-between p-3.5 transition-colors ${isSelf
-                                ? ""
-                                : "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
-                              }`}
-                            title={isSelf ? "You" : `View ${item.user?.username || "member"}'s contact info`}
+                            onClick={() => handleOpenMemberContact(item.user)}
+                            className={`flex items-center justify-between p-3.5 transition-colors ${
+                              !isSelf ? "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5" : ""
+                            }`}
+                            title={!isSelf ? "Click to view contact info" : undefined}
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               {item.user?.profilePicture ? (
@@ -538,7 +553,7 @@ const MessageInfoModal = ({
                               )}
                               <div className="min-w-0">
                                 <p className="text-sm font-medium truncate flex items-center gap-1.5">
-                                  <span>{item.user?.username || "Unknown"}</span>
+                                  <span className={!isSelf ? "hover:underline" : ""}>{item.user?.username || "Unknown"}</span>
                                   {isSelf && (
                                     <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-normal">
                                       You
@@ -590,64 +605,50 @@ const MessageInfoModal = ({
 
                   <div className="divide-y divide-gray-500/10 max-h-56 overflow-y-auto custom-scrollbar">
                     {filteredDeliveredTo.length > 0 ? (
-                      filteredDeliveredTo.map((item, idx) => {
-                        const isSelf =
-                          currentUser?._id &&
-                          item.user?._id &&
-                          currentUser._id.toString() === item.user._id.toString();
-                        return (
-                          <div
-                            key={item.user?._id || idx}
-                            onClick={() => !isSelf && handleOpenMemberContact(item.user)}
-                            className={`flex items-center justify-between p-3.5 transition-colors ${isSelf
-                                ? ""
-                                : "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
-                              }`}
-                            title={isSelf ? "You" : `View ${item.user?.username || "member"}'s contact info`}
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              {item.user?.profilePicture ? (
-                                <img
-                                  src={item.user.profilePicture}
-                                  alt={item.user.username || "User"}
-                                  className="w-9 h-9 rounded-full object-cover shrink-0"
-                                />
-                              ) : (
-                                <div
-                                  className={`w-9 h-9 rounded-full bg-gradient-to-tr ${getAvatarBg(
-                                    item.user?.username || ""
-                                  )} text-white flex items-center justify-center font-semibold text-xs shrink-0 shadow-sm`}
-                                >
-                                  {(item.user?.username || "U").charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium truncate flex items-center gap-1.5">
-                                  <span>{item.user?.username || "Unknown"}</span>
-                                  {isSelf && (
-                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-normal">
-                                      You
-                                    </span>
-                                  )}
-                                </p>
-                                <p className="text-xs opacity-60 truncate">
-                                  {item.user?.about || item.user?.phoneNumber || "Member"}
-                                </p>
+                      filteredDeliveredTo.map((item, idx) => (
+                        <div
+                          key={item.user?._id || idx}
+                          onClick={() => handleOpenMemberContact(item.user)}
+                          className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                          title="Click to view contact info"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {item.user?.profilePicture ? (
+                              <img
+                                src={item.user.profilePicture}
+                                alt={item.user.username || "User"}
+                                className="w-9 h-9 rounded-full object-cover shrink-0"
+                              />
+                            ) : (
+                              <div
+                                className={`w-9 h-9 rounded-full bg-gradient-to-tr ${getAvatarBg(
+                                  item.user?.username || ""
+                                )} text-white flex items-center justify-center font-semibold text-xs shrink-0 shadow-sm`}
+                              >
+                                {(item.user?.username || "U").charAt(0).toUpperCase()}
                               </div>
-                            </div>
-                            <div className="text-right shrink-0 pl-3">
-                              <span className="text-xs font-medium tabular-nums block">
-                                {formatReceiptTime(item.deliveredAt)}
-                              </span>
-                              {Boolean(item.deliveredAt && formatReceiptDate(item.deliveredAt)) && (
-                                <span className="text-[10px] opacity-60 block">
-                                  {formatReceiptDate(item.deliveredAt)}
-                                </span>
-                              )}
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate hover:underline">
+                                {item.user?.username || "Unknown"}
+                              </p>
+                              <p className="text-xs opacity-60 truncate">
+                                {item.user?.about || item.user?.phoneNumber || "Member"}
+                              </p>
                             </div>
                           </div>
-                        );
-                      })
+                          <div className="text-right shrink-0 pl-3">
+                            <span className="text-xs font-medium tabular-nums block">
+                              {formatReceiptTime(item.deliveredAt)}
+                            </span>
+                            {Boolean(item.deliveredAt && formatReceiptDate(item.deliveredAt)) && (
+                              <span className="text-[10px] opacity-60 block">
+                                {formatReceiptDate(item.deliveredAt)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
                     ) : (
                       <p className="text-xs opacity-50 p-4 text-center">
                         {searchQuery
@@ -679,51 +680,37 @@ const MessageInfoModal = ({
                     </div>
 
                     <div className="divide-y divide-gray-500/10 max-h-48 overflow-y-auto custom-scrollbar">
-                      {filteredRemaining.map((item, idx) => {
-                        const isSelf =
-                          currentUser?._id &&
-                          item.user?._id &&
-                          currentUser._id.toString() === item.user._id.toString();
-                        return (
-                          <div
-                            key={item.user?._id || idx}
-                            onClick={() => !isSelf && handleOpenMemberContact(item.user)}
-                            className={`flex items-center justify-between p-3.5 transition-colors ${isSelf
-                                ? ""
-                                : "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
-                              }`}
-                            title={isSelf ? "You" : `View ${item.user?.username || "member"}'s contact info`}
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              {item.user?.profilePicture ? (
-                                <img
-                                  src={item.user.profilePicture}
-                                  alt={item.user.username || "User"}
-                                  className="w-9 h-9 rounded-full object-cover shrink-0 grayscale opacity-80"
-                                />
-                              ) : (
-                                <div
-                                  className={`w-9 h-9 rounded-full bg-gray-600 text-white flex items-center justify-center font-semibold text-xs shrink-0`}
-                                >
-                                  {(item.user?.username || "U").charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium truncate flex items-center gap-1.5">
-                                  <span>{item.user?.username || "Member"}</span>
-                                  {isSelf && (
-                                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-normal">
-                                      You
-                                    </span>
-                                  )}
-                                </p>
-                                <p className="text-xs text-amber-500/90 truncate">Pending delivery</p>
+                      {filteredRemaining.map((item, idx) => (
+                        <div
+                          key={item.user?._id || idx}
+                          onClick={() => handleOpenMemberContact(item.user)}
+                          className="flex items-center justify-between p-3.5 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                          title="Click to view contact info"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {item.user?.profilePicture ? (
+                              <img
+                                src={item.user.profilePicture}
+                                alt={item.user.username || "User"}
+                                className="w-9 h-9 rounded-full object-cover shrink-0 grayscale opacity-80"
+                              />
+                            ) : (
+                              <div
+                                className={`w-9 h-9 rounded-full bg-gray-600 text-white flex items-center justify-center font-semibold text-xs shrink-0`}
+                              >
+                                {(item.user?.username || "U").charAt(0).toUpperCase()}
                               </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate hover:underline">
+                                {item.user?.username || "Member"}
+                              </p>
+                              <p className="text-xs text-amber-500/90 truncate">Pending delivery</p>
                             </div>
-                            <span className="text-xs opacity-50 font-medium">—</span>
                           </div>
-                        );
-                      })}
+                          <span className="text-xs opacity-50 font-medium">—</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}

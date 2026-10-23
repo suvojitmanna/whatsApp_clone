@@ -533,8 +533,8 @@ const ContactInfoSecurityTab = ({
 
             <div
               className={`absolute inset-0 rounded-full flex flex-col items-center justify-center transition-all duration-200 ${downloadSuccess
-                  ? "bg-[#717d84]/95 opacity-100"
-                  : "bg-[#7c878e]/90 opacity-0 group-hover:opacity-100 backdrop-blur-[1px]"
+                ? "bg-[#717d84]/95 opacity-100"
+                : "bg-[#7c878e]/90 opacity-0 group-hover:opacity-100 backdrop-blur-[1px]"
                 }`}
             >
               {downloadSuccess ? (
@@ -615,8 +615,8 @@ const ContactInfoSecurityTab = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 12 }}
               className={`w-full max-w-sm rounded-3xl p-6 shadow-2xl border ${isDark
-                  ? "bg-[#1f2c34] border-white/10 text-white"
-                  : "bg-white border-gray-200 text-gray-900"
+                ? "bg-[#1f2c34] border-white/10 text-white"
+                : "bg-white border-gray-200 text-gray-900"
                 }`}
             >
               <div className="flex flex-col items-center text-center">
@@ -647,8 +647,8 @@ const ContactInfoSecurityTab = ({
                     type="button"
                     onClick={() => setScanError(null)}
                     className={`flex-1 py-2.5 rounded-full font-medium text-sm transition-all cursor-pointer text-center ${isDark
-                        ? "bg-white/10 hover:bg-white/15 text-white"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      ? "bg-white/10 hover:bg-white/15 text-white"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                       }`}
                   >
                     OK

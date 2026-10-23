@@ -1250,21 +1250,6 @@ export const useChatStore = create((set, get) => ({
 
         if (!changed && !convsChanged) return {};
 
-        if (changed) {
-          const currentSelectedInfo = useLayoutStore.getState().selectedMessageInfo;
-          if (currentSelectedInfo) {
-            const currentSelectedId = (currentSelectedInfo._id?._id || currentSelectedInfo._id)?.toString();
-            if (currentSelectedId && strIds.has(currentSelectedId)) {
-              const updatedTarget = nextMessages.find(
-                (m) => (m._id?._id || m._id)?.toString() === currentSelectedId
-              );
-              if (updatedTarget) {
-                useLayoutStore.getState().setSelectedMessageInfo(updatedTarget);
-              }
-            }
-          }
-        }
-
         const convId = state.currentConversation?._id;
         const nextCache =
           convId && changed
@@ -1339,9 +1324,10 @@ export const useChatStore = create((set, get) => ({
       if (!payload?.messageId) return;
       const { messageId, userId, action, timestamp, newStatus } = payload;
       set((state) => {
-        let updatedMsgForPanel = null;
-        const userObj =
-          state.users?.find((u) => String(u._id) === String(userId)) || userId;
+        const resolvedUser =
+          payload.user ||
+          state.users?.find((u) => String(u._id) === String(userId)) ||
+          userId;
 
         const nextMessages = state.messages.map((msg) => {
           if (String(msg._id) !== String(messageId)) return msg;
@@ -1356,38 +1342,52 @@ export const useChatStore = create((set, get) => ({
             ? [...nextMsg.deliveredTo]
             : [];
 
-          if (
-            !existingDeliveredTo.some(
-              (d) => String(d.user?._id || d.user || d) === String(userId),
-            )
-          ) {
-            existingDeliveredTo.push({ user: userObj, deliveredAt: timestamp });
+          const dIdx = existingDeliveredTo.findIndex(
+            (d) => String(d.user?._id || d.user || d) === String(userId),
+          );
+          if (dIdx >= 0) {
+            existingDeliveredTo[dIdx] = {
+              ...existingDeliveredTo[dIdx],
+              deliveredAt:
+                existingDeliveredTo[dIdx].deliveredAt || timestamp,
+              user:
+                (typeof existingDeliveredTo[dIdx].user === "object" &&
+                existingDeliveredTo[dIdx].user?.username
+                  ? existingDeliveredTo[dIdx].user
+                  : resolvedUser) || existingDeliveredTo[dIdx].user,
+            };
+          } else {
+            existingDeliveredTo.push({
+              user: resolvedUser,
+              deliveredAt: timestamp,
+            });
           }
-          if (
-            action === "read" &&
-            !existingReadBy.some(
+
+          if (action === "read") {
+            const rIdx = existingReadBy.findIndex(
               (r) => String(r.user?._id || r.user || r) === String(userId),
-            )
-          ) {
-            existingReadBy.push({ user: userObj, readAt: timestamp });
+            );
+            if (rIdx >= 0) {
+              existingReadBy[rIdx] = {
+                ...existingReadBy[rIdx],
+                readAt: timestamp || existingReadBy[rIdx].readAt,
+                user:
+                  (typeof existingReadBy[rIdx].user === "object" &&
+                  existingReadBy[rIdx].user?.username
+                    ? existingReadBy[rIdx].user
+                    : resolvedUser) || existingReadBy[rIdx].user,
+              };
+            } else {
+              existingReadBy.push({
+                user: resolvedUser,
+                readAt: timestamp,
+              });
+            }
           }
           nextMsg.readBy = existingReadBy;
           nextMsg.deliveredTo = existingDeliveredTo;
-          updatedMsgForPanel = nextMsg;
           return nextMsg;
         });
-
-        if (updatedMsgForPanel) {
-          const currentSelectedInfo = useLayoutStore.getState().selectedMessageInfo;
-          if (currentSelectedInfo) {
-            const currentSelectedId = String(
-              currentSelectedInfo._id?._id || currentSelectedInfo._id
-            );
-            if (currentSelectedId === String(messageId)) {
-              useLayoutStore.getState().setSelectedMessageInfo(updatedMsgForPanel);
-            }
-          }
-        }
 
         let nextConversations = state.conversations;
         if (
@@ -1410,23 +1410,47 @@ export const useChatStore = create((set, get) => ({
                 ? [...nextLastMsg.deliveredTo]
                 : [];
 
-              if (
-                !existingDeliveredTo.some(
-                  (d) => String(d.user?._id || d.user || d) === String(userId),
-                )
-              ) {
+              const dIdx = existingDeliveredTo.findIndex(
+                (d) => String(d.user?._id || d.user || d) === String(userId),
+              );
+              if (dIdx >= 0) {
+                existingDeliveredTo[dIdx] = {
+                  ...existingDeliveredTo[dIdx],
+                  deliveredAt:
+                    existingDeliveredTo[dIdx].deliveredAt || timestamp,
+                  user:
+                    (typeof existingDeliveredTo[dIdx].user === "object" &&
+                    existingDeliveredTo[dIdx].user?.username
+                      ? existingDeliveredTo[dIdx].user
+                      : resolvedUser) || existingDeliveredTo[dIdx].user,
+                };
+              } else {
                 existingDeliveredTo.push({
-                  user: userObj,
+                  user: resolvedUser,
                   deliveredAt: timestamp,
                 });
               }
-              if (
-                action === "read" &&
-                !existingReadBy.some(
+
+              if (action === "read") {
+                const rIdx = existingReadBy.findIndex(
                   (r) => String(r.user?._id || r.user || r) === String(userId),
-                )
-              ) {
-                existingReadBy.push({ user: userObj, readAt: timestamp });
+                );
+                if (rIdx >= 0) {
+                  existingReadBy[rIdx] = {
+                    ...existingReadBy[rIdx],
+                    readAt: timestamp || existingReadBy[rIdx].readAt,
+                    user:
+                      (typeof existingReadBy[rIdx].user === "object" &&
+                      existingReadBy[rIdx].user?.username
+                        ? existingReadBy[rIdx].user
+                        : resolvedUser) || existingReadBy[rIdx].user,
+                  };
+                } else {
+                  existingReadBy.push({
+                    user: resolvedUser,
+                    readAt: timestamp,
+                  });
+                }
               }
               nextLastMsg.readBy = existingReadBy;
               nextLastMsg.deliveredTo = existingDeliveredTo;
@@ -1446,6 +1470,23 @@ export const useChatStore = create((set, get) => ({
               nextMessages,
             )
           : state.messagesCache;
+
+        try {
+          const curInfo = useLayoutStore.getState().selectedMessageInfo;
+          if (
+            curInfo &&
+            String(curInfo._id?._id || curInfo._id) === String(messageId)
+          ) {
+            const updatedTarget = nextMessages.find(
+              (m) => String(m._id?._id || m._id) === String(messageId),
+            );
+            if (updatedTarget) {
+              useLayoutStore.getState().setSelectedMessageInfo(updatedTarget);
+            }
+          }
+        } catch (e) {
+        }
+
         return {
           messages: nextMessages,
           conversations: nextConversations,

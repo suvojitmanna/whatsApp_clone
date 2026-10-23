@@ -374,13 +374,23 @@ const updatePublicKey = async (req, res) => {
 const getUserPublicKey = async (req, res) => {
   try {
     const { userId } = req.params;
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return response(res, 200, "User public key not available", {
+        publicKey: null,
+        userId,
+      });
+    }
+
     const user = await User.findById(userId).select("publicKey username");
     if (!user) {
-      return response(res, 404, "User not found");
+      return response(res, 200, "User public key not available", {
+        publicKey: null,
+        userId,
+      });
     }
 
     return response(res, 200, "User public key retrieved", {
-      publicKey: user.publicKey,
+      publicKey: user.publicKey || null,
       userId: user._id,
       username: user.username,
     });

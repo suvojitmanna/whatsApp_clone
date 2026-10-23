@@ -30,7 +30,6 @@ export const MessageEventContent = ({
         >
           <MdEventNote size={24} />
         </div>
-
         <div className="flex-1 min-w-0 pt-0.5">
           <h4
             className={`text-[16px] font-bold leading-tight break-words ${message.eventData?.isCancelled
@@ -40,14 +39,12 @@ export const MessageEventContent = ({
           >
             {message.eventData?.title || message.content}
           </h4>
-
           <p
             className={`text-[13px] font-normal mt-1 ${isDark ? "text-white/75" : "text-gray-700"
               }`}
           >
             {formatEventSchedule(message.eventData)}
           </p>
-
           {message.eventData?.description && (
             <p
               className={`text-[14px] font-normal mt-1 break-words ${isDark ? "text-white/90" : "text-gray-800"
@@ -56,7 +53,6 @@ export const MessageEventContent = ({
               {message.eventData.description}
             </p>
           )}
-
           {message.eventData?.hasCallLink && (
             <p
               className={`text-[13px] font-normal mt-1 ${isDark ? "text-white/75" : "text-gray-700"
@@ -65,14 +61,12 @@ export const MessageEventContent = ({
               WhatsApp video call
             </p>
           )}
-
           {message.eventData?.location && (
             <div className="flex items-center gap-1 text-[13px] opacity-75 mt-1">
               <MdLocationOn size={14} className="text-red-400 shrink-0" />
               <span className="truncate">{message.eventData.location}</span>
             </div>
           )}
-
           {message.eventData?.isCancelled && (
             <span className="mt-1.5 inline-block text-[11px] font-medium px-2 py-0.5 rounded bg-red-500/20 text-red-400">
               Event cancelled
@@ -80,7 +74,6 @@ export const MessageEventContent = ({
           )}
         </div>
       </div>
-
       <div className="flex items-center justify-between mt-3 text-[12px]">
         <div className="flex items-center gap-1.5">
           <div className="flex -space-x-1.5 items-center">
@@ -113,7 +106,6 @@ export const MessageEventContent = ({
             {goingCount} going
           </span>
         </div>
-
         <div
           className={`flex items-center gap-1 text-[11px] ${isDark ? "text-white/60" : "text-gray-500"
             }`}
@@ -121,7 +113,6 @@ export const MessageEventContent = ({
           {renderTimestampAndStatus(false)}
         </div>
       </div>
-
       <div
         className={`border-t -mx-[9px] -mb-[7px] mt-2.5 rounded-b-[7.5px] overflow-hidden ${isDark ? "border-white/10" : "border-black/10"
           }`}

@@ -7,7 +7,7 @@ import { TbPin } from "react-icons/tb";
 import { SiMetaai } from "react-icons/si";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { RiEditLine, RiDeleteBin6Line } from "react-icons/ri";
-import { FiThumbsDown, FiCheckSquare, FiExternalLink } from "react-icons/fi";
+import { FiThumbsDown, FiCheckSquare, FiExternalLink, FiUser } from "react-icons/fi";
 import { useChatStore } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
 import { WhatsAppUnpinIcon } from "./MessageBuble";
@@ -37,6 +37,9 @@ const MessageMenu = ({
     setDeleteModal,
     onEnterSelectMode,
     isMetaAi: propIsMetaAi,
+    isGroupChat,
+    senderDisplayName,
+    onOpenSenderContactInfo,
 }) => {
     const chatToggleStar = useChatStore((state) => state.toggleStarMessage);
     const chatUnpinMessage = useChatStore((state) => state.unpinMessage);
@@ -91,10 +94,7 @@ const MessageMenu = ({
                     }}
                     className={dangerItemClass}
                 >
-                    <RiDeleteBin6Line
-                        size={17}
-                        className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors"
-                    />
+                    <RiDeleteBin6Line size={17} className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors" />
                     <span>Delete for me</span>
                 </button>
                 {onEnterSelectMode && (
@@ -108,10 +108,7 @@ const MessageMenu = ({
                         }}
                         className={itemClass}
                     >
-                        <FiCheckSquare
-                            size={17}
-                            className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                        />
+                        <FiCheckSquare size={17} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                         <span>Select message</span>
                     </button>
                 )}
@@ -136,10 +133,7 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <IoIosInformationCircleOutline
-                        size={19}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <IoIosInformationCircleOutline size={19} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     <span>Message info</span>
                 </button>
 
@@ -153,10 +147,7 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <LuReply
-                        size={18}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <LuReply size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     <span>Reply</span>
                 </button>
 
@@ -196,10 +187,7 @@ const MessageMenu = ({
                         }}
                         className={itemClass}
                     >
-                        <FaRegCopy
-                            size={16}
-                            className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                        />
+                        <FaRegCopy size={16} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                         <span>Copy</span>
                     </button>
                 )}
@@ -212,10 +200,7 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <BsEmojiSmile
-                        size={18}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <BsEmojiSmile size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     <span>React</span>
                 </button>
 
@@ -227,10 +212,7 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <LuForward
-                        size={18}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <LuForward size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     <span>Forward</span>
                 </button>
 
@@ -250,10 +232,7 @@ const MessageMenu = ({
                     {isStarred ? (
                         <FaStar size={16} className="shrink-0 text-amber-400 fill-amber-400" />
                     ) : (
-                        <FaRegStar
-                            size={16}
-                            className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                        />
+                        <FaRegStar size={16} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     )}
                     <span>{isStarred ? "Unstar" : "Star"}</span>
                 </button>
@@ -271,10 +250,7 @@ const MessageMenu = ({
                     }}
                     className={dangerItemClass}
                 >
-                    <RiDeleteBin6Line
-                        size={17}
-                        className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors"
-                    />
+                    <RiDeleteBin6Line size={17} className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors" />
                     <span>Delete</span>
                 </button>
             </>
@@ -301,15 +277,12 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <FiExternalLink
-                        size={17}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <FiExternalLink size={17} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     <span>Open link in a new tab</span>
                 </button>
             )}
 
-            {isUserMessage && (
+            {isUserMessage && message?.contentType !== "call" && (
                 <button
                     type="button"
                     onClick={() => {
@@ -318,11 +291,24 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <IoIosInformationCircleOutline
-                        size={19}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <IoIosInformationCircleOutline size={19} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     <span>Message info</span>
+                </button>
+            )}
+
+            {!isUserMessage && !isMetaAi && isGroupChat && onOpenSenderContactInfo && (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        setShowOptions?.(false);
+                        onOpenSenderContactInfo(e);
+                    }}
+                    className={itemClass}
+                >
+                    <FiUser size={17} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
+                    <span className="truncate">
+                        {senderDisplayName ? `Contact info (${senderDisplayName})` : "Contact info"}
+                    </span>
                 </button>
             )}
 
@@ -336,10 +322,7 @@ const MessageMenu = ({
                 }}
                 className={itemClass}
             >
-                <LuReply
-                    size={18}
-                    className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                />
+                <LuReply size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                 <span>Reply</span>
             </button>
 
@@ -379,10 +362,7 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <FaRegCopy
-                        size={16}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <FaRegCopy size={16} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     <span>Copy</span>
                 </button>
             )}
@@ -395,10 +375,7 @@ const MessageMenu = ({
                 }}
                 className={itemClass}
             >
-                <BsEmojiSmile
-                    size={18}
-                    className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                />
+                <BsEmojiSmile size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                 <span>React</span>
             </button>
 
@@ -410,10 +387,7 @@ const MessageMenu = ({
                 }}
                 className={itemClass}
             >
-                <LuForward
-                    size={18}
-                    className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                />
+                <LuForward size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                 <span>Forward</span>
             </button>
 
@@ -433,10 +407,7 @@ const MessageMenu = ({
                 {isStarred ? (
                     <FaStar size={16} className="shrink-0 text-amber-400 fill-amber-400" />
                 ) : (
-                    <FaRegStar
-                        size={16}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <FaRegStar size={16} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                 )}
                 <span>{isStarred ? "Unstar" : "Star"}</span>
             </button>
@@ -455,15 +426,9 @@ const MessageMenu = ({
                 className={itemClass}
             >
                 {isPinned ? (
-                    <WhatsAppUnpinIcon
-                        size={18}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <WhatsAppUnpinIcon size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                 ) : (
-                    <TbPin
-                        size={18}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <TbPin size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                 )}
                 <span>{isPinned ? "Unpin" : "Pin"}</span>
             </button>
@@ -475,13 +440,12 @@ const MessageMenu = ({
                         setShowOptions?.(false);
                         const chatStore = useChatStore.getState();
                         const users = chatStore.users || [];
-                        const metaContact =
-                            users.find((u) => u._id === META_AI_USER_ID || u.username === "Meta AI" || u.isAI) || {
-                                _id: META_AI_USER_ID,
-                                username: "Meta AI",
-                                isAI: true,
-                                isVerified: true,
-                            };
+                        const metaContact = users.find((u) => u._id === META_AI_USER_ID || u.username === "Meta AI" || u.isAI) || {
+                            _id: META_AI_USER_ID,
+                            username: "Meta AI",
+                            isAI: true,
+                            isVerified: true,
+                        };
                         useLayoutStore.getState().setSelectedContact(metaContact);
                         chatStore.setSelectedContact?.(metaContact);
                         setTimeout(() => {
@@ -495,10 +459,7 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <MetaAiRing
-                        size={17}
-                        className="shrink-0 group-hover:scale-110 transition-transform"
-                    />
+                    <MetaAiRing size={17} className="shrink-0 group-hover:scale-110 transition-transform" />
                     <span>Ask Meta AI</span>
                 </button>
             )}
@@ -513,10 +474,7 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <RiEditLine
-                        size={17}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <RiEditLine size={17} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     <span>Edit</span>
                 </button>
             )}
@@ -537,10 +495,7 @@ const MessageMenu = ({
                     }}
                     className={itemClass}
                 >
-                    <FaDownload
-                        size={15}
-                        className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                    />
+                    <FaDownload size={15} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                     <span>Download</span>
                 </button>
             )}
@@ -555,18 +510,11 @@ const MessageMenu = ({
                 }}
                 className={itemClass}
             >
-                <FiCheckSquare
-                    size={17}
-                    className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors"
-                />
+                <FiCheckSquare size={17} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
                 <span>Select message</span>
             </button>
 
-            <div
-                className={`my-1 border-t ${isDark ? "border-[#2a3942]/80" : "border-black/10"
-                    }`}
-            />
-
+            <div className={`my-1 border-t ${isDark ? "border-[#2a3942]/80" : "border-black/10"}`} />
             {!isUserMessage && (
                 <button
                     type="button"
@@ -576,10 +524,7 @@ const MessageMenu = ({
                     }}
                     className={dangerItemClass}
                 >
-                    <FiThumbsDown
-                        size={17}
-                        className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors"
-                    />
+                    <FiThumbsDown size={17} className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors" />
                     <span>Report</span>
                 </button>
             )}
@@ -592,10 +537,7 @@ const MessageMenu = ({
                 }}
                 className={dangerItemClass}
             >
-                <RiDeleteBin6Line
-                    size={17}
-                    className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors"
-                />
+                <RiDeleteBin6Line size={17} className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors" />
                 <span>Delete</span>
             </button>
         </>

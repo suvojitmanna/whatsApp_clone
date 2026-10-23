@@ -19,31 +19,27 @@ export const MessageCallLinkContent = ({
   const linkData =
     typeof message.callLinkData === "string"
       ? (() => {
-        try {
-          return JSON.parse(message.callLinkData);
-        } catch (e) {
-          return {};
-        }
-      })()
+          try {
+            return JSON.parse(message.callLinkData);
+          } catch (e) {
+            return {};
+          }
+        })()
       : message.callLinkData || {};
 
   const rawUrl =
     linkData?.url ||
     (typeof message.content === "string" &&
-      message.content.includes("call.whatsapp.com")
-      ? message.content.match(
-        /https?:\/\/call\.whatsapp\.com\/[^\s]+/i
-      )?.[0] || message.content
+    message.content.includes("call.whatsapp.com")
+      ? message.content.match(/https?:\/\/call\.whatsapp\.com\/[^\s]+/i)?.[0] ||
+        message.content
       : "") ||
     `https://call.whatsapp.com/video/SUH50LINK`;
 
-  const isVideo =
-    linkData?.callType === "video" ||
-    rawUrl.includes("/video/");
+  const isVideo = linkData?.callType === "video" || rawUrl.includes("/video/");
   const callType = isVideo ? "video" : "voice";
 
-  const peer = isUserMessage
-    ? message.receiver || selectedContact
+  const peer = isUserMessage ? message.receiver || selectedContact
     : message.sender || selectedContact;
   const peerId = (peer?._id || peer?.id || peer)?.toString();
   const peerName = peer?.username || peer?.name || "Contact";
@@ -64,7 +60,7 @@ export const MessageCallLinkContent = ({
           peerId || `link-${Date.now()}`,
           peerName,
           peerAvatar,
-          callType === "video" ? "video" : "audio"
+          callType === "video" ? "video" : "audio",
         );
       } else {
         toast.success("Connecting to WhatsApp call link...");
@@ -84,33 +80,34 @@ export const MessageCallLinkContent = ({
 
         <div className="min-w-0 flex-1 pt-0.5">
           <h4
-            className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${isDark ? "text-white" : "text-[#111b21]"
-              }`}
+            className={`text-[15.5px] font-semibold leading-tight tracking-normal truncate ${
+              isDark ? "text-white" : "text-[#111b21]"
+            }`}
           >
-            {isVideo
-              ? "WhatsApp Video Call Link"
-              : "WhatsApp Voice Call Link"}
+            {isVideo ? "WhatsApp Video Call Link" : "WhatsApp Voice Call Link"}
           </h4>
           <p
-            className={`text-[12.5px] leading-snug mt-1 ${isDark ? "text-[#8696a0]" : "text-[#667781]"
-              }`}
+            className={`text-[12.5px] leading-snug mt-1 ${
+              isDark ? "text-[#8696a0]" : "text-[#667781]"
+            }`}
           >
-            Use this link to join my WhatsApp{" "}
-            {isVideo ? "video" : "voice"} call.
+            Use this link to join my WhatsApp {isVideo ? "video" : "voice"}{" "}
+            call.
           </p>
         </div>
       </div>
 
       <div
         onClick={handleCopyCallUrl}
-        className={`mt-2 px-3 py-2 rounded-xl flex items-center justify-between gap-2 border transition-all cursor-pointer group ${isUserMessage
-          ? isDark
-            ? "bg-black/20 hover:bg-black/30 border-white/5"
-            : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
-          : isDark
-            ? "bg-white/[0.06] hover:bg-white/[0.09] border-white/5"
-            : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
-          }`}
+        className={`mt-2 px-3 py-2 rounded-xl flex items-center justify-between gap-2 border transition-all cursor-pointer group ${
+          isUserMessage
+            ? isDark
+              ? "bg-black/20 hover:bg-black/30 border-white/5"
+              : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
+            : isDark
+              ? "bg-white/[0.06] hover:bg-white/[0.09] border-white/5"
+              : "bg-black/[0.04] hover:bg-black/[0.07] border-black/5"
+        }`}
         title="Click to copy link"
       >
         <span className="text-[13px] font-mono text-[#00a884] dark:text-[#25d366] font-medium truncate select-all">
@@ -165,12 +162,12 @@ export const MessageCallHistoryContent = ({
   const callData =
     typeof message.callData === "string"
       ? (() => {
-        try {
-          return JSON.parse(message.callData);
-        } catch (e) {
-          return {};
-        }
-      })()
+          try {
+            return JSON.parse(message.callData);
+          } catch (e) {
+            return {};
+          }
+        })()
       : message.callData || {};
 
   const callType =
@@ -182,7 +179,7 @@ export const MessageCallHistoryContent = ({
   const rawDuration =
     callData?.duration ||
     message.duration ||
-    (message.content?.match(/(\d+\s*(seconds?|minutes?|secs?|mins?))/i)?.[0]) ||
+    message.content?.match(/(\d+\s*(seconds?|minutes?|secs?|mins?))/i)?.[0] ||
     "28 seconds";
 
   const status =
@@ -211,8 +208,7 @@ export const MessageCallHistoryContent = ({
       direction === "missed" ||
       rawDuration.toLowerCase().includes("missed"));
 
-  const isDeclined =
-    status === "declined" || direction === "declined";
+  const isDeclined = status === "declined" || direction === "declined";
 
   let title = isVideo ? "Video call" : "Voice call";
   if (isMissed) {
@@ -240,12 +236,7 @@ export const MessageCallHistoryContent = ({
     try {
       const { initiateCall } = useVideoCallStore.getState();
       if (peerId && typeof initiateCall === "function") {
-        initiateCall(
-          peerId,
-          peerName,
-          peerAvatar,
-          isVideo ? "video" : "audio"
-        );
+        initiateCall(peerId, peerName, peerAvatar, isVideo ? "video" : "audio");
       }
     } catch (err) {
       console.warn("Failed to initiate call back:", err);
@@ -253,16 +244,19 @@ export const MessageCallHistoryContent = ({
   };
 
   return (
-    <div className="flex flex-col min-w-[210px] max-w-[280px] select-none py-0.5"
-      onClick={handleCallBack}>
+    <div
+      className="flex flex-col min-w-[210px] max-w-[280px] select-none py-0.5"
+      onClick={handleCallBack}
+    >
       <div className="flex items-center gap-3">
         <div
-          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isMissed
-            ? "bg-red-500/15 text-red-500"
-            : isDark
-              ? "bg-white/10 text-[#00a884]"
-              : "bg-black/5 text-[#00a884]"
-            }`}
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+            isMissed
+              ? "bg-red-500/15 text-red-500"
+              : isDark
+                ? "bg-white/10 text-[#00a884]"
+                : "bg-black/5 text-[#00a884]"
+          }`}
         >
           {isVideo ? (
             isUserMessage ? (
@@ -277,14 +271,16 @@ export const MessageCallHistoryContent = ({
 
         <div className="flex-1 min-w-0">
           <p
-            className={`text-[14px] font-semibold truncate leading-tight ${isMissed ? "text-red-500" : ""
-              }`}
+            className={`text-[14px] font-semibold truncate leading-tight ${
+              isMissed ? "text-red-500" : ""
+            }`}
           >
             {title}
           </p>
           <p
-            className={`text-[12px] opacity-70 truncate mt-0.5 ${isMissed ? "text-red-400" : ""
-              }`}
+            className={`text-[12px] opacity-70 truncate mt-0.5 ${
+              isMissed ? "text-red-400" : ""
+            }`}
           >
             {durationText}
           </p>

@@ -1,4 +1,6 @@
 import React, { useRef, useState, useMemo, useEffect, useLayoutEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import { FaLock } from "react-icons/fa";
 import { FiChevronDown } from "react-icons/fi";
@@ -18,7 +20,6 @@ import ReportModal from "../../components/modals/ReportModal";
 import MessageMenu from "./MessageMenu";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { MetaAiMarkdown, MetaAiFeedbackBar, MetaAiImageCard } from "../../components/common/MetaAiContent";
-
 import {
   WhatsAppPinIcon,
   WhatsAppUnpinIcon,
@@ -28,10 +29,7 @@ import {
   ProhibitedIcon,
   MessageCheckIcon,
 } from "../../components/common/Icons";
-
 import {
-  formatEventSchedule,
-  getInitials,
   MessageTimestampAndStatus,
   MessageReplyQuote,
   MessageReactionsHoverPicker,
@@ -66,7 +64,6 @@ const MessageBuble = ({
   highlightText,
   dataMatch,
   isActive,
-  onStatusClick,
   onEdit,
   onEditEvent,
   isFirstInSequence = true,
@@ -105,6 +102,58 @@ const MessageBuble = ({
   const [showPinModal, setShowPinModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
+  const handleDownloadFile = async (e, url, fileName) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    if (!url) return;
+
+    setDownloading(true);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 404) {
+          throw new Error("CLOUDINARY_RESTRICTED");
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "document.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("Download started");
+    } catch (err) {
+      console.warn("Blob download failed:", err);
+      if (err.message === "CLOUDINARY_RESTRICTED") {
+        toast.error(
+          "Cloudinary is blocking PDF delivery. Please enable 'Allow delivery of PDF and ZIP files' in your Cloudinary Security Settings."
+        );
+      }
+      try {
+        let downloadUrl = url;
+        if (url.includes("/upload/")) {
+          downloadUrl = url.replace("/upload/", "/upload/fl_attachment/");
+        }
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.setAttribute("download", fileName || "document.pdf");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (fallbackErr) {
+        window.open(url, "_blank");
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
   const emojiPickerRef = useRef(null);
   const reactionsMenuRef = useRef(null);
   const optionRef = useRef(null);
@@ -113,7 +162,6 @@ const MessageBuble = ({
   const editRef = useRef(null);
   const bubbleRef = useRef(null);
   const reactionBadgeRef = useRef(null);
-
   const [showReactionDetails, setShowReactionDetails] = useState(false);
   const votePoll = useChatStore((state) => state.votePoll);
   const removeReaction = useChatStore((state) => state.removeReaction);
@@ -123,18 +171,10 @@ const MessageBuble = ({
   const starredMessages = useChatStore((state) => state.starredMessages);
   const isMessageStarred = useChatStore((state) => state.isMessageStarred);
   const layoutSelectedContact = useLayoutStore((state) => state.selectedContact);
-  const setSelectedPollDetails = useLayoutStore(
-    (state) => state.setSelectedPollDetails
-  );
-  const setSelectedMessageInfo = useLayoutStore(
-    (state) => state.setSelectedMessageInfo
-  );
-  const setShowContactInfo = useLayoutStore(
-    (state) => state.setShowContactInfo
-  );
-  const openContactInfoWithMember = useLayoutStore(
-    (state) => state.openContactInfoWithMember
-  );
+  const setSelectedPollDetails = useLayoutStore((state) => state.setSelectedPollDetails);
+  const setSelectedMessageInfo = useLayoutStore((state) => state.setSelectedMessageInfo);
+  const setShowContactInfo = useLayoutStore((state) => state.setShowContactInfo);
+  const openContactInfoWithMember = useLayoutStore((state) => state.openContactInfoWithMember);
   const storeUser = useUserStore((state) => state.user);
   const effectiveUser = currentUser || storeUser;
   const currentUserId = (effectiveUser?._id || effectiveUser?.id)?.toString();
@@ -164,6 +204,7 @@ const MessageBuble = ({
     String(layoutSelectedContact?._id) === META_AI_USER_ID ||
     String(layoutSelectedContact?.id) === META_AI_USER_ID
   );
+  const isMetaAi = Boolean(isMetaAiMessage || isMetaAiChat);
   const isDark = theme === "dark";
 
   const activeContact = selectedContact || layoutSelectedContact;
@@ -294,8 +335,8 @@ const MessageBuble = ({
     (e) => {
       if (isSelectMode) return;
       if (e) {
-        e.preventDefault?.();
-        e.stopPropagation?.();
+        e.preventDefault();
+        e.stopPropagation();
       }
       if (!senderId || isUserMessage || isMetaAiMessage) return;
 
@@ -304,80 +345,101 @@ const MessageBuble = ({
         activeContact?.conversation?.participants ||
         conversationObj?.participants ||
         [];
-      let foundInParticipants = null;
+      let targetMember = null;
       if (Array.isArray(rawParticipants)) {
-        foundInParticipants = rawParticipants.find(
+        targetMember = rawParticipants.find(
           (p) => (p?._id || p?.id || p)?.toString() === senderId
         );
       }
 
-      const allUsers = useChatStore.getState()?.users || [];
-      const foundInStore = Array.isArray(allUsers)
-        ? allUsers.find((u) => (u?._id || u?.id)?.toString() === senderId)
+      const allChatUsers = useChatStore.getState()?.users || [];
+      const foundInAllUsers = Array.isArray(allChatUsers)
+        ? allChatUsers.find((u) => (u?._id || u?.id)?.toString() === senderId)
         : null;
 
       const senderObj =
-        typeof message?.sender === "object" && message.sender !== null
+        typeof message?.sender === "object" && message?.sender
           ? message.sender
           : null;
 
-      const partObj =
-        typeof foundInParticipants === "object" && foundInParticipants !== null
-          ? foundInParticipants
-          : null;
+      const baseMember =
+        targetMember && typeof targetMember === "object"
+          ? targetMember
+          : {};
 
-      const resolvedMember = {
-        ...(partObj || {}),
+      const finalMember = {
+        ...baseMember,
+        ...(foundInAllUsers || {}),
         ...(senderObj || {}),
-        ...(foundInStore || {}),
         _id: senderId,
         id: senderId,
         username:
-          partObj?.username ||
+          foundInAllUsers?.username ||
+          baseMember.username ||
           senderObj?.username ||
-          foundInStore?.username ||
-          senderDisplayName,
+          senderDisplayName ||
+          "Participant",
         name:
-          partObj?.name ||
+          foundInAllUsers?.name ||
+          foundInAllUsers?.username ||
+          baseMember.name ||
+          baseMember.username ||
           senderObj?.name ||
-          foundInStore?.name ||
-          partObj?.username ||
           senderObj?.username ||
-          senderDisplayName,
+          senderDisplayName ||
+          "Participant",
         profilePicture:
-          partObj?.profilePicture ||
-          partObj?.profilePic ||
-          partObj?.avatar ||
+          foundInAllUsers?.profilePicture ||
+          foundInAllUsers?.profilePic ||
+          foundInAllUsers?.avatar ||
+          baseMember.profilePicture ||
+          baseMember.profilePic ||
+          baseMember.avatar ||
           senderObj?.profilePicture ||
           senderObj?.profilePic ||
           senderObj?.avatar ||
-          foundInStore?.profilePicture ||
-          foundInStore?.profilePic ||
           senderAvatar ||
           "",
         phoneNumber:
-          partObj?.phoneNumber ||
+          foundInAllUsers?.phoneNumber ||
+          baseMember.phoneNumber ||
           senderObj?.phoneNumber ||
-          foundInStore?.phoneNumber ||
           "",
         about:
-          partObj?.about ||
+          foundInAllUsers?.about ||
+          baseMember.about ||
           senderObj?.about ||
-          foundInStore?.about ||
-          "Hey there! I am using WhatsApp.",
-        email:
-          partObj?.email ||
-          senderObj?.email ||
-          foundInStore?.email ||
           "",
+        aboutUpdatedAt:
+          foundInAllUsers?.aboutUpdatedAt ||
+          baseMember.aboutUpdatedAt ||
+          senderObj?.aboutUpdatedAt ||
+          null,
+        email:
+          foundInAllUsers?.email ||
+          baseMember.email ||
+          senderObj?.email ||
+          "",
+        isOnline:
+          typeof foundInAllUsers?.isOnline === "boolean"
+            ? foundInAllUsers.isOnline
+            : baseMember.isOnline,
+        lastSeen:
+          foundInAllUsers?.lastSeen ||
+          baseMember.lastSeen ||
+          senderObj?.lastSeen ||
+          null,
       };
 
-      if (openContactInfoWithMember) {
-        openContactInfoWithMember(resolvedMember);
+      const openFn =
+        openContactInfoWithMember ||
+        useLayoutStore.getState().openContactInfoWithMember;
+
+      if (openFn) {
+        openFn(finalMember);
       } else {
-        useLayoutStore.getState().openContactInfoWithMember?.(resolvedMember) ||
-          (useLayoutStore.getState().setViewingMember?.(resolvedMember),
-          setShowContactInfo(true));
+        useLayoutStore.getState().setViewingMember?.(finalMember);
+        useLayoutStore.getState().setShowContactInfo?.(true);
       }
     },
     [
@@ -457,7 +519,9 @@ const MessageBuble = ({
                   });
                 }
               }
-            } catch (e) { }
+            } catch (e) {
+              console.log(e);
+            }
           }
         }
       });
@@ -581,6 +645,10 @@ const MessageBuble = ({
       return Boolean(starredMessages[msgId] || starredMessages[String(message?._id)]);
     }
 
+    if (starredMessages instanceof Set) {
+      return starredMessages.has(msgId);
+    }
+
     return false;
   }, [starredMessages, isMessageStarred, message?._id, message?.temp, message?.isStarred, message?.starred]);
 
@@ -619,8 +687,14 @@ const MessageBuble = ({
     if (isSticker) {
       return "bg-transparent shadow-none border-none p-0";
     }
+    const roundedCorners = isFirstInSequence
+      ? isUserMessage
+        ? "rounded-[7.5px] rounded-tr-none"
+        : "rounded-[7.5px] rounded-tl-none"
+      : "rounded-[7.5px]";
+
     const base =
-      "max-w-[85%] sm:max-w-[70%] md:max-w-[65%] rounded-[7.5px] px-[9px] pt-[6px] pb-[7px] text-[14.2px] leading-[19px] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] select-text transition-all duration-150";
+      `max-w-[85%] sm:max-w-[70%] md:max-w-[65%] ${roundedCorners} px-[9px] pt-[6px] pb-[7px] text-[14.2px] leading-[19px] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] select-text transition-all duration-150`;
     if (isUserMessage) {
       const bg = chatBubbleColor ? "" : (isDark ? "bg-[#005c4b]" : "bg-[#d9fdd3]");
       const txt = isDark ? "text-[#e9edef]" : "text-[#111b21]";
@@ -629,7 +703,7 @@ const MessageBuble = ({
     const bg = isDark ? "bg-[#202c33]" : "bg-white";
     const txt = isDark ? "text-[#e9edef]" : "text-[#111b21]";
     return `${base} ${bg} ${txt}`;
-  }, [isUserMessage, isDark, chatBubbleColor, isSticker]);
+  }, [isUserMessage, isDark, chatBubbleColor, isSticker, isFirstInSequence]);
 
   const handleTouchStart = () => {
     isLongPress.current = false;
@@ -674,6 +748,80 @@ const MessageBuble = ({
     setIsEditing(false);
   });
 
+  useLayoutEffect(() => {
+    if (!showOptions || !optionRef.current || !menuCoords) return;
+    const menuEl = optionRef.current;
+    const realWidth = menuEl.offsetWidth || 220;
+    const realHeight = menuEl.offsetHeight || 300;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const padding = 10;
+    const triggerRect = menuCoords.triggerRect;
+
+    if (triggerRect) {
+      const spaceBelow = viewportHeight - triggerRect.bottom;
+      const spaceAbove = triggerRect.top;
+      let newTop;
+      let originY = "top";
+      if (spaceBelow >= realHeight || spaceBelow >= spaceAbove) {
+        newTop = triggerRect.bottom + 4;
+        originY = "top";
+        if (newTop + realHeight > viewportHeight - padding) {
+          newTop = Math.max(padding, viewportHeight - realHeight - padding);
+        }
+      } else {
+        newTop = triggerRect.top - realHeight - 4;
+        originY = "bottom";
+        if (newTop < padding) {
+          newTop = padding;
+        }
+      }
+
+      let newLeft = menuCoords.left;
+      let originX = isUserMessage ? "right" : "left";
+      if (isUserMessage) {
+        newLeft = triggerRect.right - realWidth;
+        if (newLeft < padding) newLeft = padding;
+      } else {
+        if (triggerRect.right + realWidth <= viewportWidth - padding) {
+          newLeft = triggerRect.left;
+          originX = "left";
+        } else {
+          newLeft = triggerRect.right - realWidth;
+          originX = "right";
+        }
+        if (newLeft < padding) newLeft = padding;
+        if (newLeft + realWidth > viewportWidth - padding) {
+          newLeft = Math.max(padding, viewportWidth - realWidth - padding);
+        }
+      }
+
+      if (
+        Math.abs(newTop - menuCoords.top) > 2 ||
+        Math.abs(newLeft - menuCoords.left) > 2
+      ) {
+        setMenuCoords((prev) => ({
+          ...prev,
+          top: Math.round(newTop),
+          left: Math.round(newLeft),
+          transformOrigin: `${originY} ${originX}`,
+        }));
+      }
+    }
+  }, [showOptions, isUserMessage]);
+
+  useEffect(() => {
+    const handleCloseOthers = (e) => {
+      if (e.detail !== message._id) {
+        setShowOptions(false);
+      }
+    };
+    window.addEventListener("whatsapp_close_all_menus", handleCloseOthers);
+    return () => {
+      window.removeEventListener("whatsapp_close_all_menus", handleCloseOthers);
+    };
+  }, [message._id]);
+
   const handleToggleOptions = (e) => {
     e.stopPropagation();
     if (showOptions) {
@@ -681,54 +829,106 @@ const MessageBuble = ({
       return;
     }
 
+    window.dispatchEvent(
+      new CustomEvent("whatsapp_close_all_menus", { detail: message._id })
+    );
+
     const rect = e.currentTarget.getBoundingClientRect();
-    const menuWidth = 195;
-    const menuHeight = 280;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const menuWidth = 220;
+    const estimatedHeight = 420;
+    const padding = 10;
+    const spaceBelow = viewportHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    let top;
+    let originY = "top";
 
-    let x = rect.left;
-    let y = rect.bottom + 4;
-
-    if (x + menuWidth > window.innerWidth - 12) {
-      x = window.innerWidth - menuWidth - 12;
+    if (spaceBelow >= estimatedHeight || spaceBelow >= spaceAbove) {
+      top = rect.bottom + 4;
+      originY = "top";
+      if (top + estimatedHeight > viewportHeight - padding) {
+        top = Math.max(padding, viewportHeight - estimatedHeight - padding);
+      }
+    } else {
+      top = rect.top - estimatedHeight - 4;
+      originY = "bottom";
+      if (top < padding) {
+        top = padding;
+      }
     }
-    if (x < 12) x = 12;
 
-    if (y + menuHeight > window.innerHeight - 12) {
-      y = Math.max(12, rect.top - menuHeight - 4);
+    let left;
+    let originX = isUserMessage ? "right" : "left";
+
+    if (isUserMessage) {
+      left = rect.right - menuWidth;
+      if (left < padding) left = padding;
+    } else {
+      if (rect.right + menuWidth <= viewportWidth - padding) {
+        left = rect.left;
+        originX = "left";
+      } else {
+        left = rect.right - menuWidth;
+        originX = "right";
+      }
+      if (left < padding) left = padding;
+      if (left + menuWidth > viewportWidth - padding) {
+        left = Math.max(padding, viewportWidth - menuWidth - padding);
+      }
     }
 
-    setMenuCoords({ x, y });
+    setMenuCoords({
+      top: Math.round(top),
+      left: Math.round(left),
+      transformOrigin: `${originY} ${originX}`,
+      triggerRect: rect,
+    });
     setShowOptions(true);
   };
 
   const handleContextMenu = (e) => {
-    if (isSelectMode) return;
-    if (e.target.closest("input") || e.target.closest("textarea")) {
-      return;
-    }
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) return;
 
     e.preventDefault();
     e.stopPropagation();
 
-    const menuWidth = 195;
-    const menuHeight = 280;
+    window.dispatchEvent(
+      new CustomEvent("whatsapp_close_all_menus", { detail: message._id })
+    );
 
-    let x = e.clientX;
-    let y = e.clientY;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const menuWidth = 220;
+    const estimatedHeight = 420;
+    const padding = 10;
 
-    if (x + menuWidth > window.innerWidth - 12) {
-      x = window.innerWidth - menuWidth - 12;
+    let top = clientY + 4;
+    let originY = "top";
+    if (top + estimatedHeight > viewportHeight - padding) {
+      top = Math.max(padding, clientY - estimatedHeight - 4);
+      originY = "bottom";
     }
-    if (x < 12) x = 12;
 
-    if (y + menuHeight > window.innerHeight - 12) {
-      y = Math.max(12, y - menuHeight);
+    let left = isUserMessage ? clientX - menuWidth : clientX;
+    let originX = isUserMessage ? "right" : "left";
+    if (left + menuWidth > viewportWidth - padding) {
+      left = Math.max(padding, viewportWidth - menuWidth - padding);
+      originX = "right";
+    }
+    if (left < padding) {
+      left = padding;
+      originX = "left";
     }
 
     setMenuCoords({
-      x,
-      y,
-      isContextMenu: true,
+      top: Math.round(top),
+      left: Math.round(left),
+      transformOrigin: `${originY} ${originX}`,
+      triggerRect: { top: clientY, bottom: clientY, left: clientX, right: clientX },
     });
     setShowOptions(true);
   };
@@ -765,21 +965,19 @@ const MessageBuble = ({
           }}
           className="shrink-0 pl-6 sm:pl-7 pr-3 flex items-center justify-center select-none cursor-pointer"
         >
-          <div
-            className={`w-[18px] h-[18px] rounded-[3px] border-[1.5px] flex items-center justify-center transition-all duration-150 ${isSelected
-              ? "bg-[#00a884] border-[#00a884] text-white shadow-sm"
-              : isDark
-                ? "border-[#8696a0]/80 bg-transparent hover:border-[#8696a0]"
-                : "border-[#8696a0] bg-transparent hover:border-[#54656f]"
-              }`}
+          <div className={`w-[18px] h-[18px] rounded-[3px] border-[1.5px] flex items-center justify-center transition-all duration-150 ${isSelected
+            ? "bg-[#00a884] border-[#00a884] text-white shadow-sm"
+            : isDark
+              ? "border-[#8696a0]/80 bg-transparent hover:border-[#8696a0]"
+              : "border-[#8696a0] bg-transparent hover:border-[#54656f]"
+            }`}
           >
             {isSelected && <MessageCheckIcon />}
           </div>
         </div>
       )}
 
-      <div
-        className={`flex-1 flex min-w-0 ${isUserMessage
+      <div className={`flex-1 flex min-w-0 ${isUserMessage
           ? "justify-end pl-10 sm:pl-16 md:pl-24 pr-1 sm:pr-2.5"
           : "justify-start pr-10 sm:pr-16 md:pr-24 pl-1 sm:pl-2.5"
           }`}
@@ -788,14 +986,10 @@ const MessageBuble = ({
           <div className="shrink-0 mr-1.5 self-start mt-0.5 select-none">
             {isFirstInSequence ? (
               <div
+                onClick={handleOpenSenderContactInfo}
                 onMouseDown={(e) => e.stopPropagation()}
-                onTouchStart={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpenSenderContactInfo(e);
-                }}
                 className="cursor-pointer transition-transform hover:scale-105 active:scale-95"
-                title={`View ${senderDisplayName}'s contact info`}
+                title={`View ${senderDisplayName}'s info`}
               >
                 {senderAvatar ? (
                   <img
@@ -804,8 +998,7 @@ const MessageBuble = ({
                     className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover shadow-sm border border-black/10 dark:border-white/10"
                   />
                 ) : (
-                  <div
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white text-[11px] sm:text-[12px] font-semibold shadow-sm"
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white text-[11px] sm:text-[12px] font-semibold shadow-sm"
                     style={{ backgroundColor: senderColor }}
                   >
                     {(senderDisplayName[0] || "U").toUpperCase()}
@@ -818,7 +1011,10 @@ const MessageBuble = ({
           </div>
         )}
 
-        <div
+        <div className={`${bubbleContentClass} relative group ${isActive
+            ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
+            : ""
+            }`}
           ref={bubbleRef}
           data-bubble="true"
           onContextMenu={isSelectMode ? undefined : handleContextMenu}
@@ -833,17 +1029,13 @@ const MessageBuble = ({
               ? { backgroundColor: chatBubbleColor }
               : undefined
           }
-          className={`${bubbleContentClass} relative group ${isActive
-            ? "ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.55)]"
-            : ""
-            }`}
         >
           {!isSticker && isFirstInSequence && (
             isUserMessage ? (
               <span
                 data-icon="tail-out"
                 style={chatBubbleColor ? { color: chatBubbleColor } : undefined}
-                className={`absolute top-0 -right-[8px] pointer-events-none select-none ${chatBubbleColor ? "" : (isDark ? "text-[#005c4b]" : "text-[#d9fdd3]")
+                className={`absolute top-0 -right-[8px] pointer-events-none select-none block w-[8px] h-[13px] ${chatBubbleColor ? "" : (isDark ? "text-[#005c4b]" : "text-[#d9fdd3]")
                   }`}
               >
                 <TailOutIcon />
@@ -851,7 +1043,7 @@ const MessageBuble = ({
             ) : (
               <span
                 data-icon="tail-in"
-                className={`absolute top-0 -left-[8px] pointer-events-none select-none ${isDark ? "text-[#202c33]" : "text-white"
+                className={`absolute top-0 -left-[8px] pointer-events-none select-none block w-[8px] h-[13px] ${isDark ? "text-[#202c33]" : "text-white"
                   }`}
               >
                 <TailInIcon />
@@ -861,20 +1053,11 @@ const MessageBuble = ({
 
           {isDeletedForEveryone ? (
             <div className="flex items-center gap-2 select-none py-0.5 px-0.5 min-w-[200px]">
-              <ProhibitedIcon
-                size={16}
-                className={`shrink-0 ${isDark ? "text-white/60" : "text-[#8696a0]"}`}
-              />
-              <span
-                className={`text-[14px] italic font-normal tracking-wide flex-1 min-w-0 select-none ${isDark ? "text-white/70" : "text-[#54656f]"
-                  }`}
-              >
+              <ProhibitedIcon size={16} className={`shrink-0 ${isDark ? "text-white/60" : "text-[#8696a0]"}`} />
+              <span className={`text-[14px] italic font-normal tracking-wide flex-1 min-w-0 select-none ${isDark ? "text-white/70" : "text-[#54656f]"}`} >
                 {isUserMessage ? "You deleted this message" : "This message was deleted"}
               </span>
-              <span
-                className={`text-[11px] leading-none ml-2.5 self-end shrink-0 select-none ${isDark ? "text-white/50" : "text-[#8696a0]"
-                  }`}
-              >
+              <span className={`text-[11px] leading-none ml-2.5 self-end shrink-0 select-none ${isDark ? "text-white/50" : "text-[#8696a0]"}`}>
                 {format(new Date(message.createdAt || Date.now()), "HH:mm")}
               </span>
               <button
@@ -897,28 +1080,22 @@ const MessageBuble = ({
               className="relative"
             >
               {isGroupChat && !isUserMessage && !isMetaAiMessage && isFirstInSequence && !isSticker && (
-                <div
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenSenderContactInfo(e);
-                  }}
-                  className="flex items-center gap-1.5 mb-1 select-none cursor-pointer group/sender w-fit"
-                  title={`View ${senderDisplayName}'s contact info`}
-                >
+                <div className="flex items-center gap-1.5 mb-1 select-none">
                   <span
-                    className="text-[12.8px] font-semibold leading-tight truncate group-hover/sender:underline"
+                    onClick={handleOpenSenderContactInfo}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="text-[12.8px] font-semibold leading-tight truncate hover:underline cursor-pointer"
                     style={{ color: senderColor }}
+                    title={`View ${senderDisplayName}'s info`}
                   >
                     {senderDisplayName}
                   </span>
                   {senderTag ? (
                     <span
-                      className={`text-[10px] font-medium px-1.5 py-0.2 rounded-full border leading-tight shrink-0 ${isDark
-                        ? "bg-white/10 text-white/80 border-white/15"
-                        : "bg-black/5 text-gray-700 border-black/10"
-                        }`}
+                      onClick={handleOpenSenderContactInfo}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className={`text-[10px] font-medium px-1.5 py-0.2 rounded-full border leading-tight shrink-0 cursor-pointer hover:opacity-80 ${isDark ? "bg-white/10 text-white/80 border-white/15" : "bg-black/5 text-gray-700 border-black/10"}`}
+                      title={`View ${senderDisplayName}'s info`}
                     >
                       {senderTag}
                     </span>
@@ -984,7 +1161,7 @@ const MessageBuble = ({
                                 setIsEditing(false);
                                 toast.success("Message edited");
                               } catch (error) {
-                                toast.error("Failed to edit message");
+                                toast.error("Failed to edit message", error);
                               }
                             }}
                             className="rounded-lg bg-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-emerald-500/30 transition-all hover:bg-emerald-600 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
@@ -1395,75 +1572,74 @@ const MessageBuble = ({
             />
           )}
 
-          {showOptions && (
-            <MessageMenu
-              ref={optionRef}
-              message={message}
-              isUserMessage={isUserMessage}
-              onReply={() => {
-                setShowOptions(false);
-                onReply?.(message);
-              }}
-              onEdit={() => {
-                setShowOptions(false);
-                setIsEditing(true);
-              }}
-              onDelete={() => {
-                setShowOptions(false);
-                setDeleteModal({
-                  _id: message._id,
-                  isUserMessage,
-                  deletedForEveryone: message.deletedForEveryone,
-                });
-              }}
-              onReact={(emoji) => {
-                setShowOptions(false);
-                handleReact(emoji);
-              }}
-              onForward={() => {
-                setShowOptions(false);
-                setShowForwardModal(true);
-              }}
-              onPin={() => {
-                setShowOptions(false);
-                setShowPinModal(true);
-              }}
-              onUnpin={() => {
-                setShowOptions(false);
-                pinMessage(
-                  conversationId,
-                  message,
-                  null,
-                  secondaryConvId,
-                  (layoutSelectedContact?._id || message.receiver?._id || message.sender?._id)?.toString(),
-                  false,
-                  currentUserId,
-                );
-                toast.success("Message unpinned");
-              }}
-              isPinned={isPinned}
-              onStar={() => {
-                setShowOptions(false);
-                useChatStore.getState().toggleStarMessage(message._id);
-              }}
-              isStarred={isStarred}
-              onReport={() => {
-                setShowOptions(false);
-                setShowReportModal(true);
-              }}
-              onInfo={() => {
-                setShowOptions(false);
-                setSelectedMessageInfo(message);
-              }}
-              onSelect={() => {
-                setShowOptions(false);
-                onEnterSelectMode?.(message._id?._id || message._id || message.temp);
-              }}
-              coords={menuCoords}
-              theme={theme}
-              isDark={isDark}
-            />
-          )}
+          {typeof document !== "undefined" &&
+            createPortal(
+              <AnimatePresence>
+                {showOptions && menuCoords && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-[9998] bg-transparent"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowOptions(false);
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowOptions(false);
+                      }}
+                    />
+
+                    <motion.div
+                      ref={optionRef}
+                      initial={{ opacity: 0, scale: 0.88 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.88 }}
+                      transition={{ duration: 0.12, ease: "easeOut" }}
+                      style={{
+                        position: "fixed",
+                        top: `${menuCoords.top}px`,
+                        left: `${menuCoords.left}px`,
+                        transformOrigin: menuCoords.transformOrigin || "top right",
+                      }}
+                      className={`z-[9999] min-w-[220px] max-w-[260px] max-h-[min(520px,calc(100vh-24px))] overflow-y-auto scrollbar-hide overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden py-1.5 rounded-xl shadow-2xl border select-none ${isDark
+                        ? "bg-[#233138] border-white/10 text-[#d1d7db] shadow-[0_12px_40px_rgba(0,0,0,0.65)]"
+                        : "bg-white border-black/10 text-[#111b21] shadow-[0_10px_35px_rgba(11,20,26,0.18)]"
+                        }`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MessageMenu
+                        message={message}
+                        isUserMessage={isUserMessage}
+                        isDark={isDark}
+                        isPinned={isPinned}
+                        isStarred={isStarred}
+                        isDeletedForEveryone={isDeletedForEveryone}
+                        conversationId={conversationId}
+                        secondaryConvId={secondaryConvId}
+                        onReply={onReply}
+                        setShowOptions={setShowOptions}
+                        setSelectedMessageInfo={setSelectedMessageInfo}
+                        setShowReactions={setShowReactions}
+                        setShowForwardModal={setShowForwardModal}
+                        setShowPinModal={setShowPinModal}
+                        setEditText={setEditText}
+                        setIsEditing={setIsEditing}
+                        handleDownloadFile={handleDownloadFile}
+                        setShowReportModal={setShowReportModal}
+                        setDeleteModal={setDeleteModal}
+                        onEnterSelectMode={onEnterSelectMode}
+                        isMetaAi={isMetaAi}
+                        isGroupChat={isGroupChat}
+                        senderDisplayName={senderDisplayName}
+                        onOpenSenderContactInfo={handleOpenSenderContactInfo}
+                      />
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>,
+              document.body
+            )}
 
           <MessageDeleteModal
             deleteModal={deleteModal}

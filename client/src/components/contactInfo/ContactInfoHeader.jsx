@@ -64,8 +64,8 @@ const ContactInfoHeader = ({
   return (
     <div
       className={`h-[60px] px-4 flex items-center justify-between border-b shrink-0 ${theme === "dark"
-          ? "bg-[#111b21] border-[#222d34]"
-          : "bg-[#f0f2f5] border-gray-200 text-gray-900"
+        ? "bg-[#111b21] border-[#222d34]"
+        : "bg-[#f0f2f5] border-gray-200 text-gray-900"
         }`}
     >
       <div className="flex items-center gap-3 min-w-0">

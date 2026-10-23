@@ -12,6 +12,7 @@ import useOutsideClick from "../../hook/useOutsideClick";
 import useVideoCallStore from "../../store/videoCallStore";
 import useLayoutStore from "../../store/layoutStore";
 import { toast } from "react-toastify";
+import { getSocket } from "../../services/chatService";
 import AttachInput from "../../components/media/AttachInput";
 import ChatHeader from "./ChatHeader";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
@@ -19,6 +20,7 @@ import { isGroupSystemMessage } from "../../utils/systemMessageUtils";
 import {
   ChatWindowEmpty,
   PinnedBanner,
+  ActiveGroupCallBanner,
   DateSeparatorPill,
   GroupSystemNotice,
   DisappearingSystemNotice,
@@ -67,6 +69,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const blockedMenuRef = useRef(null);
   const headerMenuBtnRef = useRef(null);
   const messageInputRef = useRef(null);
+
+  useEffect(() => {
+    const isGroup = Boolean(
+      selectedContact?.isGroup || selectedContact?.conversation?.isGroup
+    );
+    const gId = (selectedContact?._id || selectedContact?.conversation?._id)?.toString();
+    const socket = getSocket();
+    if (socket && isGroup && gId) {
+      socket.emit("get_active_group_call", { groupId: gId });
+    }
+  }, [selectedContact?._id, selectedContact?.isGroup]);
 
   const typingTimeOutRef = useRef(null);
   const messageEndRef = useRef(null);
@@ -299,9 +312,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       (m) => m && m.isDisappearing && !m.isKept
     );
     const isDisappearingActive = disappearingDuration && disappearingDuration !== "Off";
-
     if (!isDisappearingActive && !hasDisappearingMsgs) return;
-
     const interval = setInterval(() => {
       setDisappearingTick((t) => t + 1);
     }, 1000);
@@ -401,7 +412,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     selectedContact,
     disappearingTick,
   ]);
-
   const activeChatThemeId = (activeChatId && chatThemes?.[activeChatId]) || "default";
   const activeChatTheme = useMemo(() => getChatTheme(activeChatThemeId), [activeChatThemeId]);
   const customBubbleColor = activeChatId && chatBubbleColors?.[activeChatId];
@@ -411,7 +421,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const setCurrentConversation = useChatStore(
     (state) => state.setCurrentConversation,
   );
-
   const activePin = useMemo(() => {
     const currConv = currentConversation?._id?.toString();
     const selContactId = selectedContact?._id?.toString();
@@ -421,7 +430,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       (currConv && pinnedMessages?.[currConv]) ||
       (selContactId && pinnedMessages?.[selContactId]) ||
       (selConvId && pinnedMessages?.[selConvId]);
-
     if (!pin) {
       const allPins = Object.values(pinnedMessages || {});
       pin = allPins.find((p) => {
@@ -436,7 +444,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         );
       });
     }
-
     if (
       !pin &&
       selectedContact?.conversation?.pinnedMessage &&
@@ -569,7 +576,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const idStr = String(msgId);
     const container = messagesContainerRef.current;
     const currentScrollTop = container ? container.scrollTop : null;
-
     isProgrammaticScrollRef.current = true;
     setSelectedMessageIds((prev) =>
       prev.includes(idStr) ? prev.filter((id) => id !== idStr) : [...prev, idStr]
@@ -592,7 +598,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleEnterSelectMode = (initialMsgId) => {
     const container = messagesContainerRef.current;
     const currentScrollTop = container ? container.scrollTop : null;
-
     isProgrammaticScrollRef.current = true;
     setIsSelectMode(true);
     if (initialMsgId) {
@@ -618,7 +623,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleExitSelectMode = () => {
     const container = messagesContainerRef.current;
     const currentScrollTop = container ? container.scrollTop : null;
-
     isProgrammaticScrollRef.current = true;
     setIsSelectMode(false);
     setSelectedMessageIds([]);
@@ -641,7 +645,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     setIsSelectMode(false);
     setSelectedMessageIds([]);
   }, [selectedContact?._id]);
-
   useEffect(() => {
     if (!isSelectMode) return;
     const handleKeyDown = (e) => {
@@ -739,7 +742,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   };
 
   const [decryptedPinnedText, setDecryptedPinnedText] = useState("");
-
   useEffect(() => {
     let isMounted = true;
     const resolvePinnedPreview = async () => {
@@ -1935,7 +1937,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const goNext = () => {
     setCurrentIndex((prev) => (prev < resultCount - 1 ? prev + 1 : 0));
   };
-
   const goPrev = () => {
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : resultCount - 1));
   };
@@ -1977,7 +1978,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
     e.preventDefault();
     e.stopPropagation();
-
     setHeaderMenuAnchor({
       x: e.clientX,
       y: e.clientY,
@@ -2028,6 +2028,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         />
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+          <ActiveGroupCallBanner
+            currentGroupId={selectedContact?._id || selectedContact?.conversation?._id}
+            theme={theme}
+          />
           <PinnedBanner
             activePin={activePin}
             theme={theme}

@@ -8,10 +8,7 @@ import Message from "../models/message.js";
 import Conversation from "../models/ConverSation.js";
 import User from "../models/user.js";
 import mongoose from "mongoose";
-import {
-  META_AI_USER_ID,
-  processMetaAiQuery,
-} from "../services/aiService.js";
+import { META_AI_USER_ID, processMetaAiQuery } from "../services/aiService.js";
 import {
   onGroupMessageCreated,
   processMultipleGroupReceipts,
@@ -590,7 +587,6 @@ export const sendMessage = async (req, res) => {
         },
       });
 
-    let finalPopulatedMessage = populatedMessage;
     if (isGroup) {
       if (req.io) {
         await onGroupMessageCreated(
@@ -619,12 +615,12 @@ export const sendMessage = async (req, res) => {
         });
 
       if (updatedPopulatedMessage) {
-        finalPopulatedMessage = updatedPopulatedMessage;
+        populatedMessage = updatedPopulatedMessage;
       }
 
       if (req.io) {
         const messagePayload = {
-          ...finalPopulatedMessage.toObject(),
+          ...populatedMessage.toObject(),
           conversationId: conversation._id.toString(),
         };
 
@@ -703,7 +699,7 @@ export const sendMessage = async (req, res) => {
           ? effectiveReceiverId.toString()
           : META_AI_USER_ID,
         conversationId: conversation._id,
-        userMessage: finalPopulatedMessage,
+        userMessage: populatedMessage,
         isDirectToMetaAi,
         isMetaAiMention,
       }).catch((err) =>
@@ -711,7 +707,7 @@ export const sendMessage = async (req, res) => {
       );
     }
 
-    return response(res, 201, "Message sent successfully", finalPopulatedMessage);
+    return response(res, 201, "Message sent successfully", populatedMessage);
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");

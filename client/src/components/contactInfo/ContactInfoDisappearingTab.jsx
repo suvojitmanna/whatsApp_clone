@@ -86,10 +86,10 @@ const ContactInfoDisappearingTab = ({
                 <div className="relative flex items-center justify-center">
                   <div
                     className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
-                        ? "border-[#00a884]"
-                        : isDark
-                          ? "border-[#8696a0]/70 group-hover:border-white"
-                          : "border-gray-400 group-hover:border-gray-600"
+                      ? "border-[#00a884]"
+                      : isDark
+                        ? "border-[#8696a0]/70 group-hover:border-white"
+                        : "border-gray-400 group-hover:border-gray-600"
                       }`}
                   >
                     {isSelected && (
@@ -99,12 +99,12 @@ const ContactInfoDisappearingTab = ({
                 </div>
                 <span
                   className={`text-[15px] transition-colors ${isSelected
-                      ? isDark
-                        ? "text-white font-medium"
-                        : "text-gray-900 font-medium"
-                      : isDark
-                        ? "text-[#d1d7db] group-hover:text-white"
-                        : "text-gray-700 group-hover:text-gray-900"
+                    ? isDark
+                      ? "text-white font-medium"
+                      : "text-gray-900 font-medium"
+                    : isDark
+                      ? "text-[#d1d7db] group-hover:text-white"
+                      : "text-gray-700 group-hover:text-gray-900"
                     }`}
                 >
                   {option}
@@ -155,10 +155,10 @@ const ContactInfoDisappearingTab = ({
                 <div className="relative flex items-center justify-center">
                   <div
                     className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
-                        ? "border-[#00a884]"
-                        : isDark
-                          ? "border-[#8696a0]/70 group-hover:border-white"
-                          : "border-gray-400 group-hover:border-gray-600"
+                      ? "border-[#00a884]"
+                      : isDark
+                        ? "border-[#8696a0]/70 group-hover:border-white"
+                        : "border-gray-400 group-hover:border-gray-600"
                       }`}
                   >
                     {isSelected && (
@@ -168,12 +168,12 @@ const ContactInfoDisappearingTab = ({
                 </div>
                 <span
                   className={`text-[15px] transition-colors ${isSelected
-                      ? isDark
-                        ? "text-white font-medium"
-                        : "text-gray-900 font-medium"
-                      : isDark
-                        ? "text-[#d1d7db] group-hover:text-white"
-                        : "text-gray-700 group-hover:text-gray-900"
+                    ? isDark
+                      ? "text-white font-medium"
+                      : "text-gray-900 font-medium"
+                    : isDark
+                      ? "text-[#d1d7db] group-hover:text-white"
+                      : "text-gray-700 group-hover:text-gray-900"
                     }`}
                 >
                   {option}

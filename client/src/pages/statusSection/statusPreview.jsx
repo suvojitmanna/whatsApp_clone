@@ -45,7 +45,6 @@ const StatusPreview = ({
   const [showQuickReactions, setShowQuickReactions] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
   const [floatingHearts, setFloatingHearts] = useState([]);
-
   const videoRef = useRef(null);
   const emojiPickerRef = useRef(null);
   const replyBoxRef = useRef(null);
@@ -55,14 +54,10 @@ const StatusPreview = ({
   const ownerBadgeRef = useRef(null);
   const prevLikeCountRef = useRef(0);
   const hasMountedLikeEffectRef = useRef(false);
-
-  const navigate = useNavigate();
   const { setSelectedContact } = useLayoutStore();
-
   const isDark = theme === "dark";
   const currentStatus = contact?.statuses?.[currentIndex];
   const isOwner = String(contact?.id) === String(currentUser?._id);
-
   const sendMessage = useChatStore((state) => state.sendMessage);
 
   useEffect(() => {
@@ -71,7 +66,6 @@ const StatusPreview = ({
     setShowViewers(false);
     hasMountedLikeEffectRef.current = false;
   }, [currentIndex]);
-
   const advancingRef = useRef(false);
 
   useEffect(() => {
@@ -148,9 +142,7 @@ const StatusPreview = ({
       }
     }
   }, [showViewers]);
-
   const handleViewersToggle = () => setShowViewers(!showViewers);
-
   const handleDeleteStatus = async () => {
     if (!currentStatus?.id || !onDelete) return;
 
@@ -357,8 +349,7 @@ const StatusPreview = ({
         }`}
       onClick={onClose}
     >
-      <div
-        className="relative w-full h-full max-w-[500px] mx-auto flex flex-col justify-center items-center shadow-2xl"
+      <div className="relative w-full h-full max-w-[500px] mx-auto flex flex-col justify-center items-center shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div
@@ -410,12 +401,10 @@ const StatusPreview = ({
           <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/60 to-transparent pt-2 sm:pt-3 pb-6 sm:pb-8 px-1.5 sm:px-2">
             <div className="flex justify-between gap-1 mb-2 sm:mb-3 px-1.5 sm:px-2">
               {contact?.statuses.map((_, index) => (
-                <div
-                  className="h-[3px] bg-white/30 flex-1 rounded-full overflow-hidden backdrop-blur-sm"
+                <div className="h-[3px] bg-white/30 flex-1 rounded-full overflow-hidden backdrop-blur-sm"
                   key={index}
                 >
-                  <div
-                    className="h-full bg-white rounded-full"
+                  <div className="h-full bg-white rounded-full"
                     style={{
                       width:
                         index < currentIndex

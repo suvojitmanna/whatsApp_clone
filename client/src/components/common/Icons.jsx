@@ -179,27 +179,7 @@ export const WhatsAppDisappearingIcon = ({
 export const TailOutIcon = ({
   width = 8,
   height = 13,
-  className = "fill-current",
-  ...props }) => (
-  <svg
-    viewBox="0 0 8 13"
-    height={height}
-    width={width}
-    className={className}
-    {...props}
-  >
-    <path
-      opacity="0.13"
-      d="M5.188 1H0v11.193l6.467-8.625C7.526 2.156 6.958 1 5.188 1z"
-    />
-    <path d="M5.188 0H0v12.193l6.467-8.625C7.526 2.156 6.958 0 5.188 0z" />
-  </svg>
-);
-
-export const TailInIcon = ({
-  width = 8,
-  height = 13,
-  className = "fill-current",
+  className = "",
   ...props
 }) => (
   <svg
@@ -211,9 +191,38 @@ export const TailInIcon = ({
   >
     <path
       opacity="0.13"
+      fill="#000000"
+      d="M5.188 1H0v11.193l6.467-8.625C7.526 2.156 6.958 1 5.188 1z"
+    />
+    <path
+      fill="currentColor"
+      d="M5.188 0H0v12.193l6.467-8.625C7.526 2.156 6.958 0 5.188 0z"
+    />
+  </svg>
+);
+
+export const TailInIcon = ({
+  width = 8,
+  height = 13,
+  className = "",
+  ...props
+}) => (
+  <svg
+    viewBox="0 0 8 13"
+    height={height}
+    width={width}
+    className={className}
+    {...props}
+  >
+    <path
+      opacity="0.13"
+      fill="#000000"
       d="M1.533 4.568 8 13.193V1H2.812C1.042 1 .474 3.156 1.533 4.568z"
     />
-    <path d="M1.533 3.568 8 12.193V0H2.812C1.042 0 .474 2.156 1.533 3.568z" />
+    <path
+      fill="currentColor"
+      d="M1.533 3.568 8 12.193V0H2.812C1.042 0 .474 2.156 1.533 3.568z"
+    />
   </svg>
 );
 

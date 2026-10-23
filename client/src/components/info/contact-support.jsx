@@ -72,8 +72,8 @@ const ContactSupport = () => {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Please provide as much detail as possible..."
               className={`w-full p-4 rounded-2xl border outline-none transition-all duration-200 resize-none ${isDark
-                  ? "bg-[#202c33] border-white/10 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 text-white placeholder-gray-500"
-                  : "bg-white border-gray-200 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 text-gray-900 placeholder-gray-400 shadow-sm"
+                ? "bg-[#202c33] border-white/10 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 text-white placeholder-gray-500"
+                : "bg-white border-gray-200 hover:border-emerald-500/50 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 text-gray-900 placeholder-gray-400 shadow-sm"
                 }`}
             />
           </div>
@@ -84,8 +84,8 @@ const ContactSupport = () => {
             disabled={!message.trim()}
             title="Send Message"
             className={`w-full py-4 rounded-full font-bold flex items-center justify-center gap-3 transition-all ${message.trim()
-                ? "bg-green-600 hover:bg-green-500 text-white shadow-lg cursor-pointer active:scale-95"
-                : "bg-gray-500 text-gray-200 cursor-not-allowed opacity-50"
+              ? "bg-green-600 hover:bg-green-500 text-white shadow-lg cursor-pointer active:scale-95"
+              : "bg-gray-500 text-gray-200 cursor-not-allowed opacity-50"
               }`}
           >
             <FaPaperPlane className="text-sm" />

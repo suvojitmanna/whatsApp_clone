@@ -18,6 +18,15 @@ export const MessageStatusIcon = ({
   isOverlay = false,
 }) => {
   if (!isUserMessage) return null;
+  if (
+    message.contentType === "call" ||
+    message.contentType === "call_link" ||
+    message.isSystemMessage ||
+    message.contentType === "system"
+  ) {
+    return null;
+  }
+
   const status = message.messageStatus || message.status;
   if (!status || status === "pending" || status === "sending" || message.isPending) {
     return (
@@ -32,7 +41,9 @@ export const MessageStatusIcon = ({
   if (isGroupChat) {
     const rawParticipants =
       activeContact?.participants ||
+      activeContact?.conversation?.participants ||
       conversationObj?.participants ||
+      message.conversation?.participants ||
       [];
 
     const otherParticipants = rawParticipants
@@ -66,7 +77,7 @@ export const MessageStatusIcon = ({
       }
 
       const allDelivered =
-        status === "delivered" ||
+        (status === "delivered" && otherParticipants.length > 0) ||
         otherParticipants.every(
           (pId) => deliveredIds.has(pId) || readIds.has(pId)
         );
@@ -85,7 +96,7 @@ export const MessageStatusIcon = ({
         <FiCheck
           size={13}
           className={isOverlay ? "text-white/85 shrink-0" : "opacity-60 shrink-0"}
-          title="Sent"
+          title="Sent (waiting for group delivery)"
         />
       );
     }
@@ -201,7 +212,7 @@ export const MessageTimestampAndStatus = ({
 
   return (
     <span
-      className={`float-right inline-flex items-center gap-1 text-[11px] select-none ml-2 leading-none self-end shrink-0 relative top-1 ${isDark ? "text-white/60" : "text-[#667781]"
+      className={`float-right inline-flex items-center gap-1 text-[11px] select-none ml-2 leading-none self-end shrink-0 relative top-[1px] ${isDark ? "text-white/60" : "text-[#667781]"
         }`}
     >
       {isPinned && (
@@ -251,8 +262,8 @@ export const MessageTimestampAndStatus = ({
         <button
           type="button"
           onClick={handleToggleOptions}
-          className={`${showOptions ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-            } transition-opacity p-0.5 opacity-60 hover:opacity-100 cursor-pointer ml-0.5`}
+          className={`${showOptions ? "opacity-100 text-current" : "opacity-0 group-hover:opacity-80 hover:opacity-100 text-current"
+            } transition-all p-0.5 cursor-pointer ml-0.5 inline-flex items-center justify-center`}
           title="Menu"
         >
           <FiChevronDown size={14} />

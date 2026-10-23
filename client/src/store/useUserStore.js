@@ -7,7 +7,7 @@ const useUserStore = create(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
-
+      
       setUser: (userData) => {
         const normalizedUser =
           userData?.user || userData?.data?.user || userData;

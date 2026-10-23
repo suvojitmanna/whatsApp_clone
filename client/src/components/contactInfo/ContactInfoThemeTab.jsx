@@ -130,8 +130,8 @@ const ContactInfoThemeTab = ({
                     onMouseMove={(e) => updateCursorTooltip?.(e, themeItem.name)}
                     onMouseLeave={hideCursorTooltip}
                     className={`relative h-[80px] rounded-[18px] overflow-hidden cursor-pointer transition-all duration-200 select-none ${isSelected
-                        ? "border-2 border-white scale-[1.01] shadow-xl"
-                        : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
+                      ? "border-2 border-white scale-[1.01] shadow-xl"
+                      : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
                       }`}
                     style={{
                       backgroundColor: themeItem.bgColor || "#0b141a",
@@ -189,8 +189,8 @@ const ContactInfoThemeTab = ({
           >
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${doodlesEnabled
-                  ? "translate-x-5 bg-[#111b21]"
-                  : "translate-x-0 bg-[#8696a0]"
+                ? "translate-x-5 bg-[#111b21]"
+                : "translate-x-0 bg-[#8696a0]"
                 }`}
             />
           </button>
@@ -265,8 +265,8 @@ const ContactInfoThemeTab = ({
                 onMouseMove={(e) => updateCursorTooltip?.(e, bubbleItem.name)}
                 onMouseLeave={hideCursorTooltip}
                 className={`relative w-[54px] h-[54px] sm:w-[58px] sm:h-[58px] rounded-full transition-all duration-150 cursor-pointer flex items-center justify-center ${isSelected
-                    ? "ring-2 ring-white ring-offset-2 ring-offset-[#111b21] scale-100"
-                    : "hover:scale-105 active:scale-95"
+                  ? "ring-2 ring-white ring-offset-2 ring-offset-[#111b21] scale-100"
+                  : "hover:scale-105 active:scale-95"
                   }`}
                 style={{ backgroundColor: bubbleItem.color }}
               >
@@ -305,8 +305,8 @@ const ContactInfoThemeTab = ({
                 onMouseMove={(e) => updateCursorTooltip?.(e, themeItem.name)}
                 onMouseLeave={hideCursorTooltip}
                 className={`relative h-[105px] rounded-[20px] overflow-hidden cursor-pointer transition-all duration-200 select-none shadow-md ${isSelected
-                    ? "border-2 border-white scale-[1.01] shadow-2xl ring-2 ring-white/10"
-                    : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
+                  ? "border-2 border-white scale-[1.01] shadow-2xl ring-2 ring-white/10"
+                  : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
                   }`}
                 style={{
                   background: themeItem.gradient || themeItem.bgColor,
@@ -375,8 +375,8 @@ const ContactInfoThemeTab = ({
               type="button"
               onClick={() => setWallpaperFilter(tab.id)}
               className={`px-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap transition-colors cursor-pointer ${wallpaperFilter === tab.id
-                  ? "bg-[#00a884] text-[#111b21] font-semibold"
-                  : "bg-white/5 hover:bg-white/10 text-[#8696a0] hover:text-white"
+                ? "bg-[#00a884] text-[#111b21] font-semibold"
+                : "bg-white/5 hover:bg-white/10 text-[#8696a0] hover:text-white"
                 }`}
             >
               {tab.label}
@@ -399,8 +399,8 @@ const ContactInfoThemeTab = ({
                 onMouseMove={(e) => updateCursorTooltip?.(e, themeItem.name)}
                 onMouseLeave={hideCursorTooltip}
                 className={`relative h-[126px] rounded-[18px] overflow-hidden cursor-pointer transition-all duration-200 select-none shadow-md ${isSelected
-                    ? "border-2 border-white scale-[1.01] shadow-2xl ring-2 ring-white/20"
-                    : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
+                  ? "border-2 border-white scale-[1.01] shadow-2xl ring-2 ring-white/20"
+                  : "border border-white/10 hover:border-white/30 hover:scale-[1.02]"
                   }`}
                 style={{
                   backgroundColor: themeItem.bgColor || "#111b21",
@@ -465,8 +465,8 @@ const ContactInfoThemeTab = ({
           >
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${doodlesEnabled
-                  ? "translate-x-5 bg-[#111b21]"
-                  : "translate-x-0 bg-[#8696a0]"
+                ? "translate-x-5 bg-[#111b21]"
+                : "translate-x-0 bg-[#8696a0]"
                 }`}
             />
           </button>
@@ -483,8 +483,8 @@ const ContactInfoThemeTab = ({
                 onMouseMove={(e) => updateCursorTooltip?.(e, themeItem.name)}
                 onMouseLeave={hideCursorTooltip}
                 className={`relative h-[105px] rounded-[20px] overflow-hidden cursor-pointer transition-all duration-200 select-none ${isSelected
-                    ? "border-2 border-white scale-[1.01] shadow-xl"
-                    : "border border-white/10 hover:border-white/30 hover:scale-[1.01]"
+                  ? "border-2 border-white scale-[1.01] shadow-xl"
+                  : "border border-white/10 hover:border-white/30 hover:scale-[1.01]"
                   }`}
                 style={{
                   backgroundColor: themeItem.bgColor,

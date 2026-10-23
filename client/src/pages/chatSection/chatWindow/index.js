@@ -6,4 +6,5 @@ export { default as GroupSystemNotice, DisappearingSystemNotice } from "./GroupS
 export { default as MultiSelectActionBar } from "./MultiSelectActionBar";
 export { default as ChatInputBar } from "./ChatInputBar";
 export { default as ChatModals } from "./ChatModals";
+export { default as ActiveGroupCallBanner } from "./ActiveGroupCallBanner";
 export * from "./helpers";

@@ -124,8 +124,8 @@ const ContactInfoStarredTab = ({
                 <div
                   key={msgId || Math.random()}
                   className={`p-3.5 rounded-2xl border transition-all ${isDark
-                      ? "bg-[#202c33] border-white/5 hover:border-white/10"
-                      : "bg-white border-black/5 hover:border-black/10 shadow-sm"
+                    ? "bg-[#202c33] border-white/5 hover:border-white/10"
+                    : "bg-white border-black/5 hover:border-black/10 shadow-sm"
                     }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">
@@ -225,8 +225,8 @@ const ContactInfoStarredTab = ({
                 <div
                   key={msgId || Math.random()}
                   className={`p-3.5 rounded-2xl border transition-all ${isDark
-                      ? "bg-[#202c33] border-white/5 hover:border-white/10"
-                      : "bg-white border-black/5 hover:border-black/10 shadow-sm"
+                    ? "bg-[#202c33] border-white/5 hover:border-white/10"
+                    : "bg-white border-black/5 hover:border-black/10 shadow-sm"
                     }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-2">

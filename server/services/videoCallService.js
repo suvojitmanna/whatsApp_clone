@@ -1,6 +1,43 @@
 const activeGroupCalls = new Map();
+const groupToCallMap = new Map();
 
 const handleVideoCallEvent = (socket, io, onlineUsers) => {
+  const broadcastGroupCallUpdate = (groupCall) => {
+    if (!groupCall) return;
+    const joinedList = Array.from(groupCall.participants.values()).map((p) => ({
+      userId: p.userId,
+      username: p.username,
+      profilePicture: p.profilePicture,
+      joinedAt: p.joinedAt || Date.now(),
+    }));
+
+    const updatePayload = {
+      callId: groupCall.callId,
+      groupId: groupCall.groupId,
+      groupName: groupCall.groupName,
+      groupAvatar: groupCall.groupAvatar,
+      callType: groupCall.callType,
+      callerId: groupCall.callerId,
+      callerName: groupCall.callerInfo?.username || "Someone",
+      callerAvatar: groupCall.callerInfo?.profilePicture || "",
+      isActive: true,
+      status: "ongoing",
+      joinedParticipants: joinedList,
+    };
+
+    const targetUserIds = new Set([
+      ...Array.from(groupCall.participants.keys()),
+      ...Array.from(groupCall.pendingReceivers),
+    ]);
+
+    targetUserIds.forEach((uId) => {
+      const sock = onlineUsers.get(uId);
+      if (sock) {
+        io.to(sock).emit("active_group_call_update", updatePayload);
+      }
+    });
+  };
+
   socket.on(
     "initiate_call",
     ({
@@ -13,14 +50,13 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
       groupAvatar,
       callType,
       callerInfo,
-      callId: clientCallId,
     }) => {
       const strCallerId = (callerId?._id || callerId)?.toString();
 
       if (isGroup && Array.isArray(receiverIds) && receiverIds.length > 0) {
-        const callId =
-          clientCallId ||
-          `${strCallerId}-${groupId || "group"}-${Date.now()}`;
+        const callId = `${strCallerId}-${groupId || "group"}-${Date.now()}`;
+        const strGroupId = (groupId?._id || groupId)?.toString();
+
         const targetIds = new Set(
           receiverIds
             .map((id) => (id?._id || id)?.toString())
@@ -39,39 +75,63 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
               callId,
               callType,
               isGroup: true,
-              groupId: groupId?.toString(),
+              groupId: strGroupId,
               groupName: groupName || "Group Call",
               groupAvatar: groupAvatar || "",
+              joinedParticipants: [
+                {
+                  userId: strCallerId,
+                  username: callerInfo?.username || "Someone",
+                  profilePicture: callerInfo?.profilePicture || "",
+                  joinedAt: Date.now(),
+                },
+              ],
             });
           }
         });
 
         if (onlineCount === 0) {
-          console.log(
-            `server: No group participants online for group ${groupId}`,
-          );
+          console.log(`server: No group participants online for group ${strGroupId}`);
           socket.emit("call_failed", {
             reason: "All participants are offline",
           });
-        } else {
-          activeGroupCalls.set(callId, {
-            callId,
-            callerId: strCallerId,
-            groupId: groupId?.toString(),
-            pendingReceivers: targetIds,
-            answeredBy: null,
-            callType,
-          });
+          return;
         }
+
+        const participantsMap = new Map();
+        participantsMap.set(strCallerId, {
+          userId: strCallerId,
+          username: callerInfo?.username || "Someone",
+          profilePicture: callerInfo?.profilePicture || "",
+          joinedAt: Date.now(),
+        });
+
+        const newGroupCall = {
+          callId,
+          groupId: strGroupId,
+          groupName: groupName || "Group Call",
+          groupAvatar: groupAvatar || "",
+          callType,
+          callerId: strCallerId,
+          callerInfo,
+          pendingReceivers: targetIds,
+          participants: participantsMap,
+          startedAt: Date.now(),
+        };
+
+        activeGroupCalls.set(callId, newGroupCall);
+        if (strGroupId) {
+          groupToCallMap.set(strGroupId, callId);
+        }
+
+        broadcastGroupCallUpdate(newGroupCall);
         return;
       }
-
       const strReceiverId = (receiverId?._id || receiverId)?.toString();
       const receiverSocketId = onlineUsers.get(strReceiverId);
 
       if (receiverSocketId) {
-        const callId =
-          clientCallId || `${strCallerId}-${strReceiverId}-${Date.now()}`;
+        const callId = `${strCallerId}-${strReceiverId}-${Date.now()}`;
 
         io.to(receiverSocketId).emit("incoming_call", {
           callerId: strCallerId,
@@ -83,7 +143,7 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
         });
       } else {
         console.log(`server: Receiver ${strReceiverId} is offline`);
-        socket.emit("call_failed", { reason: "User is offline" });
+        socket.emit("call_failed", { reason: "user is offline" });
       }
     },
   );
@@ -91,57 +151,239 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
   socket.on(
     "accept_call",
     ({ callerId, receiverInfo, callId, isGroup, groupId }) => {
+      const answeringUserId = (socket.userId || socket.id)?.toString();
       const strCallerId = (callerId?._id || callerId)?.toString();
-      const callerSocketId = onlineUsers.get(strCallerId);
 
-      // Search activeGroupCalls by callId, or fallback to groupId/callerId matching
       let groupCall = activeGroupCalls.get(callId);
       if (!groupCall && (isGroup || groupId)) {
-        for (const [gCallId, gCall] of activeGroupCalls.entries()) {
-          if (
-            (groupId && gCall.groupId === groupId?.toString()) ||
-            gCall.callerId === strCallerId
-          ) {
-            groupCall = gCall;
-            callId = gCallId;
-            break;
-          }
+        const mappedCallId = groupToCallMap.get(groupId?.toString());
+        if (mappedCallId) {
+          groupCall = activeGroupCalls.get(mappedCallId);
+          callId = mappedCallId;
         }
       }
 
-      const answeringUserId = (socket.userId || socket.id)?.toString();
-
       if (groupCall) {
-        groupCall.answeredBy = answeringUserId;
+        groupCall.pendingReceivers.delete(answeringUserId);
 
-        groupCall.pendingReceivers.forEach((pId) => {
-          if (pId !== answeringUserId) {
-            const otherSocketId = onlineUsers.get(pId);
-            if (otherSocketId) {
-              io.to(otherSocketId).emit("call_ended", {
-                callId,
-                reason: "answered_elsewhere",
+        const newParticipant = {
+          userId: answeringUserId,
+          username: receiverInfo?.username || "Member",
+          profilePicture: receiverInfo?.profilePicture || "",
+          joinedAt: Date.now(),
+        };
+        groupCall.participants.set(answeringUserId, newParticipant);
+
+        const callerSocketId = onlineUsers.get(groupCall.callerId);
+        if (callerSocketId) {
+          io.to(callerSocketId).emit("call_accepted", {
+            callId: groupCall.callId,
+            receiverId: answeringUserId,
+            receiverName: receiverInfo?.username,
+            receiverAvatar: receiverInfo?.profilePicture,
+            isGroup: true,
+            groupId: groupCall.groupId,
+          });
+        }
+
+        const existingParticipantsList = Array.from(groupCall.participants.values()).filter(
+          (p) => p.userId !== answeringUserId,
+        );
+
+        socket.emit("group_call_joined", {
+          callId: groupCall.callId,
+          groupId: groupCall.groupId,
+          groupName: groupCall.groupName,
+          groupAvatar: groupCall.groupAvatar,
+          callType: groupCall.callType,
+          callerId: groupCall.callerId,
+          existingParticipants: existingParticipantsList,
+          joinedParticipants: Array.from(groupCall.participants.values()),
+        });
+
+        groupCall.participants.forEach((p) => {
+          if (p.userId !== answeringUserId) {
+            const pSocket = onlineUsers.get(p.userId);
+            if (pSocket) {
+              io.to(pSocket).emit("group_call_participant_joined", {
+                callId: groupCall.callId,
+                groupId: groupCall.groupId,
+                participant: newParticipant,
+                joinedParticipants: Array.from(groupCall.participants.values()),
               });
             }
           }
         });
-      }
 
+        broadcastGroupCallUpdate(groupCall);
+        return;
+      }
+      const callerSocketId = onlineUsers.get(strCallerId);
       if (callerSocketId) {
         io.to(callerSocketId).emit("call_accepted", {
           callId,
           receiverId: answeringUserId,
           receiverName: receiverInfo?.username,
           receiverAvatar: receiverInfo?.profilePicture,
-          isGroup: Boolean(isGroup || groupCall),
-          groupId: groupId || groupCall?.groupId,
+          isGroup: false,
         });
       } else {
         console.log(`server: Caller ${strCallerId} not found`);
-        socket.emit("call_failed", { reason: "Caller is offline" });
+        socket.emit("call_failed", { reason: "caller is offline" });
       }
     },
   );
+
+  socket.on("join_group_call", ({ callId, groupId, userInfo }) => {
+    const joiningUserId = (socket.userId || socket.id)?.toString();
+    const strGroupId = (groupId?._id || groupId)?.toString();
+
+    let groupCall = callId ? activeGroupCalls.get(callId) : null;
+    if (!groupCall && strGroupId) {
+      const mappedId = groupToCallMap.get(strGroupId);
+      if (mappedId) {
+        groupCall = activeGroupCalls.get(mappedId);
+        callId = mappedId;
+      }
+    }
+
+    if (!groupCall) {
+      socket.emit("call_failed", { reason: "Call is no longer active" });
+      return;
+    }
+
+    groupCall.pendingReceivers.delete(joiningUserId);
+
+    const newParticipant = {
+      userId: joiningUserId,
+      username: userInfo?.username || "Member",
+      profilePicture: userInfo?.profilePicture || "",
+      joinedAt: Date.now(),
+    };
+    groupCall.participants.set(joiningUserId, newParticipant);
+
+    const existingParticipantsList = Array.from(groupCall.participants.values()).filter(
+      (p) => p.userId !== joiningUserId,
+    );
+
+    socket.emit("group_call_joined", {
+      callId: groupCall.callId,
+      groupId: groupCall.groupId,
+      groupName: groupCall.groupName,
+      groupAvatar: groupCall.groupAvatar,
+      callType: groupCall.callType,
+      callerId: groupCall.callerId,
+      existingParticipants: existingParticipantsList,
+      joinedParticipants: Array.from(groupCall.participants.values()),
+    });
+
+    groupCall.participants.forEach((p) => {
+      if (p.userId !== joiningUserId) {
+        const pSocket = onlineUsers.get(p.userId);
+        if (pSocket) {
+          io.to(pSocket).emit("group_call_participant_joined", {
+            callId: groupCall.callId,
+            groupId: groupCall.groupId,
+            participant: newParticipant,
+            joinedParticipants: Array.from(groupCall.participants.values()),
+          });
+        }
+      }
+    });
+
+    broadcastGroupCallUpdate(groupCall);
+  });
+
+  socket.on("get_active_group_call", ({ groupId, callId }, callback) => {
+    const strGroupId = (groupId?._id || groupId)?.toString();
+    let groupCall = callId ? activeGroupCalls.get(callId) : null;
+    if (!groupCall && strGroupId) {
+      const mappedId = groupToCallMap.get(strGroupId);
+      if (mappedId) groupCall = activeGroupCalls.get(mappedId);
+    }
+
+    if (groupCall && groupCall.participants.size > 0) {
+      const payload = {
+        callId: groupCall.callId,
+        groupId: groupCall.groupId,
+        groupName: groupCall.groupName,
+        groupAvatar: groupCall.groupAvatar,
+        callType: groupCall.callType,
+        callerId: groupCall.callerId,
+        callerName: groupCall.callerInfo?.username || "Someone",
+        callerAvatar: groupCall.callerInfo?.profilePicture || "",
+        isActive: true,
+        status: "ongoing",
+        joinedParticipants: Array.from(groupCall.participants.values()).map((p) => ({
+          userId: p.userId,
+          username: p.username,
+          profilePicture: p.profilePicture,
+        })),
+      };
+      if (typeof callback === "function") callback({ activeCall: payload });
+      socket.emit("active_group_call_update", payload);
+    } else {
+      if (typeof callback === "function") callback({ activeCall: null });
+      socket.emit("active_group_call_update", {
+        groupId: strGroupId,
+        isActive: false,
+        joinedParticipants: [],
+      });
+    }
+  });
+
+  socket.on("leave_group_call", ({ callId, groupId }) => {
+    let groupCall = activeGroupCalls.get(callId);
+    if (!groupCall && groupId) {
+      const mappedId = groupToCallMap.get(groupId?.toString());
+      if (mappedId) groupCall = activeGroupCalls.get(mappedId);
+    }
+    if (!groupCall) return;
+
+    const leavingUserId = (socket.userId || socket.id)?.toString();
+    groupCall.participants.delete(leavingUserId);
+    groupCall.pendingReceivers.delete(leavingUserId);
+
+    groupCall.participants.forEach((p) => {
+      const pSocket = onlineUsers.get(p.userId);
+      if (pSocket) {
+        io.to(pSocket).emit("group_call_participant_left", {
+          callId: groupCall.callId,
+          groupId: groupCall.groupId,
+          userId: leavingUserId,
+          joinedParticipants: Array.from(groupCall.participants.values()).map((pt) => ({
+            userId: pt.userId,
+            username: pt.username,
+            profilePicture: pt.profilePicture,
+          })),
+        });
+      }
+    });
+
+    if (groupCall.participants.size === 0) {
+      activeGroupCalls.delete(groupCall.callId);
+      if (groupCall.groupId) groupToCallMap.delete(groupCall.groupId);
+
+      const allTargets = new Set([
+        ...groupCall.pendingReceivers,
+        leavingUserId,
+      ]);
+      allTargets.forEach((tId) => {
+        const tSocket = onlineUsers.get(tId);
+        if (tSocket) {
+          io.to(tSocket).emit("active_group_call_update", {
+            callId: groupCall.callId,
+            groupId: groupCall.groupId,
+            isActive: false,
+            joinedParticipants: [],
+          });
+          io.to(tSocket).emit("call_ended", { callId: groupCall.callId });
+        }
+      });
+    } else {
+      broadcastGroupCallUpdate(groupCall);
+    }
+  });
 
   socket.on("reject_call", ({ callerId, callId, isGroup, groupId }) => {
     const strCallerId = (callerId?._id || callerId)?.toString();
@@ -166,19 +408,17 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
         groupCall.pendingReceivers.delete(rejectingUserId);
       }
 
-      // If call is already answered by someone else, a rejection from another member should NOT end the call!
-      if (groupCall.answeredBy) {
+      if (groupCall.participants.size > 1) {
         return;
       }
 
-      // Only emit call_rejected to caller if ALL pending members have rejected
-      if (groupCall.pendingReceivers.size === 0) {
+      if (groupCall.pendingReceivers.size === 0 && groupCall.participants.size <= 1) {
         activeGroupCalls.delete(callId);
+        if (groupCall.groupId) groupToCallMap.delete(groupCall.groupId);
+
         const callerSocketId = onlineUsers.get(groupCall.callerId || strCallerId);
         if (callerSocketId) {
-          io.to(callerSocketId).emit("call_rejected", {
-            callId,
-          });
+          io.to(callerSocketId).emit("call_rejected", { callId });
         }
       }
       return;
@@ -186,11 +426,7 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
 
     const callerSocketId = onlineUsers.get(strCallerId);
     if (callerSocketId) {
-      io.to(callerSocketId).emit("call_rejected", {
-        callId,
-      });
-    } else {
-      console.log(`server: Caller ${strCallerId} not found`);
+      io.to(callerSocketId).emit("call_rejected", { callId });
     }
   });
 
@@ -204,7 +440,7 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
         if (
           (groupId && gCall.groupId === groupId?.toString()) ||
           gCall.callerId === endingUserId ||
-          gCall.answeredBy === endingUserId
+          gCall.participants.has(endingUserId)
         ) {
           groupCall = gCall;
           callId = gCallId;
@@ -214,129 +450,103 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
     }
 
     if (groupCall) {
-      const isCaller = endingUserId === groupCall.callerId;
-      const isAnswerer = groupCall.answeredBy && endingUserId === groupCall.answeredBy;
+      groupCall.participants.delete(endingUserId);
+      groupCall.pendingReceivers.delete(endingUserId);
 
-      // If someone who is neither the caller nor the person who answered ends call,
-      // it's just an ignored/closed ringing screen from a third member. Do NOT terminate the active call!
-      if (!isCaller && !isAnswerer) {
-        console.log(`server: Non-active participant ${endingUserId} left/ended ring for group call ${callId}`);
-        if (endingUserId) {
-          groupCall.pendingReceivers.delete(endingUserId);
-        }
-        return;
-      }
-
-      // Either caller or answeredBy ended the call: terminate call for all
-      activeGroupCalls.delete(callId);
-      groupCall.pendingReceivers.forEach((pId) => {
-        const pSocket = onlineUsers.get(pId);
-        if (pSocket && pSocket !== socket.id) {
-          io.to(pSocket).emit("call_ended", { callId });
+      groupCall.participants.forEach((p) => {
+        const pSocket = onlineUsers.get(p.userId);
+        if (pSocket) {
+          io.to(pSocket).emit("group_call_participant_left", {
+            callId: groupCall.callId,
+            groupId: groupCall.groupId,
+            userId: endingUserId,
+            joinedParticipants: Array.from(groupCall.participants.values()).map((pt) => ({
+              userId: pt.userId,
+              username: pt.username,
+              profilePicture: pt.profilePicture,
+            })),
+          });
         }
       });
-      if (groupCall.answeredBy) {
-        const ansSocket = onlineUsers.get(groupCall.answeredBy);
-        if (ansSocket && ansSocket !== socket.id) {
-          io.to(ansSocket).emit("call_ended", { callId });
-        }
-      }
-      const callerSocketId = onlineUsers.get(groupCall.callerId);
-      if (callerSocketId && callerSocketId !== socket.id) {
-        io.to(callerSocketId).emit("call_ended", { callId });
+
+      if (groupCall.participants.size === 0) {
+        activeGroupCalls.delete(callId);
+        if (groupCall.groupId) groupToCallMap.delete(groupCall.groupId);
+
+        const allTargets = new Set([
+          ...groupCall.pendingReceivers,
+          endingUserId,
+        ]);
+        allTargets.forEach((tId) => {
+          const tSocket = onlineUsers.get(tId);
+          if (tSocket) {
+            io.to(tSocket).emit("active_group_call_update", {
+              callId: groupCall.callId,
+              groupId: groupCall.groupId,
+              isActive: false,
+              joinedParticipants: [],
+            });
+            io.to(tSocket).emit("call_ended", { callId });
+          }
+        });
+      } else {
+        broadcastGroupCallUpdate(groupCall);
       }
       return;
     }
 
     const participantSocketId = onlineUsers.get(strParticipantId);
     if (participantSocketId) {
-      io.to(participantSocketId).emit("call_ended", {
-        callId,
-      });
-    } else {
-      console.log(`server: Participant ${strParticipantId} not found`);
+      io.to(participantSocketId).emit("call_ended", { callId });
     }
   });
 
-  socket.on("webrtc_offer", ({ offer, receiverId, callId }) => {
-    let strReceiverId = (receiverId?._id || receiverId)?.toString();
-    let receiverSocketId = onlineUsers.get(strReceiverId);
+  socket.on("webrtc_offer", ({ offer, receiverId, targetUserId, senderId, callId }) => {
+    const destId = (targetUserId || receiverId?._id || receiverId)?.toString();
+    const srcId = (senderId || socket.userId || socket.id)?.toString();
+    const destSocket = onlineUsers.get(destId);
 
-    // Fallback lookup from activeGroupCalls
-    if (!receiverSocketId && callId) {
-      const gCall = activeGroupCalls.get(callId);
-      if (gCall && gCall.answeredBy) {
-        strReceiverId = gCall.answeredBy;
-        receiverSocketId = onlineUsers.get(strReceiverId);
-      }
-    }
-
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("webrtc_offer", {
+    if (destSocket) {
+      io.to(destSocket).emit("webrtc_offer", {
         offer,
-        senderId: (socket.userId || socket.id)?.toString(),
+        senderId: srcId,
+        targetUserId: destId,
         callId,
       });
-      console.log(`server offer forward to ${strReceiverId}`);
     } else {
-      console.log(`server: Receiver ${strReceiverId} not found for offer`);
-      socket.emit("call_failed", { reason: "Recipient is not reachable" });
+      console.log(`server: Target ${destId} not found for WebRTC offer`);
     }
   });
 
-  socket.on("webrtc_answer", ({ answer, receiverId, callId }) => {
-    let strReceiverId = (receiverId?._id || receiverId)?.toString();
-    let receiverSocketId = onlineUsers.get(strReceiverId);
+  socket.on("webrtc_answer", ({ answer, receiverId, targetUserId, senderId, callId }) => {
+    const destId = (targetUserId || receiverId?._id || receiverId)?.toString();
+    const srcId = (senderId || socket.userId || socket.id)?.toString();
+    const destSocket = onlineUsers.get(destId);
 
-    // Fallback lookup from activeGroupCalls
-    if (!receiverSocketId && callId) {
-      const gCall = activeGroupCalls.get(callId);
-      if (gCall && gCall.callerId) {
-        strReceiverId = gCall.callerId;
-        receiverSocketId = onlineUsers.get(strReceiverId);
-      }
-    }
-
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("webrtc_answer", {
+    if (destSocket) {
+      io.to(destSocket).emit("webrtc_answer", {
         answer,
-        senderId: (socket.userId || socket.id)?.toString(),
+        senderId: srcId,
+        targetUserId: destId,
         callId,
       });
     } else {
-      console.log(`server: Receiver ${strReceiverId} not found for answer`);
-      socket.emit("call_failed", { reason: "Caller is not reachable" });
+      console.log(`server: Target ${destId} not found for WebRTC answer`);
     }
   });
 
-  socket.on("webrtc_ice_candidate", ({ candidate, receiverId, callId }) => {
-    let strReceiverId = (receiverId?._id || receiverId)?.toString();
-    let receiverSocketId = onlineUsers.get(strReceiverId);
+  socket.on("webrtc_ice_candidate", ({ candidate, receiverId, targetUserId, senderId, callId }) => {
+    const destId = (targetUserId || receiverId?._id || receiverId)?.toString();
+    const srcId = (senderId || socket.userId || socket.id)?.toString();
+    const destSocket = onlineUsers.get(destId);
 
-    // Fallback lookup from activeGroupCalls
-    if (!receiverSocketId && callId) {
-      const gCall = activeGroupCalls.get(callId);
-      if (gCall) {
-        const senderId = (socket.userId || socket.id)?.toString();
-        if (senderId === gCall.callerId && gCall.answeredBy) {
-          strReceiverId = gCall.answeredBy;
-          receiverSocketId = onlineUsers.get(strReceiverId);
-        } else if (senderId === gCall.answeredBy && gCall.callerId) {
-          strReceiverId = gCall.callerId;
-          receiverSocketId = onlineUsers.get(strReceiverId);
-        }
-      }
-    }
-
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("webrtc_ice_candidate", {
+    if (destSocket) {
+      io.to(destSocket).emit("webrtc_ice_candidate", {
         candidate,
-        senderId: (socket.userId || socket.id)?.toString(),
+        senderId: srcId,
+        targetUserId: destId,
         callId,
       });
-    } else {
-      // Do NOT emit call_failed for an unrouted ICE candidate - candidates stream continuously and must not kill active calls
-      console.log(`server: Receiver ${strReceiverId} not found for ICE candidate`);
     }
   });
 };

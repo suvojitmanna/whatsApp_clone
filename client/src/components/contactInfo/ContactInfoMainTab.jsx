@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { motion } from "framer-motion";
 import {
   FaPen,
@@ -128,7 +134,6 @@ const ContactInfoMainTab = ({
   const [selectedBgColor, setSelectedBgColor] = useState(AVATAR_BG_COLORS[0]);
   const groupPhotoMenuRef = useRef(null);
   const groupImageInputRef = useRef(null);
-
   useOutsideClick(groupPhotoMenuRef, () => {
     if (showGroupPhotoMenu) setShowGroupPhotoMenu(false);
   });
@@ -156,7 +161,7 @@ const ContactInfoMainTab = ({
   const [favorites, setFavorites] = useState(() => {
     try {
       return JSON.parse(
-        localStorage.getItem("whatsapp_favourite_chats") || "[]"
+        localStorage.getItem("whatsapp_favourite_chats") || "[]",
       );
     } catch {
       return [];
@@ -232,14 +237,14 @@ const ContactInfoMainTab = ({
       if (
         itemId &&
         chatStarredMessages.some(
-          (sm) => (sm.messageId || sm.message?._id)?.toString() === itemId
+          (sm) => (sm.messageId || sm.message?._id)?.toString() === itemId,
         )
       ) {
         return true;
       }
       return false;
     },
-    [starredMessages, isMessageStarred, chatStarredMessages]
+    [starredMessages, isMessageStarred, chatStarredMessages],
   );
 
   const previewImages = useMemo(() => {
@@ -264,7 +269,7 @@ const ContactInfoMainTab = ({
           m.contentType === "video" ||
           Boolean(
             (m.imageOrVideoUrl || m.url) &&
-            (m.imageOrVideoUrl || m.url).match(/\.(mp4|webm|mov|mkv)($|\?)/i)
+            (m.imageOrVideoUrl || m.url).match(/\.(mp4|webm|mov|mkv)($|\?)/i),
           );
         const isImage =
           m.contentType === "image" ||
@@ -295,7 +300,7 @@ const ContactInfoMainTab = ({
           m.contentType === "video" ||
           Boolean(
             (m.url || m.imageOrVideoUrl) &&
-            (m.url || m.imageOrVideoUrl).match(/\.(mp4|webm|mov|mkv)($|\?)/i)
+            (m.url || m.imageOrVideoUrl).match(/\.(mp4|webm|mov|mkv)($|\?)/i),
           );
         const isImage =
           m.mediaType === "image" ||
@@ -369,7 +374,7 @@ const ContactInfoMainTab = ({
       ? useChatStore.getState().users
       : [];
     const matchedUser = userList.find(
-      (u) => (u._id || u.id)?.toString() === memberId
+      (u) => (u._id || u.id)?.toString() === memberId,
     );
 
     const contactToSelect = {
@@ -377,10 +382,13 @@ const ContactInfoMainTab = ({
       ...member,
       _id: memberId,
       id: memberId,
-      username: member.username || member.name || matchedUser?.username || "Contact",
+      username:
+        member.username || member.name || matchedUser?.username || "Contact",
       name: member.username || member.name || matchedUser?.name || "Contact",
-      profilePicture: member.profilePicture || matchedUser?.profilePicture || "",
-      about: member.about || matchedUser?.about || "Hey there! I am using WhatsApp.",
+      profilePicture:
+        member.profilePicture || matchedUser?.profilePicture || "",
+      about:
+        member.about || matchedUser?.about || "Hey there! I am using WhatsApp.",
       phoneNumber: member.phoneNumber || matchedUser?.phoneNumber || "",
       conversation: existingConv || matchedUser?.conversation || null,
       isGroup: false,
@@ -409,8 +417,10 @@ const ContactInfoMainTab = ({
       groupName: groupConv.groupName || groupConv.name || "Group",
       name: groupConv.groupName || groupConv.name || "Group",
       username: groupConv.groupName || groupConv.name || "Group",
-      profilePicture: groupConv.groupProfileImage || groupConv.profilePicture || "",
-      groupProfileImage: groupConv.groupProfileImage || groupConv.profilePicture || "",
+      profilePicture:
+        groupConv.groupProfileImage || groupConv.profilePicture || "",
+      groupProfileImage:
+        groupConv.groupProfileImage || groupConv.profilePicture || "",
       groupAdmin: groupConv.groupAdmin,
       groupDescription: groupConv.groupDescription || "",
       about: groupConv.groupDescription || "",
@@ -445,7 +455,7 @@ const ContactInfoMainTab = ({
       mId,
       member?.username || member?.name || "Participant",
       avatar,
-      "audio"
+      "audio",
     );
   };
 
@@ -470,7 +480,7 @@ const ContactInfoMainTab = ({
       mId,
       member?.username || member?.name || "Participant",
       avatar,
-      "video"
+      "video",
     );
   };
 
@@ -481,8 +491,7 @@ const ContactInfoMainTab = ({
       return;
     }
     const convId = (
-      selectedContact?.conversation?._id ||
-      selectedContact?._id
+      selectedContact?.conversation?._id || selectedContact?._id
     )?.toString();
     try {
       await axiosInstance.put(`/chat/group/${convId}`, {
@@ -511,14 +520,15 @@ const ContactInfoMainTab = ({
       toast.success("Group name updated");
     } catch (err) {
       console.error("Error updating group name:", err);
-      toast.error(err?.response?.data?.message || "Failed to update group name");
+      toast.error(
+        err?.response?.data?.message || "Failed to update group name",
+      );
     }
   };
 
   const handleSaveGroupDesc = async () => {
     const convId = (
-      selectedContact?.conversation?._id ||
-      selectedContact?._id
+      selectedContact?.conversation?._id || selectedContact?._id
     )?.toString();
     try {
       const trimmed = editedGroupDesc.trim();
@@ -544,14 +554,15 @@ const ContactInfoMainTab = ({
       toast.success("Group description updated");
     } catch (err) {
       console.error("Error updating group description:", err);
-      toast.error(err?.response?.data?.message || "Failed to update group description");
+      toast.error(
+        err?.response?.data?.message || "Failed to update group description",
+      );
     }
   };
 
   const uploadAndSetGroupImage = async (file) => {
     const convId = (
-      selectedContact?.conversation?._id ||
-      selectedContact?._id
+      selectedContact?.conversation?._id || selectedContact?._id
     )?.toString();
     if (!convId || !file) return;
 
@@ -561,9 +572,13 @@ const ContactInfoMainTab = ({
       const formData = new FormData();
       formData.append("media", file);
 
-      const { data } = await axiosInstance.put(`/chat/group/${convId}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const { data } = await axiosInstance.put(
+        `/chat/group/${convId}`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
       const updated = data?.data || data;
       const newImageUrl = updated?.groupProfileImage || "";
 
@@ -616,8 +631,7 @@ const ContactInfoMainTab = ({
 
   const handleRemoveGroupImage = async () => {
     const convId = (
-      selectedContact?.conversation?._id ||
-      selectedContact?._id
+      selectedContact?.conversation?._id || selectedContact?._id
     )?.toString();
     if (!convId) return;
 
@@ -697,14 +711,14 @@ const ContactInfoMainTab = ({
 
   const handleExitGroup = () => {
     const convId = (
-      selectedContact?.conversation?._id ||
-      selectedContact?._id
+      selectedContact?.conversation?._id || selectedContact?._id
     )?.toString();
     if (!convId) return;
 
     setConfirmModalConfig({
       title: `Exit "${groupName}" group?`,
-      description: "Only group admins will be notified that you left the group.",
+      description:
+        "Only group admins will be notified that you left the group.",
       confirmText: "Exit group",
       isDanger: true,
       onConfirm: async () => {
@@ -806,7 +820,8 @@ const ContactInfoMainTab = ({
             {commonGroups.map((group) => {
               const gName = group.groupName || group.name || "Group";
               const gPic = group.groupProfileImage || group.profilePicture;
-              const gParts = group.participants || group.conversation?.participants || [];
+              const gParts =
+                group.participants || group.conversation?.participants || [];
               const partNames = gParts
                 .map((p) => {
                   const pId = (p?._id || p)?.toString();
@@ -874,7 +889,7 @@ const ContactInfoMainTab = ({
     if (!memberId || !memberTags || memberTags.length === 0) return "";
     const mId = memberId.toString();
     const found = memberTags.find(
-      (mt) => (mt.user?._id || mt.user)?.toString() === mId
+      (mt) => (mt.user?._id || mt.user)?.toString() === mId,
     );
     return found?.tag || "";
   };
@@ -926,12 +941,15 @@ const ContactInfoMainTab = ({
                   className="w-full h-full flex items-center justify-center text-white font-semibold text-5xl"
                   style={{
                     backgroundColor: getAvatarColor(
-                      viewingMember.username || viewingMember.name || "Participant"
+                      viewingMember.username ||
+                      viewingMember.name ||
+                      "Participant",
                     ),
                   }}
                 >
                   {(
-                    (viewingMember.username || viewingMember.name || "U")[0] || "U"
+                    (viewingMember.username || viewingMember.name || "U")[0] ||
+                    "U"
                   ).toUpperCase()}
                 </div>
               )}
@@ -940,14 +958,19 @@ const ContactInfoMainTab = ({
             <div
               onClick={() =>
                 setShowProfilePicture(true, {
-                  image: selectedContact?.profilePicture || "/default-avatar.png",
+                  image:
+                    selectedContact?.profilePicture || "/default-avatar.png",
                   username: "Meta AI",
                 })
               }
               className="relative w-36 h-36 sm:w-40 sm:h-40 flex items-center justify-center cursor-pointer select-none"
             >
               <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-xl" />
-              <MetaAiRing size={140} animate className="relative z-10 drop-shadow-xl" />
+              <MetaAiRing
+                size={140}
+                animate
+                className="relative z-10 drop-shadow-xl"
+              />
               <div className="absolute -bottom-1 -right-1 z-20">
                 <MetaAiBadge size={28} />
               </div>
@@ -1034,7 +1057,10 @@ const ContactInfoMainTab = ({
                           : "text-gray-800 hover:bg-gray-100"
                           }`}
                       >
-                        <MdOutlineVisibility size={20} className="text-[#8696a0] shrink-0" />
+                        <MdOutlineVisibility
+                          size={20}
+                          className="text-[#8696a0] shrink-0"
+                        />
                         <span>View photo</span>
                       </button>
                     )}
@@ -1049,7 +1075,10 @@ const ContactInfoMainTab = ({
                       : "text-gray-800 hover:bg-gray-100"
                       }`}
                   >
-                    <MdOutlinePhotoCamera size={20} className="text-[#8696a0] shrink-0" />
+                    <MdOutlinePhotoCamera
+                      size={20}
+                      className="text-[#8696a0] shrink-0"
+                    />
                     <span>Take photo</span>
                   </button>
                   <button
@@ -1063,7 +1092,10 @@ const ContactInfoMainTab = ({
                       : "text-gray-800 hover:bg-gray-100"
                       }`}
                   >
-                    <MdOutlineFolder size={20} className="text-[#8696a0] shrink-0" />
+                    <MdOutlineFolder
+                      size={20}
+                      className="text-[#8696a0] shrink-0"
+                    />
                     <span>Upload photo</span>
                   </button>
                   <button
@@ -1077,7 +1109,10 @@ const ContactInfoMainTab = ({
                       : "text-gray-800 hover:bg-gray-100"
                       }`}
                   >
-                    <MdOutlineEmojiEmotions size={20} className="text-[#8696a0] shrink-0" />
+                    <MdOutlineEmojiEmotions
+                      size={20}
+                      className="text-[#8696a0] shrink-0"
+                    />
                     <span>Emoji & sticker</span>
                   </button>
                   {(selectedContact?.profilePicture ||
@@ -1088,10 +1123,15 @@ const ContactInfoMainTab = ({
                           setShowGroupPhotoMenu(false);
                           handleRemoveGroupImage();
                         }}
-                        className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-[14px] font-normal transition-colors cursor-pointer text-left text-red-500 hover:text-red-600 ${theme === "dark" ? "hover:bg-[#182229]" : "hover:bg-red-50"
+                        className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-[14px] font-normal transition-colors cursor-pointer text-left text-red-500 hover:text-red-600 ${theme === "dark"
+                          ? "hover:bg-[#182229]"
+                          : "hover:bg-red-50"
                           }`}
                       >
-                        <MdDeleteOutline size={20} className="text-red-500 shrink-0" />
+                        <MdDeleteOutline
+                          size={20}
+                          className="text-red-500 shrink-0"
+                        />
                         <span>Remove photo</span>
                       </button>
                     )}
@@ -1119,7 +1159,13 @@ const ContactInfoMainTab = ({
             (!viewingMember && online && !isMetaAi && !isGroup)) && (
               <span
                 className="absolute bottom-2 right-2 w-4 h-4 bg-[#00a884] border-2 border-[#111b21] rounded-full shadow-md"
-                title={viewingMember ? (isViewingMemberOnline ? "Online" : "Offline") : "Online"}
+                title={
+                  viewingMember
+                    ? isViewingMemberOnline
+                      ? "Online"
+                      : "Offline"
+                    : "Online"
+                }
               />
             )}
         </motion.div>
@@ -1131,21 +1177,29 @@ const ContactInfoMainTab = ({
                 className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300 flex items-center justify-center gap-2 ${theme === "dark" ? "text-white/95" : "text-gray-900"
                   }`}
               >
-                <span>{viewingMember?.username || viewingMember?.name || "Participant"}</span>
+                <span>
+                  {viewingMember?.username ||
+                    viewingMember?.name ||
+                    "Participant"}
+                </span>
               </h2>
-              {getMemberTagForHeader(viewingMember?._id || viewingMember?.id) && (
-                <div className="mt-0.5 mb-1.5">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[12px] font-medium border shadow-sm ${theme === "dark"
-                      ? "bg-[#16312e] text-[#00a884] border-[#00a884]/30"
-                      : "bg-[#e0f0e9] text-[#00897b] border-[#00897b]/30"
-                      }`}
-                  >
-                    <FiTag className="w-3 h-3" />
-                    {getMemberTagForHeader(viewingMember?._id || viewingMember?.id)}
-                  </span>
-                </div>
-              )}
+              {getMemberTagForHeader(
+                viewingMember?._id || viewingMember?.id,
+              ) && (
+                  <div className="mt-0.5 mb-1.5">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[12px] font-medium border shadow-sm ${theme === "dark"
+                        ? "bg-[#16312e] text-[#00a884] border-[#00a884]/30"
+                        : "bg-[#e0f0e9] text-[#00897b] border-[#00897b]/30"
+                        }`}
+                    >
+                      <FiTag className="w-3 h-3" />
+                      {getMemberTagForHeader(
+                        viewingMember?._id || viewingMember?.id,
+                      )}
+                    </span>
+                  </div>
+                )}
               <div className="flex flex-col items-center gap-1">
                 {viewingMember?.phoneNumber && (
                   <p
@@ -1164,7 +1218,9 @@ const ContactInfoMainTab = ({
                   </p>
                 )}
                 {isViewingMemberOnline && (
-                  <span className="text-[12px] text-emerald-500 font-medium">online</span>
+                  <span className="text-[12px] text-emerald-500 font-medium">
+                    online
+                  </span>
                 )}
               </div>
             </div>
@@ -1274,7 +1330,8 @@ const ContactInfoMainTab = ({
                   }}
                   className="hover:text-emerald-500 hover:underline cursor-pointer transition-colors"
                 >
-                  {groupParticipants.length} {groupParticipants.length === 1 ? "member" : "members"}
+                  {groupParticipants.length}{" "}
+                  {groupParticipants.length === 1 ? "member" : "members"}
                 </span>
                 {groupOnlineCount > 0 && (
                   <>
@@ -1292,7 +1349,10 @@ const ContactInfoMainTab = ({
                 className={`text-2xl font-bold tracking-tight mb-1 transition-colors duration-300 flex items-center justify-center gap-2 ${theme === "dark" ? "text-white/95" : "text-gray-900"
                   }`}
               >
-                <span>{selectedContact?.username || (isMetaAi ? "Meta AI" : "Contact")}</span>
+                <span>
+                  {selectedContact?.username ||
+                    (isMetaAi ? "Meta AI" : "Contact")}
+                </span>
                 {isMetaAi && (
                   <span
                     title="Verified Meta AI Assistant"
@@ -1436,7 +1496,9 @@ const ContactInfoMainTab = ({
                 About
               </p>
               <p
-                title={viewingMember?.about || "Hey there! I am using WhatsApp."}
+                title={
+                  viewingMember?.about || "Hey there! I am using WhatsApp."
+                }
                 className={`text-[14.5px] leading-relaxed select-text ${theme === "dark" ? "text-[#e9edef]" : "text-gray-800"
                   }`}
               >
@@ -1445,7 +1507,7 @@ const ContactInfoMainTab = ({
               {viewingMember?.aboutUpdatedAt && (
                 <p className="text-[11px] mt-1.5 text-[#8696a0]">
                   {`Updated ${new Date(
-                    viewingMember.aboutUpdatedAt
+                    viewingMember.aboutUpdatedAt,
                   ).toLocaleString([], {
                     dateStyle: "medium",
                     timeStyle: "short",
@@ -1608,7 +1670,8 @@ const ContactInfoMainTab = ({
                   isMetaAi
                     ? selectedContact?.about ||
                     "Responses are generated by AI. Some may be inaccurate or inappropriate,including for some teens."
-                    : selectedContact?.about || "Hey there! I am using WhatsApp."
+                    : selectedContact?.about ||
+                    "Hey there! I am using WhatsApp."
                 }
                 className={`text-[14.5px] leading-relaxed select-text ${theme === "dark" ? "text-[#e9edef]" : "text-gray-800"
                   }`}
@@ -1628,7 +1691,7 @@ const ContactInfoMainTab = ({
               {!isMetaAi && selectedContact?.aboutUpdatedAt && (
                 <p className="text-[11px] mt-1.5 text-[#8696a0]">
                   {`Updated ${new Date(
-                    selectedContact.aboutUpdatedAt
+                    selectedContact.aboutUpdatedAt,
                   ).toLocaleString([], {
                     dateStyle: "medium",
                     timeStyle: "short",
@@ -1638,7 +1701,8 @@ const ContactInfoMainTab = ({
             </div>
           )}
 
-          {(viewingMember || (!isGroup && !isMetaAi && commonGroups.length > 0)) &&
+          {(viewingMember ||
+            (!isGroup && !isMetaAi && commonGroups.length > 0)) &&
             renderCommonGroupsCard()}
 
           {viewingMember && (
@@ -1682,7 +1746,9 @@ const ContactInfoMainTab = ({
               >
                 <div
                   onClick={() => setContactInfoTab("media")}
-                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"
+                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                    ? "hover:bg-white/[0.05]"
+                    : "hover:bg-gray-50"
                     }`}
                 >
                   <div className="flex items-center gap-3.5">
@@ -1727,7 +1793,10 @@ const ContactInfoMainTab = ({
                           />
                           {isStarred && (
                             <div className="absolute bottom-1 right-1 z-10 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] pointer-events-none">
-                              <FaStar size={10} className="text-amber-400 fill-amber-400" />
+                              <FaStar
+                                size={10}
+                                className="text-amber-400 fill-amber-400"
+                              />
                             </div>
                           )}
                         </div>
@@ -1745,7 +1814,9 @@ const ContactInfoMainTab = ({
               >
                 <div
                   onClick={() => setContactInfoTab("starred")}
-                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"
+                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                    ? "hover:bg-white/[0.05]"
+                    : "hover:bg-gray-50"
                     }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -1774,10 +1845,14 @@ const ContactInfoMainTab = ({
 
                 {chatKeptMessages.length > 0 && (
                   <>
-                    <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                    <div
+                      className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                    />
                     <div
                       onClick={() => setContactInfoTab("kept")}
-                      className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"
+                      className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                        ? "hover:bg-white/[0.05]"
+                        : "hover:bg-gray-50"
                         }`}
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
@@ -1787,7 +1862,9 @@ const ContactInfoMainTab = ({
 
                         <div className="min-w-0">
                           <h4
-                            className={`text-[14.5px] font-medium leading-tight ${theme === "dark" ? "text-[#e9edef]" : "text-gray-900"
+                            className={`text-[14.5px] font-medium leading-tight ${theme === "dark"
+                              ? "text-[#e9edef]"
+                              : "text-gray-900"
                               }`}
                           >
                             Kept messages
@@ -1804,11 +1881,15 @@ const ContactInfoMainTab = ({
                   </>
                 )}
 
-                <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                <div
+                  className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                />
 
                 <div
                   onClick={() => setContactInfoTab("disappearing")}
-                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"
+                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                    ? "hover:bg-white/[0.05]"
+                    : "hover:bg-gray-50"
                     }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -1832,11 +1913,15 @@ const ContactInfoMainTab = ({
                   <MdChevronRight size={19} className="text-[#8696a0]" />
                 </div>
 
-                <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                <div
+                  className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                />
 
                 <div
                   onClick={() => setContactInfoTab("chatTheme")}
-                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"
+                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                    ? "hover:bg-white/[0.05]"
+                    : "hover:bg-gray-50"
                     }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -1861,18 +1946,23 @@ const ContactInfoMainTab = ({
                     <div
                       className="w-5 h-5 rounded-full border border-white/20 shadow-sm overflow-hidden"
                       style={{
-                        backgroundColor: activeBubbleColor || activeChatTheme?.bubbleColor,
+                        backgroundColor:
+                          activeBubbleColor || activeChatTheme?.bubbleColor,
                       }}
                     />
                     <MdChevronRight size={19} className="text-[#8696a0]" />
                   </div>
                 </div>
 
-                <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                <div
+                  className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                />
 
                 <div
                   onClick={handleToggleFavorite}
-                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"
+                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                    ? "hover:bg-white/[0.05]"
+                    : "hover:bg-gray-50"
                     }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -1882,7 +1972,11 @@ const ContactInfoMainTab = ({
                         : "bg-white/5 text-[#8696a0]"
                         }`}
                     >
-                      {isFavorite ? <FaHeart size={16} /> : <FaRegHeart size={16} />}
+                      {isFavorite ? (
+                        <FaHeart size={16} />
+                      ) : (
+                        <FaRegHeart size={16} />
+                      )}
                     </div>
 
                     <div className="min-w-0">
@@ -1893,7 +1987,9 @@ const ContactInfoMainTab = ({
                         Favourites
                       </h4>
                       <p className="text-[12.5px] text-[#8696a0] truncate mt-0.5">
-                        {isFavorite ? "Added to favourites" : "Add to favourites"}
+                        {isFavorite
+                          ? "Added to favourites"
+                          : "Add to favourites"}
                       </p>
                     </div>
                   </div>
@@ -1908,11 +2004,15 @@ const ContactInfoMainTab = ({
                   </span>
                 </div>
 
-                <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                <div
+                  className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                />
 
                 <div
                   onClick={() => setContactInfoTab("lists")}
-                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"
+                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                    ? "hover:bg-white/[0.05]"
+                    : "hover:bg-gray-50"
                     }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -1945,11 +2045,15 @@ const ContactInfoMainTab = ({
                   </div>
                 </div>
 
-                <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                <div
+                  className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                />
 
                 <div
                   onClick={handleExportChat}
-                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"
+                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                    ? "hover:bg-white/[0.05]"
+                    : "hover:bg-gray-50"
                     }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -1973,7 +2077,9 @@ const ContactInfoMainTab = ({
                   <MdChevronRight size={19} className="text-[#8696a0]" />
                 </div>
 
-                <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                <div
+                  className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                />
 
                 <div
                   onClick={() => {
@@ -1983,7 +2089,9 @@ const ContactInfoMainTab = ({
                       setContactInfoTab("security");
                     }
                   }}
-                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"
+                  className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                    ? "hover:bg-white/[0.05]"
+                    : "hover:bg-gray-50"
                     }`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
@@ -2118,7 +2226,9 @@ const ContactInfoMainTab = ({
                 </div>
               </div>
 
-              <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+              <div
+                className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+              />
 
               <div
                 onClick={() => setShowReportModal(true)}
@@ -2131,7 +2241,10 @@ const ContactInfoMainTab = ({
 
                 <div className="flex-1 min-w-0">
                   <h4 className="text-[14.5px] font-medium text-red-500 truncate">
-                    Report {viewingMember?.username || viewingMember?.name || "contact"}
+                    Report{" "}
+                    {viewingMember?.username ||
+                      viewingMember?.name ||
+                      "contact"}
                   </h4>
                   <p className="text-[12px] text-[#8696a0] truncate mt-0.5">
                     Send report and last 5 messages to WhatsApp
@@ -2139,7 +2252,9 @@ const ContactInfoMainTab = ({
                 </div>
               </div>
 
-              <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+              <div
+                className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+              />
 
               <div
                 onClick={() => setViewingMember(null)}
@@ -2158,12 +2273,14 @@ const ContactInfoMainTab = ({
                 : "bg-white border-gray-200 shadow-sm"
                 }`}
             >
-              {!isMetaAi && (
-                !isGroup ? (
+              {!isMetaAi &&
+                (!isGroup ? (
                   <>
                     <div
                       onClick={handleToggleBlock}
-                      className={`flex items-center gap-3.5 p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                      className={`flex items-center gap-3.5 p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                        ? "hover:bg-red-500/10"
+                        : "hover:bg-red-50"
                         }`}
                     >
                       <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
@@ -2183,13 +2300,17 @@ const ContactInfoMainTab = ({
                         </p>
                       </div>
                     </div>
-                    <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                    <div
+                      className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                    />
                   </>
                 ) : (
                   <>
                     <div
                       onClick={handleExitGroup}
-                      className={`flex items-center gap-3.5 p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                      className={`flex items-center gap-3.5 p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                        ? "hover:bg-red-500/10"
+                        : "hover:bg-red-50"
                         }`}
                     >
                       <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
@@ -2205,10 +2326,11 @@ const ContactInfoMainTab = ({
                         </p>
                       </div>
                     </div>
-                    <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                    <div
+                      className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                    />
                   </>
-                )
-              )}
+                ))}
 
               <div
                 onClick={handleExecuteClearChat}
@@ -2231,10 +2353,14 @@ const ContactInfoMainTab = ({
 
               {!isMetaAi && (
                 <>
-                  <div className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`} />
+                  <div
+                    className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                  />
                   <div
                     onClick={() => setShowReportModal(true)}
-                    className={`flex items-center gap-3.5 p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                    className={`flex items-center gap-3.5 p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                      ? "hover:bg-red-500/10"
+                      : "hover:bg-red-50"
                       }`}
                   >
                     <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
@@ -2243,7 +2369,10 @@ const ContactInfoMainTab = ({
 
                     <div className="flex-1 min-w-0">
                       <h4 className="text-[14.5px] font-medium text-red-500 truncate">
-                        Report {isGroup ? "group" : selectedContact?.username || "contact"}
+                        Report{" "}
+                        {isGroup
+                          ? "group"
+                          : selectedContact?.username || "contact"}
                       </h4>
                       <p className="text-[12px] text-[#8696a0] truncate mt-0.5">
                         Send report and last 5 messages to WhatsApp
@@ -2290,14 +2419,18 @@ const ContactInfoMainTab = ({
       {showEmojiStickerModal && (
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div
-            className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col ${theme === "dark" ? "bg-[#202c33] text-[#e9edef]" : "bg-white text-gray-900"
+            className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col ${theme === "dark"
+              ? "bg-[#202c33] text-[#e9edef]"
+              : "bg-white text-gray-900"
               }`}
           >
             <div
               className={`flex items-center justify-between px-5 py-4 border-b ${theme === "dark" ? "border-[#2e3b43]" : "border-gray-200"
                 }`}
             >
-              <h3 className="text-lg font-semibold tracking-tight">Emoji & sticker</h3>
+              <h3 className="text-lg font-semibold tracking-tight">
+                Emoji & sticker
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowEmojiStickerModal(false)}
@@ -2327,7 +2460,9 @@ const ContactInfoMainTab = ({
                       : "hover:scale-105 opacity-90 hover:opacity-100"
                       }`}
                   >
-                    {selectedBgColor === c && <FaCheck size={11} className="text-white" />}
+                    {selectedBgColor === c && (
+                      <FaCheck size={11} className="text-white" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -2342,12 +2477,16 @@ const ContactInfoMainTab = ({
                 searchDisabled={false}
                 skinTonesDisabled={true}
                 previewConfig={{ showPreview: false }}
-                onEmojiClick={(emojiData) => setSelectedEmojiAvatar(emojiData.emoji)}
+                onEmojiClick={(emojiData) =>
+                  setSelectedEmojiAvatar(emojiData.emoji)
+                }
               />
             </div>
 
             <div
-              className={`px-5 py-3.5 flex justify-end gap-3 border-t ${theme === "dark" ? "border-[#2e3b43] bg-[#182229]" : "border-gray-200 bg-gray-50"
+              className={`px-5 py-3.5 flex justify-end gap-3 border-t ${theme === "dark"
+                ? "border-[#2e3b43] bg-[#182229]"
+                : "border-gray-200 bg-gray-50"
                 }`}
             >
               <button

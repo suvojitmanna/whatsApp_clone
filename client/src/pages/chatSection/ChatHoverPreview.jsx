@@ -17,9 +17,7 @@ import { ProhibitedIcon } from "../../components/common/Icons";
 
 export const renderFormattedWhatsAppText = (text) => {
   if (!text || typeof text !== "string") return text;
-
   const lines = text.split("\n");
-
   return lines.map((line, lineIdx) => {
     const regex = /(```[^`]+```|\*[^*]+\*|_[^_]+_|~[^~]+~)/g;
     const parts = line.split(regex);
