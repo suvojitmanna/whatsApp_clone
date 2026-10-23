@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
 import { FaLock, FaPhone, FaCamera, FaMapMarkerAlt, FaCircle } from "react-icons/fa";
+import { MdOutlinePhotoSizeSelectActual } from "react-icons/md";
+import { BsStars } from "react-icons/bs";
+import { LuUpload } from "react-icons/lu";
 import { EndToEndEncryptionIllustration } from "../common/Icons";
 
 const ContactInfoPrivacyTab = ({
@@ -13,6 +16,7 @@ const ContactInfoPrivacyTab = ({
   const isDark = theme === "dark";
 
   const [advancedPrivacy, setAdvancedPrivacy] = useState({
+    enabled: false,
     protectIp: false,
     disableLinkPreviews: false,
   });
@@ -24,9 +28,18 @@ const ContactInfoPrivacyTab = ({
         localStorage.getItem("whatsapp_advanced_privacy") || "{}"
       );
       if (all[chatId]) {
-        setAdvancedPrivacy(all[chatId]);
+        const item = all[chatId];
+        const isEnabled = Boolean(
+          item.enabled ?? (item.protectIp || item.disableLinkPreviews)
+        );
+        setAdvancedPrivacy({
+          enabled: isEnabled,
+          protectIp: Boolean(item.protectIp ?? isEnabled),
+          disableLinkPreviews: Boolean(item.disableLinkPreviews ?? isEnabled),
+        });
       } else {
         setAdvancedPrivacy({
+          enabled: false,
           protectIp: false,
           disableLinkPreviews: false,
         });
@@ -34,11 +47,19 @@ const ContactInfoPrivacyTab = ({
     } catch {}
   }, [chatId]);
 
-  const handleToggleAdvancedPrivacy = (key) => {
+  const handleToggleAdvancedPrivacy = (key = "enabled") => {
     if (!chatId) return;
+    const isNowEnabled = !advancedPrivacy[key];
     const updated = {
       ...advancedPrivacy,
-      [key]: !advancedPrivacy[key],
+      [key]: isNowEnabled,
+      ...(key === "enabled"
+        ? {
+            enabled: isNowEnabled,
+            protectIp: isNowEnabled,
+            disableLinkPreviews: isNowEnabled,
+          }
+        : {}),
     };
     setAdvancedPrivacy(updated);
     try {
@@ -47,15 +68,12 @@ const ContactInfoPrivacyTab = ({
       );
       all[chatId] = updated;
       localStorage.setItem("whatsapp_advanced_privacy", JSON.stringify(all));
+      window.dispatchEvent(new Event("whatsapp_advanced_privacy_updated"));
     } catch {}
     toast.success(
-      key === "protectIp"
-        ? updated.protectIp
-          ? "Protect IP address in calls enabled"
-          : "Protect IP address in calls disabled"
-        : updated.disableLinkPreviews
-          ? "Link previews disabled"
-          : "Link previews enabled"
+      updated.enabled
+        ? "Advanced chat privacy turned on"
+        : "Advanced chat privacy turned off"
     );
   };
 
@@ -211,65 +229,191 @@ const ContactInfoPrivacyTab = ({
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: 10 }}
         transition={{ duration: 0.15 }}
-        className="flex flex-col flex-1 overflow-y-auto scrollbar-hide p-5 select-none"
+        className="flex flex-col flex-1 overflow-y-auto scrollbar-hide px-6 py-5 select-none"
       >
-        <div className="flex flex-col gap-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h4 className={`text-[15px] font-semibold mb-1.5 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Protect IP address in calls
-              </h4>
-              <p className="text-[13px] text-[#8696a0] leading-relaxed">
-                To make it harder for people to infer your location, calls from this device will be securely relayed through WhatsApp servers. This will slightly reduce call quality.
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={advancedPrivacy.protectIp}
-              onClick={() => handleToggleAdvancedPrivacy("protectIp")}
-              className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 mt-1 ${
-                advancedPrivacy.protectIp ? "bg-[#00a884]" : "bg-[#374248]"
+        {/* Top illustration: Chat bubble with green padlock */}
+        <div className="flex justify-center pt-2 pb-5 select-none">
+          <svg
+            width="104"
+            height="72"
+            viewBox="0 0 104 72"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Chat bubble body */}
+            <rect
+              x="12"
+              y="16"
+              width="58"
+              height="40"
+              rx="8"
+              fill={isDark ? "#1f2c34" : "#e7f8f0"}
+              stroke={isDark ? "#2a3942" : "#bbf7d0"}
+              strokeWidth="1.5"
+            />
+            {/* Bubble tail */}
+            <path
+              d="M12 44 L5 52 L16 52 Z"
+              fill={isDark ? "#1f2c34" : "#e7f8f0"}
+              stroke={isDark ? "#2a3942" : "#bbf7d0"}
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+            {/* Bubble message lines */}
+            <line
+              x1="24"
+              y1="30"
+              x2="54"
+              y2="30"
+              stroke={isDark ? "#8696a0" : "#00a884"}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+            <line
+              x1="24"
+              y1="40"
+              x2="44"
+              y2="40"
+              stroke={isDark ? "#8696a0" : "#00a884"}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+            {/* Padlock shackle */}
+            <path
+              d="M60 24 V15 C60 9.5 64.5 5 70 5 C75.5 5 80 9.5 80 15 V24"
+              stroke="#00a884"
+              strokeWidth="4"
+              strokeLinecap="round"
+              fill="none"
+            />
+            {/* Padlock body */}
+            <rect x="52" y="22" width="36" height="32" rx="7" fill="#00a884" />
+            {/* Keyhole dot & slot */}
+            <circle cx="70" cy="35" r="2.8" fill={isDark ? "#111b21" : "#ffffff"} />
+            <rect
+              x="68.6"
+              y="35"
+              width="2.8"
+              height="6"
+              rx="1.4"
+              fill={isDark ? "#111b21" : "#ffffff"}
+            />
+          </svg>
+        </div>
+
+        {/* Main headline */}
+        <h3
+          className={`text-[17px] sm:text-[18px] font-semibold leading-snug mb-3 text-center sm:text-left ${
+            isDark ? "text-[#e9edef]" : "text-gray-900"
+          }`}
+        >
+          Limit how messages and media from this chat can be shared outside of WhatsApp
+        </h3>
+
+        {/* Description with Learn more */}
+        <p className="text-[13px] leading-relaxed text-[#8696a0] mb-5">
+          Your personal messages are protected with end-to-end encryption even if you don&apos;t turn on advanced chat privacy. No one outside of the chat, not even WhatsApp or Meta, can read, listen to, or share them.{" "}
+          <button
+            type="button"
+            onClick={() => setContactInfoTab("privacy")}
+            className="text-[#00a884] hover:text-[#06cf9c] hover:underline font-medium inline cursor-pointer"
+          >
+            Learn more
+          </button>
+        </p>
+
+        {/* Subtitle */}
+        <p className="text-[13px] text-[#8696a0] mb-4 font-normal">
+          If you turn this on, people in this chat:
+        </p>
+
+        {/* 3 bullet items */}
+        <div className="space-y-4 mb-6">
+          <div className="flex items-start gap-4">
+            <MdOutlinePhotoSizeSelectActual
+              size={20}
+              className="text-[#8696a0] shrink-0 mt-0.5"
+            />
+            <p
+              className={`text-[13.5px] leading-snug ${
+                isDark ? "text-[#d1d7db]" : "text-gray-800"
               }`}
             >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${
-                  advancedPrivacy.protectIp
-                    ? "translate-x-5 bg-[#111b21]"
-                    : "translate-x-0 bg-[#8696a0]"
-                }`}
-              />
-            </button>
+              Can&apos;t save media to their device gallery automatically
+            </p>
           </div>
 
-          <div className="h-px bg-white/5 w-full" />
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h4 className={`text-[15px] font-semibold mb-1.5 ${isDark ? "text-white" : "text-gray-900"}`}>
-                Disable link previews
-              </h4>
-              <p className="text-[13px] text-[#8696a0] leading-relaxed">
-                To protect your IP address from being inferred by third-party websites, previews for links you send in this chat won&apos;t be generated.
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={advancedPrivacy.disableLinkPreviews}
-              onClick={() => handleToggleAdvancedPrivacy("disableLinkPreviews")}
-              className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 mt-1 ${
-                advancedPrivacy.disableLinkPreviews ? "bg-[#00a884]" : "bg-[#374248]"
+          <div className="flex items-start gap-4">
+            <BsStars
+              size={19}
+              className="text-[#8696a0] shrink-0 mt-0.5"
+            />
+            <p
+              className={`text-[13.5px] leading-snug ${
+                isDark ? "text-[#d1d7db]" : "text-gray-800"
               }`}
             >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${
-                  advancedPrivacy.disableLinkPreviews
-                    ? "translate-x-5 bg-[#111b21]"
-                    : "translate-x-0 bg-[#8696a0]"
-                }`}
-              />
-            </button>
+              Can&apos;t use AI features like mentioning @Meta AI or summarising unread messages
+            </p>
           </div>
+
+          <div className="flex items-start gap-4">
+            <LuUpload
+              size={19}
+              className="text-[#8696a0] shrink-0 mt-0.5"
+            />
+            <p
+              className={`text-[13.5px] leading-snug ${
+                isDark ? "text-[#d1d7db]" : "text-gray-800"
+              }`}
+            >
+              Can&apos;t export the chat
+            </p>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div
+          className={`h-px w-full my-5 ${
+            isDark ? "bg-white/10" : "bg-gray-200"
+          }`}
+        />
+
+        {/* Bottom toggle row */}
+        <div
+          onClick={() => handleToggleAdvancedPrivacy("enabled")}
+          className={`flex items-center justify-between p-3 -mx-2 rounded-xl cursor-pointer transition-colors ${
+            isDark ? "hover:bg-white/[0.04]" : "hover:bg-gray-100/70"
+          }`}
+        >
+          <span
+            className={`text-[15px] font-medium ${
+              isDark ? "text-[#e9edef]" : "text-gray-900"
+            }`}
+          >
+            Advanced chat privacy
+          </span>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={advancedPrivacy.enabled}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleAdvancedPrivacy("enabled");
+            }}
+            className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
+              advancedPrivacy.enabled ? "bg-[#00a884]" : "bg-[#374248]"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-all duration-200 ${
+                advancedPrivacy.enabled
+                  ? "translate-x-5 bg-white"
+                  : "translate-x-0 bg-[#8696a0]"
+              }`}
+            />
+          </button>
         </div>
       </motion.div>
     );

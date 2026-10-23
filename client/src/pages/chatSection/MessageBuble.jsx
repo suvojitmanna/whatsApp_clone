@@ -217,14 +217,22 @@ const MessageBuble = ({
     propIsGroupChat ?? (
       activeContact?.isGroup ||
       activeContact?.isGroupChat ||
-      activeContact?.groupName ||
       conversationObj?.isGroup ||
-      conversationObj?.groupName ||
       message?.isGroup ||
       message?.conversation?.isGroup ||
-      Boolean(activeContact?.groupAdmin || conversationObj?.groupAdmin) ||
-      (Array.isArray(activeContact?.participants) && activeContact.participants.length > 2) ||
-      (Array.isArray(conversationObj?.participants) && conversationObj.participants.length > 2)
+      (typeof activeContact?.groupName === "string" &&
+        activeContact.groupName.trim() !== "" &&
+        activeContact.groupName !== activeContact?.username) ||
+      (typeof conversationObj?.groupName === "string" &&
+        conversationObj.groupName.trim() !== "") ||
+      (Array.isArray(activeContact?.groupAdmin) &&
+        activeContact.groupAdmin.length > 0) ||
+      (Array.isArray(conversationObj?.groupAdmin) &&
+        conversationObj.groupAdmin.length > 0) ||
+      (Array.isArray(activeContact?.participants) &&
+        activeContact.participants.length > 2) ||
+      (Array.isArray(conversationObj?.participants) &&
+        conversationObj.participants.length > 2)
     )
   );
 

@@ -141,10 +141,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
   const online = isUserOnline(selectedContact?._id);
   const lastSeen = getUserLastSeen(selectedContact?._id);
+  const isSelectedContactGroup = Boolean(
+    selectedContact?.isGroup ||
+    selectedContact?.isGroupChat ||
+    selectedContact?.conversation?.isGroup
+  );
   const conversationId = (
     selectedContact?.conversation?._id ||
-    selectedContact?.conversation ||
-    currentConversation?._id
+    (typeof selectedContact?.conversation === "string" ? selectedContact?.conversation : null) ||
+    (isSelectedContactGroup ? currentConversation?._id : null)
   )?.toString();
   const isTyping = isUserTyping(conversationId, selectedContact?._id);
 
@@ -1428,19 +1433,34 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       const isGroupChat = Boolean(
         selectedContact?.isGroup ||
         selectedContact?.isGroupChat ||
-        selectedContact?.groupName ||
         selectedContact?.conversation?.isGroup ||
-        selectedContact?.conversation?.groupName ||
         currentConversation?.isGroup ||
-        currentConversation?.groupName ||
-        (Array.isArray(selectedContact?.participants) && selectedContact.participants.length > 2) ||
-        (Array.isArray(selectedContact?.conversation?.participants) && selectedContact.conversation.participants.length > 2) ||
-        Boolean(selectedContact?.groupAdmin || selectedContact?.conversation?.groupAdmin)
+        (typeof selectedContact?.groupName === "string" &&
+          selectedContact.groupName.trim() !== "" &&
+          selectedContact.groupName !== selectedContact?.username) ||
+        (typeof selectedContact?.conversation?.groupName === "string" &&
+          selectedContact.conversation.groupName.trim() !== "") ||
+        (typeof currentConversation?.groupName === "string" &&
+          currentConversation.groupName.trim() !== "") ||
+        (Array.isArray(selectedContact?.groupAdmin) &&
+          selectedContact.groupAdmin.length > 0) ||
+        (Array.isArray(selectedContact?.conversation?.groupAdmin) &&
+          selectedContact.conversation.groupAdmin.length > 0) ||
+        (Array.isArray(currentConversation?.groupAdmin) &&
+          currentConversation.groupAdmin.length > 0) ||
+        (Array.isArray(selectedContact?.participants) &&
+          selectedContact.participants.length > 2) ||
+        (Array.isArray(selectedContact?.conversation?.participants) &&
+          selectedContact.conversation.participants.length > 2) ||
+        (Array.isArray(currentConversation?.participants) &&
+          currentConversation.participants.length > 2)
       );
-      const effectiveConversationId =
-        conversationId ||
-        selectedContact?.conversation?._id ||
-        (selectedContact?.isGroup ? (selectedContact?._id || selectedContact?.id) : null);
+      const effectiveConversationId = isGroupChat
+        ? (conversationId ||
+          selectedContact?.conversation?._id ||
+          (selectedContact?.isGroup ? (selectedContact?._id || selectedContact?.id) : null))
+        : (selectedContact?.conversation?._id ||
+          (typeof selectedContact?.conversation === "string" ? selectedContact?.conversation : null));
       const receiverId = isGroupChat
         ? (effectiveConversationId || selectedContact?._id)
         : (targetUserId || selectedContact?._id);
@@ -1754,14 +1774,27 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const isGroupChat = Boolean(
     selectedContact?.isGroup ||
     selectedContact?.isGroupChat ||
-    selectedContact?.groupName ||
     selectedContact?.conversation?.isGroup ||
-    selectedContact?.conversation?.groupName ||
     currentConversation?.isGroup ||
-    currentConversation?.groupName ||
-    (Array.isArray(selectedContact?.participants) && selectedContact.participants.length > 2) ||
-    (Array.isArray(selectedContact?.conversation?.participants) && selectedContact.conversation.participants.length > 2) ||
-    Boolean(selectedContact?.groupAdmin || selectedContact?.conversation?.groupAdmin)
+    (typeof selectedContact?.groupName === "string" &&
+      selectedContact.groupName.trim() !== "" &&
+      selectedContact.groupName !== selectedContact?.username) ||
+    (typeof selectedContact?.conversation?.groupName === "string" &&
+      selectedContact.conversation.groupName.trim() !== "") ||
+    (typeof currentConversation?.groupName === "string" &&
+      currentConversation.groupName.trim() !== "") ||
+    (Array.isArray(selectedContact?.groupAdmin) &&
+      selectedContact.groupAdmin.length > 0) ||
+    (Array.isArray(selectedContact?.conversation?.groupAdmin) &&
+      selectedContact.conversation.groupAdmin.length > 0) ||
+    (Array.isArray(currentConversation?.groupAdmin) &&
+      currentConversation.groupAdmin.length > 0) ||
+    (Array.isArray(selectedContact?.participants) &&
+      selectedContact.participants.length > 2) ||
+    (Array.isArray(selectedContact?.conversation?.participants) &&
+      selectedContact.conversation.participants.length > 2) ||
+    (Array.isArray(currentConversation?.participants) &&
+      currentConversation.participants.length > 2)
   );
 
   const groupParticipants = useMemo(() => {

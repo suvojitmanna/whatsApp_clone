@@ -274,14 +274,24 @@ export const sendMessage = async (req, res) => {
     let conversation = null;
     let isGroup = false;
 
+    let explicitIsGroup = req.body.isGroup === "true" || req.body.isGroup === true;
+
     if (incomingConvId && mongoose.Types.ObjectId.isValid(incomingConvId)) {
-      conversation = await Conversation.findById(incomingConvId);
-      if (conversation?.isGroup) {
-        isGroup = true;
+      const foundConv = await Conversation.findById(incomingConvId);
+      if (foundConv) {
+        if (foundConv.isGroup) {
+          if (explicitIsGroup || !receiverId) {
+            conversation = foundConv;
+            isGroup = true;
+          }
+        } else {
+          conversation = foundConv;
+          isGroup = false;
+        }
       }
     }
 
-    if (!isGroup && receiverId && mongoose.Types.ObjectId.isValid(receiverId)) {
+    if (!isGroup && explicitIsGroup && receiverId && mongoose.Types.ObjectId.isValid(receiverId)) {
       const possibleConv = await Conversation.findById(receiverId);
       if (possibleConv?.isGroup) {
         conversation = possibleConv;
@@ -646,15 +656,24 @@ export const sendMessage = async (req, res) => {
           ? req.socketUserMap.get(receiverRoom)
           : null;
 
-      const receiverUnreadCount = await Message.countDocuments({
-        conversation: conversation._id,
-        receiver: receiverId,
-        messageStatus: { $in: ["send", "delivered"] },
-        deletedFor: { $ne: receiverId },
-      });
+      const targetReceiverId =
+        effectiveReceiverId || (receiverId ? receiverId.toString() : null);
+      let receiverUnreadCount = 1;
+      if (
+        targetReceiverId &&
+        mongoose.Types.ObjectId.isValid(targetReceiverId)
+      ) {
+        receiverUnreadCount = await Message.countDocuments({
+          conversation: conversation._id,
+          receiver: new mongoose.Types.ObjectId(targetReceiverId),
+          messageStatus: { $in: ["send", "delivered"] },
+          deletedFor: { $ne: new mongoose.Types.ObjectId(targetReceiverId) },
+        });
+      }
 
       const messagePayload = {
         ...populatedMessage.toObject(),
+        conversationId: conversation._id.toString(),
         unreadCount: receiverUnreadCount,
       };
 
@@ -747,23 +766,46 @@ export const getConversation = async (req, res) => {
       .lean();
 
     if (conversation && conversation.length > 0) {
-      const conversationIds = conversation.map((c) => c._id);
-      const unreadAgg = await Message.aggregate([
-        {
-          $match: {
-            conversation: { $in: conversationIds },
-            receiver: new mongoose.Types.ObjectId(userId),
-            messageStatus: { $in: ["send", "delivered"] },
-            deletedFor: { $ne: new mongoose.Types.ObjectId(userId) },
+      const directConvIds = conversation
+        .filter((c) => !c.isGroup)
+        .map((c) => c._id);
+      const groupConvIds = conversation
+        .filter((c) => c.isGroup)
+        .map((c) => c._id);
+
+      const matchConditions = [];
+      if (directConvIds.length > 0) {
+        matchConditions.push({
+          conversation: { $in: directConvIds },
+          receiver: new mongoose.Types.ObjectId(userId),
+          messageStatus: { $in: ["send", "delivered"] },
+        });
+      }
+      if (groupConvIds.length > 0) {
+        matchConditions.push({
+          conversation: { $in: groupConvIds },
+          sender: { $ne: new mongoose.Types.ObjectId(userId) },
+          "readBy.user": { $ne: new mongoose.Types.ObjectId(userId) },
+        });
+      }
+
+      let unreadAgg = [];
+      if (matchConditions.length > 0) {
+        unreadAgg = await Message.aggregate([
+          {
+            $match: {
+              deletedFor: { $ne: new mongoose.Types.ObjectId(userId) },
+              $or: matchConditions,
+            },
           },
-        },
-        {
-          $group: {
-            _id: "$conversation",
-            count: { $sum: 1 },
+          {
+            $group: {
+              _id: "$conversation",
+              count: { $sum: 1 },
+            },
           },
-        },
-      ]);
+        ]);
+      }
 
       const unreadMap = new Map();
       unreadAgg.forEach((item) => {

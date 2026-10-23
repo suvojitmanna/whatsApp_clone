@@ -277,21 +277,48 @@ const getAllUsers = async (req, res) => {
       .lean();
     const conversationMap = {};
 
-    const unreadAgg = await Message.aggregate([
-      {
-        $match: {
-          receiver: new mongoose.Types.ObjectId(loggedInUserId),
-          messageStatus: { $in: ["send", "delivered"] },
-          deletedFor: { $ne: new mongoose.Types.ObjectId(loggedInUserId) },
+    const directConvIds = conversations
+      .filter((c) => !c.isGroup)
+      .map((c) => c._id);
+    const groupConvIds = conversations
+      .filter((c) => c.isGroup)
+      .map((c) => c._id);
+
+    const matchConditions = [];
+    if (directConvIds.length > 0) {
+      matchConditions.push({
+        conversation: { $in: directConvIds },
+        receiver: new mongoose.Types.ObjectId(loggedInUserId),
+        messageStatus: { $in: ["send", "delivered"] },
+      });
+    }
+    if (groupConvIds.length > 0) {
+      matchConditions.push({
+        conversation: { $in: groupConvIds },
+        sender: { $ne: new mongoose.Types.ObjectId(loggedInUserId) },
+        "readBy.user": {
+          $ne: new mongoose.Types.ObjectId(loggedInUserId),
         },
-      },
-      {
-        $group: {
-          _id: "$conversation",
-          count: { $sum: 1 },
+      });
+    }
+
+    let unreadAgg = [];
+    if (matchConditions.length > 0) {
+      unreadAgg = await Message.aggregate([
+        {
+          $match: {
+            deletedFor: { $ne: new mongoose.Types.ObjectId(loggedInUserId) },
+            $or: matchConditions,
+          },
         },
-      },
-    ]);
+        {
+          $group: {
+            _id: "$conversation",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+    }
 
     const unreadMap = new Map();
     unreadAgg.forEach((item) => {

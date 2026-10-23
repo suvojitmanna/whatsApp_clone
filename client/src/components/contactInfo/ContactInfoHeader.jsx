@@ -58,6 +58,7 @@ const ContactInfoHeader = ({
   const handleClose = () => {
     stopCamera?.();
     setScanError?.(null);
+    setViewingMember?.(null);
     setShowContactInfo(false);
   };
 
@@ -132,7 +133,7 @@ const ContactInfoHeader = ({
                                 : contactInfoTab === "kept"
                                   ? "Kept messages"
                                   : contactInfoTab === "advancedPrivacy"
-                                    ? "Advanced"
+                                    ? "Advanced chat privacy"
                                     : contactInfoTab === "lists"
                                       ? "Add to list"
                                       : contactInfoTab === "groupPermissions"

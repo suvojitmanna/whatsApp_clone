@@ -43,7 +43,7 @@ import {
   MdDeleteOutline,
 } from "react-icons/md";
 import { FiUserPlus, FiTag } from "react-icons/fi";
-import { LuDownload } from "react-icons/lu";
+import { LuDownload, LuShield } from "react-icons/lu";
 import { HiOutlineInformationCircle } from "react-icons/hi";
 import { toast } from "react-toastify";
 import axiosInstance from "../../services/url.services";
@@ -148,6 +148,50 @@ const ContactInfoMainTab = ({
   const [isEditingGroupDesc, setIsEditingGroupDesc] = useState(false);
   const [editedGroupDesc, setEditedGroupDesc] = useState("");
   const [showDescEmoji, setShowDescEmoji] = useState(false);
+
+  const [isAdvancedPrivacyOn, setIsAdvancedPrivacyOn] = useState(() => {
+    if (!chatId) return false;
+    try {
+      const all = JSON.parse(
+        localStorage.getItem("whatsapp_advanced_privacy") || "{}"
+      );
+      return Boolean(
+        all[chatId]?.enabled ??
+        (all[chatId]?.protectIp || all[chatId]?.disableLinkPreviews)
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const updateStatus = () => {
+      if (!chatId) return;
+      try {
+        const all = JSON.parse(
+          localStorage.getItem("whatsapp_advanced_privacy") || "{}"
+        );
+        setIsAdvancedPrivacyOn(
+          Boolean(
+            all[chatId]?.enabled ??
+            (all[chatId]?.protectIp || all[chatId]?.disableLinkPreviews)
+          )
+        );
+      } catch {
+        setIsAdvancedPrivacyOn(false);
+      }
+    };
+    updateStatus();
+    window.addEventListener("whatsapp_advanced_privacy_updated", updateStatus);
+    window.addEventListener("storage", updateStatus);
+    return () => {
+      window.removeEventListener(
+        "whatsapp_advanced_privacy_updated",
+        updateStatus
+      );
+      window.removeEventListener("storage", updateStatus);
+    };
+  }, [chatId]);
   const descEmojiRef = useRef(null);
 
   useOutsideClick(descEmojiRef, () => {
@@ -1701,41 +1745,6 @@ const ContactInfoMainTab = ({
             </div>
           )}
 
-          {(viewingMember ||
-            (!isGroup && !isMetaAi && commonGroups.length > 0)) &&
-            renderCommonGroupsCard()}
-
-          {viewingMember && (
-            <div
-              onClick={() => setContactInfoTab("security")}
-              className={`p-3.5 rounded-xl border cursor-pointer transition-colors ${theme === "dark"
-                ? "bg-white/[0.03] border-transparent hover:bg-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
-                : "bg-white border-gray-200 hover:bg-gray-50 shadow-sm"
-                }`}
-            >
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-[#00a884]/10 text-[#00a884]">
-                  <FaLock size={15} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4
-                    className={`text-[14.5px] font-medium flex items-center gap-2 ${theme === "dark" ? "text-[#e9edef]" : "text-gray-900"
-                      }`}
-                  >
-                    Encryption
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#00a884]/15 text-[#00a884]">
-                      Active
-                    </span>
-                  </h4>
-                  <p className="text-[12.5px] text-[#8696a0] truncate mt-0.5">
-                    Messages and calls are end-to-end encrypted. Tap to verify.
-                  </p>
-                </div>
-                <MdChevronRight size={19} className="text-[#8696a0] shrink-0" />
-              </div>
-            </div>
-          )}
-
           {!viewingMember && (
             <>
               <div
@@ -1917,6 +1926,42 @@ const ContactInfoMainTab = ({
                   className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
                 />
 
+                {!isMetaAi && (
+                  <>
+                    <div
+                      onClick={() => setContactInfoTab("advancedPrivacy")}
+                      className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
+                        ? "hover:bg-white/[0.05]"
+                        : "hover:bg-gray-50"
+                        }`}
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-[#8696a0]">
+                          <LuShield size={19} />
+                        </div>
+
+                        <div className="min-w-0">
+                          <h4
+                            className={`text-[14.5px] font-medium leading-tight ${theme === "dark" ? "text-[#e9edef]" : "text-gray-900"
+                              }`}
+                          >
+                            Advanced chat privacy
+                          </h4>
+                          <p className="text-[12.5px] text-[#8696a0] truncate mt-0.5">
+                            {isAdvancedPrivacyOn ? "On" : "Off"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <MdChevronRight size={19} className="text-[#8696a0]" />
+                    </div>
+
+                    <div
+                      className={`border-t ${theme === "dark" ? "border-transparent" : "border-gray-100"}`}
+                    />
+                  </>
+                )}
+
                 <div
                   onClick={() => setContactInfoTab("chatTheme")}
                   className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
@@ -2050,11 +2095,19 @@ const ContactInfoMainTab = ({
                 />
 
                 <div
-                  onClick={handleExportChat}
+                  onClick={() => {
+                    if (isAdvancedPrivacyOn) {
+                      toast.info(
+                        "Export chat is disabled while Advanced chat privacy is turned on"
+                      );
+                      return;
+                    }
+                    handleExportChat();
+                  }}
                   className={`flex items-center justify-between p-3.5 cursor-pointer transition-colors ${theme === "dark"
                     ? "hover:bg-white/[0.05]"
                     : "hover:bg-gray-50"
-                    }`}
+                    } ${isAdvancedPrivacyOn ? "opacity-60" : ""}`}
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center shrink-0">
@@ -2069,7 +2122,9 @@ const ContactInfoMainTab = ({
                         Export chat
                       </h4>
                       <p className="text-[12.5px] text-[#8696a0] truncate mt-0.5">
-                        Download conversation history (.txt)
+                        {isAdvancedPrivacyOn
+                          ? "Disabled by Advanced chat privacy"
+                          : "Download conversation history (.txt)"}
                       </p>
                     </div>
                   </div>
@@ -2196,6 +2251,42 @@ const ContactInfoMainTab = ({
             </>
           )}
 
+
+          {(viewingMember ||
+            (!isGroup && !isMetaAi && commonGroups.length > 0)) &&
+            renderCommonGroupsCard()}
+
+          {viewingMember && (
+            <div
+              onClick={() => setContactInfoTab("security")}
+              className={`p-3.5 rounded-xl border cursor-pointer transition-colors ${theme === "dark"
+                ? "bg-white/[0.03] border-transparent hover:bg-white/[0.06] shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
+                : "bg-white border-gray-200 hover:bg-gray-50 shadow-sm"
+                }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-[#00a884]/10 text-[#00a884]">
+                  <FaLock size={15} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4
+                    className={`text-[14.5px] font-medium flex items-center gap-2 ${theme === "dark" ? "text-[#e9edef]" : "text-gray-900"
+                      }`}
+                  >
+                    Encryption
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#00a884]/15 text-[#00a884]">
+                      Active
+                    </span>
+                  </h4>
+                  <p className="text-[12.5px] text-[#8696a0] truncate mt-0.5">
+                    Messages and calls are end-to-end encrypted. Tap to verify.
+                  </p>
+                </div>
+                <MdChevronRight size={19} className="text-[#8696a0] shrink-0" />
+              </div>
+            </div>
+          )}
+
           {viewingMember ? (
             <div
               className={`rounded-xl border overflow-hidden ${theme === "dark"
@@ -2272,7 +2363,24 @@ const ContactInfoMainTab = ({
                 ? "bg-white/[0.03] border-transparent shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
                 : "bg-white border-gray-200 shadow-sm"
                 }`}
+            ><div
+              onClick={handleExecuteClearChat}
+              className={`flex items-center gap-3.5 p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-red-500/10" : "hover:bg-red-50"
+                }`}
             >
+                <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+                  <IoMdRemoveCircleOutline size={19} />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[14.5px] font-medium text-red-500 truncate">
+                    Clear chat
+                  </h4>
+                  <p className="text-[12px] text-[#8696a0] truncate mt-0.5">
+                    Delete all messages in this chat
+                  </p>
+                </div>
+              </div>
               {!isMetaAi &&
                 (!isGroup ? (
                   <>
@@ -2331,25 +2439,6 @@ const ContactInfoMainTab = ({
                     />
                   </>
                 ))}
-
-              <div
-                onClick={handleExecuteClearChat}
-                className={`flex items-center gap-3.5 p-3.5 cursor-pointer transition-colors ${theme === "dark" ? "hover:bg-red-500/10" : "hover:bg-red-50"
-                  }`}
-              >
-                <div className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
-                  <IoMdRemoveCircleOutline size={19} />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-[14.5px] font-medium text-red-500 truncate">
-                    Clear chat
-                  </h4>
-                  <p className="text-[12px] text-[#8696a0] truncate mt-0.5">
-                    Delete all messages in this chat
-                  </p>
-                </div>
-              </div>
 
               {!isMetaAi && (
                 <>

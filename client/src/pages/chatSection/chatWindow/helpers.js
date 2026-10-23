@@ -68,6 +68,16 @@ export const getPinnedPreviewText = (msg) => {
 
 export const getReplyPreviewText = (msg) => {
   if (!msg) return "";
+  if (msg.contentType === "call" || Boolean(msg.callData)) {
+    const isVid =
+      msg.callData?.callType === "video" ||
+      msg.callType === "video" ||
+      msg.content?.toLowerCase()?.includes("video");
+    return isVid ? "📹 Video call" : "📞 Voice call";
+  }
+  if (msg.contentType === "call_link" || Boolean(msg.callLinkData)) {
+    return "🔗 Call link";
+  }
   if (msg.contentType === "text" || (!msg.contentType && msg.content)) {
     return msg.content || "";
   }

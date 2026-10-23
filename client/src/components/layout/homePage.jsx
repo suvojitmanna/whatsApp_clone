@@ -56,6 +56,12 @@ const HomePage = () => {
     loadData();
   }, [fetchConversations, setUsers]);
 
+  useEffect(() => {
+    if (users && users.length > 0) {
+      setAllUser(users);
+    }
+  }, [users]);
+
   const conversationList = Array.isArray(conversations?.data)
     ? conversations.data
     : [];

@@ -131,13 +131,16 @@ const ContactInfo = () => {
   const isGroup = Boolean(
     selectedContact?.isGroup ||
     selectedContact?.isGroupChat ||
-    selectedContact?.groupName ||
     selectedContact?.conversation?.isGroup ||
-    selectedContact?.conversation?.groupName ||
-    Boolean(
-      selectedContact?.groupAdmin ||
-      selectedContact?.conversation?.groupAdmin
-    ) ||
+    (typeof selectedContact?.groupName === "string" &&
+      selectedContact.groupName.trim() !== "" &&
+      selectedContact.groupName !== selectedContact?.username) ||
+    (typeof selectedContact?.conversation?.groupName === "string" &&
+      selectedContact.conversation.groupName.trim() !== "") ||
+    (Array.isArray(selectedContact?.groupAdmin) &&
+      selectedContact.groupAdmin.length > 0) ||
+    (Array.isArray(selectedContact?.conversation?.groupAdmin) &&
+      selectedContact.conversation.groupAdmin.length > 0) ||
     (Array.isArray(selectedContact?.participants) &&
       selectedContact.participants.length > 2) ||
     (Array.isArray(selectedContact?.conversation?.participants) &&
@@ -198,8 +201,25 @@ const ContactInfo = () => {
           checkUserStatus(pId);
         }
       });
+    } else if (!isGroup && typeof checkUserStatus === "function") {
+      const targetId = (
+        targetUserId ||
+        selectedContact?._id ||
+        selectedContact?.id
+      )?.toString();
+      if (targetId && targetId !== user?._id?.toString()) {
+        checkUserStatus(targetId);
+      }
     }
-  }, [isGroup, groupParticipants, user?._id, checkUserStatus]);
+  }, [
+    isGroup,
+    groupParticipants,
+    user?._id,
+    checkUserStatus,
+    targetUserId,
+    selectedContact?._id,
+    selectedContact?.id,
+  ]);
 
   const groupOnlineCount = useMemo(() => {
     if (!isGroup || !getGroupOnlineCount) return 0;
@@ -367,7 +387,11 @@ const ContactInfo = () => {
     chatId,
   ]);
 
-  const online = isUserOnline(selectedContact?._id);
+  const online = Boolean(
+    isUserOnline(targetUserId) ||
+    isUserOnline(selectedContact?._id) ||
+    isUserOnline(selectedContact?.id)
+  );
 
   const isViewingMemberOnline = useMemo(() => {
     if (!viewingMember) return false;

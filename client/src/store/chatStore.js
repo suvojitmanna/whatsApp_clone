@@ -296,7 +296,8 @@ export const useChatStore = create((set, get) => ({
         data: state.conversations?.data?.map((conv) => {
           const isMatch =
             String(conv._id) === strId ||
-            conv.participants?.some((p) => String(p?._id || p) === strId);
+            (!conv.isGroup &&
+              conv.participants?.some((p) => String(p?._id || p) === strId));
           return isMatch ? { ...conv, unreadCount: 0 } : conv;
         }),
       },
@@ -1348,8 +1349,7 @@ export const useChatStore = create((set, get) => ({
           if (dIdx >= 0) {
             existingDeliveredTo[dIdx] = {
               ...existingDeliveredTo[dIdx],
-              deliveredAt:
-                existingDeliveredTo[dIdx].deliveredAt || timestamp,
+              deliveredAt: existingDeliveredTo[dIdx].deliveredAt || timestamp,
               user:
                 (typeof existingDeliveredTo[dIdx].user === "object" &&
                 existingDeliveredTo[dIdx].user?.username
@@ -1485,6 +1485,7 @@ export const useChatStore = create((set, get) => ({
             }
           }
         } catch (e) {
+          console.log(e);
         }
 
         return {
@@ -2274,7 +2275,8 @@ export const useChatStore = create((set, get) => ({
           data: state.conversations?.data?.map((conv) => {
             const isMatch =
               String(conv._id) === String(conversationId) ||
-              (peerId &&
+              (!conv.isGroup &&
+                peerId &&
                 conv.participants?.some(
                   (p) => String(p?._id || p) === String(peerId),
                 ));
@@ -2303,14 +2305,22 @@ export const useChatStore = create((set, get) => ({
     const messageStatus = formData.get("messageStatus");
     const customContentType = formData.get("contentType");
 
-    const { conversations } = get();
-    let conversationId = null;
+    const isActuallyGroup = Boolean(
+      formData.get("isGroup") === "true" ||
+      selectedContact?.isGroup ||
+      selectedContact?.isGroupChat ||
+      selectedContact?.conversation?.isGroup
+    );
 
-    if (conversations?.data?.length > 0) {
+    const { conversations } = get();
+    let conversationId = formData.get("conversationId") || null;
+
+    if (!conversationId && conversations?.data?.length > 0) {
       const conversation = conversations.data.find(
         (conv) =>
-          conv.participants.some((p) => p._id === senderId) &&
-          conv.participants.some((p) => p._id === receiverId),
+          (isActuallyGroup ? Boolean(conv.isGroup) : !conv.isGroup) &&
+          conv.participants?.some((p) => String(p?._id || p) === String(senderId)) &&
+          conv.participants?.some((p) => String(p?._id || p) === String(receiverId)),
       );
 
       if (conversation) {
@@ -2496,7 +2506,7 @@ export const useChatStore = create((set, get) => ({
             );
             const isTarget =
               Boolean(targetConvId && String(conv._id) === targetConvId) ||
-              Boolean(hasSender && hasReceiver);
+              Boolean(!conv.isGroup && !isActuallyGroup && hasSender && hasReceiver);
             return isTarget
               ? { ...conv, lastMessage: optimisticMessage, unreadCount: 0 }
               : conv;
@@ -2567,7 +2577,7 @@ export const useChatStore = create((set, get) => ({
               );
               const isTarget =
                 Boolean(targetConvId && String(conv._id) === targetConvId) ||
-                Boolean(hasSender && hasReceiver);
+                Boolean(!conv.isGroup && !isActuallyGroup && hasSender && hasReceiver);
               return isTarget
                 ? { ...conv, lastMessage: savedMessage, unreadCount: 0 }
                 : conv;
@@ -2958,8 +2968,11 @@ export const useChatStore = create((set, get) => ({
     );
     if (messageExists) return;
 
-    const conversationId =
-      decryptedMessage.conversation?._id || decryptedMessage.conversation;
+    const conversationId = (
+      decryptedMessage.conversation?._id ||
+      decryptedMessage.conversation ||
+      decryptedMessage.conversationId
+    )?.toString();
 
     const myId = currentUserId?.toString();
     const receiverId = (
@@ -2969,36 +2982,46 @@ export const useChatStore = create((set, get) => ({
       decryptedMessage.sender?._id || decryptedMessage.sender
     )?.toString();
 
+    const isGroupSelected = Boolean(
+      selectedContact?.isGroup ||
+      selectedContact?.isGroupChat ||
+      selectedContact?.conversation?.isGroup,
+    );
     const activeConvId = (
-      currentConversation?._id || selectedContact?.conversation?._id
+      currentConversation?._id ||
+      selectedContact?.conversation?._id ||
+      (isGroupSelected ? selectedContact?._id || selectedContact?.id : null)
     )?.toString();
     const activeContactId = (
       selectedContact?._id || selectedContact?.id
     )?.toString();
+
     const isCurrentConversation =
       Boolean(
         conversationId &&
         activeConvId &&
         String(conversationId) === String(activeConvId),
       ) ||
-      Boolean(activeContactId && senderId && senderId === activeContactId) ||
       Boolean(
-        activeContactId &&
+        !isGroupSelected &&
+        !decryptedMessage.isGroup &&
         receiverId &&
-        receiverId === activeContactId &&
-        senderId === myId,
-      ) ||
-      Boolean(
-        currentConversation?.participants?.some(
-          (p) => String(p?._id || p?.id || p) === String(senderId),
-        ),
+        activeContactId &&
+        ((senderId && String(senderId) === String(activeContactId)) ||
+          (receiverId &&
+            String(receiverId) === String(activeContactId) &&
+            String(senderId) === String(myId))),
       );
 
+    const isSentByCurrentUser = Boolean(
+      myId && senderId && String(senderId) === String(myId),
+    );
     const isForCurrentUser =
-      Boolean(myId && receiverId && receiverId === myId) ||
-      Boolean(myId && senderId && senderId !== myId) ||
-      Boolean(!senderId || (myId && senderId !== myId));
-    const isSentByCurrentUser = Boolean(myId && senderId && senderId === myId);
+      !isSentByCurrentUser &&
+      Boolean(
+        (myId && receiverId && String(receiverId) === String(myId)) ||
+        !receiverId,
+      );
 
     if (isCurrentConversation) {
       if (isForCurrentUser) {
@@ -3074,52 +3097,104 @@ export const useChatStore = create((set, get) => ({
     let foundTarget = false;
     set((state) => {
       const targetConvId = conversationId ? String(conversationId) : null;
+      const updatedConversations = state.conversations?.data?.map((conv) => {
+        const cId = conv._id?.toString();
+        const hasSender = Boolean(
+          senderId &&
+          conv.participants?.some(
+            (p) => String(p?._id || p) === String(senderId),
+          ),
+        );
+        const hasReceiver = Boolean(
+          receiverId &&
+          conv.participants?.some(
+            (p) => String(p?._id || p) === String(receiverId),
+          ),
+        );
+
+        const isMsgGroup = Boolean(
+          decryptedMessage.isGroup ||
+          decryptedMessage.conversation?.isGroup
+        );
+        const isTarget =
+          Boolean(targetConvId && cId === targetConvId) ||
+          Boolean(!isMsgGroup && !conv.isGroup && hasSender && hasReceiver);
+
+        if (!isTarget) {
+          return conv;
+        }
+
+        foundTarget = true;
+
+        let nextUnread = conv.unreadCount || 0;
+        if (isCurrentConversation) {
+          nextUnread = 0;
+        } else if (isForCurrentUser) {
+          const incomingUnread =
+            typeof decryptedMessage.unreadCount === "number" &&
+            decryptedMessage.unreadCount > 0
+              ? decryptedMessage.unreadCount
+              : null;
+          nextUnread =
+            incomingUnread !== null
+              ? incomingUnread
+              : (conv.unreadCount || 0) + 1;
+        } else if (isSentByCurrentUser) {
+          nextUnread = conv.unreadCount || 0;
+        }
+
+        return {
+          ...conv,
+          lastMessage: decryptedMessage,
+          unreadCount: nextUnread,
+        };
+      });
+
+      const updatedUsers = state.users?.map((u) => {
+        const uId = (u._id || u.id)?.toString();
+        const uConvId = (u.conversation?._id || u.conversation)?.toString();
+        const isMsgGroup = Boolean(
+          decryptedMessage.isGroup ||
+          decryptedMessage.conversation?.isGroup
+        );
+        const isMatch =
+          Boolean(targetConvId && uConvId === targetConvId) ||
+          Boolean(!isMsgGroup && senderId && uId === String(senderId));
+
+        if (isMatch && u.conversation) {
+          let nextUnread = u.conversation.unreadCount || 0;
+          if (isCurrentConversation) {
+            nextUnread = 0;
+          } else if (isForCurrentUser) {
+            const incomingUnread =
+              typeof decryptedMessage.unreadCount === "number" &&
+              decryptedMessage.unreadCount > 0
+                ? decryptedMessage.unreadCount
+                : null;
+            nextUnread =
+              incomingUnread !== null
+                ? incomingUnread
+                : (u.conversation.unreadCount || 0) + 1;
+          }
+
+          return {
+            ...u,
+            conversation: {
+              ...u.conversation,
+              lastMessage: decryptedMessage,
+              unreadCount: nextUnread,
+            },
+          };
+        }
+        return u;
+      });
+
       return {
         conversations: {
           ...state.conversations,
-          data: state.conversations?.data?.map((conv) => {
-            const hasSender = Boolean(
-              senderId &&
-              conv.participants?.some(
-                (p) => String(p?._id || p) === String(senderId),
-              ),
-            );
-            const hasReceiver = Boolean(
-              receiverId &&
-              conv.participants?.some(
-                (p) => String(p?._id || p) === String(receiverId),
-              ),
-            );
-
-            const isTarget =
-              Boolean(targetConvId && String(conv._id) === targetConvId) ||
-              Boolean(hasSender && hasReceiver);
-
-            if (!isTarget) {
-              return conv;
-            }
-
-            foundTarget = true;
-
-            let nextUnread = conv.unreadCount || 0;
-            if (isCurrentConversation) {
-              nextUnread = 0;
-            } else if (isForCurrentUser) {
-              nextUnread =
-                typeof decryptedMessage.unreadCount === "number"
-                  ? decryptedMessage.unreadCount
-                  : (conv.unreadCount || 0) + 1;
-            } else if (isSentByCurrentUser) {
-              nextUnread = 0;
-            }
-
-            return {
-              ...conv,
-              lastMessage: decryptedMessage,
-              unreadCount: nextUnread,
-            };
-          }),
+          data: updatedConversations,
         },
+        users: updatedUsers,
       };
     });
 
@@ -3148,7 +3223,8 @@ export const useChatStore = create((set, get) => ({
           data: state.conversations?.data?.map((conv) => {
             const isMatch =
               (activeConvId && String(conv._id) === String(activeConvId)) ||
-              (peerId &&
+              (!conv.isGroup &&
+                peerId &&
                 peerId !== myId &&
                 conv.participants?.some(
                   (p) => String(p?._id || p) === String(peerId),
@@ -3217,7 +3293,8 @@ export const useChatStore = create((set, get) => ({
             data: state.conversations?.data?.map((conv) => {
               const isMatch =
                 (convId && String(conv._id) === String(convId)) ||
-                (peerId &&
+                (!conv.isGroup &&
+                  peerId &&
                   peerId !== myId &&
                   conv.participants?.some(
                     (p) => String(p?._id || p) === String(peerId),

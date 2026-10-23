@@ -116,6 +116,104 @@ const MessageMenu = ({
         );
     }
 
+    const isCallMessage = Boolean(
+        message?.contentType === "call" ||
+        Boolean(message?.callData) ||
+        message?.contentType === "call_link" ||
+        Boolean(message?.callLinkData)
+    );
+
+    if (isCallMessage) {
+        return (
+            <>
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        if (onReply) {
+                            onReply(message);
+                        }
+                    }}
+                    className={itemClass}
+                >
+                    <LuReply size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
+                    <span>Reply</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        setShowReactions?.(true);
+                    }}
+                    className={itemClass}
+                >
+                    <BsEmojiSmile size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
+                    <span>React</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        if (isPinned) {
+                            unpinMessage?.(conversationId, secondaryConvId);
+                            toast.info("Message unpinned");
+                        } else {
+                            setShowPinModal?.(true);
+                        }
+                    }}
+                    className={itemClass}
+                >
+                    {isPinned ? (
+                        <WhatsAppUnpinIcon size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
+                    ) : (
+                        <TbPin size={18} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
+                    )}
+                    <span>{isPinned ? "Unpin" : "Pin"}</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        const nowStarred = toggleStarMessage?.(message?._id, message);
+                        if (nowStarred) {
+                            toast.success("Message starred");
+                        } else {
+                            toast.info("Message unstarred");
+                        }
+                    }}
+                    className={itemClass}
+                >
+                    {isStarred ? (
+                        <FaStar size={16} className="shrink-0 text-amber-400 fill-amber-400" />
+                    ) : (
+                        <FaRegStar size={16} className="shrink-0 text-[#8696a0] group-hover:text-inherit transition-colors" />
+                    )}
+                    <span>{isStarred ? "Unstar" : "Star"}</span>
+                </button>
+
+                <div
+                    className={`my-1 border-t ${isDark ? "border-[#2a3942]/80" : "border-black/10"
+                        }`}
+                />
+
+                <button
+                    type="button"
+                    onClick={() => {
+                        setDeleteModal?.(message);
+                        setShowOptions?.(false);
+                    }}
+                    className={dangerItemClass}
+                >
+                    <RiDeleteBin6Line size={17} className="shrink-0 text-[#8696a0] group-hover:text-red-400 transition-colors" />
+                    <span>Delete</span>
+                </button>
+            </>
+        );
+    }
+
     const hasCopyableText = Boolean(
         message?.contentType === "text" ||
         message?.content ||
