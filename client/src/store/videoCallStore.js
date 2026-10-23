@@ -172,6 +172,7 @@ const useVideoCallStore = create(
         isCallModalOpen: false,
         callStatus: "idle",
         isInitiator: false,
+        activeGroupCall: null,
         groupParticipants: [],
       });
     },

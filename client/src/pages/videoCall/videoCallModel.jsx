@@ -645,6 +645,7 @@ const VideoCallModel = ({ socket }) => {
     setPeerConnection(null);
     callAcceptedRef.current = false;
     callStartTimeRef.current = null;
+    useVideoCallStore.getState().setActiveGroupCall(null);
     endCall();
   };
 
@@ -726,7 +727,10 @@ const VideoCallModel = ({ socket }) => {
       setTimeout(endCall, 2000);
     };
 
-    const handleCallEnded = () => {
+    const handleCallEnded = ({ reason } = {}) => {
+      if (reason) {
+        toast.info(reason);
+      }
       recordCallEvent(callTime);
       cleanupCall();
     };
@@ -745,7 +749,7 @@ const VideoCallModel = ({ socket }) => {
       }, 500);
     };
 
-    const handleGroupCallParticipantLeft = ({ userId }) => {
+    const handleGroupCallParticipantLeft = ({ userId, joinedParticipants }) => {
       if (!userId) return;
       const strId = userId.toString();
       const pc = peerConnectionsRef.current.get(strId);
@@ -757,6 +761,27 @@ const VideoCallModel = ({ socket }) => {
       }
       removeRemoteStreamForUser(strId);
       removeGroupParticipant(strId);
+
+      const myId = user?._id?.toString();
+      let remainingOthers = 0;
+      if (Array.isArray(joinedParticipants)) {
+        remainingOthers = joinedParticipants.filter(
+          (p) => (p.userId || p._id || p)?.toString() !== myId
+        ).length;
+      } else {
+        const currentOthers = useVideoCallStore.getState().groupParticipants || [];
+        remainingOthers = currentOthers.filter(
+          (p) => (p.userId || p._id || p)?.toString() !== strId
+        ).length;
+      }
+
+      if (remainingOthers === 0 && (callStatus === "connected" || isCallActive)) {
+        toast.info("Call ended - everyone else left the call");
+        setCallStatus("failed");
+        setTimeout(() => {
+          handleEndCall();
+        }, 1500);
+      }
     };
 
     const handleWebRTCOffer = async ({ offer, senderId, callId }) => {

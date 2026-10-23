@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import User from "../models/user.js";
 import Message from "../models/message.js";
 import Conversation from "../models/ConverSation.js";
-import handleVideoCallEvent from "./videoCallService.js";
+import handleVideoCallEvent, { handleUserCallDisconnect } from "./videoCallService.js";
 import socketMiddleware from "../middleware/socketMiddleware.js";
 import { deleteFileFromCloudinary } from "../config/cloudinary.js";
 import {
@@ -719,6 +719,9 @@ function initializeSocket(server) {
       if (!userId) return;
 
       try {
+        if (typeof handleUserCallDisconnect === "function") {
+          handleUserCallDisconnect(userId, io, onlineUsers);
+        }
         onlineUsers.delete(userId);
         const lastSeen = new Date().toISOString();
         await User.findByIdAndUpdate(userId, {

@@ -28,10 +28,16 @@ const ActiveGroupCallBanner = ({ currentGroupId, theme = "dark" }) => {
   const isDark = theme === "dark";
 
   const isCallForCurrentGroup = useMemo(() => {
-    if (!activeGroupCall || !activeGroupCall.isActive) return false;
+    if (!activeGroupCall || !activeGroupCall.isActive || activeGroupCall.status === "ended") return false;
     const gId = (activeGroupCall.groupId?._id || activeGroupCall.groupId)?.toString();
     const currId = currentGroupId?.toString();
-    return Boolean(gId && currId && gId === currId);
+    if (!gId || !currId || gId !== currId) return false;
+
+    const participantCount = activeGroupCall.joinedParticipants?.length || 0;
+    if (participantCount === 0) return false;
+    if (activeGroupCall.status === "ongoing" && participantCount < 2) return false;
+
+    return true;
   }, [activeGroupCall, currentGroupId]);
 
   const joinedParticipants = useMemo(() => {

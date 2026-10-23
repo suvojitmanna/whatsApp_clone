@@ -151,13 +151,16 @@ const ChatHeader = ({
   }, [selectedContact]);
 
   const isCurrentGroupCallActive = React.useMemo(() => {
-    return Boolean(
-      isGroup &&
-      activeGroupCall &&
-      activeGroupCall.groupId === currentGroupId &&
-      activeGroupCall.isActive &&
-      (activeGroupCall.status === "ongoing" || activeGroupCall.joinedParticipants?.length > 0)
-    );
+    if (!isGroup || !activeGroupCall || !activeGroupCall.isActive) return false;
+    const gId = (activeGroupCall.groupId?._id || activeGroupCall.groupId)?.toString();
+    if (!gId || !currentGroupId || gId !== currentGroupId) return false;
+    if (activeGroupCall.status === "ended") return false;
+
+    const participantCount = activeGroupCall.joinedParticipants?.length || 0;
+    if (participantCount === 0) return false;
+    if (activeGroupCall.status === "ongoing" && participantCount < 2) return false;
+
+    return true;
   }, [isGroup, activeGroupCall, currentGroupId]);
 
   const isUserInCurrentCall = React.useMemo(() => {
