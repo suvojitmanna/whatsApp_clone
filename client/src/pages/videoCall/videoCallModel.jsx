@@ -59,6 +59,22 @@ const VideoCallModel = ({ socket }) => {
     setIsInitiator,
   } = useVideoCallStore();
 
+  const currentCallRef = useRef(currentCall);
+  const incomingCallRef = useRef(incomingCall);
+  const peerConnectionRef = useRef(peerConnection);
+
+  useEffect(() => {
+    currentCallRef.current = currentCall;
+  }, [currentCall]);
+
+  useEffect(() => {
+    incomingCallRef.current = incomingCall;
+  }, [incomingCall]);
+
+  useEffect(() => {
+    peerConnectionRef.current = peerConnection;
+  }, [peerConnection]);
+
   const { user } = useUserStore();
   const { theme } = useThemeStore();
 
@@ -198,8 +214,15 @@ const VideoCallModel = ({ socket }) => {
       console.error("Screen share toggle error:", err);
     }
   };
-  const createPeerConnection = (stream, role) => {
+  const createPeerConnection = (
+    stream,
+    role,
+    targetReceiverId = null,
+    targetCallId = null
+  ) => {
     const pc = new RTCPeerConnection(rtcConfiguration);
+    peerConnectionRef.current = pc;
+    setPeerConnection(pc);
 
     if (stream) {
       stream.getTracks().forEach((track) => {
@@ -207,11 +230,18 @@ const VideoCallModel = ({ socket }) => {
         pc.addTrack(track, stream);
       });
     }
+
     pc.onicecandidate = (event) => {
       if (event.candidate && socket?.connected) {
-        const participantId =
-          currentCall?.participantId || incomingCall?.callerId;
-        const callId = currentCall?.callId || incomingCall?.callId;
+        const participantId = (
+          targetReceiverId ||
+          currentCallRef.current?.participantId ||
+          incomingCallRef.current?.callerId
+        )?.toString();
+        const callId =
+          targetCallId ||
+          currentCallRef.current?.callId ||
+          incomingCallRef.current?.callId;
 
         if (participantId && callId) {
           socket.emit("webrtc_ice_candidate", {
@@ -222,6 +252,7 @@ const VideoCallModel = ({ socket }) => {
         }
       }
     };
+
     pc.ontrack = (event) => {
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
@@ -241,9 +272,14 @@ const VideoCallModel = ({ socket }) => {
         }
         setCallStatus("connected");
         setCallActive(true);
-      } else if (["failed", "disconnected"].includes(pc.connectionState)) {
+      } else if (pc.connectionState === "failed") {
+        console.warn(`role: ${role} WebRTC connection failed`);
         setCallStatus("failed");
         setTimeout(handleEndCall, 2000);
+      } else if (pc.connectionState === "disconnected") {
+        console.warn(
+          `role: ${role} WebRTC disconnected, attempting to keep alive/reconnect`
+        );
       }
     };
 
@@ -263,16 +299,22 @@ const VideoCallModel = ({ socket }) => {
       console.log(`role: ${role} :signaling state`, pc.signalingState);
     };
 
-    setPeerConnection(pc);
     return pc;
   };
-  const initializeCallerCall = async (targetReceiverId) => {
+
+  const initializeCallerCall = async (targetReceiverId, targetCallId) => {
     try {
       setCallStatus("connecting");
 
       const stream = await InitializeMedia(callType === "video");
 
-      const pc = createPeerConnection(stream, "CALLER");
+      const receiverId = (
+        targetReceiverId ||
+        currentCallRef.current?.participantId
+      )?.toString();
+      const callId = targetCallId || currentCallRef.current?.callId;
+
+      const pc = createPeerConnection(stream, "CALLER", receiverId, callId);
 
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
@@ -281,12 +323,10 @@ const VideoCallModel = ({ socket }) => {
 
       await pc.setLocalDescription(offer);
 
-      const receiverId = targetReceiverId || currentCall?.participantId;
-
       socket.emit("webrtc_offer", {
         offer,
         receiverId,
-        callId: currentCall?.callId,
+        callId,
       });
     } catch (error) {
       console.error("Caller init error:", error);
@@ -294,6 +334,7 @@ const VideoCallModel = ({ socket }) => {
       setTimeout(handleEndCall, 2000);
     }
   };
+
   const handleAnswerCall = async () => {
     try {
       callAcceptedRef.current = true;
@@ -305,29 +346,38 @@ const VideoCallModel = ({ socket }) => {
       const stream = await InitializeMedia(callType === "video");
       setLocalStream(stream);
 
-      const pc = createPeerConnection(stream, "RECEIVER");
+      const callerId = (
+        incomingCallRef.current?.callerId ||
+        incomingCall?.callerId
+      )?.toString();
+      const callId =
+        incomingCallRef.current?.callId || incomingCall?.callId;
+
+      const pc = createPeerConnection(stream, "RECEIVER", callerId, callId);
 
       socket.emit("accept_call", {
-        callerId: incomingCall?.callerId,
-        callId: incomingCall?.callId,
-        isGroup: incomingCall?.isGroup,
-        groupId: incomingCall?.groupId,
+        callerId,
+        callId,
+        isGroup: incomingCallRef.current?.isGroup || incomingCall?.isGroup,
+        groupId: incomingCallRef.current?.groupId || incomingCall?.groupId,
         receiverInfo: {
           username: user?.username,
           profilePicture: user?.profilePicture,
         },
       });
 
-      setCurrentCall({
-        callId: incomingCall?.callId,
-        participantId: incomingCall?.callerId,
+      const updatedCall = {
+        callId,
+        participantId: callerId,
         participantName: incomingCall?.callerName,
         participantAvatar: incomingCall?.callerAvatar,
         isGroup: incomingCall?.isGroup,
         groupId: incomingCall?.groupId,
         groupName: incomingCall?.groupName,
         isInitiator: false,
-      });
+      };
+      currentCallRef.current = updatedCall;
+      setCurrentCall(updatedCall);
       setIsInitiator(false);
 
       clearIncomingCall();
@@ -337,21 +387,23 @@ const VideoCallModel = ({ socket }) => {
     }
   };
   const recordCallEvent = (finalSeconds = callTime, explicitStatus = null) => {
-    const participantId = currentCall?.participantId || incomingCall?.callerId;
-    const callId = currentCall?.callId || incomingCall?.callId;
+    const curr = currentCallRef.current || currentCall;
+    const inc = incomingCallRef.current || incomingCall;
+    const participantId = curr?.participantId || inc?.callerId;
+    const callId = curr?.callId || inc?.callId;
     if (!participantId || !callId) return;
 
     if (recordedCallIds.current.has(callId)) return;
     recordedCallIds.current.add(callId);
 
     const isCaller = Boolean(
-      currentCall?.isInitiator === true ||
+      curr?.isInitiator === true ||
       isInitiator === true
     );
     const participantName =
-      currentCall?.participantName || incomingCall?.callerName || "Contact";
+      curr?.participantName || inc?.callerName || "Contact";
     const participantAvatar =
-      currentCall?.participantAvatar || incomingCall?.callerAvatar || "";
+      curr?.participantAvatar || inc?.callerAvatar || "";
 
     let effectiveSeconds = finalSeconds;
     if (callStartTimeRef.current && effectiveSeconds <= 0) {
@@ -402,17 +454,17 @@ const VideoCallModel = ({ socket }) => {
         ? "declined"
         : "missed";
 
-    const isGroup = Boolean(currentCall?.isGroup || incomingCall?.isGroup);
-    const groupId = currentCall?.groupId || incomingCall?.groupId || null;
-    const groupName = isGroup ? (currentCall?.groupName || incomingCall?.groupName || participantName) : null;
-    const groupAvatar = isGroup ? (currentCall?.groupAvatar || incomingCall?.groupAvatar || participantAvatar) : null;
+    const isGroup = Boolean(curr?.isGroup || inc?.isGroup);
+    const groupId = curr?.groupId || inc?.groupId || null;
+    const groupName = isGroup ? (curr?.groupName || inc?.groupName || participantName) : null;
+    const groupAvatar = isGroup ? (curr?.groupAvatar || inc?.groupAvatar || participantAvatar) : null;
 
-    const callerId = isCaller ? user?._id : (incomingCall?.callerId || currentCall?.participantId);
-    const callerName = isCaller ? user?.username : (incomingCall?.actualCallerName || incomingCall?.callerName || "Caller");
-    const callerAvatar = isCaller ? user?.profilePicture : (incomingCall?.callerAvatar || "");
+    const callerId = isCaller ? user?._id : (inc?.callerId || curr?.participantId);
+    const callerName = isCaller ? user?.username : (inc?.actualCallerName || inc?.callerName || "Caller");
+    const callerAvatar = isCaller ? user?.profilePicture : (inc?.callerAvatar || "");
 
-    const answeredBy = wasAnswered ? (isCaller ? (currentCall?.answeredBy || currentCall?.participantId) : user?._id) : null;
-    const answeredByName = wasAnswered ? (isCaller ? (currentCall?.answeredByName || currentCall?.participantName) : user?.username) : null;
+    const answeredBy = wasAnswered ? (isCaller ? (curr?.answeredBy || curr?.participantId) : user?._id) : null;
+    const answeredByName = wasAnswered ? (isCaller ? (curr?.answeredByName || curr?.participantName) : user?.username) : null;
 
     let groupParticipantsList = [];
     if (isGroup) {
@@ -429,9 +481,9 @@ const VideoCallModel = ({ socket }) => {
           if (Array.isArray(parts) && parts.length > 0) groupParticipantsList = parts;
         }
       }
-      if (groupParticipantsList.length === 0 && Array.isArray(currentCall?.participantIds)) {
+      if (groupParticipantsList.length === 0 && Array.isArray(curr?.participantIds)) {
         const allUsers = useChatStore.getState()?.users || [];
-        groupParticipantsList = currentCall.participantIds.map((pId) => {
+        groupParticipantsList = curr.participantIds.map((pId) => {
           const u = allUsers.find((userItem) => String(userItem._id) === String(pId));
           return u || { _id: pId, username: "Participant" };
         });
@@ -476,8 +528,8 @@ const VideoCallModel = ({ socket }) => {
       try {
         const activeContact = useLayoutStore.getState()?.selectedContact;
         const conv = useChatStore.getState()?.currentConversation;
-        const isGroupCall = Boolean(isGroup || currentCall?.isGroup || incomingCall?.isGroup);
-        const effectiveGroupId = groupId || currentCall?.groupId || incomingCall?.groupId;
+        const isGroupCall = Boolean(isGroup || curr?.isGroup || inc?.isGroup);
+        const effectiveGroupId = groupId || curr?.groupId || inc?.groupId;
         const conversationId = isGroupCall
           ? (effectiveGroupId || conv?._id || activeContact?.conversation?._id || activeContact?._id)
           : (conv?._id || activeContact?.conversation?._id);
@@ -500,29 +552,42 @@ const VideoCallModel = ({ socket }) => {
 
   const handleRejectCall = () => {
     recordCallEvent(0, "rejected");
-    if (incomingCall) {
-      socket.emit("reject_call", {
-        callerId: incomingCall?.callerId,
-        callId: incomingCall?.callId,
-        isGroup: incomingCall?.isGroup,
-        groupId: incomingCall?.groupId,
+    const inc = incomingCallRef.current || incomingCall;
+    if (inc) {
+      socket?.emit("reject_call", {
+        callerId: inc?.callerId,
+        callId: inc?.callId,
+        isGroup: inc?.isGroup,
+        groupId: inc?.groupId,
       });
     }
     endCall();
   };
 
   const cleanupCall = () => {
-    const callId = currentCall?.callId || incomingCall?.callId;
+    const curr = currentCallRef.current || currentCall;
+    const inc = incomingCallRef.current || incomingCall;
+    const callId = curr?.callId || inc?.callId;
     if (callId && !recordedCallIds.current.has(callId)) {
       recordCallEvent(callTime);
     }
 
-    if (peerConnection) {
-      peerConnection.getSenders().forEach((s) => {
-        if (s.track) s.track.stop();
-        s.replaceTrack(null);
-      });
+    const pc = peerConnectionRef.current || peerConnection;
+    if (pc) {
+      try {
+        pc.getSenders().forEach((s) => {
+          if (s.track) s.track.stop();
+          try {
+            s.replaceTrack(null);
+          } catch (_) {}
+        });
+        pc.close();
+      } catch (e) {
+        console.warn("Error closing pc:", e);
+      }
+      peerConnectionRef.current = null;
     }
+
     if (isScreenSharing && localStream) {
       localStream.getTracks().forEach((t) => t.stop());
     }
@@ -537,10 +602,6 @@ const VideoCallModel = ({ socket }) => {
       remoteStream.getTracks().forEach((t) => t.stop());
     }
 
-    if (peerConnection) {
-      peerConnection.close();
-    }
-
     setLocalStream(null);
     setCameraStream(null);
     setRemoteStream(null);
@@ -549,53 +610,64 @@ const VideoCallModel = ({ socket }) => {
     callStartTimeRef.current = null;
     endCall();
   };
+
   const handleEndCall = () => {
     const elapsed = callTime;
     recordCallEvent(elapsed);
     setCallTime(0);
-    const participantId = currentCall?.participantId || incomingCall?.callerId;
-    const callId = currentCall?.callId || incomingCall?.callId;
 
-    if (participantId && callId) {
+    const curr = currentCallRef.current || currentCall;
+    const inc = incomingCallRef.current || incomingCall;
+    const participantId = curr?.participantId || inc?.callerId;
+    const callId = curr?.callId || inc?.callId;
+
+    if (participantId && callId && socket?.connected) {
       socket.emit("end_call", {
         callId: callId,
         participantId: participantId,
-        isGroup: currentCall?.isGroup || incomingCall?.isGroup,
-        groupId: currentCall?.groupId || incomingCall?.groupId,
+        isGroup: Boolean(curr?.isGroup || inc?.isGroup),
+        groupId: curr?.groupId || inc?.groupId,
       });
     }
 
     cleanupCall();
   };
+
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
+
   useEffect(() => {
     if (!socket) return;
 
-    const handleCallAccepted = ({ receiverName, receiverId, isGroup, groupId }) => {
+    const handleCallAccepted = ({ receiverName, receiverId, callId, isGroup, groupId }) => {
       callAcceptedRef.current = true;
       if (!callStartTimeRef.current) {
         callStartTimeRef.current = Date.now();
       }
       setCallStatus("connecting");
-      if (currentCall) {
-        const targetId = receiverId || currentCall.participantId;
+
+      const curr = currentCallRef.current;
+      if (curr) {
+        const targetId = (receiverId?._id || receiverId || curr.participantId)?.toString();
+        const effectiveCallId = callId || curr.callId;
         const updatedCall = {
-          ...currentCall,
+          ...curr,
+          callId: effectiveCallId,
           participantId: targetId,
-          answeredBy: receiverId,
+          answeredBy: targetId,
           answeredByName: receiverName,
-          participantName: isGroup && currentCall.groupName
-            ? `${currentCall.groupName} (${receiverName})`
-            : receiverName || currentCall.participantName,
+          participantName: isGroup && curr.groupName
+            ? `${curr.groupName} (${receiverName})`
+            : receiverName || curr.participantName,
         };
+        currentCallRef.current = updatedCall;
         setCurrentCall(updatedCall);
         setTimeout(() => {
-          initializeCallerCall(targetId);
-        }, 500);
+          initializeCallerCall(targetId, effectiveCallId);
+        }, 300);
       }
     };
 
@@ -611,56 +683,59 @@ const VideoCallModel = ({ socket }) => {
     };
 
     const handleWebRTCOffer = async ({ offer, senderId, callId }) => {
-      if (!peerConnection) return;
+      const pc = peerConnectionRef.current;
+      if (!pc) {
+        console.warn("Receiver: Received offer but peerConnection is not ready yet");
+        return;
+      }
 
       try {
-        await peerConnection.setRemoteDescription(
-          new RTCSessionDescription(offer),
-        );
-
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
         await processQueuedIceCandidates();
 
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
 
         socket.emit("webrtc_answer", {
           answer,
-          receiverId: senderId,
+          receiverId: (senderId?._id || senderId)?.toString(),
           callId,
         });
 
-        console.log("Receiver: Answer send waiting for ice candidates");
+        console.log("Receiver: Answer sent waiting for ice candidates");
       } catch (error) {
         console.error("Receiver offer error", error);
       }
     };
+
     const handleWebRTCAnswer = async ({ answer, senderId, callId }) => {
-      if (!peerConnection) return;
-      if (peerConnection.signalingState === "closed") {
+      const pc = peerConnectionRef.current;
+      if (!pc) {
+        console.warn("Caller: Received answer but peerConnection is not ready yet");
+        return;
+      }
+      if (pc.signalingState === "closed") {
         console.log("Caller peer connection is closed");
         return;
       }
 
       try {
-        await peerConnection.setRemoteDescription(
-          new RTCSessionDescription(answer),
-        );
-
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
         await processQueuedIceCandidates();
 
-        const receivers = peerConnection.getReceivers();
+        const receivers = pc.getReceivers();
         console.log("Receivers:", receivers);
       } catch (error) {
         console.error("Caller answer error", error);
       }
     };
+
     const handleWebRTCIceCandidates = async ({ candidate, senderId }) => {
-      if (peerConnection && peerConnection.signalingState !== "closed") {
-        if (peerConnection.remoteDescription) {
+      const pc = peerConnectionRef.current;
+      if (pc && pc.signalingState !== "closed") {
+        if (pc.remoteDescription) {
           try {
-            await peerConnection.addIceCandidate(
-              new RTCIceCandidate(candidate),
-            );
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
             console.log("ICE candidate added");
           } catch (error) {
             console.log("ice error", error);
@@ -671,6 +746,7 @@ const VideoCallModel = ({ socket }) => {
         }
       }
     };
+
     socket.on("call_accepted", handleCallAccepted);
     socket.on("call_rejected", handleCallRejected);
     socket.on("call_ended", handleCallEnded);
@@ -686,7 +762,7 @@ const VideoCallModel = ({ socket }) => {
       socket.off("webrtc_answer", handleWebRTCAnswer);
       socket.off("webrtc_ice_candidate", handleWebRTCIceCandidates);
     };
-  }, [socket, peerConnection, currentCall, incomingCall, user]);
+  }, [socket]);
 
   if (!isCallModalOpen && !incomingCall) return null;
   const shouldShowActiveCall =

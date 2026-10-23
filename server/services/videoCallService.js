@@ -196,13 +196,15 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
 
   socket.on("end_call", ({ participantId, callId, isGroup, groupId }) => {
     const strParticipantId = (participantId?._id || participantId)?.toString();
+    const endingUserId = (socket.userId || socket.id)?.toString();
 
     let groupCall = activeGroupCalls.get(callId);
     if (!groupCall && (isGroup || groupId)) {
       for (const [gCallId, gCall] of activeGroupCalls.entries()) {
         if (
           (groupId && gCall.groupId === groupId?.toString()) ||
-          gCall.callerId === socket.userId?.toString()
+          gCall.callerId === endingUserId ||
+          gCall.answeredBy === endingUserId
         ) {
           groupCall = gCall;
           callId = gCallId;
@@ -212,10 +214,24 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
     }
 
     if (groupCall) {
+      const isCaller = endingUserId === groupCall.callerId;
+      const isAnswerer = groupCall.answeredBy && endingUserId === groupCall.answeredBy;
+
+      // If someone who is neither the caller nor the person who answered ends call,
+      // it's just an ignored/closed ringing screen from a third member. Do NOT terminate the active call!
+      if (!isCaller && !isAnswerer) {
+        console.log(`server: Non-active participant ${endingUserId} left/ended ring for group call ${callId}`);
+        if (endingUserId) {
+          groupCall.pendingReceivers.delete(endingUserId);
+        }
+        return;
+      }
+
+      // Either caller or answeredBy ended the call: terminate call for all
       activeGroupCalls.delete(callId);
       groupCall.pendingReceivers.forEach((pId) => {
         const pSocket = onlineUsers.get(pId);
-        if (pSocket) {
+        if (pSocket && pSocket !== socket.id) {
           io.to(pSocket).emit("call_ended", { callId });
         }
       });
@@ -243,8 +259,17 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
   });
 
   socket.on("webrtc_offer", ({ offer, receiverId, callId }) => {
-    const strReceiverId = (receiverId?._id || receiverId)?.toString();
-    const receiverSocketId = onlineUsers.get(strReceiverId);
+    let strReceiverId = (receiverId?._id || receiverId)?.toString();
+    let receiverSocketId = onlineUsers.get(strReceiverId);
+
+    // Fallback lookup from activeGroupCalls
+    if (!receiverSocketId && callId) {
+      const gCall = activeGroupCalls.get(callId);
+      if (gCall && gCall.answeredBy) {
+        strReceiverId = gCall.answeredBy;
+        receiverSocketId = onlineUsers.get(strReceiverId);
+      }
+    }
 
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("webrtc_offer", {
@@ -260,8 +285,17 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
   });
 
   socket.on("webrtc_answer", ({ answer, receiverId, callId }) => {
-    const strReceiverId = (receiverId?._id || receiverId)?.toString();
-    const receiverSocketId = onlineUsers.get(strReceiverId);
+    let strReceiverId = (receiverId?._id || receiverId)?.toString();
+    let receiverSocketId = onlineUsers.get(strReceiverId);
+
+    // Fallback lookup from activeGroupCalls
+    if (!receiverSocketId && callId) {
+      const gCall = activeGroupCalls.get(callId);
+      if (gCall && gCall.callerId) {
+        strReceiverId = gCall.callerId;
+        receiverSocketId = onlineUsers.get(strReceiverId);
+      }
+    }
 
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("webrtc_answer", {
@@ -276,8 +310,23 @@ const handleVideoCallEvent = (socket, io, onlineUsers) => {
   });
 
   socket.on("webrtc_ice_candidate", ({ candidate, receiverId, callId }) => {
-    const strReceiverId = (receiverId?._id || receiverId)?.toString();
-    const receiverSocketId = onlineUsers.get(strReceiverId);
+    let strReceiverId = (receiverId?._id || receiverId)?.toString();
+    let receiverSocketId = onlineUsers.get(strReceiverId);
+
+    // Fallback lookup from activeGroupCalls
+    if (!receiverSocketId && callId) {
+      const gCall = activeGroupCalls.get(callId);
+      if (gCall) {
+        const senderId = (socket.userId || socket.id)?.toString();
+        if (senderId === gCall.callerId && gCall.answeredBy) {
+          strReceiverId = gCall.answeredBy;
+          receiverSocketId = onlineUsers.get(strReceiverId);
+        } else if (senderId === gCall.answeredBy && gCall.callerId) {
+          strReceiverId = gCall.callerId;
+          receiverSocketId = onlineUsers.get(strReceiverId);
+        }
+      }
+    }
 
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("webrtc_ice_candidate", {

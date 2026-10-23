@@ -590,6 +590,7 @@ export const sendMessage = async (req, res) => {
         },
       });
 
+    let finalPopulatedMessage = populatedMessage;
     if (isGroup) {
       if (req.io) {
         await onGroupMessageCreated(
@@ -617,9 +618,13 @@ export const sendMessage = async (req, res) => {
           },
         });
 
+      if (updatedPopulatedMessage) {
+        finalPopulatedMessage = updatedPopulatedMessage;
+      }
+
       if (req.io) {
         const messagePayload = {
-          ...(updatedPopulatedMessage || populatedMessage).toObject(),
+          ...finalPopulatedMessage.toObject(),
           conversationId: conversation._id.toString(),
         };
 
@@ -698,7 +703,7 @@ export const sendMessage = async (req, res) => {
           ? effectiveReceiverId.toString()
           : META_AI_USER_ID,
         conversationId: conversation._id,
-        userMessage: populatedMessage,
+        userMessage: finalPopulatedMessage,
         isDirectToMetaAi,
         isMetaAiMention,
       }).catch((err) =>
@@ -706,7 +711,7 @@ export const sendMessage = async (req, res) => {
       );
     }
 
-    return response(res, 201, "Message sent successfully", populatedMessage);
+    return response(res, 201, "Message sent successfully", finalPopulatedMessage);
   } catch (error) {
     console.error(error);
     return response(res, 500, "Internal server error");

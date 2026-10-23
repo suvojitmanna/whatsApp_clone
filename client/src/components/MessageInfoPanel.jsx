@@ -20,7 +20,7 @@ const formatReceiptDate = (dateObj) => {
 
 const formatReceiptTime = (dateObj) => {
   if (!dateObj || isNaN(dateObj.getTime())) return "—";
-  return format(dateObj, "HH:mm");
+  return format(dateObj, "h:mm a");
 };
 
 const getAvatarBg = (name = "") => {
@@ -47,6 +47,8 @@ const MessageInfoPanel = () => {
   const isDark = theme === "dark";
   const currentUser = useUserStore((state) => state.user);
   const allUsers = useChatStore((state) => state.users) || [];
+  const conversations = useChatStore((state) => state.conversations);
+  const currentConversation = useChatStore((state) => state.currentConversation);
 
   const liveMsg = useChatStore((state) => {
     if (!selectedMessageInfo) return null;
@@ -87,14 +89,27 @@ const MessageInfoPanel = () => {
       return { isGroup: false, readByList: [], deliveredToList: [], remainingList: [] };
     }
 
+    const convId = (
+      typeof msg.conversation === "object"
+        ? msg.conversation?._id
+        : msg.conversation || selectedContact?.conversation?._id || selectedContact?._id
+    )?.toString();
+
+    const convFromStore =
+      conversations?.data?.find((c) => c._id?.toString() === convId) ||
+      (currentConversation?._id?.toString() === convId ? currentConversation : null);
+
     const conversationObj =
       selectedContact?.conversation ||
+      convFromStore ||
       (typeof msg.conversation === "object" ? msg.conversation : null);
 
-    const rawParticipants =
-      conversationObj?.participants ||
-      selectedContact?.participants ||
-      [];
+    const rawParticipants = [
+      ...(conversationObj?.participants || []),
+      ...(selectedContact?.participants || []),
+      ...(currentConversation?.participants || []),
+      ...(convFromStore?.participants || []),
+    ];
 
     const participantMap = new Map();
     rawParticipants.forEach((p) => {
@@ -111,13 +126,47 @@ const MessageInfoPanel = () => {
       participantMap.set(id, userObj);
     });
 
+    // Also include any user objects present in readBy or deliveredTo
+    if (Array.isArray(msg.readBy)) {
+      msg.readBy.forEach((item) => {
+        const id = (item.user?._id || item.user || item.userId)?.toString();
+        if (id && !participantMap.has(id)) {
+          const userObj =
+            typeof item.user === "object" && item.user.username
+              ? item.user
+              : allUsers.find((u) => u._id?.toString() === id) || {
+                  _id: id,
+                  username: `Member ${id.slice(-4)}`,
+                };
+          participantMap.set(id, userObj);
+        }
+      });
+    }
+
+    if (Array.isArray(msg.deliveredTo)) {
+      msg.deliveredTo.forEach((item) => {
+        const id = (item.user?._id || item.user || item.userId)?.toString();
+        if (id && !participantMap.has(id)) {
+          const userObj =
+            typeof item.user === "object" && item.user.username
+              ? item.user
+              : allUsers.find((u) => u._id?.toString() === id) || {
+                  _id: id,
+                  username: `Member ${id.slice(-4)}`,
+                };
+          participantMap.set(id, userObj);
+        }
+      });
+    }
+
     const isGroupChat = Boolean(
+      !msg.receiver ||
       conversationObj?.isGroup ||
       selectedContact?.isGroup ||
       selectedContact?.isGroupChat ||
-      participantMap.size > 2 ||
-      (Array.isArray(msg.readBy) && msg.readBy.length > 1) ||
-      (Array.isArray(msg.deliveredTo) && msg.deliveredTo.length > 1)
+      selectedContact?.groupName ||
+      convFromStore?.isGroup ||
+      participantMap.size > 2
     );
 
     const senderId = (msg.sender?._id || msg.sender)?.toString();
@@ -126,18 +175,18 @@ const MessageInfoPanel = () => {
     if (Array.isArray(msg.readBy)) {
       msg.readBy.forEach((item) => {
         const uId = (item.user?._id || item.user || item.userId)?.toString();
-        if (!uId) return;
+        if (!uId || uId === senderId) return;
         const userObj =
           typeof item.user === "object" && item.user.username
             ? item.user
             : participantMap.get(uId) ||
-            allUsers.find((u) => u._id?.toString() === uId) || {
-              _id: uId,
-              username: `User ${uId.slice(-4)}`,
-            };
+              allUsers.find((u) => u._id?.toString() === uId) || {
+                _id: uId,
+                username: `User ${uId.slice(-4)}`,
+              };
         readMap.set(uId, {
           user: userObj,
-          readAt: item.readAt ? new Date(item.readAt) : new Date(msg.updatedAt || Date.now()),
+          readAt: item.readAt ? new Date(item.readAt) : null,
         });
       });
     }
@@ -146,43 +195,23 @@ const MessageInfoPanel = () => {
     if (Array.isArray(msg.deliveredTo)) {
       msg.deliveredTo.forEach((item) => {
         const uId = (item.user?._id || item.user || item.userId)?.toString();
-        if (!uId || readMap.has(uId)) return;
+        if (!uId || uId === senderId) return;
+        // Member who has already read belongs strictly in "Read by", never in "Delivered to"
+        if (readMap.has(uId)) return;
+
         const userObj =
           typeof item.user === "object" && item.user.username
             ? item.user
             : participantMap.get(uId) ||
-            allUsers.find((u) => u._id?.toString() === uId) || {
-              _id: uId,
-              username: `User ${uId.slice(-4)}`,
-            };
+              allUsers.find((u) => u._id?.toString() === uId) || {
+                _id: uId,
+                username: `User ${uId.slice(-4)}`,
+              };
         deliveredMap.set(uId, {
           user: userObj,
-          deliveredAt: item.deliveredAt
-            ? new Date(item.deliveredAt)
-            : new Date(msg.updatedAt || Date.now()),
+          deliveredAt: item.deliveredAt ? new Date(item.deliveredAt) : null,
         });
       });
-    }
-
-    if (isGroupChat && participantMap.size > 0 && readMap.size === 0 && deliveredMap.size === 0) {
-      const recipientIds = Array.from(participantMap.keys()).filter((id) => id !== senderId);
-      if (msg.messageStatus === "read") {
-        recipientIds.forEach((id) => {
-          readMap.set(id, {
-            user: participantMap.get(id),
-            readAt: msg.readAt ? new Date(msg.readAt) : new Date(msg.updatedAt || Date.now()),
-          });
-        });
-      } else if (msg.messageStatus === "delivered") {
-        recipientIds.forEach((id) => {
-          deliveredMap.set(id, {
-            user: participantMap.get(id),
-            deliveredAt: msg.deliveredAt
-              ? new Date(msg.deliveredAt)
-              : new Date(msg.updatedAt || Date.now()),
-          });
-        });
-      }
     }
 
     const remaining = [];
@@ -201,13 +230,15 @@ const MessageInfoPanel = () => {
       deliveredToList: Array.from(deliveredMap.values()),
       remainingList: remaining,
     };
-  }, [msg, selectedContact, allUsers]);
+  }, [msg, selectedContact, allUsers, conversations, currentConversation]);
 
   if (!selectedMessageInfo || !msg) return null;
 
   const sentDate = msg.createdAt
     ? new Date(msg.createdAt)
-    : new Date(msg.timestamp || Date.now());
+    : msg.timestamp
+      ? new Date(msg.timestamp)
+      : null;
   const sentTime = formatReceiptTime(sentDate);
   const sentDateLabel = formatReceiptDate(sentDate);
 
@@ -215,24 +246,20 @@ const MessageInfoPanel = () => {
     msg.messageStatus === "delivered" || msg.messageStatus === "read";
   const deliveredDate = msg.deliveredAt
     ? new Date(msg.deliveredAt)
-    : isDelivered
-      ? msg.updatedAt && new Date(msg.updatedAt) > sentDate
-        ? new Date(msg.updatedAt)
-        : sentDate
+    : isDelivered && msg.updatedAt
+      ? new Date(msg.updatedAt)
       : null;
-  const deliveredTime = formatReceiptTime(deliveredDate);
-  const deliveredDateLabel = formatReceiptDate(deliveredDate);
+  const deliveredTime = isDelivered && deliveredDate ? formatReceiptTime(deliveredDate) : "—";
+  const deliveredDateLabel = isDelivered && deliveredDate ? formatReceiptDate(deliveredDate) : "";
 
   const isRead = msg.messageStatus === "read";
   const readDate = msg.readAt
     ? new Date(msg.readAt)
-    : isRead
-      ? msg.updatedAt && new Date(msg.updatedAt) > (deliveredDate || sentDate)
-        ? new Date(msg.updatedAt)
-        : deliveredDate || sentDate
+    : isRead && msg.updatedAt
+      ? new Date(msg.updatedAt)
       : null;
-  const readTime = formatReceiptTime(readDate);
-  const readDateLabel = formatReceiptDate(readDate);
+  const readTime = isRead && readDate ? formatReceiptTime(readDate) : "—";
+  const readDateLabel = isRead && readDate ? formatReceiptDate(readDate) : "";
 
   const filteredReadBy = readByList.filter((item) =>
     (item.user?.username || "").toLowerCase().includes(searchQuery.toLowerCase())

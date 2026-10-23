@@ -101,10 +101,19 @@ async function processGroupMessageReceipt(
         allDelivered,
       };
 
-      io.to(conv._id.toString()).emit(
-        "group_message_receipt_update",
-        receiptPayload,
-      );
+      // Emit to each participant room (which sockets join via userId) and their online socket IDs
+      const allParticipants = conv.participants || [];
+      allParticipants.forEach((p) => {
+        const pId = (p._id || p).toString();
+        io.to(pId).emit("group_message_receipt_update", receiptPayload);
+        if (onlineUsers && typeof onlineUsers.get === "function") {
+          const pSocket = onlineUsers.get(pId);
+          if (pSocket && pSocket !== pId) {
+            io.to(pSocket).emit("group_message_receipt_update", receiptPayload);
+          }
+        }
+      });
+
       if (newStatus !== msg.messageStatus) {
         const statusPayload = {
           messageId: msg._id.toString(),
@@ -220,6 +229,28 @@ async function onGroupMessageCreated(
       $set: { deliveredTo: deliveredList },
     });
     message.deliveredTo = deliveredList;
+  }
+
+  if (io && deliveredList.length > 0) {
+    deliveredList.forEach((item) => {
+      const payload = {
+        messageId: message._id.toString(),
+        conversationId: conversation._id.toString(),
+        userId: item.user.toString(),
+        action: "delivered",
+        timestamp: now.toISOString(),
+        newStatus: allDelivered ? "delivered" : message.messageStatus || "send",
+        allRead: false,
+        allDelivered,
+      };
+      io.to(senderId.toString()).emit("group_message_receipt_update", payload);
+      if (onlineUsers && typeof onlineUsers.get === "function") {
+        const sSocket = onlineUsers.get(senderId.toString());
+        if (sSocket && sSocket !== senderId.toString()) {
+          io.to(sSocket).emit("group_message_receipt_update", payload);
+        }
+      }
+    });
   }
 }
 
