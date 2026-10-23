@@ -10,7 +10,11 @@ export const isGroupSystemMessage = (msg) => {
     content.endsWith(" left the group") ||
     /^.+ added .+(, .+)*$/i.test(content) ||
     /^.+ removed .+$/i.test(content) ||
-    /^Group ".*" created$/i.test(content)
+    /^Group ".*" created$/i.test(content) ||
+    /^.+ created group ".*"$/i.test(content) ||
+    /^.+ created this group$/i.test(content) ||
+    /^.+ changed the group (name|description|icon|settings).*$/i.test(content) ||
+    /^Messages and calls are end-to-end encrypted.*$/i.test(content)
   ) {
     return true;
   }
@@ -36,6 +40,19 @@ export const getFormattedGroupSystemText = (msg, currentUserId, currentUserName)
     return isSenderMe
       ? `You created group "${createdMatch[1]}"`
       : text;
+  }
+
+  const userCreatedMatch = text.match(/^(.+) created group "(.*)"$/i);
+  if (userCreatedMatch) {
+    const creator = userCreatedMatch[1].trim();
+    const groupName = userCreatedMatch[2];
+    if (
+      isSenderMe ||
+      (currentUserName && creator.toLowerCase() === currentUserName.toLowerCase())
+    ) {
+      return `You created group "${groupName}"`;
+    }
+    return text;
   }
 
   if (text.endsWith(" left the group")) {

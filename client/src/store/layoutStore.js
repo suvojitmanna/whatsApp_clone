@@ -26,6 +26,8 @@ const useLayoutStore = create(
       selectedPollMessageId: null,
       isChatSearchOpen: false,
       setIsChatSearchOpen: (val) => set({ isChatSearchOpen: val }),
+      showProfilePicture: false,
+      profilePictureData: null,
 
       isMediaModalOpen: false,
       mediaModalScope: "all",
@@ -75,7 +77,10 @@ const useLayoutStore = create(
       },
       updateSelectedContact: (updatesOrFn) =>
         set((state) => {
-          if (!state.selectedContact || typeof state.selectedContact === "function") {
+          if (
+            !state.selectedContact ||
+            typeof state.selectedContact === "function"
+          ) {
             return { selectedContact: null };
           }
           const updates =
@@ -500,7 +505,11 @@ const useLayoutStore = create(
             chatBubbleColors: nextBubbles,
           };
         }),
-      setShowProfilePicture: (value) => set({ showProfilePicture: value }),
+      setShowProfilePicture: (value, data = null) =>
+        set({
+          showProfilePicture: value,
+          profilePictureData: value ? data || null : null,
+        }),
       setSelectedPollDetails: (pollMessage) =>
         set({
           selectedPollMessage: pollMessage,

@@ -1357,6 +1357,50 @@ export const useChatStore = create((set, get) => ({
           return nextMsg;
         });
 
+        let nextConversations = state.conversations;
+        if (state.conversations?.data && Array.isArray(state.conversations.data)) {
+          let convsChanged = false;
+          const updatedData = state.conversations.data.map((conv) => {
+            const lastMsg = conv.lastMessage;
+            if (lastMsg && String(lastMsg._id) === String(messageId)) {
+              convsChanged = true;
+              const nextLastMsg = { ...lastMsg };
+              if (newStatus) {
+                nextLastMsg.messageStatus = newStatus;
+              }
+              const existingReadBy = Array.isArray(nextLastMsg.readBy)
+                ? [...nextLastMsg.readBy]
+                : [];
+              const existingDeliveredTo = Array.isArray(nextLastMsg.deliveredTo)
+                ? [...nextLastMsg.deliveredTo]
+                : [];
+
+              if (
+                !existingDeliveredTo.some(
+                  (d) => String(d.user?._id || d.user || d) === String(userId),
+                )
+              ) {
+                existingDeliveredTo.push({ user: userId, deliveredAt: timestamp });
+              }
+              if (
+                action === "read" &&
+                !existingReadBy.some(
+                  (r) => String(r.user?._id || r.user || r) === String(userId),
+                )
+              ) {
+                existingReadBy.push({ user: userId, readAt: timestamp });
+              }
+              nextLastMsg.readBy = existingReadBy;
+              nextLastMsg.deliveredTo = existingDeliveredTo;
+              return { ...conv, lastMessage: nextLastMsg };
+            }
+            return conv;
+          });
+          if (convsChanged) {
+            nextConversations = { ...state.conversations, data: updatedData };
+          }
+        }
+
         const nextCache = state.currentConversation?._id
           ? syncMessagesCache(
               state.messagesCache,
@@ -1364,7 +1408,11 @@ export const useChatStore = create((set, get) => ({
               nextMessages,
             )
           : state.messagesCache;
-        return { messages: nextMessages, messagesCache: nextCache };
+        return {
+          messages: nextMessages,
+          conversations: nextConversations,
+          messagesCache: nextCache,
+        };
       });
     });
 

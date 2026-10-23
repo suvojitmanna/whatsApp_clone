@@ -259,7 +259,11 @@ const getAllUsers = async (req, res) => {
       .populate({
         path: "lastMessage",
         select:
-          "content sender receiver createdAt isEncrypted iv contentType imageOrVideoUrl fileName fileSize pollData contactData eventData edited editedAt deletedFor",
+          "content sender receiver createdAt isEncrypted iv contentType imageOrVideoUrl fileName fileSize pollData contactData eventData edited editedAt deletedFor messageStatus readBy deliveredTo isSystemMessage systemAction",
+        populate: {
+          path: "sender receiver",
+          select: "username profilePicture email phoneNumber publicKey",
+        },
       })
       .populate({
         path: "pinnedMessage.message",

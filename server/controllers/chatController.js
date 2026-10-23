@@ -740,6 +740,8 @@ exports.getConversation = async (req, res) => {
       })
       .populate("pinnedMessage.pinnedBy", "username profilePicture")
       .populate("disappearingSetBy", "username profilePicture")
+      .populate("groupAdmin", "username profilePicture")
+      .populate("memberTags.user", "username profilePicture")
       .sort({ updatedAt: -1 })
       .lean();
 
@@ -2322,7 +2324,7 @@ exports.createGroup = async (req, res) => {
 exports.updateGroup = async (req, res) => {
   const userId = req.user.userId;
   const { conversationId } = req.params;
-  const {
+  let {
     groupName,
     groupDescription,
     groupProfileImage,
@@ -2330,7 +2332,8 @@ exports.updateGroup = async (req, res) => {
     groupAdmin,
     addParticipants,
     removeParticipant,
-  } = req.body;
+    memberTag,
+  } = req.body || {};
 
   try {
     const conversation = await Conversation.findOne({
@@ -2353,10 +2356,20 @@ exports.updateGroup = async (req, res) => {
     const actorUser = await User.findById(userId);
     const actorName = actorUser?.username || "Admin";
 
+    let newGroupProfileImage = groupProfileImage;
+    if (req.file) {
+      try {
+        const uploadRes = await uploadFileToCloudinary(req.file);
+        newGroupProfileImage = uploadRes?.secure_url || uploadRes?.url || "";
+      } catch (uploadErr) {
+        console.warn("Group avatar upload failed:", uploadErr);
+      }
+    }
+
     if (
       groupName !== undefined ||
       groupDescription !== undefined ||
-      groupProfileImage !== undefined
+      newGroupProfileImage !== undefined
     ) {
       if (
         !isAdmin &&
@@ -2374,11 +2387,24 @@ exports.updateGroup = async (req, res) => {
         conversation.groupDescription = groupDescription.trim();
       }
       if (
-        groupProfileImage !== undefined &&
-        typeof groupProfileImage === "string"
+        newGroupProfileImage !== undefined &&
+        typeof newGroupProfileImage === "string"
       ) {
-        conversation.groupProfileImage = groupProfileImage;
+        conversation.groupProfileImage = newGroupProfileImage;
+        if (!systemMessageContent) {
+          if (newGroupProfileImage === "") {
+            systemMessageContent = `${actorName} deleted this group's icon`;
+          } else {
+            systemMessageContent = `${actorName} changed this group's icon`;
+          }
+        }
       }
+    }
+
+    if (typeof groupPermissions === "string") {
+      try {
+        groupPermissions = JSON.parse(groupPermissions);
+      } catch (e) {}
     }
 
     if (groupPermissions && typeof groupPermissions === "object") {
@@ -2536,6 +2562,58 @@ exports.updateGroup = async (req, res) => {
           timestamp: new Date(),
         });
       }
+
+      if (Array.isArray(conversation.memberTags)) {
+        conversation.memberTags = conversation.memberTags.filter(
+          (mt) => (mt.user?._id || mt.user)?.toString() !== targetId,
+        );
+      }
+    }
+
+    if (memberTag !== undefined) {
+      if (!Array.isArray(conversation.memberTags)) {
+        conversation.memberTags = [];
+      }
+      let targetUserId = userId;
+      let newTag = "";
+
+      if (typeof memberTag === "string") {
+        newTag = memberTag.trim();
+      } else if (typeof memberTag === "object" && memberTag !== null) {
+        if (memberTag.user) {
+          targetUserId = (memberTag.user._id || memberTag.user).toString();
+        }
+        newTag = typeof memberTag.tag === "string" ? memberTag.tag.trim() : "";
+      }
+
+      const isTargetSelf = targetUserId.toString() === userId.toString();
+      if (!isTargetSelf && !isAdmin) {
+        return response(res, 403, "Only admins can change other members' tags");
+      }
+
+      const existingIdx = conversation.memberTags.findIndex(
+        (mt) =>
+          (mt.user?._id || mt.user)?.toString() === targetUserId.toString(),
+      );
+
+      if (newTag === "") {
+        if (existingIdx !== -1) {
+          conversation.memberTags.splice(existingIdx, 1);
+        }
+      } else {
+        if (existingIdx !== -1) {
+          conversation.memberTags[existingIdx].tag = newTag.slice(0, 30);
+        } else {
+          conversation.memberTags.push({
+            user: new mongoose.Types.ObjectId(targetUserId),
+            tag: newTag.slice(0, 30),
+          });
+        }
+      }
+
+      if (typeof conversation.markModified === "function") {
+        conversation.markModified("memberTags");
+      }
     }
 
     let createdSysMsg = null;
@@ -2546,7 +2624,15 @@ exports.updateGroup = async (req, res) => {
         content: systemMessageContent,
         contentType: "system",
         isSystemMessage: true,
-        systemAction: removeParticipant ? (isSelf ? "left" : "removed") : "added",
+        systemAction: removeParticipant
+          ? isSelf
+            ? "left"
+            : "removed"
+          : addParticipants
+            ? "added"
+            : newGroupProfileImage !== undefined
+              ? "icon"
+              : "settings",
         messageStatus: "read",
         readAt: new Date(),
       });
@@ -2562,6 +2648,7 @@ exports.updateGroup = async (req, res) => {
         "username profilePicture isOnline lastSeen email phoneNumber publicKey about",
       )
       .populate("groupAdmin", "username profilePicture")
+      .populate("memberTags.user", "username profilePicture")
       .populate({
         path: "lastMessage",
         populate: {
