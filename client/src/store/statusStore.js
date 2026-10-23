@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { getSocket } from "../services/chatService";
 import axiosInstance from "../services/url.services";
+import useUserStore from "./useUserStore";
 
 const useStatusStore = create((set, get) => ({
   statuses: [],
@@ -140,15 +141,40 @@ const useStatusStore = create((set, get) => ({
   viewStatus: async (statusId) => {
     try {
       set({ loading: true, error: null });
-      await axiosInstance.put(`status/${statusId}/view`);
+      const { data } = await axiosInstance.put(`status/${statusId}/view`);
+      const updated = data?.data || data;
+      const currentUserId = useUserStore.getState().user?._id;
+
       set((state) => ({
-        statuses: state.statuses.map((status) =>
-          status._id === statusId ? { ...status } : status,
-        ),
+        statuses: state.statuses.map((status) => {
+          if (String(status._id) === String(statusId)) {
+            const viewers = updated?.viewers || status.viewers || [];
+            const alreadyHasMe = viewers.some(
+              (v) =>
+                String(v.user?._id || v.user || v) === String(currentUserId)
+            );
+            const newViewers = alreadyHasMe
+              ? viewers
+              : [
+                  ...viewers,
+                  {
+                    user: currentUserId,
+                    viewedAt: new Date().toISOString(),
+                  },
+                ];
+            return {
+              ...status,
+              ...(updated || {}),
+              viewers: newViewers,
+            };
+          }
+          return status;
+        }),
+        loading: false,
       }));
-      set({ loading: false });
     } catch (error) {
       console.log({ error: error.message, loading: false });
+      set({ loading: false });
     }
   },
 

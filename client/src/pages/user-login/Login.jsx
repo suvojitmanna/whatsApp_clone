@@ -424,8 +424,7 @@ const Login = () => {
             <div
               className={`flex items-center border rounded-md px-3 py-2 transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500 focus-within:border-green-500 focus-within:ring-2 focus-within:ring-green-500/30 ${theme === "dark" ? "bg-gray-700 border-gray-600" : "bg-white border-gray-300"}`}
             >
-              <FaUser
-                className={`mr-2 text-gray-400 ${theme === "dark" ? "text-gray-400 " : " text-gray-500 "} `}
+              <FaUser className={`mr-2 text-gray-400 ${theme === "dark" ? "text-gray-400 " : " text-gray-500 "} `}
               />
               <input
                 type="email"
@@ -477,13 +476,11 @@ const Login = () => {
                 Verify your identity
               </h2>
 
-              <p
-                className={`text-sm leading-relaxed max-w-xs mx-auto ${theme === "dark" ? "text-slate-400" : "text-slate-500"
-                  }`}
+              <p className={`text-sm leading-relaxed max-w-xs mx-auto ${theme === "dark" ? "text-slate-400" : "text-slate-500"
+                }`}
               >
                 Please enter the 6-digit OTP sent to{" "}
-                <span
-                  className={`font-medium ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`}
+                <span className={`font-medium ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`}
                 >
                   {email ||
                     `${userPhoneData?.phoneSuffix} ${userPhoneData?.phoneNumber}`}
@@ -593,8 +590,7 @@ const Login = () => {
                 />
               </div>
 
-              <p
-                className={`text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-500"} mb-2`}
+              <p className={`text-sm ${theme === "dark" ? "text-gray-300" : "text-gray-500"} mb-2`}
               >
                 Choose an Avatar
               </p>

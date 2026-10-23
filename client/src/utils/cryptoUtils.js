@@ -310,7 +310,11 @@ export async function batchDecryptMessages(
 
       if (defaultSharedKey) {
         try {
-          const decrypted = await decryptText(msg.content, msg.iv, defaultSharedKey);
+          const decrypted = await decryptText(
+            msg.content,
+            msg.iv,
+            defaultSharedKey,
+          );
           if (decrypted !== null) {
             return {
               ...msg,

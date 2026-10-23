@@ -179,27 +179,7 @@ export const WhatsAppDisappearingIcon = ({
 export const TailOutIcon = ({
   width = 8,
   height = 13,
-  className = "fill-current",
-  ...props }) => (
-  <svg
-    viewBox="0 0 8 13"
-    height={height}
-    width={width}
-    className={className}
-    {...props}
-  >
-    <path
-      opacity="0.13"
-      d="M5.188 1H0v11.193l6.467-8.625C7.526 2.156 6.958 1 5.188 1z"
-    />
-    <path d="M5.188 0H0v12.193l6.467-8.625C7.526 2.156 6.958 0 5.188 0z" />
-  </svg>
-);
-
-export const TailInIcon = ({
-  width = 8,
-  height = 13,
-  className = "fill-current",
+  className = "",
   ...props
 }) => (
   <svg
@@ -211,9 +191,38 @@ export const TailInIcon = ({
   >
     <path
       opacity="0.13"
+      fill="#000000"
+      d="M5.188 1H0v11.193l6.467-8.625C7.526 2.156 6.958 1 5.188 1z"
+    />
+    <path
+      fill="currentColor"
+      d="M5.188 0H0v12.193l6.467-8.625C7.526 2.156 6.958 0 5.188 0z"
+    />
+  </svg>
+);
+
+export const TailInIcon = ({
+  width = 8,
+  height = 13,
+  className = "",
+  ...props
+}) => (
+  <svg
+    viewBox="0 0 8 13"
+    height={height}
+    width={width}
+    className={className}
+    {...props}
+  >
+    <path
+      opacity="0.13"
+      fill="#000000"
       d="M1.533 4.568 8 13.193V1H2.812C1.042 1 .474 3.156 1.533 4.568z"
     />
-    <path d="M1.533 3.568 8 12.193V0H2.812C1.042 0 .474 2.156 1.533 3.568z" />
+    <path
+      fill="currentColor"
+      d="M1.533 3.568 8 12.193V0H2.812C1.042 0 .474 2.156 1.533 3.568z"
+    />
   </svg>
 );
 
@@ -1039,6 +1048,79 @@ export const EndToEndEncryptionIllustration = ({
     )}
   </svg>
 );
+
+export const AdvancedChatPrivacyIllustration = ({
+  isDark = true,
+  width = 104,
+  height = 72,
+  className = "",
+  ...props
+}) => (
+  <svg
+    width={width}
+    height={height}
+    viewBox="0 0 104 72"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    {...props}
+  >
+    <rect
+      x="12"
+      y="16"
+      width="58"
+      height="40"
+      rx="8"
+      fill={isDark ? "#1f2c34" : "#e7f8f0"}
+      stroke={isDark ? "#2a3942" : "#bbf7d0"}
+      strokeWidth="1.5"
+    />
+    <path
+      d="M12 44 L5 52 L16 52 Z"
+      fill={isDark ? "#1f2c34" : "#e7f8f0"}
+      stroke={isDark ? "#2a3942" : "#bbf7d0"}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <line
+      x1="24"
+      y1="30"
+      x2="54"
+      y2="30"
+      stroke={isDark ? "#8696a0" : "#00a884"}
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+    <line
+      x1="24"
+      y1="40"
+      x2="44"
+      y2="40"
+      stroke={isDark ? "#8696a0" : "#00a884"}
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+    <path
+      d="M60 24 V15 C60 9.5 64.5 5 70 5 C75.5 5 80 9.5 80 15 V24"
+      stroke="#00a884"
+      strokeWidth="4"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <rect x="52" y="22" width="36" height="32" rx="7" fill="#00a884" />
+    <circle cx="70" cy="35" r="2.8" fill={isDark ? "#111b21" : "#ffffff"} />
+    <rect
+      x="68.6"
+      y="35"
+      width="2.8"
+      height="6"
+      rx="1.4"
+      fill={isDark ? "#111b21" : "#ffffff"}
+    />
+  </svg>
+);
+
+export const AdvancedPrivacyIllustration = AdvancedChatPrivacyIllustration;
 
 export const DisappearingMessagesIllustration = ({
   width = 200,

@@ -15,7 +15,7 @@ import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon"
 import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
 import useVideoCallStore from "../../store/videoCallStore";
-import GroupCallModal from "../../components/GroupCallModal";
+import GroupCallModal from "../../components/modals/GroupCallModal";
 
 const ChatHeader = ({
   handleChatContextMenu,
@@ -53,6 +53,11 @@ const ChatHeader = ({
   const getGroupOnlineCount = useChatStore((state) => state.getGroupOnlineCount);
   const checkUserStatus = useChatStore((state) => state.checkUserStatus);
   const sendCallLinkMessage = useChatStore((state) => state.sendCallLinkMessage);
+
+  const activeGroupCall = useVideoCallStore((state) => state.activeGroupCall);
+  const currentCall = useVideoCallStore((state) => state.currentCall);
+  const isCallModalOpen = useVideoCallStore((state) => state.isCallModalOpen);
+  const joinGroupCall = useVideoCallStore((state) => state.joinGroupCall);
 
   const [isCallDropdownOpen, setIsCallDropdownOpen] = React.useState(false);
   const [showSelectPeopleModal, setShowSelectPeopleModal] = React.useState(false);
@@ -141,6 +146,33 @@ const ChatHeader = ({
     return () => clearTimeout(timer);
   }, [selectedContact?._id, selectedContact?.conversation?._id]);
 
+  const currentGroupId = React.useMemo(() => {
+    return (selectedContact?._id || selectedContact?.conversation?._id)?.toString();
+  }, [selectedContact]);
+
+  const isCurrentGroupCallActive = React.useMemo(() => {
+    if (!isGroup || !activeGroupCall || !activeGroupCall.isActive) return false;
+    const gId = (activeGroupCall.groupId?._id || activeGroupCall.groupId)?.toString();
+    if (!gId || !currentGroupId || gId !== currentGroupId) return false;
+    if (activeGroupCall.status === "ended") return false;
+
+    const participantCount = activeGroupCall.joinedParticipants?.length || 0;
+    if (participantCount === 0) return false;
+    if (activeGroupCall.status === "ongoing" && participantCount < 2) return false;
+
+    return true;
+  }, [isGroup, activeGroupCall, currentGroupId]);
+
+  const isUserInCurrentCall = React.useMemo(() => {
+    if (!isCurrentGroupCallActive) return false;
+    const myId = user?._id?.toString();
+    const inActiveCallStore = currentCall && currentCall.groupId === currentGroupId && isCallModalOpen;
+    const inJoinedParticipants = activeGroupCall?.joinedParticipants?.some(
+      (p) => (p.userId || p._id || p)?.toString() === myId
+    );
+    return Boolean(inActiveCallStore || inJoinedParticipants);
+  }, [isCurrentGroupCallActive, currentCall, currentGroupId, isCallModalOpen, activeGroupCall, user?._id]);
+
   return (
     <div
       onContextMenu={handleChatContextMenu}
@@ -215,17 +247,15 @@ const ChatHeader = ({
         )}
 
         {((isGroup ? isGroupOnline : online) && !isMetaAi) && (
-          <span
-            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#202c33]" : "border-white"
-              } bg-emerald-500 shadow-sm`}
+          <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${theme === "dark" ? "border-[#202c33]" : "border-white"
+            } bg-emerald-500 shadow-sm`}
             title={isGroup ? `${groupOnlineCount} online` : "Online"}
           ></span>
         )}
 
         {disappearingDuration && disappearingDuration !== "Off" && (
-          <span
-            className={`absolute bottom-0 ${(isGroup ? isGroupOnline : online) && !isMetaAi ? "left-0" : "right-0"} w-4 h-4 rounded-full border ${theme === "dark" ? "border-[#202c33] bg-[#111b21]" : "border-white bg-[#f0f2f5]"
-              } flex items-center justify-center text-[#8696a0] shadow-sm`}
+          <span className={`absolute bottom-0 ${(isGroup ? isGroupOnline : online) && !isMetaAi ? "left-0" : "right-0"} w-4 h-4 rounded-full border ${theme === "dark" ? "border-[#202c33] bg-[#111b21]" : "border-white bg-[#f0f2f5]"
+            } flex items-center justify-center text-[#8696a0] shadow-sm`}
             title={`Disappearing messages: ${disappearingDuration}`}
           >
             <WhatsAppDisappearingIcon size={10} />
@@ -233,15 +263,13 @@ const ChatHeader = ({
         )}
       </div>
 
-      <div
-        className="ml-3 flex-grow cursor-pointer min-w-0 group"
+      <div className="ml-3 flex-grow cursor-pointer min-w-0 group"
         onClick={() => setShowContactInfo(true)}
         title="View contact info"
       >
         <div className="flex items-center gap-2">
-          <h2
-            className={`font-semibold text-start text-base sm:text-lg truncate group-hover:text-emerald-500 transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
-              }`}
+          <h2 className={`font-semibold text-start text-base sm:text-lg truncate group-hover:text-emerald-500 transition-colors ${theme === "dark" ? "text-white" : "text-gray-900"
+            }`}
           >
             {selectedContact?.username}
           </h2>
@@ -286,8 +314,7 @@ const ChatHeader = ({
           <div></div>
         ) : isGroup ? (
           isGroupOnline ? (
-            <div
-              className="flex items-center gap-1.5 text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium truncate"
+            <div className="flex items-center gap-1.5 text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium truncate"
               title={onlineMemberNames ? `Online: ${onlineMemberNames}` : `${groupOnlineCount} online`}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 inline-block animate-pulse" />
@@ -310,18 +337,16 @@ const ChatHeader = ({
               click here for group info
             </p>
           ) : (
-            <p
-              className={`text-xs sm:text-sm truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                }`}
+            <p className={`text-xs sm:text-sm truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+              }`}
               title={groupSubtitle}
             >
               {groupSubtitle}
             </p>
           )
         ) : (
-          <p
-            className={`text-xs sm:text-sm truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-              }`}
+          <p className={`text-xs sm:text-sm truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+            }`}
           >
             {online
               ? "Online"
@@ -335,137 +360,160 @@ const ChatHeader = ({
       <div className="flex items-center gap-1 sm:gap-2 ml-auto shrink-0 relative">
         {!isMetaAi && (
           isGroup ? (
-            <div className="relative" ref={callDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsCallDropdownOpen((prev) => !prev)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${isCallDropdownOpen
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {isCurrentGroupCallActive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isUserInCurrentCall && joinGroupCall) {
+                      joinGroupCall(activeGroupCall);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-xs font-semibold shadow-sm transition-all cursor-pointer select-none ${isUserInCurrentCall
+                    ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-[#00a884] hover:bg-[#02906f] text-white active:scale-95 shadow-[#00a884]/30"
+                    }`}
+                  title={isUserInCurrentCall ? "You are in this call" : "Join ongoing group call"}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${isUserInCurrentCall ? "bg-emerald-400" : "bg-white animate-ping"
+                      }`}
+                  />
+                  <span>
+                    {isUserInCurrentCall
+                      ? "In Call"
+                      : `Join (${activeGroupCall?.joinedParticipants?.length || 1})`}
+                  </span>
+                </button>
+              )}
+
+              <div className="relative" ref={callDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsCallDropdownOpen((prev) => !prev)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all cursor-pointer ${isCallDropdownOpen
                     ? theme === "dark"
                       ? "bg-[#2a3942] border-[#374248] text-white"
                       : "bg-gray-200 border-gray-300 text-gray-900"
                     : theme === "dark"
                       ? "border-transparent text-[#aebac1] hover:text-white hover:bg-white/10"
                       : "border-transparent text-gray-600 hover:text-gray-900 hover:bg-black/5"
-                  }`}
-                title="Call group"
-              >
-                <LuVideo className="h-5 w-5" />
-                <FaCaretDown
-                  className={`h-2.5 w-2.5 transition-transform duration-200 ${isCallDropdownOpen ? "rotate-180" : ""
                     }`}
-                />
-              </button>
-
-              {isCallDropdownOpen && (
-                <div
-                  className={`absolute right-0 top-full mt-2 w-52 sm:w-56 rounded-2xl py-2 shadow-2xl z-50 border transition-all animate-in fade-in zoom-in-95 duration-150 ${theme === "dark"
-                      ? "bg-[#233138] border-[#374248] text-[#e9edef]"
-                      : "bg-white border-gray-100 text-[#111b21] shadow-[0_10px_35px_rgba(0,0,0,0.12)]"
-                    }`}
+                  title="Call group"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCallDropdownOpen(false);
-                      handleAudioCall?.();
-                    }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
-                        ? "hover:bg-[#182229] text-[#e9edef]"
-                        : "hover:bg-[#f5f6f6] text-[#111b21]"
-                      }`}
-                  >
-                    <LuPhone className="h-[18px] w-[18px] text-[#aebac1]" />
-                    <span className="font-normal">Voice call</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCallDropdownOpen(false);
-                      handleVideoCall?.();
-                    }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
-                        ? "hover:bg-[#182229] text-[#e9edef]"
-                        : "hover:bg-[#f5f6f6] text-[#111b21]"
-                      }`}
-                  >
-                    <LuVideo className="h-[18px] w-[18px] text-[#aebac1]" />
-                    <span className="font-normal">Video call</span>
-                  </button>
-
-                  <div
-                    className={`my-1 border-t ${theme === "dark" ? "border-white/10" : "border-gray-200/80"
-                      }`}
+                  <LuVideo size={25} />
+                  <FaCaretDown className={`h-2.5 w-2.5 transition-transform duration-200 ${isCallDropdownOpen ? "rotate-180" : ""
+                    }`}
                   />
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCallDropdownOpen(false);
-                      setShowSelectPeopleModal(true);
-                    }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
+                {isCallDropdownOpen && (
+                  <div className={`absolute right-0 top-full mt-2 w-52 sm:w-56 rounded-2xl py-2 shadow-2xl z-50 border transition-all animate-in fade-in zoom-in-95 duration-150 ${theme === "dark"
+                    ? "bg-[#233138] border-[#374248] text-[#e9edef]"
+                    : "bg-white border-gray-100 text-[#111b21] shadow-[0_10px_35px_rgba(0,0,0,0.12)]"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCallDropdownOpen(false);
+                        handleAudioCall?.();
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
                         ? "hover:bg-[#182229] text-[#e9edef]"
                         : "hover:bg-[#f5f6f6] text-[#111b21]"
-                      }`}
-                  >
-                    <LuUserCheck className="h-[18px] w-[18px] text-[#aebac1]" />
-                    <span className="font-normal">Select people</span>
-                  </button>
+                        }`}
+                    >
+                      <LuPhone className="h-[18px] w-[18px] text-[#aebac1]" />
+                      <span className="font-normal">Voice call</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setIsCallDropdownOpen(false);
-                      const code = Math.random().toString(36).substring(2, 7).toUpperCase();
-                      const callUrl = `https://call.whatsapp.com/video/${code}`;
-                      const gId = (selectedContact?._id || selectedContact?.conversation?._id)?.toString();
-                      try {
-                        if (typeof sendCallLinkMessage === "function") {
-                          await sendCallLinkMessage({
-                            receiverId: gId,
-                            conversationId: selectedContact?.conversation?._id || gId,
-                            callType: "video",
-                            linkCode: code,
-                            url: callUrl,
-                            isGroup: true,
-                            groupId: gId,
-                          });
-                        }
-                        if (navigator?.clipboard?.writeText) {
-                          await navigator.clipboard.writeText(callUrl);
-                          toast.success("Call link copied to clipboard and sent to group");
-                        } else {
-                          toast.success("Call link sent to group");
-                        }
-                      } catch (err) {
-                        console.error("Error sending call link:", err);
-                        toast.error("Failed to send call link");
-                      }
-                    }}
-                    className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCallDropdownOpen(false);
+                        handleVideoCall?.();
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
                         ? "hover:bg-[#182229] text-[#e9edef]"
                         : "hover:bg-[#f5f6f6] text-[#111b21]"
+                        }`}
+                    >
+                      <LuVideo className="h-[18px] w-[18px] text-[#aebac1]" />
+                      <span className="font-normal">Video call</span>
+                    </button>
+
+                    <div className={`my-1 border-t ${theme === "dark" ? "border-white/10" : "border-gray-200/80"
                       }`}
-                  >
-                    <LuLink className="h-[18px] w-[18px] text-[#aebac1]" />
-                    <span className="font-normal">Send call link</span>
-                  </button>
-                </div>
-              )}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCallDropdownOpen(false);
+                        setShowSelectPeopleModal(true);
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
+                        ? "hover:bg-[#182229] text-[#e9edef]"
+                        : "hover:bg-[#f5f6f6] text-[#111b21]"
+                        }`}
+                    >
+                      <LuUserCheck className="h-[18px] w-[18px] text-[#aebac1]" />
+                      <span className="font-normal">Select people</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsCallDropdownOpen(false);
+                        const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+                        const callUrl = `https://call.whatsapp.com/video/${code}`;
+                        const gId = (selectedContact?._id || selectedContact?.conversation?._id)?.toString();
+                        try {
+                          if (typeof sendCallLinkMessage === "function") {
+                            await sendCallLinkMessage({
+                              receiverId: gId,
+                              conversationId: selectedContact?.conversation?._id || gId,
+                              callType: "video",
+                              linkCode: code,
+                              url: callUrl,
+                              isGroup: true,
+                              groupId: gId,
+                            });
+                          }
+                          if (navigator?.clipboard?.writeText) {
+                            await navigator.clipboard.writeText(callUrl);
+                            toast.success("Call link copied to clipboard and sent to group");
+                          } else {
+                            toast.success("Call link sent to group");
+                          }
+                        } catch (err) {
+                          console.error("Error sending call link:", err);
+                          toast.error("Failed to send call link");
+                        }
+                      }}
+                      className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-left text-[14.5px] transition-colors cursor-pointer ${theme === "dark"
+                        ? "hover:bg-[#182229] text-[#e9edef]"
+                        : "hover:bg-[#f5f6f6] text-[#111b21]"
+                        }`}
+                    >
+                      <LuLink className="h-[18px] w-[18px] text-[#aebac1]" />
+                      <span className="font-normal">Send call link</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex items-center space-x-1 sm:space-x-2">
-              <button
-                className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer text-gray-600 dark:text-[#aebac1] hover:text-emerald-500"
+              <button className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer text-gray-600 dark:text-[#aebac1] hover:text-emerald-500"
                 onClick={handleVideoCall}
                 title={online ? "Start video call" : "user is offline"}
               >
                 <LuVideo className="h-5 w-5" />
               </button>
 
-              <button
-                className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer text-gray-600 dark:text-[#aebac1] hover:text-emerald-500"
+              <button className="p-2 rounded-full border border-transparent hover:border-black/10 dark:hover:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer text-gray-600 dark:text-[#aebac1] hover:text-emerald-500"
                 onClick={handleAudioCall}
                 title={online ? "Start audio call" : "user is offline"}
               >
@@ -494,20 +542,18 @@ const ChatHeader = ({
             <FiSearch className="h-4.5 w-4.5" />
           </button>
 
-          <div
-            className={`absolute right-0 top-1/2 -translate-y-1/2 origin-right transition-all duration-300 z-40 ${isSearchOpen
-              ? "w-60 sm:w-64 scale-100 opacity-100"
-              : "w-0 scale-95 opacity-0 pointer-events-none"
-              }`}
+          <div className={`absolute right-0 top-1/2 -translate-y-1/2 origin-right transition-all duration-300 z-40 ${isSearchOpen
+            ? "w-60 sm:w-64 scale-100 opacity-100"
+            : "w-0 scale-95 opacity-0 pointer-events-none"
+            }`}
           >
             <div className="relative flex flex-col">
               <div className="relative w-full rounded-xl overflow-hidden group transition-all duration-300">
-                <div
-                  className={`absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br opacity-60 group-focus-within:opacity-80 transition-all duration-300 
+                <div className={`absolute inset-0 rounded-xl pointer-events-none bg-gradient-to-br opacity-60 group-focus-within:opacity-80 transition-all duration-300 
                   ${theme === "dark"
-                      ? "from-white/10 via-white/5 to-transparent"
-                      : "from-white/60 via-white/30 to-transparent"
-                    }`}
+                    ? "from-white/10 via-white/5 to-transparent"
+                    : "from-white/60 via-white/30 to-transparent"
+                  }`}
                 />
 
                 <input
@@ -524,11 +570,10 @@ const ChatHeader = ({
                     } shadow-[0_4px_15px_rgba(0,0,0,0.1)] focus:shadow-[0_6px_20px_rgba(0,255,150,0.2)]`}
                 />
 
-                <FiSearch
-                  className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 transition-all duration-300 ${theme === "dark"
-                    ? "text-gray-500 group-focus-within:text-emerald-400"
-                    : "text-gray-400 group-focus-within:text-emerald-500"
-                    }`}
+                <FiSearch className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-20 h-3.5 w-3.5 transition-all duration-300 ${theme === "dark"
+                  ? "text-gray-500 group-focus-within:text-emerald-400"
+                  : "text-gray-400 group-focus-within:text-emerald-500"
+                  }`}
                 />
 
                 <button

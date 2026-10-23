@@ -3,16 +3,16 @@ import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import useStatusStore from "../../store/statusStore";
 import { useEffect } from "react";
-import Layout from "../../components/layout";
+import Layout from "../../components/layout/layout";
 import StatusPreview from "./statusPreview";
 import { motion } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
 import { FaCamera, FaEllipsisH, FaPlus } from "react-icons/fa";
 import formatTimestamp from "../../utils/formatTime";
 import StatusList from "./StatusList";
-import CameraModal from "../../components/CameraModal";
+import CameraModal from "../../components/modals/CameraModal";
 import useOutsideClick from "../../hook/useOutsideClick";
-import StatusPlaceholder from "../../components/StatusPlaceholder";
+import StatusPlaceholder from "../../components/info/StatusPlaceholder";
 import { StatusStoryRing } from "../../components/common/Icons";
 
 const status = () => {
@@ -246,9 +246,8 @@ const status = () => {
                 }
               >
                 <div className="p-[2px] rounded-full">
-                  <img
-                    className={`w-12 h-12 rounded-full object-cover border-2 transition-transform group-hover:scale-95 ${theme === "dark" ? "border-[#111b21]" : "border-white"
-                      }`}
+                  <img className={`w-12 h-12 rounded-full object-cover border-2 transition-transform group-hover:scale-95 ${theme === "dark" ? "border-[#111b21]" : "border-white"
+                    }`}
                     src={user?.profilePicture}
                     alt={user?.username}
                   />
@@ -261,8 +260,7 @@ const status = () => {
                   />
                 )}
 
-                <button
-                  className="absolute bottom-0 right-0 bg-green-500 text-white p-1 rounded-full border-2 border-white dark:border-[#111b21] hover:scale-110 active:scale-90 transition-all shadow-md cursor-pointer"
+                <button className="absolute bottom-0 right-0 bg-green-500 text-white p-1 rounded-full border-2 border-white dark:border-[#111b21] hover:scale-110 active:scale-90 transition-all shadow-md cursor-pointer"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowCreateModal(true);
@@ -273,8 +271,7 @@ const status = () => {
                 </button>
               </div>
 
-              <div
-                className="flex-1 min-w-0 cursor-pointer"
+              <div className="flex-1 min-w-0 cursor-pointer"
                 onClick={() =>
                   userStatuses
                     ? handleStatusPreview(userStatuses)
@@ -284,9 +281,8 @@ const status = () => {
                 <h4 className="font-semibold text-[15px] truncate leading-tight">
                   My Status
                 </h4>
-                <p
-                  className={`text-xs mt-1 truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                    }`}
+                <p className={`text-xs mt-1 truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                  }`}
                 >
                   {userStatuses
                     ? `${userStatuses.statuses.length} updates • ${latestMyStatus
@@ -320,8 +316,7 @@ const status = () => {
                 className={`mt-3 border-t pt-2.5 grid grid-cols-2 gap-2 ${theme === "dark" ? "border-white/10" : "border-gray-200"
                   }`}
               >
-                <button
-                  className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-green-500/10 text-green-500 font-semibold text-xs transition-all hover:bg-green-500/20 cursor-pointer"
+                <button className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-green-500/10 text-green-500 font-semibold text-xs transition-all hover:bg-green-500/20 cursor-pointer"
                   onClick={() => {
                     setShowCreateModal(true);
                     setShowOption(false);
@@ -329,8 +324,7 @@ const status = () => {
                 >
                   <FaCamera size={12} /> Add New
                 </button>
-                <button
-                  className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-blue-500/10 text-blue-500 font-semibold text-xs transition-all hover:bg-blue-500/20 cursor-pointer"
+                <button className="flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-blue-500/10 text-blue-500 font-semibold text-xs transition-all hover:bg-blue-500/20 cursor-pointer"
                   onClick={() => {
                     handleStatusPreview(userStatuses);
                     setShowOption(false);
@@ -344,9 +338,8 @@ const status = () => {
 
           <div>
             <div className="flex items-center justify-between px-1 mb-2">
-              <h3
-                className={`text-xs font-semibold uppercase tracking-wider ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                  }`}
+              <h3 className={`text-xs font-semibold uppercase tracking-wider ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+                }`}
               >
                 Recent Updates
               </h3>
@@ -363,11 +356,7 @@ const status = () => {
                 </p>
               </div>
             ) : otherStatuses.length > 0 ? (
-              <div
-                className={`rounded-2xl overflow-hidden border divide-y transition-all ${theme === "dark"
-                  ? "bg-[#111b21] border-gray-700/40 divide-gray-700/40"
-                  : "bg-white border-gray-200 divide-gray-100"
-                  }`}
+              <div className={`rounded-2xl overflow-hidden border divide-y transition-all ${theme === "dark" ? "bg-[#111b21] border-gray-700/40 divide-gray-700/40" : "bg-white border-gray-200 divide-gray-100"}`}
               >
                 {otherStatuses.map((contact, index) => (
                   <div
@@ -386,11 +375,9 @@ const status = () => {
             ) : (
               <div className="text-center py-12 px-4 rounded-2xl border border-dashed backdrop-blur-md bg-black/5 dark:bg-white/5 dark:border-white/10 border-gray-300 transition-all">
                 <div className="text-4xl mb-3 opacity-30">✨</div>
-
                 <h3 className="text-sm font-semibold opacity-80 mb-1">
                   No Updates Yet
                 </h3>
-
                 <p className="text-xs opacity-50 max-w-xs mx-auto leading-relaxed">
                   When your contacts share updates, they will appear here.
                 </p>

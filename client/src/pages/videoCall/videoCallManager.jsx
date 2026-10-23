@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect } from "react";
+import { toast } from "react-toastify";
 import useVideoCallStore from "../../store/videoCallStore";
 import useUserStore from "../../store/useUserStore";
 import VideoCallModel from "./videoCallModel";
@@ -12,7 +13,13 @@ const VideoCallManager = () => {
     setCallModalOpen,
     endCall,
     setCallStatus,
+    setCallActive,
     setIsInitiator,
+    setActiveGroupCall,
+    setGroupParticipants,
+    addGroupParticipant,
+    removeGroupParticipant,
+    removeRemoteStreamForUser,
   } = useVideoCallStore();
 
   const { user } = useUserStore();
@@ -31,6 +38,7 @@ const VideoCallManager = () => {
       groupId,
       groupName,
       groupAvatar,
+      joinedParticipants,
     }) => {
       setIsInitiator(false);
       setIncomingCall({
@@ -45,42 +53,163 @@ const VideoCallManager = () => {
         actualCallerName: callerName,
       });
 
+      if (isGroup && Array.isArray(joinedParticipants)) {
+        const myId = user?._id?.toString();
+        const others = joinedParticipants.filter(
+          (p) => (p.userId || p._id || p)?.toString() !== myId,
+        );
+        setGroupParticipants(others);
+      }
+
       setCallType(callType);
       setCallModalOpen(true);
       setCallStatus("ringing");
     };
 
-    const handleCallEnded = ({ reason }) => {
+    const handleCallEnded = ({ reason } = {}) => {
+      if (reason) {
+        toast.info(reason);
+      }
+      setActiveGroupCall(null);
       setCallStatus("failed");
       setTimeout(() => {
         endCall();
-      }, 2000);
+      }, 1500);
+    };
+
+    const handleActiveGroupCallUpdate = (callData) => {
+      if (
+        callData?.isActive &&
+        callData?.status !== "ended" &&
+        (callData?.status === "ongoing" || callData?.status === "ringing" || callData?.joinedParticipants?.length > 0)
+      ) {
+        if (callData.status === "ongoing" && (callData.joinedParticipants?.length || 0) < 2) {
+          setActiveGroupCall(null);
+          return;
+        }
+        setActiveGroupCall(callData);
+      } else {
+        setActiveGroupCall(null);
+      }
+    };
+
+    const handleGroupCallJoined = ({
+      callId,
+      groupId,
+      groupName,
+      groupAvatar,
+      callType,
+      callerId,
+      existingParticipants,
+      joinedParticipants,
+    }) => {
+      const myId = user?._id?.toString();
+      const allJoined = joinedParticipants || existingParticipants || [];
+      const others = allJoined.filter(
+        (p) => (p.userId || p._id || p)?.toString() !== myId,
+      );
+      setGroupParticipants(others);
+      setCallStatus("connected");
+      setCallActive(true);
+    };
+
+    const handleGroupCallParticipantJoined = ({ participant }) => {
+      if (participant && participant.userId?.toString() !== user?._id?.toString()) {
+        addGroupParticipant(participant);
+      }
+    };
+
+    const handleGroupCallParticipantLeft = ({ userId, joinedParticipants }) => {
+      if (userId) {
+        removeGroupParticipant(userId);
+        removeRemoteStreamForUser(userId);
+      }
+
+      const myId = user?._id?.toString();
+      const currentCall = useVideoCallStore.getState().currentCall;
+      const isGroup = Boolean(currentCall?.isGroup);
+      const callStatus = useVideoCallStore.getState().callStatus;
+
+      if (isGroup && callStatus === "connected") {
+        let remainingOthers = 0;
+        if (Array.isArray(joinedParticipants)) {
+          remainingOthers = joinedParticipants.filter(
+            (p) => (p.userId || p._id || p)?.toString() !== myId,
+          ).length;
+        } else {
+          const currentOthers = useVideoCallStore.getState().groupParticipants || [];
+          remainingOthers = currentOthers.filter(
+            (p) => (p.userId || p._id || p)?.toString() !== userId?.toString(),
+          ).length;
+        }
+
+        if (remainingOthers === 0) {
+          toast.info("Call ended - everyone else left the call");
+          setActiveGroupCall(null);
+          setCallStatus("failed");
+          setTimeout(() => {
+            endCall();
+          }, 1500);
+        }
+      }
     };
 
     socket.on("incoming_call", handleIncomingCall);
+    socket.on("call_ended", handleCallEnded);
     socket.on("call_failed", handleCallEnded);
+    socket.on("active_group_call_update", handleActiveGroupCallUpdate);
+    socket.on("group_call_joined", handleGroupCallJoined);
+    socket.on("group_call_participant_joined", handleGroupCallParticipantJoined);
+    socket.on("group_call_participant_left", handleGroupCallParticipantLeft);
 
     return () => {
       socket.off("incoming_call", handleIncomingCall);
+      socket.off("call_ended", handleCallEnded);
       socket.off("call_failed", handleCallEnded);
+      socket.off("active_group_call_update", handleActiveGroupCallUpdate);
+      socket.off("group_call_joined", handleGroupCallJoined);
+      socket.off("group_call_participant_joined", handleGroupCallParticipantJoined);
+      socket.off("group_call_participant_left", handleGroupCallParticipantLeft);
     };
-  }, [socket, setIncomingCall, setCallType, setCallStatus, setCallModalOpen, endCall, setIsInitiator]);
+  }, [
+    socket,
+    user,
+    setIncomingCall,
+    setCallType,
+    setCallStatus,
+    setCallActive,
+    setCallModalOpen,
+    endCall,
+    setIsInitiator,
+    setActiveGroupCall,
+    setGroupParticipants,
+    addGroupParticipant,
+    removeGroupParticipant,
+    removeRemoteStreamForUser,
+  ]);
 
   const initiateCall = useCallback(
     (receiverId, receiverName, receiverAvatar, callType = "video", extraOptions = {}) => {
       const isGroup = Boolean(extraOptions?.isGroup);
-      const callId = `${user?._id}-${extraOptions?.groupId || receiverId}-${Date.now()}`;
+      const strReceiverId = (receiverId?._id || receiverId)?.toString();
+      const strGroupId = (extraOptions?.groupId?._id || extraOptions?.groupId)?.toString();
+      const callId = `${user?._id}-${strGroupId || strReceiverId}-${Date.now()}`;
+
+      const rawParticipantIds = extraOptions?.participantIds || (strReceiverId ? [strReceiverId] : []);
+      const normalizedParticipantIds = rawParticipantIds
+        .map((p) => (p?._id || p)?.toString())
+        .filter(Boolean);
 
       const callData = {
         callId,
-        participantId: receiverId,
+        participantId: strReceiverId,
         participantName: receiverName,
         participantAvatar: receiverAvatar,
         isInitiator: true,
         isGroup,
-        groupId: extraOptions?.groupId,
+        groupId: strGroupId,
         groupName: extraOptions?.groupName || receiverName,
-        participantIds: extraOptions?.participantIds || [receiverId],
+        participantIds: normalizedParticipantIds,
       };
 
       setIsInitiator(true);
@@ -89,12 +218,17 @@ const VideoCallManager = () => {
       setCallModalOpen(true);
       setCallStatus("calling");
 
-      socket.emit("initiate_call", {
-        callerId: user?._id,
-        receiverId,
-        receiverIds: extraOptions?.participantIds || (receiverId ? [receiverId] : []),
+      if (isGroup) {
+        setGroupParticipants([]);
+      }
+
+      socket?.emit("initiate_call", {
+        callId,
+        callerId: user?._id?.toString(),
+        receiverId: strReceiverId,
+        receiverIds: normalizedParticipantIds,
         isGroup,
-        groupId: extraOptions?.groupId,
+        groupId: strGroupId,
         groupName: extraOptions?.groupName || receiverName,
         groupAvatar: extraOptions?.groupAvatar || receiverAvatar,
         callType,
@@ -104,12 +238,55 @@ const VideoCallManager = () => {
         },
       });
     },
-    [user, socket, setCurrentCall, setCallType, setCallModalOpen, setCallStatus],
+    [user, socket, setCurrentCall, setCallType, setCallModalOpen, setCallStatus, setIsInitiator, setGroupParticipants],
+  );
+
+  const joinGroupCall = useCallback(
+    (groupCallData) => {
+      if (!groupCallData || !socket) return;
+      const callId = groupCallData.callId;
+      const groupId = groupCallData.groupId;
+      const callType = groupCallData.callType || "video";
+
+      const callData = {
+        callId,
+        isGroup: true,
+        groupId,
+        groupName: groupCallData.groupName || "Group Call",
+        groupAvatar: groupCallData.groupAvatar,
+        participantName: groupCallData.groupName || "Group Call",
+        participantAvatar: groupCallData.groupAvatar,
+        isInitiator: false,
+      };
+
+      setIsInitiator(false);
+      setCurrentCall(callData);
+      setCallType(callType);
+      setCallModalOpen(true);
+      setCallStatus("connecting");
+
+      const myId = user?._id?.toString();
+      const existingOthers = (groupCallData.joinedParticipants || []).filter(
+        (p) => (p.userId || p._id || p)?.toString() !== myId,
+      );
+      setGroupParticipants(existingOthers);
+
+      socket.emit("join_group_call", {
+        callId,
+        groupId,
+        userInfo: {
+          username: user?.username,
+          profilePicture: user?.profilePicture,
+        },
+      });
+    },
+    [socket, user, setCurrentCall, setCallType, setCallModalOpen, setCallStatus, setIsInitiator, setGroupParticipants],
   );
 
   useEffect(() => {
     useVideoCallStore.getState().initiateCall = initiateCall;
-  }, [initiateCall]);
+    useVideoCallStore.getState().joinGroupCall = joinGroupCall;
+  }, [initiateCall, joinGroupCall]);
 
   return <VideoCallModel socket={socket} />;
 };

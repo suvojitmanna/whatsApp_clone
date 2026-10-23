@@ -7,12 +7,11 @@ import { MdArrowRight, MdBlock } from "react-icons/md";
 import { RiDeleteBin6Line } from "react-icons/ri";
 import { BsPinAngle } from "react-icons/bs";
 import { FaCheck, FaPlus } from "react-icons/fa";
-
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
 import { useChatStore, getTargetUserId } from "../../store/chatStore";
-import BlockModal from "../../components/BlockModal";
+import BlockModal from "../../components/modals/BlockModal";
 import {
   getAllLists,
   isContactInList,
@@ -38,7 +37,6 @@ const ChatlistMenu = ({
   const isDark = theme === "dark";
   const { user } = useUserStore();
   const currentUserId = user?._id;
-
   const {
     blockedContacts,
     blockContact,
@@ -47,7 +45,6 @@ const ChatlistMenu = ({
     deleteChat,
     clearUnreadCount,
   } = useChatStore();
-
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -168,15 +165,11 @@ const ChatlistMenu = ({
   const coords = useMemo(() => {
     const menuWidth = 236;
     const menuHeight = 368;
-    const viewportWidth =
-      typeof window !== "undefined" ? window.innerWidth : 1200;
-    const viewportHeight =
-      typeof window !== "undefined" ? window.innerHeight : 800;
+    const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1200;
+    const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800;
     const padding = 12;
-
     const clickX = anchorCoords?.x ?? 200;
     const clickY = anchorCoords?.y ?? 200;
-
     let left = clickX;
     let top = clickY;
 
@@ -191,7 +184,6 @@ const ChatlistMenu = ({
     } else {
       top = Math.max(padding, clickY);
     }
-
     const isSubmenuLeft = left + menuWidth + 200 > viewportWidth - padding;
 
     return { left, top, isSubmenuLeft };
@@ -437,8 +429,7 @@ const ChatlistMenu = ({
                 </span>
               </button>
 
-              <div
-                className="relative"
+              <div className="relative"
                 onMouseEnter={() => !isMuted && setActiveSubmenu("mute")}
                 onMouseLeave={() => activeSubmenu === "mute" && setActiveSubmenu(null)}
               >
@@ -465,24 +456,13 @@ const ChatlistMenu = ({
                 </button>
 
                 {activeSubmenu === "mute" && !isMuted && (
-                  <div
-                    className={`absolute top-0 py-1.5 rounded-2xl shadow-2xl border z-20 w-[160px] ${coords.isSubmenuLeft
-                      ? "right-full mr-1.5"
-                      : "left-full ml-1.5"
-                      } ${isDark
-                        ? "bg-[#182229] border-[#313d45]/70 text-[#d1d7db]"
-                        : "bg-white border-gray-200 text-[#111b21]"
-                      }`}
-                  >
+                  <div className={`absolute top-0 py-1.5 rounded-2xl shadow-2xl border z-20 w-[160px] ${coords.isSubmenuLeft ? "right-full mr-1.5" : "left-full ml-1.5" } ${isDark ? "bg-[#182229] border-[#313d45]/70 text-[#d1d7db]" : "bg-white border-gray-200 text-[#111b21]"}`}>
                     {["8 hours", "1 week", "Always"].map((opt) => (
                       <button
                         key={opt}
                         type="button"
                         onClick={() => handleMute(opt)}
-                        className={`w-full px-4 py-2.5 text-left text-[14px] cursor-pointer transition-colors ${isDark
-                          ? "hover:bg-[#202c33] text-[#d1d7db] hover:text-white"
-                          : "hover:bg-[#f5f6f6] text-[#111b21]"
-                          }`}
+                        className={`w-full px-4 py-2.5 text-left text-[14px] cursor-pointer transition-colors ${isDark ? "hover:bg-[#202c33] text-[#d1d7db] hover:text-white" : "hover:bg-[#f5f6f6] text-[#111b21]"}`}
                       >
                         {opt}
                       </button>
@@ -524,8 +504,7 @@ const ChatlistMenu = ({
                 </span>
               </button>
 
-              <div
-                className="relative"
+              <div className="relative"
                 onMouseEnter={() => setActiveSubmenu("list")}
                 onMouseLeave={() => activeSubmenu === "list" && setActiveSubmenu(null)}
               >
@@ -542,8 +521,7 @@ const ChatlistMenu = ({
                 </button>
 
                 {activeSubmenu === "list" && (
-                  <div
-                    className={`absolute top-0 py-1.5 rounded-2xl shadow-2xl border z-20 w-[190px] max-h-[300px] overflow-y-auto ${coords.isSubmenuLeft
+                  <div className={`absolute top-0 py-1.5 rounded-2xl shadow-2xl border z-20 w-[190px] max-h-[300px] overflow-y-auto ${coords.isSubmenuLeft
                       ? "right-full mr-1.5"
                       : "left-full ml-1.5"
                       } ${isDark
@@ -571,14 +549,8 @@ const ChatlistMenu = ({
                       );
                     })}
 
-                    <div
-                      className={`my-1 border-t ${isDark ? "border-[#313d45]/70" : "border-gray-200"
-                        }`}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => {
+                    <div className={`my-1 border-t ${isDark ? "border-[#313d45]/70" : "border-gray-200"}`} />
+                    <button type="button" onClick={() => {
                         onClose();
                         onOpenNewList?.();
                       }}
@@ -593,12 +565,10 @@ const ChatlistMenu = ({
                   </div>
                 )}
               </div>
-
               <div
                 className={`my-1.5 border-t ${isDark ? "border-[#313d45]/70" : "border-gray-200"
                   }`}
               />
-
               <button
                 type="button"
                 onClick={handleToggleBlock}
@@ -644,10 +614,7 @@ const ChatlistMenu = ({
       {confirmDialog &&
         typeof document !== "undefined" &&
         createPortal(
-          <div
-            className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-            onClick={() => setConfirmDialog(null)}
-          >
+          <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => setConfirmDialog(null)}>
             <motion.div
               initial={{ opacity: 0, scale: 0.93, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -663,10 +630,7 @@ const ChatlistMenu = ({
                   ? "Clear this chat?"
                   : "Delete this chat?"}
               </h3>
-              <p
-                className={`text-[13.5px] leading-relaxed mb-6 ${isDark ? "text-[#8696a0]" : "text-gray-500"
-                  }`}
-              >
+              <p className={`text-[13.5px] leading-relaxed mb-6 ${isDark ? "text-[#8696a0]" : "text-gray-500"}`}>
                 {confirmDialog.type === "clear"
                   ? "Messages will be cleared from this device. Media in this chat may also be removed."
                   : "Messages and media from this chat will be permanently deleted from your account."}

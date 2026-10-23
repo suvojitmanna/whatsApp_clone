@@ -31,8 +31,7 @@ const StatusList = ({ contact, onPreview, theme }) => {
             {contact?.name}
           </p>
 
-          <p
-            className={`text-[13px] mt-[2px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
+          <p className={`text-[13px] mt-[2px] truncate ${theme === "dark" ? "text-gray-400" : "text-gray-500"
               }`}
           >
             {formatTimestamp(

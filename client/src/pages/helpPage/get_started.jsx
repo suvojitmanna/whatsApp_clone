@@ -29,18 +29,15 @@ const GetStarted = () => {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className={`min-h-screen flex flex-col transition-colors duration-500 ${
-        isDark ? "bg-[#0b141a] text-white" : "bg-gray-50 text-gray-900"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-500 ${isDark ? "bg-[#0b141a] text-white" : "bg-gray-50 text-gray-900"
+        }`}
     >
-      <div className={`p-4 flex items-center gap-4 border-b sticky top-0 z-20 transition-colors ${
-        isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200 shadow-sm"
-      }`}>
+      <div className={`p-4 flex items-center gap-4 border-b sticky top-0 z-20 transition-colors ${isDark ? "bg-[#111b21] border-gray-800" : "bg-white border-gray-200 shadow-sm"
+        }`}>
         <button
           onClick={() => navigate(-1)}
-          className={`p-2 rounded-full transition-colors ${
-            isDark ? "hover:bg-gray-700 text-white" : "hover:bg-gray-100 text-gray-600"
-          }`}
+          className={`p-2 rounded-full transition-colors ${isDark ? "hover:bg-gray-700 text-white" : "hover:bg-gray-100 text-gray-600"
+            }`}
         >
           <FaArrowLeft className="text-xl cursor-pointer" />
         </button>
@@ -49,9 +46,8 @@ const GetStarted = () => {
 
       <div className="flex-1 p-6 max-w-2xl mx-auto w-full">
         <header className="mb-8 text-center">
-          <div className={`inline-block p-4 rounded-full mb-4 ${
-            isDark ? "bg-green-500/10" : "bg-green-100"
-          }`}>
+          <div className={`inline-block p-4 rounded-full mb-4 ${isDark ? "bg-green-500/10" : "bg-green-100"
+            }`}>
             <span className="text-4xl">🚀</span>
           </div>
           <h2 className="text-3xl font-bold mb-2">Welcome!</h2>
@@ -72,8 +68,8 @@ const GetStarted = () => {
               tabIndex="0"
               className={`flex gap-4 p-5 rounded-2xl border cursor-pointer transition-all duration-300 ease-out
                 focus:outline-none focus:ring-2 focus:ring-green-500/50
-                ${isDark 
-                  ? "bg-[#202c33] border-gray-800 hover:border-green-500/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)]" 
+                ${isDark
+                  ? "bg-[#202c33] border-gray-800 hover:border-green-500/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.3)]"
                   : "bg-white border-gray-200 hover:border-green-400 hover:shadow-xl shadow-sm"}
               `}
             >
@@ -87,9 +83,8 @@ const GetStarted = () => {
               </div>
 
               <div className="pb-2">
-                <h3 className={`text-lg font-semibold mb-1 transition-colors ${
-                  isDark ? "text-green-400 group-hover:text-green-300" : "text-green-600"
-                }`}>
+                <h3 className={`text-lg font-semibold mb-1 transition-colors ${isDark ? "text-green-400 group-hover:text-green-300" : "text-green-600"
+                  }`}>
                   {step.title}
                 </h3>
                 <p className={`text-sm leading-relaxed ${isDark ? "text-gray-300" : "text-gray-600"}`}>

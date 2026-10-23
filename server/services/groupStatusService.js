@@ -90,21 +90,67 @@ async function processGroupMessageReceipt(
     }
 
     if (io) {
+      let userObj = null;
+      try {
+        const found = conv.participants?.find(
+          (p) => (p._id || p).toString() === uId,
+        );
+        if (found && typeof found === "object" && found.username) {
+          userObj = {
+            _id: uId,
+            username: found.username,
+            profilePicture: found.profilePicture,
+            phoneNumber: found.phoneNumber,
+            about: found.about,
+          };
+        } else {
+          const uDoc = await User.findById(uId).select(
+            "username profilePicture phoneNumber about",
+          );
+          if (uDoc) {
+            userObj = {
+              _id: uId,
+              username: uDoc.username,
+              profilePicture: uDoc.profilePicture,
+              phoneNumber: uDoc.phoneNumber,
+              about: uDoc.about,
+            };
+          }
+        }
+      } catch (err) {
+      }
+
       const receiptPayload = {
         messageId: msg._id.toString(),
         conversationId: conv._id.toString(),
         userId: uId,
+        user: userObj || { _id: uId },
         action,
         timestamp: now.toISOString(),
+        readAt: now.toISOString(),
+        deliveredAt: now.toISOString(),
         newStatus,
         allRead,
         allDelivered,
       };
 
-      io.to(conv._id.toString()).emit(
-        "group_message_receipt_update",
-        receiptPayload,
+      const allMembers = (conv.participants || []).map((p) =>
+        (p._id || p).toString(),
       );
+
+      allMembers.forEach((memberId) => {
+        io.to(memberId).emit("group_message_receipt_update", receiptPayload);
+        if (onlineUsers && typeof onlineUsers.get === "function") {
+          const socketId = onlineUsers.get(memberId);
+          if (socketId && socketId !== memberId) {
+            io.to(socketId).emit(
+              "group_message_receipt_update",
+              receiptPayload,
+            );
+          }
+        }
+      });
+
       if (newStatus !== msg.messageStatus) {
         const statusPayload = {
           messageId: msg._id.toString(),
@@ -220,6 +266,32 @@ async function onGroupMessageCreated(
       $set: { deliveredTo: deliveredList },
     });
     message.deliveredTo = deliveredList;
+  }
+
+  if (io && deliveredList.length > 0) {
+    deliveredList.forEach((item) => {
+      const receiptPayload = {
+        messageId: message._id.toString(),
+        conversationId: conversation._id.toString(),
+        userId: item.user,
+        action: "delivered",
+        timestamp: now.toISOString(),
+        deliveredAt: now.toISOString(),
+        newStatus: allDelivered ? "delivered" : "send",
+        allRead: false,
+        allDelivered,
+      };
+      io.to(senderId.toString()).emit(
+        "group_message_receipt_update",
+        receiptPayload,
+      );
+      if (onlineUsers && typeof onlineUsers.get === "function") {
+        const sSocket = onlineUsers.get(senderId.toString());
+        if (sSocket && sSocket !== senderId.toString()) {
+          io.to(sSocket).emit("group_message_receipt_update", receiptPayload);
+        }
+      }
+    });
   }
 }
 

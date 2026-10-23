@@ -223,9 +223,11 @@ const getStoredPinned = () => {
     const parsed = JSON.parse(raw);
     const now = Date.now();
     const valid = {};
-    for (const [convId, data] of Object.entries(parsed)) {
+    const currentUserId = useUserStore.getState()?.user?._id?.toString();
+    for (const [key, data] of Object.entries(parsed)) {
+      if (currentUserId && key === currentUserId) continue;
       if (data && (!data.expiresAt || data.expiresAt > now)) {
-        valid[convId] = data;
+        valid[key] = data;
       }
     }
     return valid;
@@ -253,6 +255,8 @@ const getStoredBlocked = () => {
     return [];
   }
 };
+
+const seenReceiveMessageIds = new Set();
 
 export const useChatStore = create((set, get) => ({
   users: [],
@@ -296,7 +300,8 @@ export const useChatStore = create((set, get) => ({
         data: state.conversations?.data?.map((conv) => {
           const isMatch =
             String(conv._id) === strId ||
-            conv.participants?.some((p) => String(p?._id || p) === strId);
+            (!conv.isGroup &&
+              conv.participants?.some((p) => String(p?._id || p) === strId));
           return isMatch ? { ...conv, unreadCount: 0 } : conv;
         }),
       },
@@ -561,18 +566,41 @@ export const useChatStore = create((set, get) => ({
 
     const user = useUserStore.getState()?.user;
     const currentUserId = (user?._id || user?.id)?.toString();
-    const effectivePinnedBy =
-      pinnedBy && typeof pinnedBy === "object"
-        ? pinnedBy
-        : pinnedBy && pinnedBy.toString() !== currentUserId
-          ? pinnedBy
-          : user
-            ? {
-                _id: currentUserId,
-                username: user.username,
-                profilePicture: user.profilePicture,
-              }
-            : currentUserId;
+    let effectivePinnedBy = pinnedBy;
+    if (pinnedBy && typeof pinnedBy === "object" && pinnedBy.username) {
+      effectivePinnedBy = pinnedBy;
+    } else if (
+      pinnedBy &&
+      (pinnedBy._id || pinnedBy.id || pinnedBy).toString() === currentUserId
+    ) {
+      effectivePinnedBy = user
+        ? {
+            _id: currentUserId,
+            username: user.username,
+            profilePicture: user.profilePicture,
+          }
+        : currentUserId;
+    } else if (pinnedBy) {
+      const pId = (pinnedBy?._id || pinnedBy?.id || pinnedBy)?.toString();
+      const foundUser = get().users?.find(
+        (u) => (u._id || u.id)?.toString() === pId,
+      );
+      if (foundUser) {
+        effectivePinnedBy = {
+          _id: pId,
+          username: foundUser.username,
+          profilePicture: foundUser.profilePicture,
+        };
+      } else {
+        effectivePinnedBy = pinnedBy;
+      }
+    } else if (user) {
+      effectivePinnedBy = {
+        _id: currentUserId,
+        username: user.username,
+        profilePicture: user.profilePicture,
+      };
+    }
 
     const pinData = {
       message: finalMessage || message,
@@ -586,27 +614,41 @@ export const useChatStore = create((set, get) => ({
       ...get().pinnedMessages,
     };
 
-    const addKey = (k) => {
-      if (!k) return;
-      const str = (k?._id || k)?.toString();
-      if (str) newPinned[str] = pinData;
-    };
-
-    const senderId = (message?.sender?._id || message?.sender)?.toString();
-    const receiverIdStr = (
-      message?.receiver?._id || message?.receiver
+    const resolvedConvId = (
+      conversationId?._id ||
+      conversationId ||
+      message?.conversation?._id ||
+      message?.conversation ||
+      message?.conversationId
     )?.toString();
-    const otherUserId = senderId === currentUserId ? receiverIdStr : senderId;
 
-    addKey(conversationId);
-    addKey(secondaryId);
-    addKey(receiverId);
-    addKey(otherUserId);
-    addKey(senderId);
-    addKey(receiverIdStr);
-    addKey(effectivePinnedBy);
-    addKey(message?.conversationId);
-    addKey(message?.conversation?._id || message?.conversation);
+    const isGroupConv = Boolean(
+      message?.isGroup ||
+      message?.isGroupChat ||
+      (message?.conversation &&
+        typeof message.conversation === "object" &&
+        message.conversation.isGroup),
+    );
+
+    const candidatePeerId = [
+      secondaryId,
+      receiverId,
+      message?.receiver?._id || message?.receiver,
+      message?.sender?._id || message?.sender,
+    ]
+      .map((k) => (k?._id || k)?.toString())
+      .find((k) => k && k !== currentUserId);
+
+    if (resolvedConvId) {
+      newPinned[resolvedConvId] = pinData;
+    }
+    if (!isGroupConv && candidatePeerId && candidatePeerId !== resolvedConvId) {
+      newPinned[candidatePeerId] = pinData;
+    }
+
+    if (currentUserId && newPinned[currentUserId]) {
+      delete newPinned[currentUserId];
+    }
 
     try {
       localStorage.setItem(
@@ -615,56 +657,44 @@ export const useChatStore = create((set, get) => ({
       );
     } catch (e) {}
 
+    const updateConvPin = (conv) => {
+      const cId = conv?._id?.toString();
+      const isDirectChatMatch =
+        !conv.isGroup &&
+        candidatePeerId &&
+        conv.participants?.some(
+          (p) => (p?._id || p)?.toString() === candidatePeerId,
+        );
+
+      const isMatch =
+        (resolvedConvId && cId === resolvedConvId) || isDirectChatMatch;
+
+      if (cId && isMatch) {
+        return {
+          ...conv,
+          updatedAt: new Date(pinnedAt).toISOString(),
+          pinnedMessage: {
+            message: finalMessage || message,
+            duration,
+            pinnedAt: new Date(pinnedAt),
+            expiresAt: new Date(expiresAt),
+            pinnedBy: effectivePinnedBy,
+          },
+        };
+      }
+      return conv;
+    };
+
     set((state) => ({
       pinnedMessages: newPinned,
       conversations: state.conversations?.data
         ? {
             ...state.conversations,
-            data: state.conversations.data.map((conv) => {
-              const cId = conv?._id?.toString();
-              const convTarget = (
-                conversationId?._id || conversationId
-              )?.toString();
-              const secTarget = (secondaryId?._id || secondaryId)?.toString();
-              const recTarget = (receiverId?._id || receiverId)?.toString();
-              const msgConvId = (
-                message?.conversation?._id ||
-                message?.conversation ||
-                message?.conversationId
-              )?.toString();
-
-              const matchesParticipant = conv.participants?.some((p) => {
-                const pid = (p?._id || p)?.toString();
-                return (
-                  pid === secTarget ||
-                  pid === recTarget ||
-                  pid === senderId ||
-                  pid === receiverIdStr
-                );
-              });
-
-              if (
-                cId &&
-                (cId === convTarget ||
-                  cId === secTarget ||
-                  cId === msgConvId ||
-                  matchesParticipant)
-              ) {
-                return {
-                  ...conv,
-                  pinnedMessage: {
-                    message: finalMessage || message,
-                    duration,
-                    pinnedAt: new Date(pinnedAt),
-                    expiresAt: new Date(expiresAt),
-                    pinnedBy: effectivePinnedBy,
-                  },
-                };
-              }
-              return conv;
-            }),
+            data: state.conversations.data.map(updateConvPin),
           }
-        : state.conversations,
+        : Array.isArray(state.conversations)
+          ? state.conversations.map(updateConvPin)
+          : state.conversations,
     }));
 
     try {
@@ -674,16 +704,14 @@ export const useChatStore = create((set, get) => ({
         const selConvId = String(
           sel.conversation?._id || sel.conversation || "",
         );
-        const selUserId = String(sel._id || "");
-        const convTarget = (conversationId?._id || conversationId)?.toString();
-        const secTarget = (secondaryId?._id || secondaryId)?.toString();
-        const recTarget = (receiverId?._id || receiverId)?.toString();
-        if (
-          (convTarget && selConvId === convTarget) ||
-          (secTarget && selUserId === secTarget) ||
-          (recTarget && selUserId === recTarget) ||
-          (otherUserId && selUserId === otherUserId)
-        ) {
+        const selContactId = String(sel._id || "");
+        const isSelMatch =
+          (resolvedConvId &&
+            (selConvId === resolvedConvId ||
+              selContactId === resolvedConvId)) ||
+          (!sel.isGroup && candidatePeerId && selContactId === candidatePeerId);
+
+        if (isSelMatch) {
           layout.updateSelectedContact({
             conversation: {
               ...(typeof sel.conversation === "object" ? sel.conversation : {}),
@@ -732,42 +760,36 @@ export const useChatStore = create((set, get) => ({
   ) => {
     if (!conversationId && !secondaryId && !receiverId) return;
     const updated = { ...get().pinnedMessages };
-
-    const keysToRemove = new Set();
-    const addKey = (k) => {
-      if (!k) return;
-      const str = (k?._id || k)?.toString();
-      if (str) keysToRemove.add(str);
-    };
-
-    addKey(conversationId);
-    addKey(secondaryId);
-    addKey(receiverId);
-    addKey(unpinnedBy);
+    const user = useUserStore.getState()?.user;
+    const currentUserId = (user?._id || user?.id)?.toString();
 
     const convIdStr = (conversationId?._id || conversationId)?.toString();
     const secIdStr = (secondaryId?._id || secondaryId)?.toString();
     const recIdStr = (receiverId?._id || receiverId)?.toString();
 
+    const candidatePeerId = [secIdStr, recIdStr].find(
+      (id) => id && id !== currentUserId,
+    );
+
+    const keysToRemove = new Set();
+    if (convIdStr) keysToRemove.add(convIdStr);
+    if (candidatePeerId) keysToRemove.add(candidatePeerId);
+    if (currentUserId && updated[currentUserId])
+      keysToRemove.add(currentUserId);
+
     Object.keys(updated).forEach((key) => {
       const pin = updated[key];
       if (!pin) return;
-      const convMatch =
-        convIdStr &&
-        (key === convIdStr ||
-          (pin.message?.conversation &&
-            (
-              pin.message.conversation._id || pin.message.conversation
-            ).toString() === convIdStr) ||
-          (pin.message?.conversationId &&
-            pin.message.conversationId.toString() === convIdStr));
-      const secMatch = secIdStr && key === secIdStr;
-      const recMatch = recIdStr && key === recIdStr;
-      if (convMatch || secMatch || recMatch) {
+      const msgConvId = (
+        pin.message?.conversation?._id ||
+        pin.message?.conversation ||
+        pin.message?.conversationId
+      )?.toString();
+
+      if (convIdStr && (key === convIdStr || msgConvId === convIdStr)) {
         keysToRemove.add(key);
-        if (pin.message?.sender) addKey(pin.message.sender);
-        if (pin.message?.receiver) addKey(pin.message.receiver);
-        if (pin.message?.conversation) addKey(pin.message.conversation);
+      } else if (candidatePeerId && key === candidatePeerId) {
+        keysToRemove.add(key);
       }
     });
 
@@ -779,25 +801,33 @@ export const useChatStore = create((set, get) => ({
       localStorage.setItem("whatsapp_pinned_messages", JSON.stringify(updated));
     } catch (e) {}
 
+    const updateConvUnpin = (conv) => {
+      const cId = conv?._id?.toString();
+      const isDirectChatMatch =
+        !conv.isGroup &&
+        candidatePeerId &&
+        conv.participants?.some(
+          (p) => (p?._id || p)?.toString() === candidatePeerId,
+        );
+
+      if (cId && (cId === convIdStr || isDirectChatMatch)) {
+        const nextConv = { ...conv };
+        delete nextConv.pinnedMessage;
+        return nextConv;
+      }
+      return conv;
+    };
+
     set((state) => ({
       pinnedMessages: updated,
       conversations: state.conversations?.data
         ? {
             ...state.conversations,
-            data: state.conversations.data.map((conv) => {
-              const cId = conv?._id?.toString();
-              if (
-                cId &&
-                (cId === convIdStr || cId === secIdStr || cId === recIdStr)
-              ) {
-                const nextConv = { ...conv };
-                delete nextConv.pinnedMessage;
-                return nextConv;
-              }
-              return conv;
-            }),
+            data: state.conversations.data.map(updateConvUnpin),
           }
-        : state.conversations,
+        : Array.isArray(state.conversations)
+          ? state.conversations.map(updateConvUnpin)
+          : state.conversations,
     }));
 
     try {
@@ -807,8 +837,13 @@ export const useChatStore = create((set, get) => ({
         const selConvId = String(
           sel.conversation?._id || sel.conversation || "",
         );
-        const selUserId = String(sel._id || "");
-        if (keysToRemove.has(selConvId) || keysToRemove.has(selUserId)) {
+        const selContactId = String(sel._id || "");
+        const isSelMatch =
+          (convIdStr &&
+            (selConvId === convIdStr || selContactId === convIdStr)) ||
+          (!sel.isGroup && candidatePeerId && selContactId === candidatePeerId);
+
+        if (isSelMatch) {
           const nextConv = {
             ...(typeof sel.conversation === "object" ? sel.conversation : {}),
           };
@@ -1324,6 +1359,11 @@ export const useChatStore = create((set, get) => ({
       if (!payload?.messageId) return;
       const { messageId, userId, action, timestamp, newStatus } = payload;
       set((state) => {
+        const resolvedUser =
+          payload.user ||
+          state.users?.find((u) => String(u._id) === String(userId)) ||
+          userId;
+
         const nextMessages = state.messages.map((msg) => {
           if (String(msg._id) !== String(messageId)) return msg;
           const nextMsg = { ...msg };
@@ -1337,20 +1377,46 @@ export const useChatStore = create((set, get) => ({
             ? [...nextMsg.deliveredTo]
             : [];
 
-          if (
-            !existingDeliveredTo.some(
-              (d) => String(d.user?._id || d.user || d) === String(userId),
-            )
-          ) {
-            existingDeliveredTo.push({ user: userId, deliveredAt: timestamp });
+          const dIdx = existingDeliveredTo.findIndex(
+            (d) => String(d.user?._id || d.user || d) === String(userId),
+          );
+          if (dIdx >= 0) {
+            existingDeliveredTo[dIdx] = {
+              ...existingDeliveredTo[dIdx],
+              deliveredAt: existingDeliveredTo[dIdx].deliveredAt || timestamp,
+              user:
+                (typeof existingDeliveredTo[dIdx].user === "object" &&
+                existingDeliveredTo[dIdx].user?.username
+                  ? existingDeliveredTo[dIdx].user
+                  : resolvedUser) || existingDeliveredTo[dIdx].user,
+            };
+          } else {
+            existingDeliveredTo.push({
+              user: resolvedUser,
+              deliveredAt: timestamp,
+            });
           }
-          if (
-            action === "read" &&
-            !existingReadBy.some(
+
+          if (action === "read") {
+            const rIdx = existingReadBy.findIndex(
               (r) => String(r.user?._id || r.user || r) === String(userId),
-            )
-          ) {
-            existingReadBy.push({ user: userId, readAt: timestamp });
+            );
+            if (rIdx >= 0) {
+              existingReadBy[rIdx] = {
+                ...existingReadBy[rIdx],
+                readAt: timestamp || existingReadBy[rIdx].readAt,
+                user:
+                  (typeof existingReadBy[rIdx].user === "object" &&
+                  existingReadBy[rIdx].user?.username
+                    ? existingReadBy[rIdx].user
+                    : resolvedUser) || existingReadBy[rIdx].user,
+              };
+            } else {
+              existingReadBy.push({
+                user: resolvedUser,
+                readAt: timestamp,
+              });
+            }
           }
           nextMsg.readBy = existingReadBy;
           nextMsg.deliveredTo = existingDeliveredTo;
@@ -1378,23 +1444,47 @@ export const useChatStore = create((set, get) => ({
                 ? [...nextLastMsg.deliveredTo]
                 : [];
 
-              if (
-                !existingDeliveredTo.some(
-                  (d) => String(d.user?._id || d.user || d) === String(userId),
-                )
-              ) {
+              const dIdx = existingDeliveredTo.findIndex(
+                (d) => String(d.user?._id || d.user || d) === String(userId),
+              );
+              if (dIdx >= 0) {
+                existingDeliveredTo[dIdx] = {
+                  ...existingDeliveredTo[dIdx],
+                  deliveredAt:
+                    existingDeliveredTo[dIdx].deliveredAt || timestamp,
+                  user:
+                    (typeof existingDeliveredTo[dIdx].user === "object" &&
+                    existingDeliveredTo[dIdx].user?.username
+                      ? existingDeliveredTo[dIdx].user
+                      : resolvedUser) || existingDeliveredTo[dIdx].user,
+                };
+              } else {
                 existingDeliveredTo.push({
-                  user: userId,
+                  user: resolvedUser,
                   deliveredAt: timestamp,
                 });
               }
-              if (
-                action === "read" &&
-                !existingReadBy.some(
+
+              if (action === "read") {
+                const rIdx = existingReadBy.findIndex(
                   (r) => String(r.user?._id || r.user || r) === String(userId),
-                )
-              ) {
-                existingReadBy.push({ user: userId, readAt: timestamp });
+                );
+                if (rIdx >= 0) {
+                  existingReadBy[rIdx] = {
+                    ...existingReadBy[rIdx],
+                    readAt: timestamp || existingReadBy[rIdx].readAt,
+                    user:
+                      (typeof existingReadBy[rIdx].user === "object" &&
+                      existingReadBy[rIdx].user?.username
+                        ? existingReadBy[rIdx].user
+                        : resolvedUser) || existingReadBy[rIdx].user,
+                  };
+                } else {
+                  existingReadBy.push({
+                    user: resolvedUser,
+                    readAt: timestamp,
+                  });
+                }
               }
               nextLastMsg.readBy = existingReadBy;
               nextLastMsg.deliveredTo = existingDeliveredTo;
@@ -1414,6 +1504,24 @@ export const useChatStore = create((set, get) => ({
               nextMessages,
             )
           : state.messagesCache;
+
+        try {
+          const curInfo = useLayoutStore.getState().selectedMessageInfo;
+          if (
+            curInfo &&
+            String(curInfo._id?._id || curInfo._id) === String(messageId)
+          ) {
+            const updatedTarget = nextMessages.find(
+              (m) => String(m._id?._id || m._id) === String(messageId),
+            );
+            if (updatedTarget) {
+              useLayoutStore.getState().setSelectedMessageInfo(updatedTarget);
+            }
+          }
+        } catch (e) {
+          console.log(e);
+        }
+
         return {
           messages: nextMessages,
           conversations: nextConversations,
@@ -1751,45 +1859,6 @@ export const useChatStore = create((set, get) => ({
       }
     });
 
-    socket.on(
-      "message_pinned",
-      ({
-        conversationId,
-        message,
-        duration,
-        pinnedBy,
-        secondaryId,
-        receiverId,
-        pinnedAt,
-        expiresAt,
-      }) => {
-        get().pinMessage(
-          conversationId,
-          message,
-          duration,
-          secondaryId,
-          receiverId,
-          false,
-          pinnedBy,
-          pinnedAt,
-          expiresAt,
-        );
-      },
-    );
-
-    socket.on(
-      "message_unpinned",
-      ({ conversationId, secondaryId, receiverId, unpinnedBy }) => {
-        get().unpinMessage(
-          conversationId,
-          secondaryId,
-          receiverId,
-          false,
-          unpinnedBy,
-        );
-      },
-    );
-
     socket.on("chat_cleared", ({ conversationId, targetUserId }) => {
       set((state) => {
         const isCurrent =
@@ -1984,15 +2053,22 @@ export const useChatStore = create((set, get) => ({
         );
         convData = { ...data, data: decryptedList };
 
-        const syncedPins = { ...get().pinnedMessages };
+        const syncedPins = {};
         const dbDisappearingDurations = {};
         const dbDisappearingEvents = {};
 
         decryptedList.forEach((conv) => {
           const cId = conv._id ? conv._id.toString() : null;
-          const peer = conv.participants?.find(
-            (p) => (p._id || p)?.toString() !== currentUserId?.toString(),
+          const isGroup = Boolean(
+            conv.isGroup ||
+            conv.isGroupChat ||
+            (conv.participants && conv.participants.length > 2),
           );
+          const peer = !isGroup
+            ? conv.participants?.find(
+                (p) => (p._id || p)?.toString() !== currentUserId?.toString(),
+              )
+            : null;
           const peerId = (peer?._id || peer)?.toString();
 
           if (conv.pinnedMessage && conv.pinnedMessage.message) {
@@ -2010,18 +2086,10 @@ export const useChatStore = create((set, get) => ({
                 pinnedBy: conv.pinnedMessage.pinnedBy,
               };
               if (cId) syncedPins[cId] = pinData;
-              if (peerId) syncedPins[peerId] = pinData;
-              conv.participants?.forEach((p) => {
-                const pid = (p?._id || p)?.toString();
-                if (pid) syncedPins[pid] = pinData;
-              });
-            } else {
-              if (cId) delete syncedPins[cId];
-              if (peerId) delete syncedPins[peerId];
+              if (peerId && peerId !== currentUserId?.toString()) {
+                syncedPins[peerId] = pinData;
+              }
             }
-          } else {
-            if (cId) delete syncedPins[cId];
-            if (peerId) delete syncedPins[peerId];
           }
 
           const duration = conv.disappearingDuration || "Off";
@@ -2201,7 +2269,8 @@ export const useChatStore = create((set, get) => ({
           data: state.conversations?.data?.map((conv) => {
             const isMatch =
               String(conv._id) === String(conversationId) ||
-              (peerId &&
+              (!conv.isGroup &&
+                peerId &&
                 conv.participants?.some(
                   (p) => String(p?._id || p) === String(peerId),
                 ));
@@ -2223,6 +2292,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   sendMessage: async (formData) => {
+    const selectedContact = useLayoutStore.getState()?.selectedContact;
     const senderId = formData.get("senderId");
     const receiverId = formData.get("receiverId");
     const media = formData.get("media");
@@ -2230,39 +2300,86 @@ export const useChatStore = create((set, get) => ({
     const messageStatus = formData.get("messageStatus");
     const customContentType = formData.get("contentType");
 
+    const isActuallyGroup = Boolean(
+      formData.get("isGroup") === "true" ||
+      formData.get("isGroup") === true ||
+      selectedContact?.isGroup ||
+      selectedContact?.isGroupChat ||
+      selectedContact?.conversation?.isGroup,
+    );
+
     const { conversations } = get();
-    let conversationId = null;
+    let conversationId =
+      formData.get("conversationId") ||
+      get().currentConversation?._id ||
+      selectedContact?.conversation?._id ||
+      (isActuallyGroup
+        ? selectedContact?._id ||
+          selectedContact?.id ||
+          (typeof selectedContact?.conversation === "string"
+            ? selectedContact?.conversation
+            : null) ||
+          receiverId
+        : null) ||
+      null;
 
-    if (conversations?.data?.length > 0) {
-      const conversation = conversations.data.find(
-        (conv) =>
-          conv.participants.some((p) => p._id === senderId) &&
-          conv.participants.some((p) => p._id === receiverId),
-      );
+    if (conversationId) conversationId = conversationId.toString();
 
-      if (conversation) {
-        conversationId = conversation._id;
-        set({ currentConversation: { _id: conversationId } });
+    if (!conversationId && conversations?.data?.length > 0) {
+      if (isActuallyGroup) {
+        const groupConv = conversations.data.find(
+          (conv) =>
+            Boolean(conv.isGroup) &&
+            (String(conv._id || conv.id) === String(receiverId) ||
+              String(conv._id || conv.id) === String(selectedContact?._id) ||
+              String(conv._id || conv.id) === String(selectedContact?.id)),
+        );
+        if (groupConv) {
+          conversationId = (groupConv._id || groupConv.id)?.toString();
+          set({ currentConversation: { _id: conversationId, isGroup: true } });
+        }
+      } else {
+        const conversation = conversations.data.find(
+          (conv) =>
+            !conv.isGroup &&
+            conv.participants?.some(
+              (p) => String(p?._id || p) === String(senderId),
+            ) &&
+            conv.participants?.some(
+              (p) => String(p?._id || p) === String(receiverId),
+            ),
+        );
+
+        if (conversation) {
+          conversationId = (conversation._id || conversation.id)?.toString();
+          set({ currentConversation: { _id: conversationId, isGroup: false } });
+        }
       }
     }
 
-    const selectedContact = useLayoutStore.getState()?.selectedContact;
+    if (conversationId && !formData.has("conversationId")) {
+      formData.set("conversationId", conversationId);
+    }
+    if (isActuallyGroup && !formData.has("isGroup")) {
+      formData.set("isGroup", "true");
+    }
+
     let peerPubKey = null;
-    if (receiverId) {
+    if (receiverId && !isActuallyGroup) {
       try {
         const resp = await axiosInstance.get(`/auth/public-key/${receiverId}`);
         peerPubKey = resp.data?.data?.publicKey || resp.data?.publicKey;
       } catch (e) {}
     }
 
-    if (!peerPubKey) {
+    if (!peerPubKey && !isActuallyGroup) {
       peerPubKey =
         selectedContact?._id?.toString() === receiverId?.toString()
           ? selectedContact?.publicKey
           : null;
     }
 
-    if (!peerPubKey) {
+    if (!peerPubKey && !isActuallyGroup) {
       const allUsers = get().users || [];
       const foundPeer = allUsers.find(
         (u) => u._id?.toString() === receiverId?.toString(),
@@ -2369,11 +2486,56 @@ export const useChatStore = create((set, get) => ({
       formData.set("disappearingDuration", "Off");
     }
 
+    const nowIso = new Date().toISOString();
+    const currentUser = get().currentUser || useUserStore.getState().user;
+
+    const pollDataRaw = formData.get("pollData");
+    const eventDataRaw = formData.get("eventData");
+    const contactDataRaw = formData.get("contactData");
+    const fileName = formData.get("fileName");
+    const fileSize = formData.get("fileSize");
+
+    let parsedPollData = null;
+    if (pollDataRaw) {
+      try {
+        parsedPollData =
+          typeof pollDataRaw === "string"
+            ? JSON.parse(pollDataRaw)
+            : pollDataRaw;
+      } catch (e) {}
+    }
+
+    let parsedEventData = null;
+    if (eventDataRaw) {
+      try {
+        parsedEventData =
+          typeof eventDataRaw === "string"
+            ? JSON.parse(eventDataRaw)
+            : eventDataRaw;
+      } catch (e) {}
+    }
+
+    let parsedContactData = null;
+    if (contactDataRaw) {
+      try {
+        parsedContactData =
+          typeof contactDataRaw === "string"
+            ? JSON.parse(contactDataRaw)
+            : contactDataRaw;
+      } catch (e) {}
+    }
+
     const optimisticMessage = {
       _id: tempId,
-      sender: { _id: senderId },
-      receiver: { _id: receiverId },
+      sender: {
+        _id: senderId,
+        username: currentUser?.username || "You",
+        profilePicture: currentUser?.profilePicture || "",
+      },
+      receiver: isActuallyGroup ? null : { _id: receiverId },
       conversation: conversationId,
+      conversationId: conversationId,
+      isGroup: isActuallyGroup,
       imageOrVideoUrl:
         media && typeof media !== "string" ? URL.createObjectURL(media) : null,
       content: rawContentToKeep,
@@ -2387,7 +2549,12 @@ export const useChatStore = create((set, get) => ({
             ? "image"
             : "video"
           : "text"),
-      createdAt: new Date().toISOString(),
+      fileName: fileName || null,
+      fileSize: fileSize || null,
+      pollData: parsedPollData,
+      eventData: parsedEventData,
+      contactData: parsedContactData,
+      createdAt: nowIso,
       messageStatus: messageStatus || "send",
       replyTo: replyTo || null,
       replyMessage: parsedReplyMessage,
@@ -2402,35 +2569,97 @@ export const useChatStore = create((set, get) => ({
       const nextCache = conversationId
         ? syncMessagesCache(state.messagesCache, conversationId, nextMessages)
         : state.messagesCache;
+
+      const convList = Array.isArray(state.conversations?.data)
+        ? state.conversations.data
+        : Array.isArray(state.conversations)
+          ? state.conversations
+          : [];
+
+      const updatedConversations = convList.map((conv) => {
+        const convIdStr = (conv?._id || conv?.id)?.toString();
+        const hasSender = Boolean(
+          senderId &&
+          conv.participants?.some(
+            (p) => String(p?._id || p) === String(senderId),
+          ),
+        );
+        const hasReceiver = Boolean(
+          receiverId &&
+          conv.participants?.some(
+            (p) => String(p?._id || p) === String(receiverId),
+          ),
+        );
+
+        const isGroupTarget =
+          isActuallyGroup &&
+          Boolean(conv.isGroup) &&
+          Boolean(
+            (conversationId && convIdStr === String(conversationId)) ||
+            (receiverId && convIdStr === String(receiverId)) ||
+            (selectedContact?._id &&
+              convIdStr === String(selectedContact._id)) ||
+            (selectedContact?.id && convIdStr === String(selectedContact.id)) ||
+            (selectedContact?.conversation?._id &&
+              convIdStr === String(selectedContact.conversation._id)),
+          );
+
+        const isDirectTarget =
+          !conv.isGroup &&
+          !isActuallyGroup &&
+          ((conversationId && convIdStr === String(conversationId)) ||
+            (hasSender && hasReceiver));
+
+        const isTarget = isGroupTarget || isDirectTarget;
+
+        if (isTarget) {
+          return {
+            ...conv,
+            lastMessage: optimisticMessage,
+            unreadCount: 0,
+            updatedAt: nowIso,
+          };
+        }
+        return conv;
+      });
+
       return {
         messages: nextMessages,
         messagesCache: nextCache,
         conversations: {
           ...state.conversations,
-          data: state.conversations?.data?.map((conv) => {
-            const targetConvId = conversationId ? String(conversationId) : null;
-            const hasSender = Boolean(
-              senderId &&
-              conv.participants?.some(
-                (p) => String(p?._id || p) === String(senderId),
-              ),
-            );
-            const hasReceiver = Boolean(
-              receiverId &&
-              conv.participants?.some(
-                (p) => String(p?._id || p) === String(receiverId),
-              ),
-            );
-            const isTarget =
-              Boolean(targetConvId && String(conv._id) === targetConvId) ||
-              Boolean(hasSender && hasReceiver);
-            return isTarget
-              ? { ...conv, lastMessage: optimisticMessage, unreadCount: 0 }
-              : conv;
-          }),
+          data: updatedConversations,
         },
       };
     });
+
+    try {
+      const layout = useLayoutStore.getState();
+      const sel = layout?.selectedContact;
+      if (sel) {
+        const selConvId = (
+          sel.conversation?._id ||
+          (typeof sel.conversation === "string" ? sel.conversation : null) ||
+          (sel.isGroup ? sel._id : null)
+        )?.toString();
+        const selId = (sel._id || sel.id)?.toString();
+        const isSelMatch =
+          (conversationId &&
+            (selConvId === String(conversationId) ||
+              selId === String(conversationId))) ||
+          (isActuallyGroup &&
+            (selId === String(receiverId) || selConvId === String(receiverId)));
+        if (isSelMatch) {
+          layout.updateSelectedContact({
+            conversation: {
+              ...(typeof sel.conversation === "object" ? sel.conversation : {}),
+              lastMessage: optimisticMessage,
+              updatedAt: nowIso,
+            },
+          });
+        }
+      }
+    } catch (e) {}
 
     try {
       const { data } = await axiosInstance.post(
@@ -2459,10 +2688,13 @@ export const useChatStore = create((set, get) => ({
         isKept: messageData.isKept ?? false,
       };
 
-      const resolvedConvId =
+      const resolvedConvId = (
+        savedMessage.conversationId ||
         savedMessage.conversation?._id ||
         savedMessage.conversation ||
-        conversationId;
+        conversationId ||
+        (isActuallyGroup ? receiverId : null)
+      )?.toString();
 
       set((state) => {
         const nextMessages = state.messages.map((msg) =>
@@ -2471,37 +2703,105 @@ export const useChatStore = create((set, get) => ({
         const nextCache = resolvedConvId
           ? syncMessagesCache(state.messagesCache, resolvedConvId, nextMessages)
           : state.messagesCache;
+
+        const convList = Array.isArray(state.conversations?.data)
+          ? state.conversations.data
+          : Array.isArray(state.conversations)
+            ? state.conversations
+            : [];
+
+        const updatedConversations = convList.map((conv) => {
+          const convIdStr = (conv?._id || conv?.id)?.toString();
+          const hasSender = Boolean(
+            senderId &&
+            conv.participants?.some(
+              (p) => String(p?._id || p) === String(senderId),
+            ),
+          );
+          const hasReceiver = Boolean(
+            receiverId &&
+            conv.participants?.some(
+              (p) => String(p?._id || p) === String(receiverId),
+            ),
+          );
+
+          const isGroupTarget =
+            isActuallyGroup &&
+            Boolean(conv.isGroup) &&
+            Boolean(
+              (resolvedConvId && convIdStr === String(resolvedConvId)) ||
+              (conversationId && convIdStr === String(conversationId)) ||
+              (receiverId && convIdStr === String(receiverId)) ||
+              (selectedContact?._id &&
+                convIdStr === String(selectedContact._id)) ||
+              (selectedContact?.id &&
+                convIdStr === String(selectedContact.id)) ||
+              (selectedContact?.conversation?._id &&
+                convIdStr === String(selectedContact.conversation._id)),
+            );
+
+          const isDirectTarget =
+            !conv.isGroup &&
+            !isActuallyGroup &&
+            ((resolvedConvId && convIdStr === String(resolvedConvId)) ||
+              (conversationId && convIdStr === String(conversationId)) ||
+              (hasSender && hasReceiver));
+
+          const isTarget = isGroupTarget || isDirectTarget;
+
+          return isTarget
+            ? {
+                ...conv,
+                lastMessage: savedMessage,
+                unreadCount: 0,
+                updatedAt: savedMessage.createdAt || new Date().toISOString(),
+              }
+            : conv;
+        });
+
         return {
           messages: nextMessages,
           messagesCache: nextCache,
           conversations: {
             ...state.conversations,
-            data: state.conversations?.data?.map((conv) => {
-              const targetConvId = resolvedConvId
-                ? String(resolvedConvId)
-                : null;
-              const hasSender = Boolean(
-                senderId &&
-                conv.participants?.some(
-                  (p) => String(p?._id || p) === String(senderId),
-                ),
-              );
-              const hasReceiver = Boolean(
-                receiverId &&
-                conv.participants?.some(
-                  (p) => String(p?._id || p) === String(receiverId),
-                ),
-              );
-              const isTarget =
-                Boolean(targetConvId && String(conv._id) === targetConvId) ||
-                Boolean(hasSender && hasReceiver);
-              return isTarget
-                ? { ...conv, lastMessage: savedMessage, unreadCount: 0 }
-                : conv;
-            }),
+            data: updatedConversations,
           },
         };
       });
+
+      try {
+        const layout = useLayoutStore.getState();
+        const sel = layout?.selectedContact;
+        if (sel) {
+          const selConvId = (
+            sel.conversation?._id ||
+            (typeof sel.conversation === "string" ? sel.conversation : null) ||
+            (sel.isGroup ? sel._id : null)
+          )?.toString();
+          const selId = (sel._id || sel.id)?.toString();
+          const isSelMatch =
+            (resolvedConvId &&
+              (selConvId === String(resolvedConvId) ||
+                selId === String(resolvedConvId))) ||
+            (conversationId &&
+              (selConvId === String(conversationId) ||
+                selId === String(conversationId))) ||
+            (isActuallyGroup &&
+              (selId === String(receiverId) ||
+                selConvId === String(receiverId)));
+          if (isSelMatch) {
+            layout.updateSelectedContact({
+              conversation: {
+                ...(typeof sel.conversation === "object"
+                  ? sel.conversation
+                  : {}),
+                lastMessage: savedMessage,
+                updatedAt: savedMessage.createdAt || new Date().toISOString(),
+              },
+            });
+          }
+        }
+      } catch (e) {}
 
       return savedMessage;
     } catch (error) {
@@ -2614,10 +2914,20 @@ export const useChatStore = create((set, get) => ({
         conversations: {
           ...state.conversations,
           data: state.conversations?.data?.map((conv) => {
+            const cId = (conv?._id || conv?.id)?.toString();
             const isTarget =
-              resolvedConvId && String(conv._id) === String(resolvedConvId);
+              resolvedConvId &&
+              (cId === String(resolvedConvId) ||
+                (isActuallyGroup &&
+                  (cId === String(effectiveReceiverId) ||
+                    cId === String(groupId))));
             return isTarget
-              ? { ...conv, lastMessage: optimisticCallMsg, unreadCount: 0 }
+              ? {
+                  ...conv,
+                  lastMessage: optimisticCallMsg,
+                  unreadCount: 0,
+                  updatedAt: new Date().toISOString(),
+                }
               : conv;
           }),
         },
@@ -2672,10 +2982,20 @@ export const useChatStore = create((set, get) => ({
           conversations: {
             ...state.conversations,
             data: state.conversations?.data?.map((conv) => {
+              const cId = (conv?._id || conv?.id)?.toString();
               const isTarget =
-                resolvedConvId && String(conv._id) === String(resolvedConvId);
+                resolvedConvId &&
+                (cId === String(resolvedConvId) ||
+                  (isActuallyGroup &&
+                    (cId === String(effectiveReceiverId) ||
+                      cId === String(groupId))));
               return isTarget
-                ? { ...conv, lastMessage: savedMsg, unreadCount: 0 }
+                ? {
+                    ...conv,
+                    lastMessage: savedMsg,
+                    unreadCount: 0,
+                    updatedAt: savedMsg.createdAt || new Date().toISOString(),
+                  }
                 : conv;
             }),
           },
@@ -2846,10 +3166,20 @@ export const useChatStore = create((set, get) => ({
           conversations: {
             ...state.conversations,
             data: state.conversations?.data?.map((conv) => {
+              const cId = (conv?._id || conv?.id)?.toString();
               const isTarget =
-                resolvedConvId && String(conv._id) === String(resolvedConvId);
+                resolvedConvId &&
+                (cId === String(resolvedConvId) ||
+                  (isActuallyGroup &&
+                    (cId === String(effectiveReceiverId) ||
+                      cId === String(groupId))));
               return isTarget
-                ? { ...conv, lastMessage: savedMsg, unreadCount: 0 }
+                ? {
+                    ...conv,
+                    lastMessage: savedMsg,
+                    unreadCount: 0,
+                    updatedAt: savedMsg.createdAt || new Date().toISOString(),
+                  }
                 : conv;
             }),
           },
@@ -2869,6 +3199,18 @@ export const useChatStore = create((set, get) => ({
   receiveMessage: async (message) => {
     if (!message) return;
 
+    const rawMsgId = (message._id || message.id)?.toString();
+    if (rawMsgId && seenReceiveMessageIds.has(rawMsgId)) {
+      return;
+    }
+    if (rawMsgId) {
+      seenReceiveMessageIds.add(rawMsgId);
+      if (seenReceiveMessageIds.size > 2000) {
+        const first = seenReceiveMessageIds.values().next().value;
+        seenReceiveMessageIds.delete(first);
+      }
+    }
+
     const { currentConversation, currentUser, messages } = get();
 
     const currentUserId = (currentUser || useUserStore.getState().user)?._id;
@@ -2885,8 +3227,11 @@ export const useChatStore = create((set, get) => ({
     );
     if (messageExists) return;
 
-    const conversationId =
-      decryptedMessage.conversation?._id || decryptedMessage.conversation;
+    const conversationId = (
+      decryptedMessage.conversation?._id ||
+      decryptedMessage.conversation ||
+      decryptedMessage.conversationId
+    )?.toString();
 
     const myId = currentUserId?.toString();
     const receiverId = (
@@ -2896,36 +3241,46 @@ export const useChatStore = create((set, get) => ({
       decryptedMessage.sender?._id || decryptedMessage.sender
     )?.toString();
 
+    const isGroupSelected = Boolean(
+      selectedContact?.isGroup ||
+      selectedContact?.isGroupChat ||
+      selectedContact?.conversation?.isGroup,
+    );
     const activeConvId = (
-      currentConversation?._id || selectedContact?.conversation?._id
+      currentConversation?._id ||
+      selectedContact?.conversation?._id ||
+      (isGroupSelected ? selectedContact?._id || selectedContact?.id : null)
     )?.toString();
     const activeContactId = (
       selectedContact?._id || selectedContact?.id
     )?.toString();
+
     const isCurrentConversation =
       Boolean(
         conversationId &&
         activeConvId &&
         String(conversationId) === String(activeConvId),
       ) ||
-      Boolean(activeContactId && senderId && senderId === activeContactId) ||
       Boolean(
-        activeContactId &&
+        !isGroupSelected &&
+        !decryptedMessage.isGroup &&
         receiverId &&
-        receiverId === activeContactId &&
-        senderId === myId,
-      ) ||
-      Boolean(
-        currentConversation?.participants?.some(
-          (p) => String(p?._id || p?.id || p) === String(senderId),
-        ),
+        activeContactId &&
+        ((senderId && String(senderId) === String(activeContactId)) ||
+          (receiverId &&
+            String(receiverId) === String(activeContactId) &&
+            String(senderId) === String(myId))),
       );
 
+    const isSentByCurrentUser = Boolean(
+      myId && senderId && String(senderId) === String(myId),
+    );
     const isForCurrentUser =
-      Boolean(myId && receiverId && receiverId === myId) ||
-      Boolean(myId && senderId && senderId !== myId) ||
-      Boolean(!senderId || (myId && senderId !== myId));
-    const isSentByCurrentUser = Boolean(myId && senderId && senderId === myId);
+      !isSentByCurrentUser &&
+      Boolean(
+        (myId && receiverId && String(receiverId) === String(myId)) ||
+        !receiverId,
+      );
 
     if (isCurrentConversation) {
       if (isForCurrentUser) {
@@ -3001,52 +3356,121 @@ export const useChatStore = create((set, get) => ({
     let foundTarget = false;
     set((state) => {
       const targetConvId = conversationId ? String(conversationId) : null;
+      const updatedConversations = state.conversations?.data?.map((conv) => {
+        const cId = conv._id?.toString();
+        const hasSender = Boolean(
+          senderId &&
+          conv.participants?.some(
+            (p) => String(p?._id || p) === String(senderId),
+          ),
+        );
+        const hasReceiver = Boolean(
+          receiverId &&
+          conv.participants?.some(
+            (p) => String(p?._id || p) === String(receiverId),
+          ),
+        );
+
+        const isMsgGroup = Boolean(
+          decryptedMessage.isGroup || decryptedMessage.conversation?.isGroup,
+        );
+        const isTarget =
+          Boolean(targetConvId && cId === targetConvId) ||
+          Boolean(!isMsgGroup && !conv.isGroup && hasSender && hasReceiver);
+
+        if (!isTarget) {
+          return conv;
+        }
+
+        foundTarget = true;
+
+        const isDuplicateLast = Boolean(
+          conv.lastMessage &&
+          String(conv.lastMessage._id || conv.lastMessage.id || "") ===
+            String(decryptedMessage._id || ""),
+        );
+
+        let nextUnread = conv.unreadCount || 0;
+        if (isCurrentConversation) {
+          nextUnread = 0;
+        } else if (isForCurrentUser) {
+          const incomingUnread =
+            typeof decryptedMessage.unreadCount === "number" &&
+            decryptedMessage.unreadCount > 0
+              ? decryptedMessage.unreadCount
+              : null;
+          nextUnread =
+            incomingUnread !== null
+              ? incomingUnread
+              : isDuplicateLast
+                ? conv.unreadCount || 0
+                : (conv.unreadCount || 0) + 1;
+        } else if (isSentByCurrentUser) {
+          nextUnread = conv.unreadCount || 0;
+        }
+
+        return {
+          ...conv,
+          lastMessage: decryptedMessage,
+          unreadCount: nextUnread,
+        };
+      });
+
+      const updatedUsers = state.users?.map((u) => {
+        const uId = (u._id || u.id)?.toString();
+        const uConvId = (u.conversation?._id || u.conversation)?.toString();
+        const isMsgGroup = Boolean(
+          decryptedMessage.isGroup || decryptedMessage.conversation?.isGroup,
+        );
+        const isMatch =
+          Boolean(targetConvId && uConvId === targetConvId) ||
+          Boolean(!isMsgGroup && senderId && uId === String(senderId));
+
+        if (isMatch && u.conversation) {
+          const isDuplicateLast = Boolean(
+            u.conversation.lastMessage &&
+            String(
+              u.conversation.lastMessage._id ||
+                u.conversation.lastMessage.id ||
+                "",
+            ) === String(decryptedMessage._id || ""),
+          );
+
+          let nextUnread = u.conversation.unreadCount || 0;
+          if (isCurrentConversation) {
+            nextUnread = 0;
+          } else if (isForCurrentUser) {
+            const incomingUnread =
+              typeof decryptedMessage.unreadCount === "number" &&
+              decryptedMessage.unreadCount > 0
+                ? decryptedMessage.unreadCount
+                : null;
+            nextUnread =
+              incomingUnread !== null
+                ? incomingUnread
+                : isDuplicateLast
+                  ? u.conversation.unreadCount || 0
+                  : (u.conversation.unreadCount || 0) + 1;
+          }
+
+          return {
+            ...u,
+            conversation: {
+              ...u.conversation,
+              lastMessage: decryptedMessage,
+              unreadCount: nextUnread,
+            },
+          };
+        }
+        return u;
+      });
+
       return {
         conversations: {
           ...state.conversations,
-          data: state.conversations?.data?.map((conv) => {
-            const hasSender = Boolean(
-              senderId &&
-              conv.participants?.some(
-                (p) => String(p?._id || p) === String(senderId),
-              ),
-            );
-            const hasReceiver = Boolean(
-              receiverId &&
-              conv.participants?.some(
-                (p) => String(p?._id || p) === String(receiverId),
-              ),
-            );
-
-            const isTarget =
-              Boolean(targetConvId && String(conv._id) === targetConvId) ||
-              Boolean(hasSender && hasReceiver);
-
-            if (!isTarget) {
-              return conv;
-            }
-
-            foundTarget = true;
-
-            let nextUnread = conv.unreadCount || 0;
-            if (isCurrentConversation) {
-              nextUnread = 0;
-            } else if (isForCurrentUser) {
-              nextUnread =
-                typeof decryptedMessage.unreadCount === "number"
-                  ? decryptedMessage.unreadCount
-                  : (conv.unreadCount || 0) + 1;
-            } else if (isSentByCurrentUser) {
-              nextUnread = 0;
-            }
-
-            return {
-              ...conv,
-              lastMessage: decryptedMessage,
-              unreadCount: nextUnread,
-            };
-          }),
+          data: updatedConversations,
         },
+        users: updatedUsers,
       };
     });
 
@@ -3075,7 +3499,8 @@ export const useChatStore = create((set, get) => ({
           data: state.conversations?.data?.map((conv) => {
             const isMatch =
               (activeConvId && String(conv._id) === String(activeConvId)) ||
-              (peerId &&
+              (!conv.isGroup &&
+                peerId &&
                 peerId !== myId &&
                 conv.participants?.some(
                   (p) => String(p?._id || p) === String(peerId),
@@ -3097,7 +3522,24 @@ export const useChatStore = create((set, get) => ({
       }
       unreadIds = messages
         .filter((msg) => {
-          if (msg.messageStatus === "read") return false;
+          const isGroupMsg = Boolean(
+            msg.isGroup ||
+            msg.conversation?.isGroup ||
+            selectedContact?.isGroup ||
+            selectedContact?.isGroupChat ||
+            currentConversation?.isGroup,
+          );
+          if (isGroupMsg) {
+            const hasMyRead =
+              Array.isArray(msg.readBy) &&
+              msg.readBy.some((r) => {
+                const uId = (r.user?._id || r.user || r)?.toString();
+                return uId === myId;
+              });
+            if (hasMyRead) return false;
+          } else {
+            if (msg.messageStatus === "read") return false;
+          }
           const senderId = (msg.sender?._id || msg.sender)?.toString();
           const receiverId = (msg.receiver?._id || msg.receiver)?.toString();
           const isIncoming =
@@ -3144,7 +3586,8 @@ export const useChatStore = create((set, get) => ({
             data: state.conversations?.data?.map((conv) => {
               const isMatch =
                 (convId && String(conv._id) === String(convId)) ||
-                (peerId &&
+                (!conv.isGroup &&
+                  peerId &&
                   peerId !== myId &&
                   conv.participants?.some(
                     (p) => String(p?._id || p) === String(peerId),

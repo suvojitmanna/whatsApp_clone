@@ -13,7 +13,9 @@ export const isGroupSystemMessage = (msg) => {
     /^Group ".*" created$/i.test(content) ||
     /^.+ created group ".*"$/i.test(content) ||
     /^.+ created this group$/i.test(content) ||
-    /^.+ changed the group (name|description|icon|settings).*$/i.test(content) ||
+    /^.+ changed the group (name|description|icon|settings).*$/i.test(
+      content,
+    ) ||
     /^Messages and calls are end-to-end encrypted.*$/i.test(content)
   ) {
     return true;
@@ -21,7 +23,11 @@ export const isGroupSystemMessage = (msg) => {
   return false;
 };
 
-export const getFormattedGroupSystemText = (msg, currentUserId, currentUserName) => {
+export const getFormattedGroupSystemText = (
+  msg,
+  currentUserId,
+  currentUserName,
+) => {
   if (!msg) return "";
   let text = typeof msg.content === "string" ? msg.content.trim() : "";
   if (!text) return "";
@@ -32,14 +38,12 @@ export const getFormattedGroupSystemText = (msg, currentUserId, currentUserName)
     msg.sender
   )?.toString();
   const isSenderMe = Boolean(
-    currentUserId && senderId && senderId === currentUserId.toString()
+    currentUserId && senderId && senderId === currentUserId.toString(),
   );
 
   const createdMatch = text.match(/^Group "(.*)" created$/i);
   if (createdMatch) {
-    return isSenderMe
-      ? `You created group "${createdMatch[1]}"`
-      : text;
+    return isSenderMe ? `You created group "${createdMatch[1]}"` : text;
   }
 
   const userCreatedMatch = text.match(/^(.+) created group "(.*)"$/i);
@@ -48,7 +52,8 @@ export const getFormattedGroupSystemText = (msg, currentUserId, currentUserName)
     const groupName = userCreatedMatch[2];
     if (
       isSenderMe ||
-      (currentUserName && creator.toLowerCase() === currentUserName.toLowerCase())
+      (currentUserName &&
+        creator.toLowerCase() === currentUserName.toLowerCase())
     ) {
       return `You created group "${groupName}"`;
     }
@@ -59,7 +64,8 @@ export const getFormattedGroupSystemText = (msg, currentUserId, currentUserName)
     const leaver = text.replace(/ left the group$/, "").trim();
     if (
       isSenderMe ||
-      (currentUserName && leaver.toLowerCase() === currentUserName.toLowerCase())
+      (currentUserName &&
+        leaver.toLowerCase() === currentUserName.toLowerCase())
     ) {
       return "You left the group";
     }
@@ -74,7 +80,8 @@ export const getFormattedGroupSystemText = (msg, currentUserId, currentUserName)
 
       if (
         isSenderMe ||
-        (currentUserName && actor.toLowerCase() === currentUserName.toLowerCase())
+        (currentUserName &&
+          actor.toLowerCase() === currentUserName.toLowerCase())
       ) {
         return `You added ${targets}`;
       }
@@ -101,7 +108,8 @@ export const getFormattedGroupSystemText = (msg, currentUserId, currentUserName)
 
       if (
         isSenderMe ||
-        (currentUserName && actor.toLowerCase() === currentUserName.toLowerCase())
+        (currentUserName &&
+          actor.toLowerCase() === currentUserName.toLowerCase())
       ) {
         return `You removed ${target}`;
       }

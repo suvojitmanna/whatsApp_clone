@@ -60,12 +60,8 @@ export const createStatus = async (req, res) => {
       .populate("user", "username profilePicture")
       .populate("viewers.user", "username profilePicture");
 
-    if (req.io && req.socketUserMap instanceof Map) {
-      for (const [connectedUserId, socketId] of req.socketUserMap.entries()) {
-        if (String(connectedUserId) !== userId) {
-          req.io.to(socketId).emit("new_status", populatedStatus.toObject());
-        }
-      }
+    if (req.io) {
+      req.io.emit("new_status", populatedStatus.toObject());
     }
 
     return response(res, 201, "Status created successfully", populatedStatus);
@@ -163,12 +159,8 @@ export const deleteStatus = async (req, res) => {
     }
 
     await Status.deleteOne({ _id: statusId });
-    if (req.io && req.socketUserMap instanceof Map) {
-      for (const [connectedUserId, socketId] of req.socketUserMap) {
-        if (String(connectedUserId) !== String(userId)) {
-          req.io.to(socketId).emit("status_deleted", statusId);
-        }
-      }
+    if (req.io) {
+      req.io.emit("status_deleted", statusId);
     }
 
     return response(res, 200, "Status deleted successfully");

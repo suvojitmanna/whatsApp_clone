@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import User from "../models/user.js";
 import Message from "../models/message.js";
 import Conversation from "../models/ConverSation.js";
-import handleVideoCallEvent from "./videoCallService.js";
+import handleVideoCallEvent, { handleUserCallDisconnect } from "./videoCallService.js";
 import socketMiddleware from "../middleware/socketMiddleware.js";
 import { deleteFileFromCloudinary } from "../config/cloudinary.js";
 import {
@@ -290,8 +290,6 @@ function initializeSocket(server) {
       });
     });
 
-
-
     socket.on("add_reaction", async ({ messageId, emoji, reactionUserId }) => {
       try {
         if (!messageId || !reactionUserId) return;
@@ -410,17 +408,20 @@ function initializeSocket(server) {
           pollData: populated.pollData,
         };
         socket.emit("poll_update", payload);
-        const senderIdStr = message.sender.toString();
-        const receiverIdStr = message.receiver.toString();
-        io.to(senderIdStr).emit("poll_update", payload);
-        io.to(receiverIdStr).emit("poll_update", payload);
-        const senderSocketId = onlineUsers.get(senderIdStr);
-        const receiverSocketId = onlineUsers.get(receiverIdStr);
-        if (senderSocketId && senderSocketId !== socket.id) {
-          io.to(senderSocketId).emit("poll_update", payload);
-        }
-        if (receiverSocketId && receiverSocketId !== socket.id) {
-          io.to(receiverSocketId).emit("poll_update", payload);
+        const conv = await Conversation.findById(message.conversation).select(
+          "isGroup participants",
+        );
+        if (conv?.isGroup) {
+          conv.participants?.forEach((p) => {
+            io.to((p._id || p).toString()).emit("poll_update", payload);
+          });
+        } else {
+          if (message.sender) {
+            io.to(message.sender.toString()).emit("poll_update", payload);
+          }
+          if (message.receiver) {
+            io.to(message.receiver.toString()).emit("poll_update", payload);
+          }
         }
       } catch (error) {
         console.error("VOTE POLL ERROR:", error);
@@ -494,11 +495,34 @@ function initializeSocket(server) {
             }
           }
 
+          let pinnedByPayload = pinnedBy;
+          const pinnedByUserId = (
+            pinnedBy?._id ||
+            pinnedBy?.id ||
+            pinnedBy
+          )?.toString();
+          if (pinnedByUserId) {
+            try {
+              const userDoc = await User.findById(pinnedByUserId).select(
+                "username profilePicture",
+              );
+              if (userDoc) {
+                pinnedByPayload = {
+                  _id: userDoc._id.toString(),
+                  username: userDoc.username,
+                  profilePicture: userDoc.profilePicture,
+                };
+              }
+            } catch (e) {
+              console.error("Error resolving pinnedBy user for socket:", e);
+            }
+          }
+
           const payload = {
             conversationId: resolvedConvId || conversationId,
             message,
             duration,
-            pinnedBy,
+            pinnedBy: pinnedByPayload,
             secondaryId,
             receiverId,
             pinnedAt,
@@ -695,6 +719,9 @@ function initializeSocket(server) {
       if (!userId) return;
 
       try {
+        if (typeof handleUserCallDisconnect === "function") {
+          handleUserCallDisconnect(userId, io, onlineUsers);
+        }
         onlineUsers.delete(userId);
         const lastSeen = new Date().toISOString();
         await User.findByIdAndUpdate(userId, {

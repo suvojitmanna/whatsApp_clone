@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -27,9 +27,9 @@ import { toast } from "react-toastify";
 import useUserStore from "../../store/useUserStore";
 import { useChatStore, getTargetUserId } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
-import ReportModal from "../../components/ReportModal";
-import BlockModal from "../../components/BlockModal";
-import { WhatsAppMediaFolderIcon } from "../../components/Media";
+import ReportModal from "../../components/modals/ReportModal";
+import BlockModal from "../../components/modals/BlockModal";
+import { WhatsAppMediaFolderIcon } from "../../components/media/Media";
 import { META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 
 
@@ -57,7 +57,6 @@ const ChatHeaderMenu = ({
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
-
   const menuRef = useRef(null);
   const submenuRef = useRef(null);
 
@@ -550,15 +549,9 @@ const ChatHeaderMenu = ({
                     }}
                     className={itemClass}
                   >
-                    <IoColorPaletteOutline
-                      size={18}
-                      className="text-[#8696a0] shrink-0"
-                    />
+                    <IoColorPaletteOutline size={18} className="text-[#8696a0] shrink-0" />
                     <span className="truncate">Chat theme</span>
-                    <MdChevronRight
-                      size={16}
-                      className="text-[#8696a0] ml-auto shrink-0"
-                    />
+                    <MdChevronRight size={16} className="text-[#8696a0] ml-auto shrink-0" />
                   </button>
 
                   <button
@@ -566,13 +559,7 @@ const ChatHeaderMenu = ({
                     onClick={handleToggleFavorite}
                     className={itemClass}
                   >
-                    <FiHeart
-                      size={18}
-                      className={`shrink-0 ${isFavorite
-                          ? "text-rose-500 fill-rose-500"
-                          : "text-[#8696a0]"
-                        }`}
-                    />
+                    <FiHeart size={18} className={`shrink-0 ${isFavorite ? "text-rose-500 fill-rose-500" : "text-[#8696a0]"}`} />
                     <span className="truncate">
                       {isFavorite ? "Remove from favourites" : "Add to favourites"}
                     </span>
@@ -592,27 +579,18 @@ const ChatHeaderMenu = ({
                     onClick={handleCloseChat}
                     className={itemClass}
                   >
-                    <RxCrossCircled
-                      size={18}
-                      className="text-[#8696a0] shrink-0"
-                    />
+                    <RxCrossCircled size={18} className="text-[#8696a0] shrink-0" />
                     <span>Close chat</span>
                   </button>
 
-                  <div
-                    className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"
-                      }`}
-                  />
+                  <div className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"}`} />
 
                   <button
                     type="button"
                     onClick={() => setConfirmDialog({ type: "clear" })}
                     className={dangerItemClass}
                   >
-                    <FiMinusCircle
-                      size={18}
-                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
-                    />
+                    <FiMinusCircle size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
                     <span>Clear chat</span>
                   </button>
 
@@ -621,10 +599,7 @@ const ChatHeaderMenu = ({
                     onClick={() => setConfirmDialog({ type: "delete" })}
                     className={dangerItemClass}
                   >
-                    <RiDeleteBin6Line
-                      size={18}
-                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
-                    />
+                    <RiDeleteBin6Line size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
                     <span>Delete chat</span>
                   </button>
                 </>
@@ -772,8 +747,7 @@ const ChatHeaderMenu = ({
                     </AnimatePresence>
                   </div>
 
-                  <div
-                    className="relative"
+                  <div className="relative"
                     onMouseEnter={() => setActiveSubmenu("disappearing")}
                     onMouseLeave={() => setActiveSubmenu(null)}
                   >
@@ -849,15 +823,9 @@ const ChatHeaderMenu = ({
                     }}
                     className={itemClass}
                   >
-                    <IoColorPaletteOutline
-                      size={18}
-                      className="text-[#8696a0] shrink-0"
-                    />
+                    <IoColorPaletteOutline size={18} className="text-[#8696a0] shrink-0" />
                     <span className="truncate">Chat theme</span>
-                    <MdChevronRight
-                      size={16}
-                      className="text-[#8696a0] ml-auto shrink-0"
-                    />
+                    <MdChevronRight size={16} className="text-[#8696a0] ml-auto shrink-0" />
                   </button>
 
                   <button
@@ -865,13 +833,7 @@ const ChatHeaderMenu = ({
                     onClick={handleToggleFavorite}
                     className={itemClass}
                   >
-                    <FiHeart
-                      size={18}
-                      className={`shrink-0 ${isFavorite
-                        ? "text-rose-500 fill-rose-500"
-                        : "text-[#8696a0]"
-                        }`}
-                    />
+                    <FiHeart size={18} className={`shrink-0 ${isFavorite ? "text-rose-500 fill-rose-500" : "text-[#8696a0]"}`} />
                     <span className="truncate">
                       {isFavorite ? "Remove from favourites" : "Add to favourites"}
                     </span>
@@ -891,15 +853,9 @@ const ChatHeaderMenu = ({
                       }
                       className={itemClass}
                     >
-                      <MdOutlinePlaylistAdd
-                        size={19}
-                        className="text-[#8696a0] shrink-0"
-                      />
+                      <MdOutlinePlaylistAdd size={19} className="text-[#8696a0] shrink-0" />
                       <span>Add to list</span>
-                      <MdChevronRight
-                        size={16}
-                        className="text-[#8696a0] ml-auto shrink-0"
-                      />
+                      <MdChevronRight size={16} className="text-[#8696a0] ml-auto shrink-0" />
                     </button>
 
                     <AnimatePresence>
@@ -1014,10 +970,7 @@ const ChatHeaderMenu = ({
                     onClick={() => setConfirmDialog({ type: "clear" })}
                     className={dangerItemClass}
                   >
-                    <FiMinusCircle
-                      size={18}
-                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
-                    />
+                    <FiMinusCircle size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
                     <span>Clear chat</span>
                   </button>
                   <button
@@ -1025,10 +978,7 @@ const ChatHeaderMenu = ({
                     onClick={() => setConfirmDialog({ type: "delete" })}
                     className={dangerItemClass}
                   >
-                    <RiDeleteBin6Line
-                      size={18}
-                      className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors"
-                    />
+                    <RiDeleteBin6Line size={18} className="text-[#8696a0] group-hover:text-red-400 shrink-0 transition-colors" />
                     <span>Delete chat</span>
                   </button>
                 </>
