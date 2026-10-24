@@ -1,27 +1,64 @@
 import { AI_CONFIG } from "./config.js";
 import { searchCache } from "./cache.js";
 
+/**
+ * Strips command prefixes like "search for", "show me", "find", etc.
+ */
+export function cleanSearchQuery(rawPrompt) {
+  if (!rawPrompt || typeof rawPrompt !== "string") return "";
+  let q = rawPrompt.trim();
+
+  // Strip conversational search verbs
+  q = q.replace(
+    /^(please\s+)?(search\s+for|search|google|lookup|find\s+out|find|show\s+me|show|give\s+me|browse|where\s+is|what\s+is\s+the|tell\s+me\s+about)\s+/i,
+    ""
+  );
+
+  // Clean surrounding quotes
+  q = q.replace(/^["'`]|["'`]$/g, "").trim();
+
+  return q || rawPrompt.trim();
+}
+
+/**
+ * Derives a targeted image search query (e.g. "react website" -> "react logo")
+ */
+export function deriveImageQuery(textQuery) {
+  let q = (textQuery || "").trim();
+  if (/\b(website|site|homepage|portal|docs|documentation)\b/i.test(q)) {
+    const stripped = q
+      .replace(/\b(website|site|homepage|portal|docs|documentation|official)\b/gi, "")
+      .trim();
+    if (stripped) {
+      return `${stripped} logo`;
+    }
+  }
+  return q;
+}
+
 export async function searchSearxng(query) {
   if (!query || typeof query !== "string") {
     return { query: "", textResults: [], imageResults: [], fromCache: false };
   }
 
-  const normalizedQuery = query.trim().toLowerCase();
+  const cleanedTextQuery = cleanSearchQuery(query);
+  const imageSearchQuery = deriveImageQuery(cleanedTextQuery);
+
+  const normalizedQuery = cleanedTextQuery.trim().toLowerCase();
   const cached = searchCache.get(normalizedQuery);
   if (cached) {
     return { ...cached, fromCache: true };
   }
 
   const { baseUrl, timeoutMs, maxResults, maxImages } = AI_CONFIG.searxng;
-  const encodedQuery = encodeURIComponent(query.trim());
   const cleanBase = baseUrl.replace(/\/+$/, "");
 
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-    const generalUrl = `${cleanBase}/search?q=${encodedQuery}&format=json&categories=general`;
-    const imagesUrl = `${cleanBase}/search?q=${encodedQuery}&format=json&categories=images`;
+    const generalUrl = `${cleanBase}/search?q=${encodeURIComponent(cleanedTextQuery)}&format=json&categories=general`;
+    const imagesUrl = `${cleanBase}/search?q=${encodeURIComponent(imageSearchQuery)}&format=json&categories=images`;
 
     const [genResSettled, imgResSettled] = await Promise.allSettled([
       fetch(generalUrl, {
@@ -94,7 +131,7 @@ export async function searchSearxng(query) {
   }
 
   try {
-    const ddgUrl = `https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1`;
+    const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(cleanedTextQuery)}&format=json&no_html=1&skip_disambig=1`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 3500);
 

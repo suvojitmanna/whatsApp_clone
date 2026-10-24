@@ -258,11 +258,20 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   );
 
   const [showMentionPopover, setShowMentionPopover] = useState(false);
+  const handleSendMessageRef = useRef(null);
 
   useEffect(() => {
     const handlePrefill = (e) => {
-      if (e.detail) {
-        setMessage(e.detail);
+      const detail = e.detail;
+      if (!detail) return;
+
+      if (typeof detail === "object" && detail.autoSend && detail.text) {
+        if (handleSendMessageRef.current) {
+          handleSendMessageRef.current(detail.text);
+        }
+      } else {
+        const text = typeof detail === "string" ? detail : detail.text || "";
+        setMessage(text);
         if (messageInputRef.current) {
           messageInputRef.current.focus();
         }
@@ -1534,9 +1543,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (stickerInputRef.current) stickerInputRef.current.value = "";
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (overrideText) => {
     if (!selectedContact || isSending) return;
-    const trimmedMessage = message.trim();
+    const textToSend = typeof overrideText === "string" ? overrideText : message;
+    const trimmedMessage = textToSend.trim();
     if (!trimmedMessage && selectedFiles.length === 0) return;
 
     setIsSending(true);
@@ -1641,6 +1651,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       setIsSending(false);
     }
   };
+  handleSendMessageRef.current = handleSendMessage;
 
   const handleSendPoll = async ({ question, options, allowMultiple }) => {
     if (!selectedContact || !question.trim()) return;

@@ -1,5 +1,15 @@
 import React, { useState } from "react";
-import { FaCopy, FaCheck, FaDownload, FaThumbsUp, FaThumbsDown, FaRegThumbsUp, FaRegThumbsDown } from "react-icons/fa";
+import {
+  FaCopy,
+  FaCheck,
+  FaDownload,
+  FaThumbsUp,
+  FaThumbsDown,
+  FaRegThumbsUp,
+  FaRegThumbsDown,
+  FaVolumeUp,
+  FaVolumeMute,
+} from "react-icons/fa";
 import { MdContentCopy, MdRefresh } from "react-icons/md";
 import { SiMetaai } from "react-icons/si";
 import { toast } from "react-toastify";
@@ -98,6 +108,19 @@ function renderInlineFormatting(text) {
 }
 function CodeBlock({ code, language, theme }) {
   const [copied, setCopied] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const lang = (language || "").toLowerCase().trim();
+  const isPreviewable = [
+    "html",
+    "htm",
+    "svg",
+    "xml",
+    "javascript",
+    "js",
+    "react",
+    "jsx",
+  ].includes(lang);
 
   const handleCopy = () => {
     navigator.clipboard?.writeText(code);
@@ -106,10 +129,73 @@ function CodeBlock({ code, language, theme }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const previewHtml = React.useMemo(() => {
+    if (!isPreviewable || !showPreview) return "";
+
+    if (lang === "svg") {
+      return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;padding:16px;}</style></head><body>${code}</body></html>`;
+    }
+
+    if (lang === "html" || lang === "htm") {
+      if (code.includes("<html") || code.includes("<body")) {
+        return code;
+      }
+      return `<!DOCTYPE html><html><head><meta charset="utf-8"/><script src="https://cdn.tailwindcss.com"></script><style>body{font-family:system-ui,-apple-system,sans-serif;padding:16px;margin:0;background:#fff;color:#0f172a;}</style></head><body>${code}</body></html>`;
+    }
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{font-family:system-ui,-apple-system,sans-serif;padding:16px;margin:0;background:#ffffff;color:#0f172a;}</style>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="output"></div>
+  <script>
+    const log = (...args) => {
+      const out = document.getElementById('output');
+      const p = document.createElement('div');
+      p.style.fontFamily = 'monospace';
+      p.style.fontSize = '12px';
+      p.style.padding = '3px 0';
+      p.style.color = '#0284c7';
+      p.textContent = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : a).join(' ');
+      out.appendChild(p);
+    };
+    console.log = log;
+    try {
+      ${code}
+    } catch(err) {
+      document.getElementById('output').innerHTML = '<div style="color:#ef4444;font-family:monospace;font-size:12px;">Error: ' + err.message + '</div>';
+    }
+  </script>
+</body>
+</html>`;
+  }, [code, lang, isPreviewable, showPreview]);
+
   return (
     <div className="my-2 rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-[#1e1e1e] text-[#d4d4d4] font-mono text-[13px]">
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#2d2d2d] text-xs text-gray-300 border-b border-white/5 select-none">
-        <span className="font-medium lowercase text-gray-400">{language || "code"}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium lowercase text-gray-400">{language || "code"}</span>
+          {isPreviewable && (
+            <button
+              type="button"
+              onClick={() => setShowPreview((p) => !p)}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer active:scale-95 ${
+                showPreview
+                  ? "bg-cyan-500 text-white shadow-xs"
+                  : "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 hover:text-cyan-300"
+              }`}
+              title="Toggle interactive live preview"
+            >
+              <span>{showPreview ? "Hide Preview" : "▶ Live Preview"}</span>
+            </button>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={handleCopy}
@@ -119,6 +205,27 @@ function CodeBlock({ code, language, theme }) {
           <span>{copied ? "Copied" : "Copy code"}</span>
         </button>
       </div>
+
+      {showPreview && isPreviewable && (
+        <div className="border-b border-white/10 bg-white dark:bg-neutral-900 p-2 transition-all">
+          <div className="flex items-center justify-between text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1.5 px-1">
+            <span className="flex items-center gap-1.5 text-cyan-500 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+              <span>Interactive Sandboxed Preview</span>
+            </span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-black/5 dark:bg-white/10 font-mono">
+              Tailwind CDN
+            </span>
+          </div>
+          <iframe
+            title="Code Preview"
+            srcDoc={previewHtml}
+            sandbox="allow-scripts"
+            className="w-full h-48 sm:h-60 rounded-md border border-black/10 dark:border-white/10 bg-white"
+          />
+        </div>
+      )}
+
       <pre className="p-3 overflow-x-auto whitespace-pre font-mono leading-relaxed select-text">
         <code>{code}</code>
       </pre>
@@ -330,6 +437,7 @@ export function MetaAiImageCard({
 
 export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "dark" }) {
   const [feedback, setFeedback] = useState(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const handleThumb = (type) => {
     if (feedback === type) {
@@ -347,6 +455,37 @@ export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "
     if (!content) return;
     navigator.clipboard?.writeText(content);
     toast.success("Response copied to clipboard");
+  };
+
+  const handleSpeak = () => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      toast.info("Speech synthesis not supported in this browser");
+      return;
+    }
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+    window.speechSynthesis.cancel();
+
+    // Strip markdown formatting for natural speech
+    const cleanText = (content || "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/[*_#`~>]/g, "")
+      .replace(/🌐\s*Sources:[\s\S]*$/i, "")
+      .replace(/https?:\/\/\S+/g, "")
+      .trim();
+
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
   };
 
   return (
@@ -369,6 +508,17 @@ export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "
           title="Poor response"
         >
           {feedback === "down" ? <FaThumbsDown size={12} /> : <FaRegThumbsDown size={12} />}
+        </button>
+        <button
+          type="button"
+          onClick={handleSpeak}
+          className={`p-1 rounded transition-colors cursor-pointer ${isSpeaking
+              ? "text-cyan-500 bg-cyan-500/15 animate-pulse"
+              : "text-inherit hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
+            }`}
+          title={isSpeaking ? "Stop speaking" : "Listen to response"}
+        >
+          {isSpeaking ? <FaVolumeMute size={13} /> : <FaVolumeUp size={13} />}
         </button>
         {onRegenerate && (
           <button
@@ -395,24 +545,99 @@ export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "
   );
 }
 
-export function MetaAiQuickFollowups({ onSelect, isLatest = true, theme = "dark" }) {
+export function MetaAiQuickFollowups({
+  suggestions = [],
+  prompt = "",
+  content = "",
+  onSelect,
+  isLatest = true,
+  theme = "dark",
+}) {
   if (!isLatest) return null;
-  const followups = ["Tell me more", "Explain simply", "Give an example"];
+
+  let followups = Array.isArray(suggestions) && suggestions.length > 0 ? suggestions : [];
+  if (followups.length === 0) {
+    const p = (prompt || "").toLowerCase();
+    const c = (content || "").toLowerCase();
+
+    if (p.includes("/imagine") || p.includes("generate image") || p.includes("draw")) {
+      followups = [
+        "Make it cyberpunk neon style",
+        "Change to cinematic sunset background",
+        "Render in 8K photorealistic",
+      ];
+    } else if (p.includes("react") || c.includes("react")) {
+      followups = [
+        "How to install React?",
+        "Explain React Hooks with examples",
+        "React vs Next.js comparison",
+      ];
+    } else if (p.includes("python") || c.includes("python")) {
+      followups = [
+        "Best Python libraries",
+        "Python beginner roadmap",
+        "Python vs JavaScript",
+      ];
+    } else if (p.includes("time") || p.includes("date") || p.includes("clock")) {
+      followups = [
+        "Current time in New York",
+        "Current time in London",
+        "Time difference with UTC",
+      ];
+    } else if (p.includes("weather") || c.includes("weather") || c.includes("temperature")) {
+      followups = [
+        "Weather forecast for tomorrow",
+        "Will it rain today?",
+        "Weekly temperature trend",
+      ];
+    } else if (p.includes("who is") || p.includes("biography") || c.includes("born")) {
+      followups = [
+        "Career & key achievements",
+        "Early life & education",
+        "Net worth & current role",
+      ];
+    } else if (c.includes("```") || p.includes("code") || p.includes("function") || p.includes("bug")) {
+      followups = [
+        "Explain this code step by step",
+        "Show a working usage example",
+        "Add TypeScript types & error handling",
+      ];
+    } else if (p.includes("website") || c.includes("official website")) {
+      followups = [
+        "Getting started tutorial",
+        "Official documentation link",
+        "Key features & alternatives",
+      ];
+    } else {
+      followups = [
+        "Tell me more about this",
+        "Explain in simple terms",
+        "Give me practical examples",
+      ];
+    }
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-1.5 border-t border-black/5 dark:border-white/5 select-none">
-      <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium mr-0.5">Suggestions:</span>
+      <span className="flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500 font-medium mr-0.5">
+        <span className="text-cyan-500 text-[11px]">✨</span>
+        <span>Suggestions:</span>
+      </span>
       {followups.map((text, idx) => (
         <button
           key={idx}
           type="button"
           onClick={() => onSelect?.(text)}
-          className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-2xs ${theme === "dark"
-              ? "bg-[#202c33] hover:bg-[#2a3942] text-gray-300 border-white/10"
-              : "bg-white hover:bg-gray-100 text-gray-700 border-black/10"
+          className={`group flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all cursor-pointer hover:scale-102 active:scale-95 shadow-2xs ${theme === "dark"
+              ? "bg-[#202c33] hover:bg-[#2a3942] text-gray-200 hover:text-white border-white/10 hover:border-cyan-500/40"
+              : "bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 border-black/10 hover:border-cyan-600/40"
             }`}
+          title={`Click to ask: "${text}"`}
         >
-          {text}
+          <span>{text}</span>
+          <span className="text-[10px] opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all text-cyan-500 font-bold">
+            ↗
+          </span>
         </button>
       ))}
     </div>

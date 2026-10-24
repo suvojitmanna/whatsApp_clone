@@ -1406,10 +1406,23 @@ const MessageBuble = ({
                               }}
                             />
                             <MetaAiQuickFollowups
+                              suggestions={message.metaAiSuggestions}
+                              prompt={message.metaAiPrompt || message.content}
+                              content={displayContent}
                               theme={theme}
                               onSelect={(followupText) => {
+                                const isGroup = isGroupChat || Boolean(activeContact?.isGroup);
+                                const finalPrompt =
+                                  isGroup && !followupText.toLowerCase().includes("@meta ai")
+                                    ? `@Meta AI ${followupText}`
+                                    : followupText;
                                 window.dispatchEvent(
-                                  new CustomEvent("meta_ai_prefill", { detail: followupText })
+                                  new CustomEvent("meta_ai_prefill", {
+                                    detail: {
+                                      text: finalPrompt,
+                                      autoSend: true,
+                                    },
+                                  })
                                 );
                               }}
                             />

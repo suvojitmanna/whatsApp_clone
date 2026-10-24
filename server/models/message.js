@@ -85,6 +85,11 @@ const messageSchema = new mongoose.Schema(
         sourceUrl: { type: String, default: "" },
       },
     ],
+    metaAiSuggestions: [
+      {
+        type: String,
+      },
+    ],
     isEncrypted: {
       type: Boolean,
       default: false,

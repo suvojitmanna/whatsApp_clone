@@ -2,10 +2,10 @@ import { isImagePrompt } from "./imageGenService.js";
 import { callFastLlm } from "./llmProvider.js";
 
 const SEARCH_TRIGGER_REGEX =
-  /\b(today|yesterday|tomorrow|weather|news|score|match|price|stock|who won|who is the current|latest|recent|updates on|current president|release date|live score|schedule of|temperature in)\b/i;
+  /\b(today|yesterday|tomorrow|weather|news|score|match|price|stock|who won|who is the current|latest|recent|updates on|current president|release date|live score|schedule of|temperature in|website|official website|official site|homepage|portal|docs|documentation|url|link to|link for)\b/i;
 
 const EXPLICIT_SEARCH_REGEX =
-  /^(search|google|lookup|find out|browse)\s+(for\s+)?/i;
+  /^(search|google|lookup|find|find out|show|show me|give me|browse|where is|what is the website)\s+(for\s+)?/i;
 
 export async function classifyPromptIntent(prompt) {
   if (!prompt || typeof prompt !== "string") return "DIRECT_CHAT";

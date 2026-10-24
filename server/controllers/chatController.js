@@ -120,6 +120,11 @@ async function triggerMetaAiResponse({
         : Array.isArray(aiResult.searchImages)
           ? aiResult.searchImages
           : [],
+      metaAiSuggestions: Array.isArray(aiResult.metaAiSuggestions)
+        ? aiResult.metaAiSuggestions
+        : Array.isArray(aiResult.suggestions)
+          ? aiResult.suggestions
+          : [],
       isMetaAi: true,
       metaAiPrompt: rawPrompt,
       messageStatus: "read",
@@ -279,7 +284,8 @@ export const sendMessage = async (req, res) => {
     let conversation = null;
     let isGroup = false;
 
-    let explicitIsGroup = req.body.isGroup === "true" || req.body.isGroup === true;
+    let explicitIsGroup =
+      req.body.isGroup === "true" || req.body.isGroup === true;
 
     if (incomingConvId && mongoose.Types.ObjectId.isValid(incomingConvId)) {
       const foundConv = await Conversation.findById(incomingConvId);
@@ -289,7 +295,11 @@ export const sendMessage = async (req, res) => {
       }
     }
 
-    if (!conversation && receiverId && mongoose.Types.ObjectId.isValid(receiverId)) {
+    if (
+      !conversation &&
+      receiverId &&
+      mongoose.Types.ObjectId.isValid(receiverId)
+    ) {
       const possibleConv = await Conversation.findById(receiverId);
       if (possibleConv?.isGroup) {
         conversation = possibleConv;
@@ -647,14 +657,17 @@ export const sendMessage = async (req, res) => {
                   deletedFor: { $ne: new mongoose.Types.ObjectId(pIdStr) },
                 });
               } catch (e) {
-                console.error("Error computing group participant unread count:", e);
+                console.error(
+                  "Error computing group participant unread count:",
+                  e,
+                );
               }
               req.io.to(pIdStr).emit("receive_message", {
                 ...basePayload,
                 unreadCount: pUnreadCount,
               });
             }
-          })
+          }),
         );
       }
     } else if (req.io && !isSenderBlockedByReceiver && receiverRoom) {
@@ -729,7 +742,8 @@ export const sendMessage = async (req, res) => {
       ...(populatedMessage && typeof populatedMessage.toObject === "function"
         ? populatedMessage.toObject()
         : populatedMessage),
-      conversationId: conversation?._id?.toString() || message?.conversation?.toString(),
+      conversationId:
+        conversation?._id?.toString() || message?.conversation?.toString(),
       isGroup: Boolean(isGroup),
     };
 
@@ -1213,7 +1227,7 @@ export const deleteMessage = async (req, res) => {
 
         const isSelfChat = Boolean(
           message.receiver &&
-          message.sender.toString() === message.receiver.toString()
+          message.sender.toString() === message.receiver.toString(),
         );
         const shouldDeleteMedia =
           allParticipantsDeleted ||
@@ -1328,11 +1342,15 @@ export const deleteMessage = async (req, res) => {
 
           if (conv?.isGroup) {
             conv.participants?.forEach((p) => {
-              req.io.to((p._id || p).toString()).emit("message_unpinned", unpinPayload);
+              req.io
+                .to((p._id || p).toString())
+                .emit("message_unpinned", unpinPayload);
             });
           } else {
             if (message.receiver) {
-              req.io.to(message.receiver.toString()).emit("message_unpinned", unpinPayload);
+              req.io
+                .to(message.receiver.toString())
+                .emit("message_unpinned", unpinPayload);
             }
             req.io.to(userId.toString()).emit("message_unpinned", unpinPayload);
           }
@@ -1378,7 +1396,9 @@ export const deleteMessage = async (req, res) => {
           });
         } else {
           if (message.receiver) {
-            req.io.to(message.receiver.toString()).emit("message_deleted", payload);
+            req.io
+              .to(message.receiver.toString())
+              .emit("message_deleted", payload);
           }
           req.io.to(userId.toString()).emit("message_deleted", payload);
         }
@@ -2566,11 +2586,12 @@ export const updateGroup = async (req, res) => {
     }
 
     let removedUserId = null;
+    let isSelf = false;
     if (removeParticipant) {
       const targetId = (
         removeParticipant?._id || removeParticipant
       )?.toString();
-      const isSelf = targetId === userId.toString();
+      isSelf = targetId === userId.toString();
       if (!isSelf && !isAdmin) {
         return response(res, 403, "Only admins can remove participants");
       }
