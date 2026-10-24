@@ -315,10 +315,8 @@ const ChatHeader = ({
             {isMetaAi ? "thinking..." : "Typing..."}
           </div>
         ) : isMetaAi ? (
-          <div className="flex items-center gap-1.5 text-[11px] text-[#8696a0] font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block animate-pulse" />
-            <span>AI Assistant • Llama 3 & Gemini</span>
-          </div>
+          < >
+          </>
         ) : isGroup ? (
           isGroupOnline ? (
             <div className="flex items-center gap-1.5 text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium truncate"

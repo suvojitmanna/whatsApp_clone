@@ -19,6 +19,8 @@ import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon"
 import { isGroupSystemMessage } from "../../utils/systemMessageUtils";
 import axiosInstance from "../../services/url.services.js";
 import ChatSummaryModal from "../../components/modals/ChatSummaryModal.jsx";
+import TranslateModal from "../../components/modals/TranslateModal.jsx";
+import ExportChatModal from "../../components/modals/ExportChatModal.jsx";
 import {
   ChatWindowEmpty,
   PinnedBanner,
@@ -80,6 +82,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       setIsSummarizing(false);
     }
   };
+
+  const [translateModalState, setTranslateModalState] = useState({
+    isOpen: false,
+    text: "",
+    messageId: null,
+  });
+  const [showExportModal, setShowExportModal] = useState(false);
   const [showPinnedMenu, setShowPinnedMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
@@ -306,7 +315,28 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       }
     };
     window.addEventListener("meta_ai_prefill", handlePrefill);
-    return () => window.removeEventListener("meta_ai_prefill", handlePrefill);
+
+    const handleOpenTranslate = (e) => {
+      if (e.detail?.text) {
+        setTranslateModalState({
+          isOpen: true,
+          text: e.detail.text,
+          messageId: e.detail.messageId,
+        });
+      }
+    };
+    const handleOpenExport = () => {
+      setShowExportModal(true);
+    };
+
+    window.addEventListener("open_translate_modal", handleOpenTranslate);
+    window.addEventListener("open_export_modal", handleOpenExport);
+
+    return () => {
+      window.removeEventListener("meta_ai_prefill", handlePrefill);
+      window.removeEventListener("open_translate_modal", handleOpenTranslate);
+      window.removeEventListener("open_export_modal", handleOpenExport);
+    };
   }, []);
 
   const handleSelectMention = (tagText = "@Meta AI") => {
@@ -1658,10 +1688,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           }
 
           if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
-          const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
-          formData.append("metaAiPersona", currentPersona);
-        }
-        await sendMessage(formData);
+            const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
+            formData.append("metaAiPersona", currentPersona);
+          }
+          await sendMessage(formData);
         }
       } else if (trimmedMessage) {
         const formData = new FormData();
@@ -2655,6 +2685,34 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         summary={summaryData?.summary}
         messageCount={summaryData?.messageCount || 0}
         isLoading={isSummarizing}
+        theme={theme}
+      />
+
+      <TranslateModal
+        isOpen={translateModalState.isOpen}
+        initialText={translateModalState.text}
+        onClose={() =>
+          setTranslateModalState({ isOpen: false, text: "", messageId: null })
+        }
+        theme={theme}
+        onSendAsReply={(translation) => {
+          if (handleSendMessageRef.current) {
+            handleSendMessageRef.current(translation);
+          } else {
+            setMessage(translation);
+          }
+        }}
+      />
+
+      <ExportChatModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        messages={messages}
+        contactName={
+          selectedContact?.username ||
+          selectedContact?.name ||
+          (selectedContact?.isAI ? "Meta AI" : "Chat")
+        }
         theme={theme}
       />
     </>

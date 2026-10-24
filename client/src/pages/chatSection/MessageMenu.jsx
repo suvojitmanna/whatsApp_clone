@@ -5,6 +5,7 @@ import { FaRegCopy, FaStar, FaRegStar, FaDownload } from "react-icons/fa";
 import { BsEmojiSmile } from "react-icons/bs";
 import { TbPin } from "react-icons/tb";
 import { SiMetaai } from "react-icons/si";
+import { HiLanguage } from "react-icons/hi2";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { RiEditLine, RiDeleteBin6Line } from "react-icons/ri";
 import { FiThumbsDown, FiCheckSquare, FiExternalLink, FiUser } from "react-icons/fi";
@@ -559,6 +560,24 @@ const MessageMenu = ({
                 >
                     <MetaAiRing size={17} className="shrink-0 group-hover:scale-110 transition-transform" />
                     <span>Ask Meta AI</span>
+                </button>
+            )}
+
+            {message?.content && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        window.dispatchEvent(
+                            new CustomEvent("open_translate_modal", {
+                                detail: { text: message.content, messageId: message._id },
+                            })
+                        );
+                    }}
+                    className={itemClass}
+                >
+                    <HiLanguage size={17} className="shrink-0 text-cyan-500 group-hover:scale-110 transition-transform" />
+                    <span>Translate with AI</span>
                 </button>
             )}
 

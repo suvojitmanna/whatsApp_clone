@@ -9,6 +9,7 @@ import EmojiPicker from "emoji-picker-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
 import { MetaAiRing } from "../../../components/common/MetaAiIcon";
+import { useChatStore } from "../../../store/chatStore";
 import ReplyPreviewBar from "./ReplyPreviewBar";
 
 const getAvatarColor = (name) => {
@@ -69,7 +70,43 @@ export const ChatInputBar = ({
   const [mentionQuery, setMentionQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isDictating, setIsDictating] = useState(false);
+  const [interimTranscript, setInterimTranscript] = useState("");
   const recognitionRef = useRef(null);
+
+  const messages = useChatStore((state) => state.messages);
+
+  const smartReplies = useMemo(() => {
+    if (!messages || messages.length === 0 || isMetaAiChat) return [];
+    const lastMsg = [...messages].reverse().find((m) => {
+      if (!m || m.deletedForEveryone) return false;
+      const sId = m.sender?._id || m.sender;
+      return sId && String(sId) !== String(user?._id) && m.contentType === "text" && m.content;
+    });
+
+    if (!lastMsg || !lastMsg.content) return [];
+
+    const text = (lastMsg.content || "").toLowerCase().trim();
+    if (text.includes("how are you") || text.includes("how r u")) {
+      return ["I'm doing well, thanks! 😊", "All good here! How about you?", "Great! What's up?"];
+    }
+    if (text.includes("where are you") || text.includes("location") || text.includes("reached")) {
+      return ["On my way! 🚗", "Almost there, 5 mins!", "Just arrived!"];
+    }
+    if (text.includes("thanks") || text.includes("thank you")) {
+      return ["You're welcome! 😊", "Anytime!", "Glad to help! 👍"];
+    }
+    if (text.includes("ok") || text.includes("okay") || text.includes("sure")) {
+      return ["Awesome 👍", "Sounds good!", "See you soon!"];
+    }
+    if (text.includes("call me") || text.includes("can you talk")) {
+      return ["Calling you now 📞", "In a meeting, can I call later?", "Give me 5 mins"];
+    }
+    if (text.endsWith("?")) {
+      return ["Yes, absolutely! 👍", "I'll check and let you know", "No, not yet"];
+    }
+
+    return ["Sounds great! 👍", "Got it, thanks!", "Let's catch up later"];
+  }, [messages, user?._id, isMetaAiChat]);
 
   const toggleVoiceDictation = () => {
     const SpeechRecognition =
@@ -84,6 +121,13 @@ export const ChatInputBar = ({
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      if (interimTranscript) {
+        setMessage((prev) => {
+          const trimmed = (prev || "").trim();
+          return trimmed ? `${trimmed} ${interimTranscript.trim()}` : interimTranscript.trim();
+        });
+        setInterimTranscript("");
+      }
       setIsDictating(false);
       return;
     }
@@ -96,29 +140,40 @@ export const ChatInputBar = ({
 
       recognition.onstart = () => {
         setIsDictating(true);
+        setInterimTranscript("");
         toast.info("Listening... Speak your message", { autoClose: 2000 });
       };
 
       recognition.onresult = (event) => {
-        let transcript = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
+        let interim = "";
+        let final = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            final += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
         }
-        if (transcript) {
+        if (final) {
           setMessage((prev) => {
             const trimmed = (prev || "").trim();
-            return trimmed ? `${trimmed} ${transcript}` : transcript;
+            return trimmed ? `${trimmed} ${final.trim()}` : final.trim();
           });
+          setInterimTranscript("");
+        } else if (interim) {
+          setInterimTranscript(interim);
         }
       };
 
       recognition.onerror = (err) => {
         console.warn("Speech recognition error:", err);
         setIsDictating(false);
+        setInterimTranscript("");
       };
 
       recognition.onend = () => {
         setIsDictating(false);
+        setInterimTranscript("");
       };
 
       recognitionRef.current = recognition;
@@ -126,6 +181,7 @@ export const ChatInputBar = ({
     } catch (e) {
       console.warn("Speech recognition init failed:", e);
       setIsDictating(false);
+      setInterimTranscript("");
     }
   };
 
@@ -249,11 +305,69 @@ export const ChatInputBar = ({
         getReplyPreviewText={getReplyPreviewText}
       />
 
+      {!message && smartReplies && smartReplies.length > 0 && !isDictating && (
+        <div className="flex items-center gap-1.5 mb-1.5 overflow-x-auto select-none py-0.5 no-scrollbar">
+          <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1 shrink-0 mr-0.5">
+            <span className="text-emerald-500">⚡</span>
+            <span>Quick Reply:</span>
+          </span>
+          {smartReplies.map((reply, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => {
+                setMessage(reply);
+                messageInputRef.current?.focus();
+              }}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer hover:scale-102 active:scale-95 ${
+                theme === "dark"
+                  ? "bg-[#2a3942] hover:bg-[#32424b] text-gray-200 hover:text-white border-white/10 hover:border-emerald-500/50"
+                  : "bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 border-black/10 hover:border-emerald-600/50 shadow-2xs"
+              }`}
+            >
+              <span>{reply}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isDictating && (
+        <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-1.5 rounded-xl bg-gradient-to-r from-red-500/15 via-emerald-500/15 to-transparent border border-red-500/30 text-xs shadow-xs select-none animate-fadeIn">
+          <div className="flex items-center gap-2 truncate">
+            <span className="flex items-center gap-0.5 h-3">
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+            </span>
+            <span className="font-bold text-[11px] text-red-500 shrink-0">
+              Listening...
+            </span>
+            <span className="truncate italic text-gray-700 dark:text-gray-200">
+              {interimTranscript ? (
+                <span className="bg-emerald-500/25 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-md font-semibold ring-1 ring-emerald-500/40">
+                  "{interimTranscript}"
+                </span>
+              ) : (
+                "Speak now, transcribing voice..."
+              )}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={toggleVoiceDictation}
+            className="shrink-0 text-[10px] px-2.5 py-1 rounded-full bg-red-500 hover:bg-red-600 text-white font-semibold cursor-pointer transition-colors shadow-2xs"
+          >
+            Done
+          </button>
+        </div>
+      )}
+
       <div
-        className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 border ${theme === "dark"
-          ? "bg-[#2a3942] border-white/5 hover:border-emerald-500/50 hover:bg-[#32424b] focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
-          : "bg-white shadow-sm border-gray-200 hover:border-emerald-500/50 hover:bg-gray-50 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
-          }`}
+        className={`relative w-full flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1.5 rounded-full transition-all duration-200 border ${
+          isDictating
+            ? "border-red-500 ring-2 ring-red-500/30 bg-red-500/5 shadow-md"
+            : theme === "dark"
+            ? "bg-[#2a3942] border-white/5 hover:border-emerald-500/50 hover:bg-[#32424b] focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
+            : "bg-white shadow-sm border-gray-200 hover:border-emerald-500/50 hover:bg-gray-50 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20"
+        }`}
       >
         <div className="relative shrink-0" ref={fileMenuRef}>
           <button

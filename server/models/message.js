@@ -90,6 +90,26 @@ const messageSchema = new mongoose.Schema(
         type: String,
       },
     ],
+    audioTranscript: {
+      type: String,
+      default: null,
+    },
+    isScheduled: {
+      type: Boolean,
+      default: false,
+    },
+    scheduledFor: {
+      type: Date,
+      default: null,
+    },
+    translatedText: {
+      type: String,
+      default: null,
+    },
+    translatedLang: {
+      type: String,
+      default: null,
+    },
     isEncrypted: {
       type: Boolean,
       default: false,

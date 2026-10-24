@@ -31,14 +31,12 @@ export default function ChatSummaryModal({
       onClick={onClose}
     >
       <div
-        className={`relative w-full max-w-[560px] max-h-[85vh] rounded-2xl flex flex-col shadow-2xl border overflow-hidden ${
-          theme === "dark"
+        className={`relative w-full max-w-[560px] max-h-[85vh] rounded-2xl flex flex-col shadow-2xl border overflow-hidden ${theme === "dark"
             ? "bg-[#1f2c34] border-white/10 text-white"
             : "bg-white border-black/10 text-gray-900"
-        }`}
+          }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-black/5 dark:border-white/10 select-none">
           <div className="flex items-center gap-2.5">
             <MetaAiRing size={28} showInnerIcon={false} />
@@ -67,7 +65,6 @@ export default function ChatSummaryModal({
           </button>
         </div>
 
-        {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-5 text-sm leading-relaxed select-text space-y-3">
           {isLoading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-3 text-gray-400">
@@ -85,7 +82,6 @@ export default function ChatSummaryModal({
           )}
         </div>
 
-        {/* Footer */}
         {!isLoading && summary && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-black/5 dark:border-white/10 select-none bg-black/5 dark:bg-white/5">
             <span className="text-[11px] text-gray-400 font-mono">

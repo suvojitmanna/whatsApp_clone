@@ -1374,7 +1374,11 @@ const MessageBuble = ({
                           </span>
                         ) : isMetaAiMessage ? (
                           <div className="space-y-1">
-                            <MetaAiMarkdown content={displayContent} theme={theme} />
+                            <MetaAiMarkdown
+                              content={displayContent}
+                              theme={theme}
+                              messageId={message._id || message.id || message.tempId}
+                            />
                             {message.metaAiImages && message.metaAiImages.length > 0 && (
                               <MetaAiThumbnailGallery
                                 images={message.metaAiImages}
@@ -1393,18 +1397,6 @@ const MessageBuble = ({
                                 }}
                               />
                             )}
-                            <MetaAiFeedbackBar
-                              content={displayContent}
-                              theme={theme}
-                              onRegenerate={() => {
-                                const promptToRegen = message.metaAiPrompt || message.content;
-                                if (promptToRegen) {
-                                  window.dispatchEvent(
-                                    new CustomEvent("meta_ai_prefill", { detail: promptToRegen })
-                                  );
-                                }
-                              }}
-                            />
                             <MetaAiQuickFollowups
                               suggestions={message.metaAiSuggestions}
                               prompt={message.metaAiPrompt || message.content}
@@ -1424,6 +1416,20 @@ const MessageBuble = ({
                                     },
                                   })
                                 );
+                              }}
+                            />
+                            <MetaAiFeedbackBar
+                              messageId={message._id || message.id || message.tempId}
+                              content={displayContent}
+                              theme={theme}
+                              persona={message.metaAiPersona}
+                              onRegenerate={() => {
+                                const promptToRegen = message.metaAiPrompt || message.content;
+                                if (promptToRegen) {
+                                  window.dispatchEvent(
+                                    new CustomEvent("meta_ai_prefill", { detail: promptToRegen })
+                                  );
+                                }
                               }}
                             />
                           </div>

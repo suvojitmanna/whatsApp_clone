@@ -9,6 +9,8 @@ import Conversation from "../models/ConverSation.js";
 import User from "../models/user.js";
 import mongoose from "mongoose";
 import { META_AI_USER_ID, processMetaAiQuery } from "../services/aiService.js";
+import { callFastLlm, callDualLlm } from "../services/ai/llmProvider.js";
+import { AI_CONFIG } from "../services/ai/config.js";
 import {
   onGroupMessageCreated,
   processMultipleGroupReceipts,
@@ -2943,6 +2945,85 @@ export const getMemberChanges = async (req, res) => {
   }
 };
 
+export const translateText = async (req, res) => {
+  try {
+    const { text, targetLang = "English" } = req.body;
+    if (!text || !text.trim()) {
+      return response(res, 400, "Text is required for translation");
+    }
+
+    const systemPrompt = `You are an expert multilingual translator for WhatsApp. Translate the user's text into ${targetLang}. Return ONLY the translation, with no explanation, greetings, quotation marks, or meta commentary. Preserve emojis, line breaks, and punctuation.`;
+    const prompt = `Translate this text into ${targetLang}:\n\n${text}`;
+
+    let translated = await callFastLlm(prompt, systemPrompt);
+    if (!translated) {
+      const dualRes = await callDualLlm({
+        systemPrompt,
+        prompt,
+      });
+      translated = dualRes.text;
+    }
+
+    translated = (translated || text).trim();
+    if (translated.startsWith('"') && translated.endsWith('"') && translated.length > 2) {
+      translated = translated.slice(1, -1);
+    }
+
+    return response(res, 200, "Translation successful", {
+      original: text,
+      translation: translated,
+      targetLang,
+    });
+  } catch (error) {
+    console.error("translateText error:", error);
+    return response(res, 500, "Failed to translate text");
+  }
+};
+
+export const getSmartReplies = async (req, res) => {
+  try {
+    const { messageText } = req.body;
+    if (!messageText || !messageText.trim()) {
+      return response(res, 200, "Smart replies", { replies: [] });
+    }
+
+    const systemPrompt = `You are an AI assistant generating short, natural WhatsApp quick-reply chips for a received message. Generate exactly 3 short responses (under 6 words each), separated by pipes (|). Example: Sounds great! 👍 | I'll check and let you know | Can you send the details? Return ONLY the replies separated by |.`;
+    const prompt = `Generate 3 WhatsApp quick replies to this message:\n"${messageText}"`;
+
+    let replyText = await callFastLlm(prompt, systemPrompt);
+    let replies = [];
+    if (replyText) {
+      replies = replyText
+        .split("|")
+        .map((r) => r.trim().replace(/^["'`\d.-]+/, "").replace(/["'`]+$/, "").trim())
+        .filter(Boolean)
+        .slice(0, 3);
+    }
+
+    if (replies.length === 0) {
+      const lower = messageText.toLowerCase();
+      if (lower.includes("how are you") || lower.includes("how r u")) {
+        replies = ["I'm doing well, thanks! 😊", "All good here! How about you?", "Great! What's up?"];
+      } else if (lower.includes("where") || lower.includes("location")) {
+        replies = ["On my way! 🚗", "I'll be there in 15 mins", "Sharing my location now"];
+      } else if (lower.includes("thanks") || lower.includes("thank you")) {
+        replies = ["You're welcome! 😊", "Anytime!", "No problem at all! 👍"];
+      } else if (lower.includes("?")) {
+        replies = ["Yes, absolutely! 👍", "I'll check on that", "Not sure, let me verify"];
+      } else {
+        replies = ["Sounds good! 👍", "Got it, thanks!", "Let's catch up later"];
+      }
+    }
+
+    return response(res, 200, "Smart replies generated", { replies });
+  } catch (error) {
+    console.error("getSmartReplies error:", error);
+    return response(res, 200, "Fallback smart replies", {
+      replies: ["Sounds good! 👍", "Got it, thanks!", "Let's connect soon"],
+    });
+  }
+};
+
 export default {
   sendMessage,
   getConversation,
@@ -2960,6 +3041,8 @@ export default {
   setDisappearingDuration,
   askMetaAi,
   summarizeConversation,
+  translateText,
+  getSmartReplies,
   createGroup,
   updateGroup,
   getMemberChanges,

@@ -1,4 +1,4 @@
-import { isImagePrompt } from "./imageGenService.js";
+import { isImagePrompt, isStickerPrompt } from "./imageGenService.js";
 import { callFastLlm } from "./llmProvider.js";
 
 const SEARCH_TRIGGER_REGEX =
@@ -10,6 +10,10 @@ const EXPLICIT_SEARCH_REGEX =
 export async function classifyPromptIntent(prompt) {
   if (!prompt || typeof prompt !== "string") return "DIRECT_CHAT";
   const p = prompt.trim();
+
+  if (isStickerPrompt(p)) {
+    return "STICKER_GEN";
+  }
 
   if (isImagePrompt(p)) {
     return "IMAGE_GEN";

@@ -1,33 +1,28 @@
 import { AI_CONFIG } from "./config.js";
 import { searchCache } from "./cache.js";
 
-/**
- * Strips command prefixes like "search for", "show me", "find", etc.
- */
 export function cleanSearchQuery(rawPrompt) {
   if (!rawPrompt || typeof rawPrompt !== "string") return "";
   let q = rawPrompt.trim();
 
-  // Strip conversational search verbs
   q = q.replace(
     /^(please\s+)?(search\s+for|search|google|lookup|find\s+out|find|show\s+me|show|give\s+me|browse|where\s+is|what\s+is\s+the|tell\s+me\s+about)\s+/i,
-    ""
+    "",
   );
 
-  // Clean surrounding quotes
   q = q.replace(/^["'`]|["'`]$/g, "").trim();
 
   return q || rawPrompt.trim();
 }
 
-/**
- * Derives a targeted image search query (e.g. "react website" -> "react logo")
- */
 export function deriveImageQuery(textQuery) {
   let q = (textQuery || "").trim();
   if (/\b(website|site|homepage|portal|docs|documentation)\b/i.test(q)) {
     const stripped = q
-      .replace(/\b(website|site|homepage|portal|docs|documentation|official)\b/gi, "")
+      .replace(
+        /\b(website|site|homepage|portal|docs|documentation|official)\b/gi,
+        "",
+      )
       .trim();
     if (stripped) {
       return `${stripped} logo`;
@@ -117,7 +112,7 @@ export async function searchSearxng(query) {
       const searchData = {
         query: query.trim(),
         textResults,
-        imageResults: imageResults.slice(0, 5), // Guarantee up to 5 images
+        imageResults: imageResults.slice(0, 5),
         fromCache: false,
       };
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   FaCopy,
   FaCheck,
@@ -12,19 +12,76 @@ import {
 } from "react-icons/fa";
 import { MdContentCopy, MdRefresh } from "react-icons/md";
 import { SiMetaai } from "react-icons/si";
+import { HiLanguage } from "react-icons/hi2";
 import { toast } from "react-toastify";
 import { MetaAiRing } from "./MetaAiIcon";
+import { PERSONAS } from "./MetaAiPersonaSelector";
 
-function renderInlineFormatting(text) {
+function renderTextWithWordHighlights(rawText, wordCounterRef, activeWordIndex, isSpeaking) {
+  if (!rawText) return null;
+  if (
+    !isSpeaking ||
+    !wordCounterRef ||
+    activeWordIndex === null ||
+    activeWordIndex === undefined ||
+    activeWordIndex < 0
+  ) {
+    return rawText;
+  }
+
+  const parts = rawText.split(/(\s+)/);
+  return parts.map((part, pIdx) => {
+    if (!part) return null;
+    if (/^\s+$/.test(part)) {
+      return <span key={`ws-${pIdx}`}>{part}</span>;
+    }
+
+    const currentWordIdx = wordCounterRef.current++;
+    const isCurrent = currentWordIdx === activeWordIndex;
+    const isPast = currentWordIdx < activeWordIndex;
+
+    return (
+      <span
+        key={`w-${currentWordIdx}-${pIdx}`}
+        data-word-index={currentWordIdx}
+        className={
+          isCurrent
+            ? "relative inline-block bg-gradient-to-r from-cyan-400/40 via-sky-400/40 to-blue-500/40 text-cyan-950 dark:text-cyan-50 font-bold rounded px-1 -my-0.5 shadow-sm ring-2 ring-cyan-400/80 dark:ring-cyan-300 scale-105 transition-all duration-150 z-10 animate-pulse"
+            : isPast
+              ? "text-inherit opacity-95 transition-opacity"
+              : "text-inherit transition-colors"
+        }
+      >
+        {part}
+      </span>
+    );
+  });
+}
+
+function renderInlineFormatting(
+  text,
+  wordCounterRef = null,
+  activeWordIndex = -1,
+  isSpeaking = false
+) {
   if (!text) return null;
   const codeParts = text.split(/(`[^`]+`)/g);
 
   return codeParts.map((codePart, cIdx) => {
     if (codePart.startsWith("`") && codePart.endsWith("`") && codePart.length >= 2) {
+      let isCodeCurrent = false;
+      if (isSpeaking && wordCounterRef && wordCounterRef.current === activeWordIndex) {
+        isCodeCurrent = true;
+      }
+      if (wordCounterRef) wordCounterRef.current++;
+
       return (
         <code
           key={`code-${cIdx}`}
-          className="px-1.5 py-0.5 mx-0.5 rounded text-[13px] font-mono bg-black/10 dark:bg-white/10 text-pink-600 dark:text-pink-400"
+          className={`px-1.5 py-0.5 mx-0.5 rounded text-[13px] font-mono transition-all ${isCodeCurrent
+            ? "bg-cyan-500/30 text-cyan-200 ring-2 ring-cyan-400 font-bold scale-105"
+            : "bg-black/10 dark:bg-white/10 text-pink-600 dark:text-pink-400"
+            }`}
         >
           {codePart.slice(1, -1)}
         </code>
@@ -50,7 +107,7 @@ function renderInlineFormatting(text) {
             className="text-[#027eb5] hover:text-[#015f8a] dark:text-[#53bdeb] dark:hover:text-[#7ad0f5] underline underline-offset-2 break-all font-medium cursor-pointer transition-colors inline select-text"
             title={mdMatch[2]}
           >
-            {mdMatch[1]}
+            {renderTextWithWordHighlights(mdMatch[1], wordCounterRef, activeWordIndex, isSpeaking)}
           </a>
         );
       }
@@ -66,7 +123,7 @@ function renderInlineFormatting(text) {
             className="text-[#027eb5] hover:text-[#015f8a] dark:text-[#53bdeb] dark:hover:text-[#7ad0f5] underline underline-offset-2 break-all font-medium cursor-pointer transition-colors inline select-text"
             title={linkPart}
           >
-            {linkPart}
+            {renderTextWithWordHighlights(linkPart, wordCounterRef, activeWordIndex, isSpeaking)}
           </a>
         );
       }
@@ -83,7 +140,7 @@ function renderInlineFormatting(text) {
             className="text-[#027eb5] hover:text-[#015f8a] dark:text-[#53bdeb] dark:hover:text-[#7ad0f5] underline underline-offset-2 break-all font-medium cursor-pointer transition-colors inline select-text"
             title={fullUrl}
           >
-            {linkPart}
+            {renderTextWithWordHighlights(linkPart, wordCounterRef, activeWordIndex, isSpeaking)}
           </a>
         );
       }
@@ -97,11 +154,11 @@ function renderInlineFormatting(text) {
           const clean = bPart.startsWith("**") ? bPart.slice(2, -2) : bPart.slice(1, -1);
           return (
             <strong key={`bold-${cIdx}-${lIdx}-${bIdx}`} className="font-semibold text-inherit">
-              {clean}
+              {renderTextWithWordHighlights(clean, wordCounterRef, activeWordIndex, isSpeaking)}
             </strong>
           );
         }
-        return bPart;
+        return renderTextWithWordHighlights(bPart, wordCounterRef, activeWordIndex, isSpeaking);
       });
     });
   });
@@ -185,8 +242,8 @@ function CodeBlock({ code, language, theme }) {
               type="button"
               onClick={() => setShowPreview((p) => !p)}
               className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer active:scale-95 ${showPreview
-                  ? "bg-cyan-500 text-white shadow-xs"
-                  : "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 hover:text-cyan-300"
+                ? "bg-cyan-500 text-white shadow-xs"
+                : "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 hover:text-cyan-300"
                 }`}
               title="Toggle interactive live preview"
             >
@@ -232,8 +289,59 @@ function CodeBlock({ code, language, theme }) {
   );
 }
 
-export function MetaAiMarkdown({ content, theme = "dark" }) {
+export function MetaAiMarkdown({ content, theme = "dark", messageId }) {
   if (!content) return null;
+
+  const [speechState, setSpeechState] = useState({
+    isSpeaking: false,
+    activeWordIndex: -1,
+    totalWords: 0,
+  });
+
+  const effectiveId = messageId || (content ? content.slice(0, 40) : "meta_ai_msg");
+
+  useEffect(() => {
+    const handleSpeech = (e) => {
+      const detail = e.detail;
+      if (!detail) return;
+      if (detail.type === "start" && detail.messageId === effectiveId) {
+        setSpeechState({
+          isSpeaking: true,
+          activeWordIndex: 0,
+          totalWords: detail.totalWords || 0,
+        });
+      } else if (detail.type === "boundary" && detail.messageId === effectiveId) {
+        setSpeechState((prev) => ({
+          ...prev,
+          isSpeaking: true,
+          activeWordIndex: detail.wordIndex,
+        }));
+      } else if (
+        (detail.type === "end" || detail.type === "stop") &&
+        detail.messageId === effectiveId
+      ) {
+        setSpeechState({
+          isSpeaking: false,
+          activeWordIndex: -1,
+          totalWords: 0,
+        });
+      } else if (detail.type === "stop_all") {
+        setSpeechState({
+          isSpeaking: false,
+          activeWordIndex: -1,
+          totalWords: 0,
+        });
+      }
+    };
+
+    window.addEventListener("meta_ai_speech_event", handleSpeech);
+    return () => {
+      window.removeEventListener("meta_ai_speech_event", handleSpeech);
+    };
+  }, [effectiveId]);
+
+  const wordCounterRef = { current: 0 };
+  const { isSpeaking, activeWordIndex, totalWords } = speechState;
 
   const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
   const segments = [];
@@ -264,6 +372,35 @@ export function MetaAiMarkdown({ content, theme = "dark" }) {
 
   return (
     <div className="space-y-1.5 leading-relaxed break-words">
+      {isSpeaking && (
+        <div className="flex items-center justify-between px-2.5 py-1 mb-1.5 rounded-lg bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-transparent border border-cyan-500/25 text-xs text-cyan-600 dark:text-cyan-300 animate-fadeIn select-none">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-0.5 h-3">
+              <span
+                className="w-0.5 h-2 bg-cyan-400 rounded-full animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              />
+              <span
+                className="w-0.5 h-3.5 bg-cyan-500 rounded-full animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              />
+              <span
+                className="w-0.5 h-2.5 bg-cyan-400 rounded-full animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              />
+            </span>
+            <span className="font-semibold text-[11px] tracking-wide">
+              Meta AI Voice • Reading Aloud
+            </span>
+          </div>
+          {totalWords > 0 && (
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">
+              {Math.min(activeWordIndex + 1, totalWords)} / {totalWords} words
+            </span>
+          )}
+        </div>
+      )}
+
       {segments.map((seg, idx) => {
         if (seg.type === "code") {
           return (
@@ -285,54 +422,76 @@ export function MetaAiMarkdown({ content, theme = "dark" }) {
                 return <div key={lIdx} className="h-1.5" />;
               }
 
+              const lineStartIdx = wordCounterRef.current;
+
+              let lineElement = null;
               if (trimmed.startsWith("### ")) {
-                return (
+                lineElement = (
                   <h4 key={lIdx} className="font-bold text-[15px] mt-2 mb-1 text-inherit">
-                    {renderInlineFormatting(trimmed.slice(4))}
+                    {renderInlineFormatting(trimmed.slice(4), wordCounterRef, activeWordIndex, isSpeaking)}
                   </h4>
                 );
-              }
-              if (trimmed.startsWith("## ")) {
-                return (
+              } else if (trimmed.startsWith("## ")) {
+                lineElement = (
                   <h3 key={lIdx} className="font-bold text-[16px] mt-2 mb-1 text-inherit">
-                    {renderInlineFormatting(trimmed.slice(3))}
+                    {renderInlineFormatting(trimmed.slice(3), wordCounterRef, activeWordIndex, isSpeaking)}
                   </h3>
                 );
-              }
-              if (trimmed.startsWith("# ")) {
-                return (
+              } else if (trimmed.startsWith("# ")) {
+                lineElement = (
                   <h2 key={lIdx} className="font-bold text-[17px] mt-2 mb-1 text-inherit">
-                    {renderInlineFormatting(trimmed.slice(2))}
+                    {renderInlineFormatting(trimmed.slice(2), wordCounterRef, activeWordIndex, isSpeaking)}
                   </h2>
                 );
-              }
-
-              if (trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
-                return (
+              } else if (trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+                lineElement = (
                   <div key={lIdx} className="flex items-start gap-2 ml-1">
                     <span className="text-emerald-500 font-bold select-none">•</span>
-                    <span className="flex-1">{renderInlineFormatting(trimmed.slice(2))}</span>
-                  </div>
-                );
-              }
-
-              const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
-              if (numberedMatch) {
-                return (
-                  <div key={lIdx} className="flex items-start gap-2 ml-1">
-                    <span className="text-[#00a884] dark:text-[#25d366] font-semibold text-xs select-none min-w-[16px]">
-                      {numberedMatch[1]}.
+                    <span className="flex-1">
+                      {renderInlineFormatting(trimmed.slice(2), wordCounterRef, activeWordIndex, isSpeaking)}
                     </span>
-                    <span className="flex-1">{renderInlineFormatting(numberedMatch[2])}</span>
+                  </div>
+                );
+              } else {
+                const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+                if (numberedMatch) {
+                  lineElement = (
+                    <div key={lIdx} className="flex items-start gap-2 ml-1">
+                      <span className="text-[#00a884] dark:text-[#25d366] font-semibold text-xs select-none min-w-[16px]">
+                        {numberedMatch[1]}.
+                      </span>
+                      <span className="flex-1">
+                        {renderInlineFormatting(numberedMatch[2], wordCounterRef, activeWordIndex, isSpeaking)}
+                      </span>
+                    </div>
+                  );
+                } else {
+                  lineElement = (
+                    <p key={lIdx} className="whitespace-pre-wrap">
+                      {renderInlineFormatting(line, wordCounterRef, activeWordIndex, isSpeaking)}
+                    </p>
+                  );
+                }
+              }
+
+              const lineEndIdx = wordCounterRef.current - 1;
+              const isLineActive =
+                isSpeaking &&
+                activeWordIndex >= lineStartIdx &&
+                activeWordIndex <= lineEndIdx;
+
+              if (isLineActive) {
+                return (
+                  <div
+                    key={lIdx}
+                    className="bg-cyan-500/5 dark:bg-cyan-400/5 rounded-md px-1 py-0.5 -mx-1 border-l-2 border-cyan-400 dark:border-cyan-400 transition-colors duration-150"
+                  >
+                    {lineElement}
                   </div>
                 );
               }
 
-              return (
-                <p key={lIdx} className="whitespace-pre-wrap">
-                  {renderInlineFormatting(line)}
-                </p>
-              );
+              return lineElement;
             })}
           </div>
         );
@@ -430,13 +589,94 @@ export function MetaAiImageCard({
           </button>
         </div>
       </div>
+
+      <div className="px-2.5 pb-2 pt-1 border-t border-black/5 dark:border-white/5 flex flex-wrap items-center gap-1.5 select-none bg-black/[0.02] dark:bg-white/[0.02]">
+        <span className="text-[10px] text-gray-400 font-medium mr-0.5">🎨 Remix:</span>
+        {[
+          { label: "Anime", style: "anime style, vibrant Makoto Shinkai aesthetic" },
+          { label: "Cyberpunk", style: "cyberpunk neon lights cinematic night 8k" },
+          { label: "4K Real", style: "photorealistic 8k, ultra-detailed photography" },
+          { label: "Oil Painting", style: "classical oil painting masterpiece, canvas texture" },
+          { label: "Fantasy", style: "epic fantasy concept art, mystical glowing lighting" },
+          { label: "3D Render", style: "Pixar 3D animated style, cute colorful octane render" },
+        ].map((remix, rIdx) => (
+          <button
+            key={rIdx}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              const basePrompt = (prompt || "image").replace(/^\/imagine\s*/i, "").trim();
+              const fullPrompt = `@Meta AI /imagine ${basePrompt}, ${remix.style}`;
+              window.dispatchEvent(
+                new CustomEvent("meta_ai_prefill", {
+                  detail: { text: fullPrompt, autoSend: true },
+                })
+              );
+            }}
+            className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-black/10 dark:border-white/10 hover:border-cyan-500/50 bg-black/5 dark:bg-white/5 hover:bg-cyan-500/10 text-gray-700 dark:text-gray-300 hover:text-cyan-500 transition-all cursor-pointer active:scale-95"
+            title={`Generate "${remix.label}" variation`}
+          >
+            {remix.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
-export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "dark" }) {
+export function MetaAiFeedbackBar({
+  messageId,
+  content,
+  onFeedback,
+  onRegenerate,
+  theme = "dark",
+  persona: propPersona,
+}) {
   const [feedback, setFeedback] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speechRate, setSpeechRate] = useState(1.05);
+  const fallbackIntervalRef = useRef(null);
+
+  const speechId = messageId || (content ? content.slice(0, 40) : "meta_ai_msg");
+
+  const cycleSpeechRate = (e) => {
+    e.stopPropagation();
+    setSpeechRate((prev) => {
+      const next = prev <= 1.1 ? 1.5 : prev <= 1.6 ? 2.0 : 1.05;
+      toast.info(`Reading speed: ${next > 1.6 ? "2x" : next > 1.1 ? "1.5x" : "1x"}`);
+      return next;
+    });
+  };
+
+  const [activePersonaId, setActivePersonaId] = useState(() => {
+    return propPersona || localStorage.getItem("meta_ai_persona") || "default";
+  });
+
+  useEffect(() => {
+    const handlePersonaChange = (e) => {
+      if (e.detail?.id) {
+        setActivePersonaId(e.detail.id);
+      }
+    };
+    window.addEventListener("meta_ai_persona_changed", handlePersonaChange);
+    return () => window.removeEventListener("meta_ai_persona_changed", handlePersonaChange);
+  }, []);
+
+  const activePersonaObj = PERSONAS.find((p) => p.id === activePersonaId) || PERSONAS[0];
+
+  useEffect(() => {
+    const handleGlobalSpeech = (e) => {
+      if (e.detail?.type === "stop_all" && isSpeaking) {
+        if (fallbackIntervalRef.current) clearInterval(fallbackIntervalRef.current);
+        setIsSpeaking(false);
+      }
+    };
+    window.addEventListener("meta_ai_speech_event", handleGlobalSpeech);
+    return () => {
+      window.removeEventListener("meta_ai_speech_event", handleGlobalSpeech);
+      if (fallbackIntervalRef.current) clearInterval(fallbackIntervalRef.current);
+    };
+  }, [isSpeaking]);
 
   const handleThumb = (type) => {
     if (feedback === type) {
@@ -461,15 +701,29 @@ export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "
       toast.info("Speech synthesis not supported in this browser");
       return;
     }
+
     if (isSpeaking) {
+      if (fallbackIntervalRef.current) clearInterval(fallbackIntervalRef.current);
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
+      window.dispatchEvent(
+        new CustomEvent("meta_ai_speech_event", {
+          detail: { type: "stop", messageId: speechId },
+        })
+      );
       return;
     }
-    window.speechSynthesis.cancel();
 
-    // Strip markdown formatting for natural speech
+    if (fallbackIntervalRef.current) clearInterval(fallbackIntervalRef.current);
+    window.speechSynthesis.cancel();
+    window.dispatchEvent(
+      new CustomEvent("meta_ai_speech_event", {
+        detail: { type: "stop_all" },
+      })
+    );
+
     const cleanText = (content || "")
+      .replace(/```[\s\S]*?```/g, " ")
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
       .replace(/[*_#`~>]/g, "")
       .replace(/🌐\s*Sources:[\s\S]*$/i, "")
@@ -478,11 +732,107 @@ export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "
 
     if (!cleanText) return;
 
+    const words = [];
+    const wordRegex = /\S+/g;
+    let match;
+    while ((match = wordRegex.exec(cleanText)) !== null) {
+      words.push({
+        index: words.length,
+        text: match[0],
+        charStart: match.index,
+        charEnd: match.index + match[0].length,
+      });
+    }
+
+    if (words.length === 0) return;
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.rate = 1.05;
+    utterance.rate = speechRate;
     utterance.pitch = 1.0;
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+
+    let hasReceivedBoundary = false;
+    let fallbackIndex = 0;
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      window.dispatchEvent(
+        new CustomEvent("meta_ai_speech_event", {
+          detail: {
+            type: "start",
+            messageId: speechId,
+            totalWords: words.length,
+            text: cleanText,
+          },
+        })
+      );
+
+      fallbackIntervalRef.current = setInterval(() => {
+        if (!hasReceivedBoundary) {
+          fallbackIndex++;
+          if (fallbackIndex < words.length) {
+            window.dispatchEvent(
+              new CustomEvent("meta_ai_speech_event", {
+                detail: {
+                  type: "boundary",
+                  messageId: speechId,
+                  wordIndex: fallbackIndex,
+                  charIndex: words[fallbackIndex].charStart,
+                  activeWord: words[fallbackIndex].text,
+                },
+              })
+            );
+          } else {
+            clearInterval(fallbackIntervalRef.current);
+          }
+        }
+      }, Math.round(330 / utterance.rate));
+    };
+
+    utterance.onboundary = (event) => {
+      hasReceivedBoundary = true;
+      if (fallbackIntervalRef.current) {
+        clearInterval(fallbackIntervalRef.current);
+        fallbackIntervalRef.current = null;
+      }
+      const charIdx = event.charIndex;
+      let wordIdx = 0;
+      for (let i = 0; i < words.length; i++) {
+        if (charIdx >= words[i].charStart && charIdx <= words[i].charEnd) {
+          wordIdx = i;
+          break;
+        }
+        if (charIdx < words[i].charStart) {
+          wordIdx = i > 0 ? i - 1 : 0;
+          break;
+        }
+        wordIdx = i;
+      }
+      window.dispatchEvent(
+        new CustomEvent("meta_ai_speech_event", {
+          detail: {
+            type: "boundary",
+            messageId: speechId,
+            wordIndex: wordIdx,
+            charIndex: charIdx,
+            activeWord: words[wordIdx]?.text || "",
+          },
+        })
+      );
+    };
+
+    const handleSpeechEnd = () => {
+      if (fallbackIntervalRef.current) clearInterval(fallbackIntervalRef.current);
+      setIsSpeaking(false);
+      window.dispatchEvent(
+        new CustomEvent("meta_ai_speech_event", {
+          detail: { type: "end", messageId: speechId },
+        })
+      );
+    };
+
+    utterance.onend = handleSpeechEnd;
+    utterance.onerror = handleSpeechEnd;
+
     setIsSpeaking(true);
     window.speechSynthesis.speak(utterance);
   };
@@ -511,14 +861,60 @@ export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "
         <button
           type="button"
           onClick={handleSpeak}
-          className={`p-1 rounded transition-colors cursor-pointer ${isSpeaking
-            ? "text-cyan-500 bg-cyan-500/15 animate-pulse"
+          className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-all cursor-pointer ${isSpeaking
+            ? "text-cyan-500 bg-cyan-500/15 border border-cyan-500/30 animate-pulse shadow-xs"
             : "text-inherit hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
             }`}
-          title={isSpeaking ? "Stop speaking" : "Listen to response"}
+          title={isSpeaking ? "Stop speaking" : "Listen to response with karaoke text highlight"}
         >
-          {isSpeaking ? <FaVolumeMute size={13} /> : <FaVolumeUp size={13} />}
+          {isSpeaking ? (
+            <>
+              <FaVolumeMute size={12} className="text-cyan-400" />
+              <span className="flex items-center gap-0.5 h-2.5">
+                <span
+                  className="w-0.5 h-full bg-cyan-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="w-0.5 h-2/3 bg-cyan-500 rounded-full animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <span
+                  className="w-0.5 h-full bg-cyan-400 rounded-full animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
+              </span>
+              <span className="text-[10px] font-semibold text-cyan-500">Speaking...</span>
+            </>
+          ) : (
+            <FaVolumeUp size={13} />
+          )}
         </button>
+
+        <button
+          type="button"
+          onClick={cycleSpeechRate}
+          className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-gray-500 dark:text-gray-400 hover:text-cyan-500 transition-all cursor-pointer"
+          title="Click to cycle voice reading speed (1x / 1.5x / 2x)"
+        >
+          {speechRate > 1.6 ? "2x" : speechRate > 1.1 ? "1.5x" : "1x"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent("open_translate_modal", {
+                detail: { text: content, messageId },
+              })
+            );
+          }}
+          className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer text-inherit hover:text-cyan-500 dark:hover:text-cyan-400"
+          title="Translate with Meta AI"
+        >
+          <HiLanguage size={14} />
+        </button>
+
         {onRegenerate && (
           <button
             type="button"
@@ -539,11 +935,23 @@ export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "
         </button>
       </div>
 
-      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] tracking-wide bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 dark:from-cyan-400/15 dark:via-blue-500/15 dark:to-pink-500/15 border border-cyan-500/20 dark:border-purple-400/25 shadow-2xs select-none backdrop-blur-xs transition-all hover:scale-102 hover:border-cyan-400/40">
+      <div
+        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] tracking-wide bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 dark:from-cyan-400/15 dark:via-blue-500/15 dark:to-pink-500/15 border border-cyan-500/20 dark:border-purple-400/25 shadow-2xs select-none backdrop-blur-xs transition-all hover:scale-102 hover:border-cyan-400/40"
+        title={activePersonaObj ? `AI Mode: ${activePersonaObj.name}` : "Meta AI"}
+      >
         <SiMetaai size={10} className="text-[#0081fb] dark:text-[#38bdf8] shrink-0" />
         <span className="bg-gradient-to-r from-[#0077b6] via-[#6366f1] to-[#d946ef] dark:from-[#38bdf8] dark:via-[#a855f7] dark:to-[#f472b6] bg-clip-text text-transparent font-semibold">
           Meta AI
         </span>
+        {activePersonaObj && activePersonaObj.id !== "default" && (
+          <>
+            <span className="opacity-30">•</span>
+            <span className="flex items-center gap-1 font-medium text-gray-600 dark:text-gray-300">
+              <span>{activePersonaObj.icon}</span>
+              <span>{activePersonaObj.shortName}</span>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -649,43 +1057,86 @@ export function MetaAiQuickFollowups({
 }
 
 export function MetaAiThumbnailGallery({ images = [], onOpenViewer, theme = "dark" }) {
+  const [hoveredIdx, setHoveredIdx] = useState(null);
+
   if (!Array.isArray(images) || images.length === 0) return null;
   const displayImages = images.slice(0, 5);
 
   return (
-    <div className="my-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 select-none">
-      <div className="flex items-center justify-between mb-1.5 px-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
-        <span className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 inline-block animate-pulse" />
-          <span>Web Images</span>
+    <div className="my-2 p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 select-none">
+      <div className="flex items-center justify-between mb-2 px-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+        <span className="flex items-center gap-1.5 truncate pr-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 inline-block animate-pulse shrink-0" />
+          <span className="font-semibold text-gray-700 dark:text-gray-300">Web Images</span>
+          {hoveredIdx !== null && displayImages[hoveredIdx]?.title && (
+            <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-normal truncate transition-all">
+              • {displayImages[hoveredIdx].title}
+            </span>
+          )}
         </span>
-        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 dark:bg-white/10 font-mono">
+        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 dark:bg-white/10 font-mono shrink-0">
           {displayImages.length} {displayImages.length === 1 ? "image" : "images"}
         </span>
       </div>
 
-      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-        {displayImages.map((img, idx) => (
-          <div
-            key={idx}
-            onClick={() => onOpenViewer?.(img.imageUrl)}
-            className="group relative aspect-square rounded-lg overflow-hidden border border-black/10 dark:border-white/15 bg-black/10 dark:bg-white/10 cursor-pointer shadow-xs hover:shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
-            title={img.title || "Click to view full image"}
-          >
-            <img
-              src={img.imageUrl}
-              alt={img.title || "Search image"}
-              loading="lazy"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <span className="text-white text-[10px] drop-shadow">🔍</span>
+      <div
+        className="grid grid-cols-5 gap-1.5 sm:gap-2 overflow-visible py-1.5"
+        onMouseLeave={() => setHoveredIdx(null)}
+      >
+        {displayImages.map((img, idx) => {
+          const isHovered = hoveredIdx === idx;
+          const isAnotherHovered = hoveredIdx !== null && !isHovered;
+
+          return (
+            <div
+              key={idx}
+              onMouseEnter={() => setHoveredIdx(idx)}
+              onClick={() => onOpenViewer?.(img.imageUrl)}
+              className={`relative aspect-square rounded-xl overflow-hidden cursor-pointer transition-all duration-300 ease-out ${
+                isHovered
+                  ? "scale-115 -translate-y-2 z-30 shadow-[0_12px_28px_-4px_rgba(6,182,212,0.45)] ring-2 ring-cyan-400 dark:ring-cyan-300 border-transparent"
+                  : isAnotherHovered
+                  ? "opacity-45 scale-95 filter brightness-90 border border-black/10 dark:border-white/10"
+                  : "opacity-100 scale-100 border border-black/10 dark:border-white/15 bg-black/10 dark:bg-white/10 shadow-xs hover:border-cyan-400/50"
+              }`}
+              title={img.title || "Click to view full image"}
+            >
+              <img
+                src={img.imageUrl}
+                alt={img.title || "Search image"}
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+                className={`w-full h-full object-cover transition-transform duration-500 ease-out ${
+                  isHovered ? "scale-115" : "scale-100"
+                }`}
+              />
+
+              {/* Shimmer light reflection when hovering this separate image */}
+              {isHovered && (
+                <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-transparent via-white/20 to-transparent animate-pulse" />
+              )}
+
+              {/* Separate hover animation overlay with badge & title */}
+              <div
+                className={`absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/30 transition-all duration-300 flex flex-col justify-between p-1.5 pointer-events-none ${
+                  isHovered ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <div className="flex justify-end">
+                  <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/90 backdrop-blur-xs text-[9px] font-bold text-white shadow-sm flex items-center gap-1 transform transition-transform">
+                    <span className="text-[8px]">🔍</span>
+                    <span className="text-[8px]">View</span>
+                  </span>
+                </div>
+                <p className="text-[9px] text-white/95 font-medium truncate drop-shadow-sm">
+                  {img.title || "View image"}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FaCaretDown, FaCheck } from "react-icons/fa";
+import { toast } from "react-toastify";
 
 export const PERSONAS = [
   {
@@ -7,6 +8,11 @@ export const PERSONAS = [
     name: "Helpful Assistant",
     shortName: "Default",
     icon: "⚡",
+    tag: "Balanced",
+    color: "from-cyan-400 to-blue-500",
+    textColor: "text-cyan-400",
+    bgAlpha: "bg-cyan-500/15",
+    borderAlpha: "border-cyan-500/30",
     description: "Balanced, friendly, and factual for everyday questions",
   },
   {
@@ -14,6 +20,11 @@ export const PERSONAS = [
     name: "Software Architect",
     shortName: "Coder",
     icon: "💻",
+    tag: "Tech",
+    color: "from-emerald-400 to-teal-500",
+    textColor: "text-emerald-400",
+    bgAlpha: "bg-emerald-500/15",
+    borderAlpha: "border-emerald-500/30",
     description: "Production-ready code, modern patterns, clean architecture",
   },
   {
@@ -21,6 +32,11 @@ export const PERSONAS = [
     name: "Teacher / ELI5",
     shortName: "Tutor",
     icon: "🎓",
+    tag: "Learn",
+    color: "from-amber-400 to-orange-500",
+    textColor: "text-amber-400",
+    bgAlpha: "bg-amber-500/15",
+    borderAlpha: "border-amber-500/30",
     description: "Explains concepts simply with clear, fun analogies",
   },
   {
@@ -28,6 +44,11 @@ export const PERSONAS = [
     name: "Ultra Concise",
     shortName: "Concise",
     icon: "📝",
+    tag: "Speed",
+    color: "from-indigo-400 to-violet-500",
+    textColor: "text-indigo-400",
+    bgAlpha: "bg-indigo-500/15",
+    borderAlpha: "border-indigo-500/30",
     description: "Direct bullet points, high information density, no fluff",
   },
   {
@@ -35,6 +56,11 @@ export const PERSONAS = [
     name: "Creative Writer",
     shortName: "Creative",
     icon: "🎨",
+    tag: "Story",
+    color: "from-fuchsia-400 to-pink-500",
+    textColor: "text-pink-400",
+    bgAlpha: "bg-pink-500/15",
+    borderAlpha: "border-pink-500/30",
     description: "Vivid storytelling, engaging prose, imaginative ideas",
   },
 ];
@@ -61,6 +87,11 @@ export default function MetaAiPersonaSelector({ theme = "dark", onChange }) {
     localStorage.setItem("meta_ai_persona", id);
     setIsOpen(false);
     onChange?.(id);
+    const chosen = PERSONAS.find((p) => p.id === id) || PERSONAS[0];
+    window.dispatchEvent(
+      new CustomEvent("meta_ai_persona_changed", { detail: chosen })
+    );
+    toast.success(`Meta AI Mode: ${chosen.name} ${chosen.icon}`);
   };
 
   const current = PERSONAS.find((p) => p.id === selectedPersona) || PERSONAS[0];
@@ -70,63 +101,114 @@ export default function MetaAiPersonaSelector({ theme = "dark", onChange }) {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer shadow-2xs hover:scale-102 active:scale-95 ${
-          theme === "dark"
-            ? "bg-[#182229] hover:bg-[#202c33] text-gray-200 border-white/10"
-            : "bg-white hover:bg-gray-50 text-gray-700 border-black/10"
-        }`}
-        title="Change Meta AI persona / response style"
+        className={`group relative flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md hover:scale-105 active:scale-95 ${theme === "dark"
+            ? "bg-[#182229]/90 hover:bg-[#202c33] text-gray-100 border-white/10 hover:border-cyan-500/40"
+            : "bg-white/95 hover:bg-gray-50 text-gray-800 border-black/10 hover:border-cyan-600/40"
+          } backdrop-blur-xs`}
+        title={`Current Persona: ${current.name} (${current.shortName}). Click to switch.`}
       >
-        <span>{current.icon}</span>
-        <span className="font-semibold text-[11.5px]">{current.shortName}</span>
+        <span className="flex items-center justify-center w-4 h-4 rounded-full text-[11px] shrink-0">
+          {current.icon}
+        </span>
+        <span className="font-semibold text-[11.5px] tracking-tight bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent">
+          {current.shortName}
+        </span>
+        <span
+          className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${current.color} shadow-xs shrink-0 animate-pulse`}
+        />
         <FaCaretDown
-          size={10}
-          className={`opacity-50 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          size={9}
+          className={`text-gray-400 group-hover:text-cyan-400 transition-transform duration-200 ml-0.5 ${isOpen ? "rotate-180" : ""
+            }`}
         />
       </button>
 
       {isOpen && (
         <div
-          className={`absolute left-0 mt-1.5 w-60 rounded-xl py-1.5 shadow-2xl z-50 border transition-all animate-in fade-in zoom-in-95 duration-150 ${
-            theme === "dark"
-              ? "bg-[#233138] border-[#374248] text-white"
-              : "bg-white border-gray-200 text-gray-900 shadow-[0_10px_35px_rgba(0,0,0,0.15)]"
-          }`}
+          className={`absolute left-0 mt-2 w-72 rounded-2xl shadow-2xl z-50 border overflow-hidden backdrop-blur-xl transition-all animate-in fade-in zoom-in-95 duration-150 ${theme === "dark"
+              ? "bg-[#1f2c34]/95 border-[#374248] text-white shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+              : "bg-white/95 border-gray-200 text-gray-900 shadow-[0_12px_40px_rgba(0,0,0,0.15)]"
+            }`}
         >
-          <div className="px-3 py-1 text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-            AI Persona Mode
+          <div className="h-1 w-full bg-gradient-to-r from-cyan-400 via-indigo-500 to-pink-500" />
+
+          <div className="px-3.5 pt-2.5 pb-2 flex items-center justify-between border-b border-black/5 dark:border-white/5">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px]">✨</span>
+              <span className="text-[11px] font-bold tracking-wider uppercase bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 dark:from-cyan-400 dark:via-blue-400 dark:to-pink-400 bg-clip-text text-transparent">
+                Meta AI Persona
+              </span>
+            </div>
+            <span className="text-[9.5px] px-1.5 py-0.5 rounded-full font-medium bg-black/5 dark:bg-white/10 text-gray-500 dark:text-gray-400">
+              {PERSONAS.length} styles
+            </span>
           </div>
 
-          {PERSONAS.map((p) => {
-            const isChosen = p.id === selectedPersona;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => handleSelect(p.id)}
-                className={`w-full flex items-start gap-2.5 px-3 py-2 text-left text-xs transition-colors cursor-pointer ${
-                  theme === "dark"
-                    ? isChosen
-                      ? "bg-white/10 text-cyan-400"
-                      : "hover:bg-white/5 text-gray-300 hover:text-white"
-                    : isChosen
-                    ? "bg-cyan-50 text-cyan-700"
-                    : "hover:bg-gray-50 text-gray-700 hover:text-gray-900"
-                }`}
-              >
-                <span className="text-sm mt-0.5">{p.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold flex items-center justify-between">
-                    <span>{p.name}</span>
-                    {isChosen && <FaCheck size={11} className="text-cyan-500" />}
+          <div className="p-1.5 space-y-1">
+            {PERSONAS.map((p) => {
+              const isChosen = p.id === selectedPersona;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleSelect(p.id)}
+                  className={`w-full group flex items-start gap-2.5 p-2 rounded-xl text-left transition-all duration-150 cursor-pointer ${isChosen
+                      ? theme === "dark"
+                        ? "bg-white/10 shadow-xs border border-white/10"
+                        : "bg-cyan-500/10 shadow-xs border border-cyan-500/20"
+                      : theme === "dark"
+                        ? "hover:bg-white/5 hover:border-white/5 border border-transparent"
+                        : "hover:bg-gray-100/70 hover:border-gray-200 border border-transparent"
+                    }`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0 transition-transform duration-200 group-hover:scale-110 shadow-xs ${isChosen
+                        ? `bg-gradient-to-br ${p.color} text-white shadow-md`
+                        : `${p.bgAlpha} ${p.borderAlpha} border`
+                      }`}
+                  >
+                    <span>{p.icon}</span>
                   </div>
-                  <p className="text-[10.5px] text-gray-400 leading-tight mt-0.5 truncate">
-                    {p.description}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span
+                        className={`font-semibold text-xs transition-colors ${isChosen
+                            ? theme === "dark"
+                              ? "text-cyan-300"
+                              : "text-cyan-700 font-bold"
+                            : theme === "dark"
+                              ? "text-gray-200 group-hover:text-white"
+                              : "text-gray-800 group-hover:text-black"
+                          }`}
+                      >
+                        {p.name}
+                      </span>
+                      {isChosen ? (
+                        <div className="w-4 h-4 rounded-full bg-cyan-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                          <FaCheck size={9} />
+                        </div>
+                      ) : (
+                        <span
+                          className={`text-[9.5px] px-1.5 py-0.2 rounded font-mono font-medium ${p.bgAlpha} ${p.textColor}`}
+                        >
+                          {p.tag}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-snug mt-0.5 line-clamp-2">
+                      {p.description}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="px-3 py-1.5 bg-black/5 dark:bg-black/20 text-[9.5px] text-gray-500 dark:text-gray-400 text-center border-t border-black/5 dark:border-white/5 flex items-center justify-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+            <span>Active persona controls response formatting & tone</span>
+          </div>
         </div>
       )}
     </div>

@@ -25,5 +25,7 @@ router.put("/conversation/:conversationId/disappearing", authMiddleware, chatCon
 router.post("/disappearing-duration", authMiddleware, chatController.setDisappearingDuration);
 router.post("/meta-ai", authMiddleware, chatController.askMetaAi);
 router.post("/summarize", authMiddleware, chatController.summarizeConversation);
+router.post("/translate", authMiddleware, chatController.translateText);
+router.post("/smart-replies", authMiddleware, chatController.getSmartReplies);
 
 export default router;

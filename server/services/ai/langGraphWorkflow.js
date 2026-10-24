@@ -1,7 +1,7 @@
 import { Annotation, StateGraph, START, END } from "@langchain/langgraph";
 import { classifyPromptIntent } from "./intentClassifier.js";
 import { searchSearxng } from "./searxngService.js";
-import { generateAiImage } from "./imageGenService.js";
+import { generateAiImage, generateAiSticker } from "./imageGenService.js";
 import { callDualLlm } from "./llmProvider.js";
 import { SYSTEM_PROMPT, getSystemPromptWithTime } from "./config.js";
 
@@ -54,14 +54,12 @@ async function routerNode(state) {
 }
 
 function routeByIntent(state) {
+  if (state.intent === "STICKER_GEN") return "stickerGen";
   if (state.intent === "IMAGE_GEN") return "imageGen";
   if (state.intent === "WEB_SEARCH") return "webSearch";
   return "directChat";
 }
 
-/**
- * Extracts and cleans dynamic follow-up suggestions from model response
- */
 export function extractSuggestions(text, prompt = "") {
   if (!text || typeof text !== "string") {
     return {
@@ -71,7 +69,7 @@ export function extractSuggestions(text, prompt = "") {
   }
 
   const suggestionsMatch = text.match(
-    /💡\s*\*?Suggestions:?\*?[\r\n]+((?:[•\-\*]\s*[^\r\n]+[\r\n]*)+)/i
+    /💡\s*\*?Suggestions:?\*?[\r\n]+((?:[•\-\*]\s*[^\r\n]+[\r\n]*)+)/i,
   );
 
   let suggestions = [];
@@ -85,7 +83,7 @@ export function extractSuggestions(text, prompt = "") {
         line
           .replace(/^[•\-\*]\s*/, "")
           .replace(/^\[([^\]]+)\]$/, "$1")
-          .trim()
+          .trim(),
       )
       .filter((s) => s.length > 2 && s.length < 90)
       .slice(0, 3);
@@ -100,14 +98,15 @@ export function extractSuggestions(text, prompt = "") {
   return { cleanContent, suggestions };
 }
 
-/**
- * Intelligent topic-based fallback suggestions
- */
 export function generateFallbackSuggestions(prompt = "", content = "") {
   const p = (prompt || "").toLowerCase();
   const c = (content || "").toLowerCase();
 
-  if (p.includes("/imagine") || p.includes("generate image") || p.includes("draw")) {
+  if (
+    p.includes("/imagine") ||
+    p.includes("generate image") ||
+    p.includes("draw")
+  ) {
     return [
       "Make it cyberpunk neon style",
       "Change to cinematic sunset background",
@@ -128,7 +127,11 @@ export function generateFallbackSuggestions(prompt = "", content = "") {
       "Time difference with UTC",
     ];
   }
-  if (p.includes("weather") || c.includes("weather") || c.includes("temperature")) {
+  if (
+    p.includes("weather") ||
+    c.includes("weather") ||
+    c.includes("temperature")
+  ) {
     return [
       "Weather forecast for tomorrow",
       "Will it rain today?",
@@ -142,7 +145,12 @@ export function generateFallbackSuggestions(prompt = "", content = "") {
       "Net worth & current role",
     ];
   }
-  if (c.includes("```") || p.includes("code") || p.includes("function") || p.includes("bug")) {
+  if (
+    c.includes("```") ||
+    p.includes("code") ||
+    p.includes("function") ||
+    p.includes("bug")
+  ) {
     return [
       "Explain this code step by step",
       "Show a working usage example",
@@ -164,9 +172,6 @@ export function generateFallbackSuggestions(prompt = "", content = "") {
   ];
 }
 
-/**
- * Node 2A: Image Generation Node (Flux Diffusion)
- */
 async function imageGenNode(state) {
   const imageResult = generateAiImage(state.prompt);
   const suggestions = [
@@ -183,9 +188,23 @@ async function imageGenNode(state) {
   };
 }
 
-/**
- * Node 2B: Web Search Node (SearXNG Web + Images)
- */
+async function stickerGenNode(state) {
+  const stickerResult = generateAiSticker(state.prompt);
+  const suggestions = [
+    "Make another sticker of this",
+    "Change expression to laughing",
+    "Generate a cartoon reaction pack",
+  ];
+  return {
+    finalResult: {
+      ...stickerResult,
+      contentType: "sticker",
+      metaAiSuggestions: suggestions,
+      suggestions: suggestions,
+    },
+  };
+}
+
 async function webSearchNode(state) {
   const searchData = await searchSearxng(state.prompt);
   return {
@@ -194,9 +213,6 @@ async function webSearchNode(state) {
   };
 }
 
-/**
- * Node 2C: Direct Conversation Node (Dual Gemini + Groq)
- */
 async function directChatNode(state) {
   const personaSuffix = PERSONA_PROMPTS[state.persona] || "";
   const systemPrompt = `${getSystemPromptWithTime()}${personaSuffix}
@@ -227,9 +243,6 @@ At the very end of your response, on a new line, always provide 3 distinct, conc
   };
 }
 
-/**
- * Node 3: Synthesizer Node (Combines Search Context, Images & Citations)
- */
 async function synthesizerNode(state) {
   const { searchResults, searchImages, prompt, chatHistory, persona } = state;
   const personaSuffix = PERSONA_PROMPTS[persona] || "";
@@ -304,18 +317,21 @@ Formatting Guidelines:
 const workflow = new StateGraph(MetaAiState)
   .addNode("router", routerNode)
   .addNode("imageGen", imageGenNode)
+  .addNode("stickerGen", stickerGenNode)
   .addNode("webSearch", webSearchNode)
   .addNode("synthesizer", synthesizerNode)
   .addNode("directChat", directChatNode)
   .addEdge(START, "router")
   .addConditionalEdges("router", routeByIntent, {
     imageGen: "imageGen",
+    stickerGen: "stickerGen",
     webSearch: "webSearch",
     directChat: "directChat",
   })
   .addEdge("webSearch", "synthesizer")
   .addEdge("synthesizer", END)
   .addEdge("imageGen", END)
+  .addEdge("stickerGen", END)
   .addEdge("directChat", END);
 
 export const metaAiGraph = workflow.compile();
