@@ -19,7 +19,13 @@ import PinDurationModal from "../../components/modals/PinDurationModal";
 import ReportModal from "../../components/modals/ReportModal";
 import MessageMenu from "./MessageMenu";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
-import { MetaAiMarkdown, MetaAiFeedbackBar, MetaAiImageCard } from "../../components/common/MetaAiContent";
+import {
+  MetaAiMarkdown,
+  MetaAiFeedbackBar,
+  MetaAiImageCard,
+  MetaAiThumbnailGallery,
+  MetaAiQuickFollowups,
+} from "../../components/common/MetaAiContent";
 import {
   WhatsAppPinIcon,
   WhatsAppUnpinIcon,
@@ -711,6 +717,76 @@ const MessageBuble = ({
     [highlightText]
   );
 
+  const renderTextWithLinks = useCallback(
+    (plainText, term) => {
+      if (!plainText || typeof plainText !== "string") return plainText;
+
+      const linkRegex =
+        /(\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<]+[^<.,:;"')\]\s]|www\.[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=]+[^<.,:;"')\]\s])/gi;
+
+      const segments = plainText.split(linkRegex);
+
+      return segments.map((seg, sIdx) => {
+        if (!seg) return null;
+
+        const mdMatch = seg.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+        if (mdMatch) {
+          const href = mdMatch[2];
+          const label = mdMatch[1];
+          return (
+            <a
+              key={`link-md-${sIdx}`}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#027eb5] hover:text-[#015f8a] dark:text-[#53bdeb] dark:hover:text-[#7ad0f5] underline underline-offset-2 break-all font-medium cursor-pointer transition-colors inline select-text"
+              title={href}
+            >
+              {term ? safeHighlight(label, term) : label}
+            </a>
+          );
+        }
+
+        if (/^https?:\/\//i.test(seg)) {
+          return (
+            <a
+              key={`link-raw-${sIdx}`}
+              href={seg}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#027eb5] hover:text-[#015f8a] dark:text-[#53bdeb] dark:hover:text-[#7ad0f5] underline underline-offset-2 break-all font-medium cursor-pointer transition-colors inline select-text"
+              title={seg}
+            >
+              {term ? safeHighlight(seg, term) : seg}
+            </a>
+          );
+        }
+
+        if (/^www\./i.test(seg)) {
+          const href = `https://${seg}`;
+          return (
+            <a
+              key={`link-www-${sIdx}`}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#027eb5] hover:text-[#015f8a] dark:text-[#53bdeb] dark:hover:text-[#7ad0f5] underline underline-offset-2 break-all font-medium cursor-pointer transition-colors inline select-text"
+              title={href}
+            >
+              {term ? safeHighlight(seg, term) : seg}
+            </a>
+          );
+        }
+
+        return term ? safeHighlight(seg, term) : seg;
+      });
+    },
+    [safeHighlight]
+  );
+
   const renderContentWithMentions = useCallback(
     (text, term) => {
       if (!text || typeof text !== "string") return text;
@@ -788,7 +864,7 @@ const MessageBuble = ({
           );
         }
 
-        return term ? safeHighlight(part, term) : part;
+        return renderTextWithLinks(part, term);
       });
     },
     [
@@ -798,7 +874,7 @@ const MessageBuble = ({
       activeContact,
       conversationObj,
       openContactInfoWithMember,
-      safeHighlight,
+      renderTextWithLinks,
     ]
   );
 
@@ -1299,7 +1375,44 @@ const MessageBuble = ({
                         ) : isMetaAiMessage ? (
                           <div className="space-y-1">
                             <MetaAiMarkdown content={displayContent} theme={theme} />
-                            <MetaAiFeedbackBar content={displayContent} theme={theme} />
+                            {message.metaAiImages && message.metaAiImages.length > 0 && (
+                              <MetaAiThumbnailGallery
+                                images={message.metaAiImages}
+                                theme={theme}
+                                onOpenViewer={(url) => {
+                                  setViewerModalFile({
+                                    url,
+                                    name: "web-image.jpg",
+                                    type: "image",
+                                    size: message.fileSize,
+                                    sender: message.sender,
+                                    createdAt: message.createdAt,
+                                    messageId: message._id,
+                                    isUserMessage: false,
+                                  });
+                                }}
+                              />
+                            )}
+                            <MetaAiFeedbackBar
+                              content={displayContent}
+                              theme={theme}
+                              onRegenerate={() => {
+                                const promptToRegen = message.metaAiPrompt || message.content;
+                                if (promptToRegen) {
+                                  window.dispatchEvent(
+                                    new CustomEvent("meta_ai_prefill", { detail: promptToRegen })
+                                  );
+                                }
+                              }}
+                            />
+                            <MetaAiQuickFollowups
+                              theme={theme}
+                              onSelect={(followupText) => {
+                                window.dispatchEvent(
+                                  new CustomEvent("meta_ai_prefill", { detail: followupText })
+                                );
+                              }}
+                            />
                           </div>
                         ) : (
                           <span className="break-words whitespace-pre-wrap">
@@ -1330,7 +1443,7 @@ const MessageBuble = ({
                   </>
                 )}
 
-                {(message.contentType === "ai_image" || (isMetaAiMessage && message.imageOrVideoUrl)) && (
+                {(message.contentType === "ai_image" || (isMetaAiMessage && message.imageOrVideoUrl && (!message.metaAiImages || message.metaAiImages.length === 0))) && (
                   <div className="max-w-full">
                     <MetaAiImageCard
                       imageUrl={message.imageOrVideoUrl}
@@ -1400,6 +1513,7 @@ const MessageBuble = ({
                     displayContent={displayContent}
                     searchTerm={searchTerm}
                     safeHighlight={safeHighlight}
+                    renderContentWithMentions={renderContentWithMentions}
                   />
                 )}
 
@@ -1430,6 +1544,9 @@ const MessageBuble = ({
                     )}
                     isWaitingDecryption={isWaitingDecryption}
                     displayContent={displayContent}
+                    searchTerm={searchTerm}
+                    safeHighlight={safeHighlight}
+                    renderContentWithMentions={renderContentWithMentions}
                   />
                 )}
 

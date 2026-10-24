@@ -12,6 +12,7 @@ export const MessageImageContent = ({
   displayContent,
   searchTerm,
   safeHighlight,
+  renderContentWithMentions,
 }) => {
   const handleOpenViewer = () => {
     try {
@@ -114,9 +115,11 @@ export const MessageImageContent = ({
             </span>
           ) : (
             <span className="break-words whitespace-pre-wrap">
-              {searchTerm
-                ? safeHighlight(displayContent || "", searchTerm)
-                : displayContent}
+              {renderContentWithMentions
+                ? renderContentWithMentions(displayContent, searchTerm)
+                : (searchTerm
+                    ? safeHighlight(displayContent || "", searchTerm)
+                    : displayContent)}
             </span>
           )}
           <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
@@ -136,6 +139,9 @@ export const MessageVideoContent = ({
   renderTimestampAndStatus,
   isWaitingDecryption,
   displayContent,
+  searchTerm,
+  safeHighlight,
+  renderContentWithMentions,
 }) => {
   const handleOpenViewer = () => {
     try {
@@ -240,7 +246,11 @@ export const MessageVideoContent = ({
             </span>
           ) : (
             <span className="break-words whitespace-pre-wrap">
-              {displayContent}
+              {renderContentWithMentions
+                ? renderContentWithMentions(displayContent, searchTerm)
+                : (searchTerm
+                    ? safeHighlight(displayContent || "", searchTerm)
+                    : displayContent)}
             </span>
           )}
           <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">

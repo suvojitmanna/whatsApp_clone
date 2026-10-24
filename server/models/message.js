@@ -78,6 +78,13 @@ const messageSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    metaAiImages: [
+      {
+        title: { type: String, default: "" },
+        imageUrl: { type: String, default: "" },
+        sourceUrl: { type: String, default: "" },
+      },
+    ],
     isEncrypted: {
       type: Boolean,
       default: false,

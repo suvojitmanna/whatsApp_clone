@@ -115,6 +115,11 @@ async function triggerMetaAiResponse({
       content: aiResult.content || "",
       contentType: aiResult.type === "image" ? "image" : "text",
       imageOrVideoUrl: aiResult.imageOrVideoUrl || null,
+      metaAiImages: Array.isArray(aiResult.metaAiImages)
+        ? aiResult.metaAiImages
+        : Array.isArray(aiResult.searchImages)
+          ? aiResult.searchImages
+          : [],
       isMetaAi: true,
       metaAiPrompt: rawPrompt,
       messageStatus: "read",
