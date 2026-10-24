@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { FaCamera, FaFileAlt, FaHeadphones, FaImage, FaMicrophone, FaUsers } from "react-icons/fa";
 import { IoSend } from "react-icons/io5";
 import { FaSquarePollHorizontal } from "react-icons/fa6";
@@ -7,6 +7,7 @@ import { TfiClip } from "react-icons/tfi";
 import { RiContactsFill, RiEmojiStickerLine, RiDeleteBin6Line } from "react-icons/ri";
 import EmojiPicker from "emoji-picker-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "react-toastify";
 import { MetaAiRing } from "../../../components/common/MetaAiIcon";
 import ReplyPreviewBar from "./ReplyPreviewBar";
 
@@ -67,6 +68,66 @@ export const ChatInputBar = ({
 }) => {
   const [mentionQuery, setMentionQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isDictating, setIsDictating] = useState(false);
+  const recognitionRef = useRef(null);
+
+  const toggleVoiceDictation = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      toast.info("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    if (isDictating) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsDictating(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsDictating(true);
+        toast.info("Listening... Speak your message", { autoClose: 2000 });
+      };
+
+      recognition.onresult = (event) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript) {
+          setMessage((prev) => {
+            const trimmed = (prev || "").trim();
+            return trimmed ? `${trimmed} ${transcript}` : transcript;
+          });
+        }
+      };
+
+      recognition.onerror = (err) => {
+        console.warn("Speech recognition error:", err);
+        setIsDictating(false);
+      };
+
+      recognition.onend = () => {
+        setIsDictating(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      console.warn("Speech recognition init failed:", e);
+      setIsDictating(false);
+    }
+  };
 
   const filteredMentionItems = useMemo(() => {
     if (!showMentionPopover) return [];
@@ -642,8 +703,13 @@ export const ChatInputBar = ({
         ) : (
           <button
             type="button"
-            className="shrink-0 p-2 sm:p-2.5 rounded-full border border-transparent text-gray-500 dark:text-[#8696a0] hover:text-gray-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 hover:border-black/10 dark:hover:border-white/15 transition-all cursor-pointer"
-            title="Voice message"
+            onClick={toggleVoiceDictation}
+            className={`shrink-0 p-2 sm:p-2.5 rounded-full border transition-all cursor-pointer ${
+              isDictating
+                ? "bg-red-500 text-white border-red-600 animate-pulse shadow-md"
+                : "border-transparent text-gray-500 dark:text-[#8696a0] hover:text-gray-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 hover:border-black/10 dark:hover:border-white/15"
+            }`}
+            title={isDictating ? "Stop voice dictation" : "Voice dictation (Speech to text)"}
           >
             <FaMicrophone className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
           </button>

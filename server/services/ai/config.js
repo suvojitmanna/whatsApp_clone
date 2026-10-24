@@ -46,14 +46,14 @@ When the user asks for the current time, today's date, or day of the week, answe
 export const AI_CONFIG = {
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || "",
-    model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
-    timeoutMs: 8000,
+    model: process.env.GEMINI_MODEL || "gemini-flash-latest",
+    timeoutMs: 12000,
   },
   groq: {
     apiKey: process.env.GROQ_API_KEY || "",
     model: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
     fastModel: "qwen/qwen3.8-27b",
-    timeoutMs: 8000,
+    timeoutMs: 10000,
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY || "",

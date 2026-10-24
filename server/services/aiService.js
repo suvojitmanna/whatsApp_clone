@@ -69,8 +69,8 @@ export async function ensureMetaAiUser() {
   }
 }
 
-export async function processMetaAiQuery(prompt, chatHistory = []) {
-  return await executeMetaAiWorkflow(prompt, chatHistory);
+export async function processMetaAiQuery(prompt, chatHistory = [], persona = "default") {
+  return await executeMetaAiWorkflow(prompt, chatHistory, persona);
 }
 
 export async function generateAiText(prompt, chatHistory = []) {

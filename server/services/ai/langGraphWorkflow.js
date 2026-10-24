@@ -5,6 +5,18 @@ import { generateAiImage } from "./imageGenService.js";
 import { callDualLlm } from "./llmProvider.js";
 import { SYSTEM_PROMPT, getSystemPromptWithTime } from "./config.js";
 
+export const PERSONA_PROMPTS = {
+  coder:
+    "\nSpecial Persona: You are an elite Senior Software Architect. Prioritize clean, modern, bug-free production code with clear architecture.",
+  tutor:
+    "\nSpecial Persona: You are a friendly, encouraging Teacher. Explain concepts in intuitive, simple terms using fun real-world analogies (ELI5).",
+  concise:
+    "\nSpecial Persona: You are Ultra Concise. Provide direct, high-density bullet points with zero fluff or filler.",
+  creative:
+    "\nSpecial Persona: You are a Creative Writer & Storyteller. Use rich imagery, evocative vocabulary, and imaginative prose.",
+  default: "",
+};
+
 export const MetaAiState = Annotation.Root({
   prompt: Annotation({
     reducer: (prev, next) => (next !== undefined ? next : prev),
@@ -17,6 +29,10 @@ export const MetaAiState = Annotation.Root({
   intent: Annotation({
     reducer: (prev, next) => (next !== undefined ? next : prev),
     default: () => "DIRECT_CHAT",
+  }),
+  persona: Annotation({
+    reducer: (prev, next) => (next !== undefined ? next : prev),
+    default: () => "default",
   }),
   searchResults: Annotation({
     reducer: (prev, next) => (next !== undefined ? next : prev),
@@ -182,7 +198,8 @@ async function webSearchNode(state) {
  * Node 2C: Direct Conversation Node (Dual Gemini + Groq)
  */
 async function directChatNode(state) {
-  const systemPrompt = `${getSystemPromptWithTime()}
+  const personaSuffix = PERSONA_PROMPTS[state.persona] || "";
+  const systemPrompt = `${getSystemPromptWithTime()}${personaSuffix}
 
 Follow-up Suggestions Guideline:
 At the very end of your response, on a new line, always provide 3 distinct, concise follow-up questions or suggestions tailored to this specific topic in this exact format:
@@ -214,7 +231,8 @@ At the very end of your response, on a new line, always provide 3 distinct, conc
  * Node 3: Synthesizer Node (Combines Search Context, Images & Citations)
  */
 async function synthesizerNode(state) {
-  const { searchResults, searchImages, prompt, chatHistory } = state;
+  const { searchResults, searchImages, prompt, chatHistory, persona } = state;
+  const personaSuffix = PERSONA_PROMPTS[persona] || "";
 
   let contextBlock = "";
   if (searchResults && searchResults.length > 0) {
@@ -226,7 +244,7 @@ async function synthesizerNode(state) {
       .join("\n\n");
   }
 
-  const groundedSystemPrompt = `${getSystemPromptWithTime()}
+  const groundedSystemPrompt = `${getSystemPromptWithTime()}${personaSuffix}
 
 You have access to live real-time web search results provided below.
 Ground your response accurately on this data:
@@ -302,21 +320,29 @@ const workflow = new StateGraph(MetaAiState)
 
 export const metaAiGraph = workflow.compile();
 
-export async function executeMetaAiWorkflow(promptOrInput, maybeChatHistory = []) {
+export async function executeMetaAiWorkflow(
+  promptOrInput,
+  maybeChatHistory = [],
+  maybePersona = "default",
+) {
   let prompt = "";
   let chatHistory = [];
+  let persona = "default";
   if (typeof promptOrInput === "object" && promptOrInput !== null) {
     prompt = promptOrInput.prompt || "";
     chatHistory = promptOrInput.chatHistory || maybeChatHistory || [];
+    persona = promptOrInput.persona || maybePersona || "default";
   } else {
     prompt = promptOrInput || "";
     chatHistory = maybeChatHistory || [];
+    persona = maybePersona || "default";
   }
 
   try {
     const finalState = await metaAiGraph.invoke({
       prompt: prompt || "",
       chatHistory: chatHistory || [],
+      persona: persona || "default",
     });
 
     if (finalState && finalState.finalResult) {

@@ -47,6 +47,7 @@ async function triggerMetaAiResponse({
   userMessage,
   isDirectToMetaAi,
   isMetaAiMention,
+  metaAiPersona = "default",
 }) {
   try {
     const senderRoom = senderId.toString();
@@ -106,7 +107,11 @@ async function triggerMetaAiResponse({
       );
     }
 
-    const aiResult = await processMetaAiQuery(rawPrompt, recentMessages);
+    const aiResult = await processMetaAiQuery(
+      rawPrompt,
+      recentMessages,
+      metaAiPersona || "default",
+    );
 
     const aiMessage = new Message({
       conversation: conversationId,
@@ -733,6 +738,7 @@ export const sendMessage = async (req, res) => {
         userMessage: populatedMessage,
         isDirectToMetaAi,
         isMetaAiMention,
+        metaAiPersona: req.body?.metaAiPersona || "default",
       }).catch((err) =>
         console.error("Error triggering Meta AI response:", err),
       );
@@ -2276,6 +2282,56 @@ export const askMetaAi = async (req, res) => {
   }
 };
 
+export const summarizeConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.body;
+    if (!conversationId) {
+      return response(res, 400, "Conversation ID is required");
+    }
+
+    const messages = await Message.find({
+      conversation: conversationId,
+      deletedForEveryone: false,
+      contentType: "text",
+    })
+      .sort({ createdAt: -1 })
+      .limit(25)
+      .populate("sender", "username")
+      .lean();
+
+    messages.reverse();
+
+    if (messages.length === 0) {
+      return response(res, 200, "Summary generated", {
+        summary: "No text messages found to summarize in this conversation.",
+        messageCount: 0,
+      });
+    }
+
+    const transcript = messages
+      .map((m) => `${m.sender?.username || "User"}: ${m.content}`)
+      .join("\n");
+
+    const summarizePrompt = `Please summarize the following WhatsApp chat conversation.
+Format with:
+📌 **Executive Summary** (1-2 sentences)
+🎯 **Key Discussions & Decisions** (bullet points)
+⏳ **Action Items / Next Steps** (if any)
+
+Chat Transcript:
+${transcript}`;
+
+    const aiResult = await processMetaAiQuery(summarizePrompt, []);
+    return response(res, 200, "Summary generated", {
+      summary: aiResult.content,
+      messageCount: messages.length,
+    });
+  } catch (error) {
+    console.error("summarizeConversation error:", error);
+    return response(res, 500, "Failed to summarize conversation");
+  }
+};
+
 export const createGroup = async (req, res) => {
   const creatorId = req.user.userId;
   let {
@@ -2903,6 +2959,7 @@ export default {
   getChatMedia,
   setDisappearingDuration,
   askMetaAi,
+  summarizeConversation,
   createGroup,
   updateGroup,
   getMemberChanges,

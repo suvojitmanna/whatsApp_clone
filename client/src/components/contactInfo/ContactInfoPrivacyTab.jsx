@@ -223,7 +223,7 @@ const ContactInfoPrivacyTab = ({
         transition={{ duration: 0.15 }}
         className="flex flex-col flex-1 overflow-y-auto scrollbar-hide px-6 py-5 select-none"
       >
-        <div className="flex justify-center pt-2 pb-5 select-none">
+        <div className="flex justify-center pt-2 select-none">
           <AdvancedChatPrivacyIllustration
             isDark={isDark}
             width={104}
@@ -232,25 +232,25 @@ const ContactInfoPrivacyTab = ({
         </div>
 
         <h3
-          className={`text-[17px] sm:text-[18px] font-semibold leading-snug mb-3 text-center sm:text-left ${isDark ? "text-[#e9edef]" : "text-gray-900"
+          className={`text-[17px] sm:text-[18px] font-semibold leading-snug m-3 text-center sm:text-left ${isDark ? "text-[#e9edef]" : "text-gray-900"
             }`}
         >
           Limit how messages and media from this chat can be shared outside of WhatsApp
         </h3>
-        <p className="text-[13px] leading-relaxed text-[#8696a0] mb-5">
+        <p className={`text-[13px] leading-relaxed ${isDark ? "text-[#8696a0]" : "text-gray-900"} ml-5 mt-2`}>
           Your personal messages are protected with end-to-end encryption even if you don&apos;t turn on advanced chat privacy. No one outside of the chat, not even WhatsApp or Meta, can read, listen to, or share them.{" "}
           <button
             type="button"
             onClick={() => setContactInfoTab("privacy")}
-            className="text-[#00a884] hover:text-[#06cf9c] hover:underline font-medium inline cursor-pointer"
+            className="text-[#00a884] hover:text-[#06cf9c] hover:underline font-semibold inline cursor-pointer"
           >
             Learn more
           </button>
         </p>
-        <p className="text-[13px] text-[#8696a0] mb-4 font-normal">
+        <p className={`text-[13px] ${isDark ? "text-[#8696a0]" : "text-gray-900"} ml-5 mt-2 mb-3 font-normal`}>
           If you turn this on, people in this chat:
         </p>
-        <div className="space-y-4 mb-6">
+        <div className="space-y-4 ml-5 mb-6">
           <div className="flex items-start gap-4">
             <MdOutlinePhotoSizeSelectActual
               size={20}

@@ -17,6 +17,8 @@ import AttachInput from "../../components/media/AttachInput";
 import ChatHeader from "./ChatHeader";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { isGroupSystemMessage } from "../../utils/systemMessageUtils";
+import axiosInstance from "../../services/url.services.js";
+import ChatSummaryModal from "../../components/modals/ChatSummaryModal.jsx";
 import {
   ChatWindowEmpty,
   PinnedBanner,
@@ -52,6 +54,32 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [showCallLinkModal, setShowCallLinkModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+
+  const handleOpenSummarize = async () => {
+    const convId = selectedContact?.conversation?._id || selectedContact?._id;
+    if (!convId) return;
+
+    setShowSummaryModal(true);
+    setIsSummarizing(true);
+    setSummaryData(null);
+
+    try {
+      const { data } = await axiosInstance.post("/chat/summarize", {
+        conversationId: convId,
+      });
+      const res = data?.data || data;
+      setSummaryData(res);
+    } catch (err) {
+      console.error("Summarize error:", err);
+      toast.error(err?.response?.data?.message || "Failed to generate summary");
+      setShowSummaryModal(false);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
   const [showPinnedMenu, setShowPinnedMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
@@ -1154,13 +1182,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const scrollToLastMessage = (behavior = "auto") => {
     const el = messagesContainerRef.current;
     if (!el) return;
+    if (isUserInteractingRef.current) return;
     isProgrammaticScrollRef.current = true;
-    if (messageEndRef.current) {
+    if (behavior === "smooth") {
       try {
-        messageEndRef.current.scrollIntoView({
-          behavior: behavior === "smooth" ? "smooth" : "instant",
-          block: "end",
-        });
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
       } catch {
         el.scrollTop = el.scrollHeight;
       }
@@ -1176,6 +1202,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const scrollToBottom = (behavior = "auto") => {
     isShowingLastMessageRef.current = true;
     hasUserScrolledSinceSwitchRef.current = true;
+    isUserInteractingRef.current = false;
     scrollToLastMessage(behavior);
     const el = messagesContainerRef.current;
     if (el) {
@@ -1199,7 +1226,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (isProgrammaticScrollRef.current) return;
     if (isMessagesLoading || messages.length === 0) return;
 
-    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 35;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
     if (!isAtBottom) {
       isShowingLastMessageRef.current = false;
     } else {
@@ -1320,13 +1347,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
         scrollToLastMessage();
 
-        const raf = requestAnimationFrame(() => {
-          scrollToLastMessage();
-        });
-        const t1 = setTimeout(() => scrollToLastMessage(), 60);
-        const t2 = setTimeout(() => scrollToLastMessage(), 180);
-        const t3 = setTimeout(() => scrollToLastMessage(), 350);
-        const t4 = setTimeout(() => scrollToLastMessage(), 600);
+        const runScrollIfNeeded = () => {
+          if (!hasUserScrolledSinceSwitchRef.current && !isUserInteractingRef.current) {
+            scrollToLastMessage();
+          }
+        };
+
+        const raf = requestAnimationFrame(runScrollIfNeeded);
+        const t1 = setTimeout(runScrollIfNeeded, 60);
+        const t2 = setTimeout(runScrollIfNeeded, 180);
+        const t3 = setTimeout(runScrollIfNeeded, 350);
+        const t4 = setTimeout(runScrollIfNeeded, 600);
 
         return () => {
           cancelAnimationFrame(raf);
@@ -1379,11 +1410,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     } else {
       if (isSelectMode) return;
 
-      if (isShowingLastMessageRef.current) {
+      if (isShowingLastMessageRef.current && !isUserInteractingRef.current) {
         scrollToLastMessage();
       }
     }
   }, [messages, isMessagesLoading, selectedContact?._id, isSelectMode]);
+
+  useEffect(() => {
+    if (isMetaAiTyping && isShowingLastMessageRef.current && !isUserInteractingRef.current) {
+      scrollToLastMessage("smooth");
+    }
+  }, [isMetaAiTyping]);
 
   useEffect(() => {
     const el = messagesContainerRef.current;
@@ -1394,7 +1431,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       if (isShowingLastMessageRef.current && !isMessagesLoading && messages.length > 0) {
         if (resizeTimer) clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
-          scrollToLastMessage();
+          if (!isUserInteractingRef.current) {
+            scrollToLastMessage();
+          }
         }, 30);
       }
     });
@@ -1414,27 +1453,39 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const el = messagesContainerRef.current;
     if (!el) return;
 
-    const handleUserInteractionStart = () => {
+    let wheelTimer = null;
+    const handleWheel = () => {
+      isUserInteractingRef.current = true;
+      if (wheelTimer) clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => {
+        isUserInteractingRef.current = false;
+      }, 250);
+    };
+
+    const handlePointerDown = () => {
       isUserInteractingRef.current = true;
     };
-    const handleUserInteractionEnd = () => {
+    const handlePointerUp = () => {
       setTimeout(() => {
         isUserInteractingRef.current = false;
       }, 150);
     };
 
-    el.addEventListener("wheel", handleUserInteractionStart, { passive: true });
-    el.addEventListener("touchstart", handleUserInteractionStart, { passive: true });
-    el.addEventListener("pointerdown", handleUserInteractionStart, { passive: true });
-    window.addEventListener("pointerup", handleUserInteractionEnd, { passive: true });
-    window.addEventListener("touchend", handleUserInteractionEnd, { passive: true });
+    el.addEventListener("wheel", handleWheel, { passive: true });
+    el.addEventListener("touchstart", handlePointerDown, { passive: true });
+    el.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    window.addEventListener("pointerup", handlePointerUp, { passive: true });
+    window.addEventListener("touchend", handlePointerUp, { passive: true });
+    window.addEventListener("touchcancel", handlePointerUp, { passive: true });
 
     return () => {
-      el.removeEventListener("wheel", handleUserInteractionStart);
-      el.removeEventListener("touchstart", handleUserInteractionStart);
-      el.removeEventListener("pointerdown", handleUserInteractionStart);
-      window.removeEventListener("pointerup", handleUserInteractionEnd);
-      window.removeEventListener("touchend", handleUserInteractionEnd);
+      if (wheelTimer) clearTimeout(wheelTimer);
+      el.removeEventListener("wheel", handleWheel);
+      el.removeEventListener("touchstart", handlePointerDown);
+      el.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("touchend", handlePointerUp);
+      window.removeEventListener("touchcancel", handlePointerUp);
     };
   }, []);
 
@@ -1606,7 +1657,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             formData.append("replyMessage", JSON.stringify(replyData));
           }
 
-          await sendMessage(formData);
+          if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
+          const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
+          formData.append("metaAiPersona", currentPersona);
+        }
+        await sendMessage(formData);
         }
       } else if (trimmedMessage) {
         const formData = new FormData();
@@ -1624,6 +1679,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         if (replyData) {
           formData.append("replyTo", replyData._id);
           formData.append("replyMessage", JSON.stringify(replyData));
+        }
+        if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
+          const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
+          formData.append("metaAiPersona", currentPersona);
         }
         await sendMessage(formData);
         if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
@@ -2135,6 +2194,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           setHeaderMenuAnchor={setHeaderMenuAnchor}
           setShowHeaderMenu={setShowHeaderMenu}
           onCloseChat={handleCloseChatWindow}
+          handleOpenSummarize={handleOpenSummarize}
         />
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -2157,7 +2217,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           <div
             ref={messagesContainerRef}
             onScroll={handleMessageScroll}
-            className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto [overflow-anchor:none] custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"}`}
+            className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"}`}
             style={{
               backgroundColor:
                 theme === "dark"
@@ -2587,6 +2647,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         showDeleteConfirm={showDeleteConfirm}
         setShowDeleteConfirm={setShowDeleteConfirm}
         handleExecuteDeleteChat={handleExecuteDeleteChat}
+      />
+
+      <ChatSummaryModal
+        isOpen={showSummaryModal}
+        onClose={() => setShowSummaryModal(false)}
+        summary={summaryData?.summary}
+        messageCount={summaryData?.messageCount || 0}
+        isLoading={isSummarizing}
+        theme={theme}
       />
     </>
   );

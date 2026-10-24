@@ -184,11 +184,10 @@ function CodeBlock({ code, language, theme }) {
             <button
               type="button"
               onClick={() => setShowPreview((p) => !p)}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer active:scale-95 ${
-                showPreview
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer active:scale-95 ${showPreview
                   ? "bg-cyan-500 text-white shadow-xs"
                   : "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 hover:text-cyan-300"
-              }`}
+                }`}
               title="Toggle interactive live preview"
             >
               <span>{showPreview ? "Hide Preview" : "▶ Live Preview"}</span>
@@ -513,8 +512,8 @@ export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "
           type="button"
           onClick={handleSpeak}
           className={`p-1 rounded transition-colors cursor-pointer ${isSpeaking
-              ? "text-cyan-500 bg-cyan-500/15 animate-pulse"
-              : "text-inherit hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
+            ? "text-cyan-500 bg-cyan-500/15 animate-pulse"
+            : "text-inherit hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
             }`}
           title={isSpeaking ? "Stop speaking" : "Listen to response"}
         >
@@ -540,7 +539,12 @@ export function MetaAiFeedbackBar({ content, onFeedback, onRegenerate, theme = "
         </button>
       </div>
 
-      <span className="text-[10px] opacity-60 font-mono">Llama 3</span>
+      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] tracking-wide bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 dark:from-cyan-400/15 dark:via-blue-500/15 dark:to-pink-500/15 border border-cyan-500/20 dark:border-purple-400/25 shadow-2xs select-none backdrop-blur-xs transition-all hover:scale-102 hover:border-cyan-400/40">
+        <SiMetaai size={10} className="text-[#0081fb] dark:text-[#38bdf8] shrink-0" />
+        <span className="bg-gradient-to-r from-[#0077b6] via-[#6366f1] to-[#d946ef] dark:from-[#38bdf8] dark:via-[#a855f7] dark:to-[#f472b6] bg-clip-text text-transparent font-semibold">
+          Meta AI
+        </span>
+      </div>
     </div>
   );
 }
@@ -629,8 +633,8 @@ export function MetaAiQuickFollowups({
           type="button"
           onClick={() => onSelect?.(text)}
           className={`group flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all cursor-pointer hover:scale-102 active:scale-95 shadow-2xs ${theme === "dark"
-              ? "bg-[#202c33] hover:bg-[#2a3942] text-gray-200 hover:text-white border-white/10 hover:border-cyan-500/40"
-              : "bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 border-black/10 hover:border-cyan-600/40"
+            ? "bg-[#202c33] hover:bg-[#2a3942] text-gray-200 hover:text-white border-white/10 hover:border-cyan-500/40"
+            : "bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 border-black/10 hover:border-cyan-600/40"
             }`}
           title={`Click to ask: "${text}"`}
         >

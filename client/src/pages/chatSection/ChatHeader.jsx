@@ -12,6 +12,7 @@ import formatTimestamp from "../../utils/formatTime";
 import { WhatsAppDisappearingIcon } from "./MessageBuble";
 import { ChevronUpIcon, ChevronDownIcon } from "../../components/common/Icons";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
+import MetaAiPersonaSelector from "../../components/common/MetaAiPersonaSelector";
 import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
 import useVideoCallStore from "../../store/videoCallStore";
@@ -46,6 +47,7 @@ const ChatHeader = ({
   setHeaderMenuAnchor,
   setShowHeaderMenu,
   onCloseChat,
+  handleOpenSummarize,
 }) => {
   const { user } = useUserStore();
   const onlineUsers = useChatStore((state) => state.onlineUsers);
@@ -274,7 +276,9 @@ const ChatHeader = ({
             {selectedContact?.username}
           </h2>
           {isMetaAi ? (
-            <div className=""></div>
+            <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+              <MetaAiPersonaSelector theme={theme} />
+            </div>
           ) : (
             <button
               type="button"
@@ -311,7 +315,10 @@ const ChatHeader = ({
             {isMetaAi ? "thinking..." : "Typing..."}
           </div>
         ) : isMetaAi ? (
-          <div></div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[#8696a0] font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 inline-block animate-pulse" />
+            <span>AI Assistant • Llama 3 & Gemini</span>
+          </div>
         ) : isGroup ? (
           isGroupOnline ? (
             <div className="flex items-center gap-1.5 text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium truncate"
@@ -521,6 +528,17 @@ const ChatHeader = ({
               </button>
             </div>
           )
+        )}
+
+        {!isMetaAi && handleOpenSummarize && (
+          <button
+            type="button"
+            onClick={handleOpenSummarize}
+            className="p-2 rounded-full border border-transparent hover:border-cyan-500/30 hover:bg-cyan-500/10 active:scale-95 transition-all cursor-pointer text-cyan-500"
+            title="Summarize conversation with Meta AI"
+          >
+            <span className="text-base leading-none">✨</span>
+          </button>
         )}
 
         {!isMetaAi && (

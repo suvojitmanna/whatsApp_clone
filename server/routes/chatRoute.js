@@ -24,5 +24,6 @@ router.get("/media", authMiddleware, chatController.getChatMedia);
 router.put("/conversation/:conversationId/disappearing", authMiddleware, chatController.setDisappearingDuration);
 router.post("/disappearing-duration", authMiddleware, chatController.setDisappearingDuration);
 router.post("/meta-ai", authMiddleware, chatController.askMetaAi);
+router.post("/summarize", authMiddleware, chatController.summarizeConversation);
 
 export default router;
