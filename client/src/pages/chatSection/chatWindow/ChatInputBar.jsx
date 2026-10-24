@@ -72,8 +72,6 @@ export const ChatInputBar = ({
     if (!showMentionPopover) return [];
     const items = [];
     const q = (mentionQuery || "").trim().toLowerCase();
-
-    // 1. Group chat mentions: @all / @everyone
     if (isGroupChat) {
       if (!q || "all".includes(q) || "everyone".includes(q) || "@all".includes(q)) {
         items.push({
@@ -123,7 +121,6 @@ export const ChatInputBar = ({
       });
     }
 
-    // 2. Meta AI
     if (!q || "meta ai".includes(q) || "llama".includes(q) || "@meta".includes(q)) {
       items.push({
         type: "meta_ai",

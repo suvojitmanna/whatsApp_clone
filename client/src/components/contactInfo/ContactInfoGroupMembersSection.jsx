@@ -163,7 +163,7 @@ const ContactInfoGroupMembersSection = ({
         </div>
 
         <div className="p-1 space-y-0.5">
-          {canAddMembers && (
+          {canAddMembers.length > 0 && (
             <div
               onClick={() => setShowAddMemberModal(true)}
               className={`flex items-center gap-3.5 p-2.5 rounded-lg transition-colors cursor-pointer ${theme === "dark" ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"

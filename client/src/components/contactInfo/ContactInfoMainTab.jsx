@@ -84,7 +84,6 @@ const ContactInfoMainTab = ({
   chatKeptMessages = [],
   disappearingDuration = "Off",
   activeChatTheme,
-  activeBubbleColor,
   messages = [],
   starredMessages = {},
   isMessageStarred,
@@ -1477,6 +1476,7 @@ const ContactInfoMainTab = ({
                 onClick={() => handleVideoCallMember(viewingMember)}
                 disabled={!isViewingMemberOnline}
                 theme={theme}
+                title={"Video Call"}
               />
             </>
           ) : (
