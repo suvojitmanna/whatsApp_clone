@@ -1,29 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import {
-  FaArrowLeft,
-  FaPlay,
-  FaFilePdf,
-  FaCheck,
-  FaStar,
-} from "react-icons/fa";
-import { TbStarOff } from "react-icons/tb";
+import { FaArrowLeft } from "react-icons/fa";
 import { VscSearchLarge } from "react-icons/vsc";
-import { FiDownload } from "react-icons/fi";
-import {
-  HiOutlineDocumentText,
-  HiOutlineLink,
-} from "react-icons/hi";
-import {
-  MdOutlineKeyboardArrowDown,
-  MdDoneAll,
-  MdChevronRight,
-  MdOutlineStarBorderPurple500,
-  MdOutlinePermMedia,
-} from "react-icons/md";
 import { RxCross2 } from "react-icons/rx";
-import { IoArrowRedoOutline, IoReturnDownForward } from "react-icons/io5";
-import { RiDeleteBin6Line } from "react-icons/ri";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
 import useThemeStore from "../../store/themeStore";
@@ -35,14 +14,6 @@ import FileViewerModal from "../modals/FileViewerModal";
 import ForwardModal from "../modals/ForwardModal";
 import MediaMenu from "./MediaMenu";
 import { FALLBACK_DOCS, FALLBACK_LINKS, FALLBACK_MEDIA } from "../../assets/rawData";
-
-const formatDocSize = (bytes) => {
-  if (!bytes || isNaN(bytes)) return "";
-  const num = Number(bytes);
-  if (num < 1024) return `${num} B`;
-  if (num < 1024 * 1024) return `${Math.round(num / 1024)} kB`;
-  return `${(num / (1024 * 1024)).toFixed(1)} MB`;
-};
 
 import {
   ContactMediaSkeleton,
@@ -65,13 +36,11 @@ const ContactMedia = ({
   const { user } = useUserStore();
   const openMediaModal = useLayoutStore((state) => state.openMediaModal);
   const isDark = theme === "dark";
-
   const [activeTab, setActiveTab] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState([]);
-
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -396,8 +365,7 @@ const ContactMedia = ({
       handleDownloadFile(null, url, name);
     });
   };
-
-  const executeDeleteSelected = async (type) => {
+  const handleExecuteDelete = async (type) => {
     setIsDeleting(true);
     try {
       const { deleteMessage } = useChatStore.getState();

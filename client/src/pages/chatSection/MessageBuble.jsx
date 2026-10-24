@@ -18,8 +18,15 @@ import ForwardModal from "../../components/modals/ForwardModal";
 import PinDurationModal from "../../components/modals/PinDurationModal";
 import ReportModal from "../../components/modals/ReportModal";
 import MessageMenu from "./MessageMenu";
+import axiosInstance from "../../services/url.services";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
-import { MetaAiMarkdown, MetaAiFeedbackBar, MetaAiImageCard } from "../../components/common/MetaAiContent";
+import {
+  MetaAiMarkdown,
+  MetaAiFeedbackBar,
+  MetaAiImageCard,
+  MetaAiThumbnailGallery,
+  MetaAiQuickFollowups,
+} from "../../components/common/MetaAiContent";
 import {
   WhatsAppPinIcon,
   WhatsAppUnpinIcon,
@@ -572,6 +579,53 @@ const MessageBuble = ({
     }
   }, [displayContent, isEditing]);
 
+  const liveTranslateEnabled = useChatStore((state) => state.liveTranslateEnabled);
+  const liveTranslateLang = useChatStore((state) => state.liveTranslateLang);
+  const [liveTranslationText, setLiveTranslationText] = useState(
+    message.translatedText || null
+  );
+  const [isTranslatingLive, setIsTranslatingLive] = useState(false);
+
+  useEffect(() => {
+    if (
+      liveTranslateEnabled &&
+      !isUserMessage &&
+      !isMetaAiMessage &&
+      displayContent &&
+      !liveTranslationText &&
+      !isTranslatingLive
+    ) {
+      let active = true;
+      setIsTranslatingLive(true);
+      axiosInstance
+        .post("/chat/translate", {
+          text: displayContent,
+          targetLang: liveTranslateLang || "en",
+        })
+        .then((res) => {
+          if (!active) return;
+          const translated =
+            res.data?.data?.translation ||
+            res.data?.data?.translatedText ||
+            res.data?.translation ||
+            res.data?.translatedText;
+          if (
+            translated &&
+            translated.trim().toLowerCase() !== displayContent.trim().toLowerCase()
+          ) {
+            setLiveTranslationText(translated);
+          }
+        })
+        .catch(() => { })
+        .finally(() => {
+          if (active) setIsTranslatingLive(false);
+        });
+      return () => {
+        active = false;
+      };
+    }
+  }, [liveTranslateEnabled, liveTranslateLang, displayContent, isUserMessage, isMetaAiMessage]);
+
   const conversationId = currentConversation?._id || message?.conversationId || layoutSelectedContact?._id;
   const secondaryConvId = layoutSelectedContact?._id;
 
@@ -709,6 +763,167 @@ const MessageBuble = ({
       );
     },
     [highlightText]
+  );
+
+  const renderTextWithLinks = useCallback(
+    (plainText, term) => {
+      if (!plainText || typeof plainText !== "string") return plainText;
+
+      const linkRegex =
+        /(\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<]+[^<.,:;"')\]\s]|www\.[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=]+[^<.,:;"')\]\s])/gi;
+
+      const segments = plainText.split(linkRegex);
+
+      return segments.map((seg, sIdx) => {
+        if (!seg) return null;
+
+        const mdMatch = seg.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+        if (mdMatch) {
+          const href = mdMatch[2];
+          const label = mdMatch[1];
+          return (
+            <a
+              key={`link-md-${sIdx}`}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#027eb5] hover:text-[#015f8a] dark:text-[#53bdeb] dark:hover:text-[#7ad0f5] underline underline-offset-2 break-all font-medium cursor-pointer transition-colors inline select-text"
+              title={href}
+            >
+              {term ? safeHighlight(label, term) : label}
+            </a>
+          );
+        }
+
+        if (/^https?:\/\//i.test(seg)) {
+          return (
+            <a
+              key={`link-raw-${sIdx}`}
+              href={seg}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#027eb5] hover:text-[#015f8a] dark:text-[#53bdeb] dark:hover:text-[#7ad0f5] underline underline-offset-2 break-all font-medium cursor-pointer transition-colors inline select-text"
+              title={seg}
+            >
+              {term ? safeHighlight(seg, term) : seg}
+            </a>
+          );
+        }
+
+        if (/^www\./i.test(seg)) {
+          const href = `https://${seg}`;
+          return (
+            <a
+              key={`link-www-${sIdx}`}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-[#027eb5] hover:text-[#015f8a] dark:text-[#53bdeb] dark:hover:text-[#7ad0f5] underline underline-offset-2 break-all font-medium cursor-pointer transition-colors inline select-text"
+              title={href}
+            >
+              {term ? safeHighlight(seg, term) : seg}
+            </a>
+          );
+        }
+
+        return term ? safeHighlight(seg, term) : seg;
+      });
+    },
+    [safeHighlight]
+  );
+
+  const renderContentWithMentions = useCallback(
+    (text, term) => {
+      if (!text || typeof text !== "string") return text;
+
+      const mentionRegex = /(@all\b|@everyone\b|@Meta AI\b|@[a-zA-Z0-9_\.\-]+)/gi;
+      const parts = text.split(mentionRegex);
+
+      return parts.map((part, index) => {
+        if (!part) return null;
+        if (part.match(mentionRegex)) {
+          const lower = part.toLowerCase();
+          if (lower === "@all" || lower === "@everyone") {
+            return (
+              <span
+                key={index}
+                className={`font-semibold px-1 py-0.5 rounded transition-colors inline-block select-text ${isDark
+                  ? "text-[#53bdeb] bg-[#53bdeb]/15 hover:bg-[#53bdeb]/25"
+                  : "text-[#027eb5] bg-[#027eb5]/10 hover:bg-[#027eb5]/20"
+                  }`}
+                title="Mentioned all members in group"
+              >
+                {part}
+              </span>
+            );
+          }
+          if (lower === "@meta ai") {
+            return (
+              <span
+                key={index}
+                className="font-semibold text-blue-400 bg-blue-500/15 px-1 py-0.5 rounded inline-block cursor-pointer hover:bg-blue-500/25 transition-colors select-text"
+                title="Mentioned Meta AI"
+              >
+                {part}
+              </span>
+            );
+          }
+
+          const rawUsername = part.slice(1);
+          const myUsername = (effectiveUser?.username || effectiveUser?.name || "")?.toLowerCase();
+          const isMe = Boolean(myUsername && rawUsername.toLowerCase() === myUsername);
+
+          return (
+            <span
+              key={index}
+              onClick={(e) => {
+                e.stopPropagation();
+                const rawParticipants =
+                  activeContact?.participants ||
+                  activeContact?.conversation?.participants ||
+                  conversationObj?.participants ||
+                  [];
+                const found = Array.isArray(rawParticipants)
+                  ? rawParticipants.find(
+                    (p) =>
+                      (p?.username || p?.name || "").toLowerCase() === rawUsername.toLowerCase()
+                  )
+                  : null;
+                if (found) {
+                  const openFn =
+                    openContactInfoWithMember ||
+                    useLayoutStore.getState().openContactInfoWithMember;
+                  if (openFn) openFn(found);
+                }
+              }}
+              className={`font-semibold px-1 py-0.5 rounded cursor-pointer transition-colors inline-block select-text ${isMe
+                ? "text-[#00a884] dark:text-[#25d366] bg-[#00a884]/20 hover:bg-[#00a884]/30 font-bold"
+                : isDark
+                  ? "text-[#53bdeb] bg-[#53bdeb]/15 hover:bg-[#53bdeb]/25"
+                  : "text-[#027eb5] bg-[#027eb5]/10 hover:bg-[#027eb5]/20"
+                }`}
+              title={isMe ? "You were mentioned" : `Mentioned @${rawUsername}`}
+            >
+              {part}
+            </span>
+          );
+        }
+
+        return renderTextWithLinks(part, term);
+      });
+    },
+    [
+      isDark,
+      effectiveUser?.username,
+      effectiveUser?.name,
+      activeContact,
+      conversationObj,
+      openContactInfoWithMember,
+      renderTextWithLinks,
+    ]
   );
 
   const bubbleContentClass = useMemo(() => {
@@ -1207,15 +1422,91 @@ const MessageBuble = ({
                           </span>
                         ) : isMetaAiMessage ? (
                           <div className="space-y-1">
-                            <MetaAiMarkdown content={displayContent} theme={theme} />
-                            <MetaAiFeedbackBar content={displayContent} theme={theme} />
+                            <MetaAiMarkdown
+                              content={displayContent}
+                              theme={theme}
+                              messageId={message._id || message.id || message.tempId}
+                            />
+                            {message.metaAiImages && message.metaAiImages.length > 0 && (
+                              <MetaAiThumbnailGallery
+                                images={message.metaAiImages}
+                                theme={theme}
+                                onOpenViewer={(url) => {
+                                  setViewerModalFile({
+                                    url,
+                                    name: "web-image.jpg",
+                                    type: "image",
+                                    size: message.fileSize,
+                                    sender: message.sender,
+                                    createdAt: message.createdAt,
+                                    messageId: message._id,
+                                    isUserMessage: false,
+                                  });
+                                }}
+                              />
+                            )}
+                            <MetaAiQuickFollowups
+                              suggestions={message.metaAiSuggestions}
+                              prompt={message.metaAiPrompt || message.content}
+                              content={displayContent}
+                              theme={theme}
+                              onSelect={(followupText) => {
+                                const isGroup = isGroupChat || Boolean(activeContact?.isGroup);
+                                const finalPrompt =
+                                  isGroup && !followupText.toLowerCase().includes("@meta ai")
+                                    ? `@Meta AI ${followupText}`
+                                    : followupText;
+                                window.dispatchEvent(
+                                  new CustomEvent("meta_ai_prefill", {
+                                    detail: {
+                                      text: finalPrompt,
+                                      autoSend: true,
+                                    },
+                                  })
+                                );
+                              }}
+                            />
+                            <MetaAiFeedbackBar
+                              messageId={message._id || message.id || message.tempId}
+                              content={displayContent}
+                              theme={theme}
+                              persona={message.metaAiPersona}
+                              onRegenerate={() => {
+                                const promptToRegen = message.metaAiPrompt || message.content;
+                                if (promptToRegen) {
+                                  window.dispatchEvent(
+                                    new CustomEvent("meta_ai_prefill", { detail: promptToRegen })
+                                  );
+                                }
+                              }}
+                            />
                           </div>
                         ) : (
-                          <span className="break-words whitespace-pre-wrap">
-                            {searchTerm
-                              ? safeHighlight(displayContent, searchTerm)
-                              : displayContent}
-                          </span>
+                          <>
+                            <span className="break-words whitespace-pre-wrap">
+                              {renderContentWithMentions(displayContent, searchTerm)}
+                            </span>
+                            {liveTranslateEnabled && !isUserMessage && (
+                              <div className="mt-1 pt-1 border-t border-black/10 dark:border-white/10 text-[12px] select-text">
+                                {isTranslatingLive ? (
+                                  <span className="text-gray-400 dark:text-gray-400 text-[11px] flex items-center gap-1 italic">
+                                    <span className="w-2.5 h-2.5 border border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                    <span>Translating...</span>
+                                  </span>
+                                ) : liveTranslationText ? (
+                                  <div className="text-blue-600 dark:text-blue-300">
+                                    <div className="text-[10px] uppercase font-bold tracking-wider text-blue-500/80 mb-0.5 flex items-center gap-1">
+                                      <span>🌐</span>
+                                      <span>Translated to {(liveTranslateLang || "en").toUpperCase()}</span>
+                                    </div>
+                                    <div className="italic font-medium leading-relaxed">
+                                      {liveTranslationText}
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            )}
+                          </>
                         )}
                         <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
                           <MessageTimestampAndStatus
@@ -1241,7 +1532,7 @@ const MessageBuble = ({
                   </>
                 )}
 
-                {(message.contentType === "ai_image" || (isMetaAiMessage && message.imageOrVideoUrl)) && (
+                {(message.contentType === "ai_image" || (isMetaAiMessage && message.imageOrVideoUrl && (!message.metaAiImages || message.metaAiImages.length === 0))) && (
                   <div className="max-w-full">
                     <MetaAiImageCard
                       imageUrl={message.imageOrVideoUrl}
@@ -1311,6 +1602,7 @@ const MessageBuble = ({
                     displayContent={displayContent}
                     searchTerm={searchTerm}
                     safeHighlight={safeHighlight}
+                    renderContentWithMentions={renderContentWithMentions}
                   />
                 )}
 
@@ -1341,6 +1633,9 @@ const MessageBuble = ({
                     )}
                     isWaitingDecryption={isWaitingDecryption}
                     displayContent={displayContent}
+                    searchTerm={searchTerm}
+                    safeHighlight={safeHighlight}
+                    renderContentWithMentions={renderContentWithMentions}
                   />
                 )}
 
@@ -1568,6 +1863,68 @@ const MessageBuble = ({
                     )}
                   />
                 )}
+
+                {isUserMessage && (message.isScheduled || message.messageStatus === "scheduled") && (
+                  <div className="mt-2 pt-1.5 border-t border-amber-500/25 flex flex-wrap items-center justify-between gap-1.5 text-[11px] select-none">
+                    <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                      </span>
+                      <span>
+                        {message.scheduledFor
+                          ? `Will send: ${new Date(message.scheduledFor).toLocaleDateString([], { month: "short", day: "numeric" })} at ${new Date(message.scheduledFor).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                          : "Scheduled delivery"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(message.contentType === "text" || !message.contentType) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditText(displayContent || message.content || "");
+                            setIsEditing(true);
+                          }}
+                          className="px-2 py-0.5 rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 font-semibold cursor-pointer transition-colors"
+                          title="Edit message text"
+                        >
+                          ✏️ Edit
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.dispatchEvent(
+                            new CustomEvent("open_reschedule_modal", {
+                              detail: { message },
+                            })
+                          );
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 font-semibold cursor-pointer transition-colors"
+                        title="Edit scheduled date & time"
+                      >
+                        🕒 Edit Time
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await useChatStore.getState().sendScheduledNow?.(message._id);
+                          } catch (err) {
+                            toast.error("Failed to send now");
+                          }
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-semibold cursor-pointer transition-colors shadow-2xs"
+                        title="Send right now"
+                      >
+                        🚀 Send Now
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1661,6 +2018,7 @@ const MessageBuble = ({
                         isGroupChat={isGroupChat}
                         senderDisplayName={senderDisplayName}
                         onOpenSenderContactInfo={handleOpenSenderContactInfo}
+                        displayContent={displayContent}
                       />
                     </motion.div>
                   </>

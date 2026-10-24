@@ -18,13 +18,13 @@ const SecurityVerifyModal = ({
   isOpen,
   onClose,
   contact,
-  initialView = "privacy", // "privacy" | "code"
+  initialView = "privacy",
 }) => {
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const [currentView, setCurrentView] = useState(initialView);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
-  const [scanStatus, setScanStatus] = useState(null); // null | "scanning" | "verified"
+  const [scanStatus, setScanStatus] = useState(null);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const fileInputRef = useRef(null);
 

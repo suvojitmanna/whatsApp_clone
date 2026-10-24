@@ -252,6 +252,18 @@ const getStoredBlocked = () => {
     if (!raw) return [];
     return JSON.parse(raw);
   } catch (e) {
+    console.log(e);
+    return [];
+  }
+};
+
+const getStoredLockedChats = () => {
+  try {
+    const raw = localStorage.getItem("whatsapp_locked_chats");
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    console.log(e);
     return [];
   }
 };
@@ -259,6 +271,45 @@ const getStoredBlocked = () => {
 const seenReceiveMessageIds = new Set();
 
 export const useChatStore = create((set, get) => ({
+  lockedChatIds: getStoredLockedChats(),
+  isLockedFolderOpen: false,
+  setLockedFolderOpen: (open) => set({ isLockedFolderOpen: Boolean(open) }),
+  toggleLockChat: (chatId) => {
+    if (!chatId) return false;
+    const strId = String(chatId);
+    const current = get().lockedChatIds || [];
+    let updated;
+    let isNowLocked = false;
+    if (current.includes(strId)) {
+      updated = current.filter((id) => id !== strId);
+      isNowLocked = false;
+    } else {
+      updated = [...current, strId];
+      isNowLocked = true;
+    }
+    try {
+      localStorage.setItem("whatsapp_locked_chats", JSON.stringify(updated));
+    } catch (e) {}
+    set({ lockedChatIds: updated });
+    return isNowLocked;
+  },
+  isChatLocked: (chatId) => {
+    if (!chatId) return false;
+    const strId = String(chatId);
+    return (get().lockedChatIds || []).includes(strId);
+  },
+  liveTranslateEnabled: false,
+  liveTranslateLang: "en",
+  setLiveTranslate: (enabled, lang) => {
+    set((state) => ({
+      liveTranslateEnabled:
+        enabled !== undefined ? Boolean(enabled) : state.liveTranslateEnabled,
+      liveTranslateLang: lang || state.liveTranslateLang,
+    }));
+  },
+  toggleLiveTranslate: () => {
+    set((state) => ({ liveTranslateEnabled: !state.liveTranslateEnabled }));
+  },
   users: [],
   setUsers: (users) => {
     if (Array.isArray(users)) {
@@ -1229,6 +1280,9 @@ export const useChatStore = create((set, get) => ({
             return {
               ...msg,
               messageStatus: status,
+              ...(extraData.isScheduled !== undefined && {
+                isScheduled: extraData.isScheduled,
+              }),
               ...(status === "read" && {
                 readAt: extraData.readAt || msg.readAt || nowIso,
                 deliveredAt:
@@ -2525,6 +2579,11 @@ export const useChatStore = create((set, get) => ({
       } catch (e) {}
     }
 
+    const scheduledForParam = formData.get("scheduledFor");
+    const isScheduledParam =
+      formData.get("isScheduled") === "true" ||
+      formData.get("isScheduled") === true;
+
     const optimisticMessage = {
       _id: tempId,
       sender: {
@@ -2554,8 +2613,10 @@ export const useChatStore = create((set, get) => ({
       pollData: parsedPollData,
       eventData: parsedEventData,
       contactData: parsedContactData,
-      createdAt: nowIso,
-      messageStatus: messageStatus || "send",
+      createdAt: scheduledForParam || nowIso,
+      scheduledFor: scheduledForParam || null,
+      isScheduled: isScheduledParam,
+      messageStatus: isScheduledParam ? "scheduled" : messageStatus || "send",
       replyTo: replyTo || null,
       replyMessage: parsedReplyMessage,
       isDisappearing,
@@ -2673,6 +2734,8 @@ export const useChatStore = create((set, get) => ({
       const isAlreadyRead = readStatusCache.has(savedMsgId);
       const savedMessage = {
         ...messageData,
+        createdAt: messageData.scheduledFor || messageData.createdAt,
+        scheduledFor: messageData.scheduledFor || null,
         messageStatus: isAlreadyRead
           ? "read"
           : messageData.messageStatus || "send",
@@ -3200,6 +3263,41 @@ export const useChatStore = create((set, get) => ({
     if (!message) return;
 
     const rawMsgId = (message._id || message.id)?.toString();
+    const { currentConversation, currentUser, messages } = get();
+
+    const existingIndex = messages.findIndex(
+      (msg) => (msg._id || msg.id)?.toString() === rawMsgId,
+    );
+    if (existingIndex !== -1) {
+      const existing = messages[existingIndex];
+      if (
+        (existing.isScheduled && !message.isScheduled) ||
+        existing.messageStatus !== message.messageStatus
+      ) {
+        set((state) => {
+          const nextMessages = [...state.messages];
+          nextMessages[existingIndex] = {
+            ...existing,
+            ...message,
+            content: existing.content || message.content,
+            _isDecrypted: true,
+            isScheduled: Boolean(message.isScheduled),
+            messageStatus: message.messageStatus || "delivered",
+          };
+          const nextConvId = (
+            message.conversation?._id ||
+            message.conversation ||
+            message.conversationId
+          )?.toString();
+          const nextCache = nextConvId
+            ? syncMessagesCache(state.messagesCache, nextConvId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+      }
+      return;
+    }
+
     if (rawMsgId && seenReceiveMessageIds.has(rawMsgId)) {
       return;
     }
@@ -3210,8 +3308,6 @@ export const useChatStore = create((set, get) => ({
         seenReceiveMessageIds.delete(first);
       }
     }
-
-    const { currentConversation, currentUser, messages } = get();
 
     const currentUserId = (currentUser || useUserStore.getState().user)?._id;
     const selectedContact = useLayoutStore.getState()?.selectedContact;
@@ -3619,6 +3715,42 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  sendScheduledNow: async (messageId) => {
+    try {
+      const res = await axiosInstance.post(
+        `/chat/messages/${messageId}/send-now`,
+      );
+      const updatedMsg = res.data?.data || res.data;
+      if (updatedMsg) {
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? {
+                  ...m,
+                  ...updatedMsg,
+                  isScheduled: false,
+                  messageStatus: updatedMsg.messageStatus || "send",
+                }
+              : m,
+          );
+          const convId = (
+            updatedMsg.conversation?._id ||
+            updatedMsg.conversation ||
+            updatedMsg.conversationId
+          )?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+        toast.success("🚀 Scheduled message sent immediately!");
+      }
+    } catch (err) {
+      console.error("sendScheduledNow error:", err);
+      toast.error("Failed to send scheduled message now");
+    }
+  },
+
   deleteMessage: async (messageId, deleteFor, options = {}) => {
     try {
       const { data } = await axiosInstance.delete(
@@ -3730,11 +3862,73 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  editMessage: async (messageId, content, eventData = null) => {
+  rescheduleMessage: async (messageId, scheduledFor, content = null) => {
     try {
-      const payload = { content };
+      const payload = { scheduledFor };
+      if (content) {
+        payload.content = content;
+      }
+      const response = await axiosInstance.put(
+        `/chat/messages/${messageId}`,
+        payload,
+      );
+      const updated = response.data?.data || response.data;
+      if (updated) {
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? {
+                  ...m,
+                  ...updated,
+                  content: content || m.content,
+                  isScheduled: true,
+                  scheduledFor,
+                  messageStatus: "scheduled",
+                }
+              : m,
+          );
+          const convId = (
+            updated.conversation?._id ||
+            updated.conversation ||
+            updated.conversationId
+          )?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+        toast.success(
+          `⏰ Rescheduled for ${new Date(scheduledFor).toLocaleDateString([], {
+            month: "short",
+            day: "numeric",
+          })} at ${new Date(scheduledFor).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`,
+        );
+      }
+      return updated;
+    } catch (err) {
+      console.error("rescheduleMessage error:", err);
+      toast.error("Failed to reschedule message");
+      throw err;
+    }
+  },
+
+  editMessage: async (messageId, content, eventData = null, extraData = {}) => {
+    try {
+      const payload = {};
+      if (content !== undefined && content !== null) {
+        payload.content = content;
+      }
       if (eventData) {
         payload.eventData = eventData;
+      }
+      if (extraData?.scheduledFor) {
+        payload.scheduledFor = extraData.scheduledFor;
+      }
+      if (extraData?.createdAt) {
+        payload.createdAt = extraData.createdAt;
       }
 
       const existingMsg = get().messages.find((m) => m._id === messageId);

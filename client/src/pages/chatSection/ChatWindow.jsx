@@ -17,6 +17,11 @@ import AttachInput from "../../components/media/AttachInput";
 import ChatHeader from "./ChatHeader";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { isGroupSystemMessage } from "../../utils/systemMessageUtils";
+import axiosInstance from "../../services/url.services.js";
+import ChatSummaryModal from "../../components/modals/ChatSummaryModal.jsx";
+import TranslateModal from "../../components/modals/TranslateModal.jsx";
+import ExportChatModal from "../../components/modals/ExportChatModal.jsx";
+import RescheduleModal from "../../components/modals/RescheduleModal.jsx";
 import {
   ChatWindowEmpty,
   PinnedBanner,
@@ -52,6 +57,43 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [showCallLinkModal, setShowCallLinkModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+
+  const handleOpenSummarize = async () => {
+    const convId = selectedContact?.conversation?._id || selectedContact?._id;
+    if (!convId) return;
+
+    setShowSummaryModal(true);
+    setIsSummarizing(true);
+    setSummaryData(null);
+
+    try {
+      const { data } = await axiosInstance.post("/chat/summarize", {
+        conversationId: convId,
+      });
+      const res = data?.data || data;
+      setSummaryData(res);
+    } catch (err) {
+      console.error("Summarize error:", err);
+      toast.error(err?.response?.data?.message || "Failed to generate summary");
+      setShowSummaryModal(false);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const [translateModalState, setTranslateModalState] = useState({
+    isOpen: false,
+    text: "",
+    messageId: null,
+  });
+  const [rescheduleModalState, setRescheduleModalState] = useState({
+    isOpen: false,
+    message: null,
+  });
+  const [showExportModal, setShowExportModal] = useState(false);
   const [showPinnedMenu, setShowPinnedMenu] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
@@ -167,6 +209,43 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       currentConversation.participants.length > 2)
   );
 
+  const groupAdmins = useMemo(() => {
+    const raw =
+      selectedContact?.groupAdmin ||
+      selectedContact?.conversation?.groupAdmin ||
+      currentConversation?.groupAdmin ||
+      [];
+    const list = Array.isArray(raw) ? raw : [raw];
+    return list
+      .filter(Boolean)
+      .map((a) => (a?._id || a)?.toString())
+      .filter(Boolean);
+  }, [selectedContact, currentConversation]);
+
+  const groupParticipants = useMemo(() => {
+    const raw =
+      selectedContact?.participants ||
+      selectedContact?.conversation?.participants ||
+      currentConversation?.participants ||
+      [];
+    const list = Array.isArray(raw) ? [...raw] : [];
+    const myIdStr = (user?._id || user?.id)?.toString();
+    list.sort((a, b) => {
+      const aId = (a?._id || a)?.toString();
+      const bId = (b?._id || b)?.toString();
+      if (aId === myIdStr) return -1;
+      if (bId === myIdStr) return 1;
+      const aIsAdmin = groupAdmins.includes(aId);
+      const bIsAdmin = groupAdmins.includes(bId);
+      if (aIsAdmin && !bIsAdmin) return -1;
+      if (!aIsAdmin && bIsAdmin) return 1;
+      const aName = (a?.username || a?.name || "").toLowerCase();
+      const bName = (b?.username || b?.name || "").toLowerCase();
+      return aName.localeCompare(bName);
+    });
+    return list;
+  }, [selectedContact, currentConversation, user?._id, user?.id, groupAdmins]);
+
   const conversationId = (
     selectedContact?.conversation?._id ||
     (typeof selectedContact?.conversation === "string" ? selectedContact?.conversation : null) ||
@@ -221,28 +300,89 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   );
 
   const [showMentionPopover, setShowMentionPopover] = useState(false);
+  const handleSendMessageRef = useRef(null);
 
   useEffect(() => {
     const handlePrefill = (e) => {
-      if (e.detail) {
-        setMessage(e.detail);
+      const detail = e.detail;
+      if (!detail) return;
+
+      if (typeof detail === "object" && detail.autoSend && detail.text) {
+        if (handleSendMessageRef.current) {
+          handleSendMessageRef.current(detail.text);
+        }
+      } else {
+        const text = typeof detail === "string" ? detail : detail.text || "";
+        setMessage(text);
         if (messageInputRef.current) {
           messageInputRef.current.focus();
         }
       }
     };
     window.addEventListener("meta_ai_prefill", handlePrefill);
-    return () => window.removeEventListener("meta_ai_prefill", handlePrefill);
+
+    const handleOpenTranslate = (e) => {
+      if (e.detail?.text) {
+        setTranslateModalState({
+          isOpen: true,
+          text: e.detail.text,
+          messageId: e.detail.messageId,
+        });
+      }
+    };
+    const handleOpenExport = () => {
+      setShowExportModal(true);
+    };
+    const handleOpenReschedule = (e) => {
+      if (e.detail?.message) {
+        setRescheduleModalState({
+          isOpen: true,
+          message: e.detail.message,
+        });
+      }
+    };
+
+    window.addEventListener("open_translate_modal", handleOpenTranslate);
+    window.addEventListener("open_export_modal", handleOpenExport);
+    window.addEventListener("open_reschedule_modal", handleOpenReschedule);
+
+    return () => {
+      window.removeEventListener("meta_ai_prefill", handlePrefill);
+      window.removeEventListener("open_translate_modal", handleOpenTranslate);
+      window.removeEventListener("open_export_modal", handleOpenExport);
+      window.removeEventListener("open_reschedule_modal", handleOpenReschedule);
+    };
   }, []);
 
-  const handleSelectMention = () => {
-    const words = message.split(/\s/);
-    words.pop();
-    words.push("@Meta AI ");
-    setMessage(words.join(" "));
-    setShowMentionPopover(false);
-    if (messageInputRef.current) {
-      messageInputRef.current.focus();
+  const handleSelectMention = (tagText = "@Meta AI") => {
+    const input = messageInputRef.current;
+    const currentVal = message || "";
+    const cursor = input?.selectionStart ?? currentVal.length;
+    const textBefore = currentVal.slice(0, cursor);
+    const textAfter = currentVal.slice(cursor);
+
+    const lastAtIndex = textBefore.lastIndexOf("@");
+    if (lastAtIndex !== -1) {
+      const prefix = textBefore.slice(0, lastAtIndex);
+      const newMsg = `${prefix}${tagText} ${textAfter}`;
+      setMessage(newMsg);
+      setShowMentionPopover(false);
+      requestAnimationFrame(() => {
+        if (input) {
+          input.focus();
+          const newPos = prefix.length + tagText.length + 1;
+          input.setSelectionRange(newPos, newPos);
+        }
+      });
+    } else {
+      const words = currentVal.split(/\s/);
+      words.pop();
+      words.push(`${tagText} `);
+      setMessage(words.join(" "));
+      setShowMentionPopover(false);
+      if (input) {
+        input.focus();
+      }
     }
   };
 
@@ -444,8 +584,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
     const combined = [...validMsgs, ...chatDisappearingEvents];
     combined.sort((a, b) => {
-      const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
-      const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+      const timeA = new Date(a.scheduledFor || a.createdAt || a.timestamp || 0).getTime();
+      const timeB = new Date(b.scheduledFor || b.createdAt || b.timestamp || 0).getTime();
       return timeA - timeB;
     });
     return combined;
@@ -1087,13 +1227,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const scrollToLastMessage = (behavior = "auto") => {
     const el = messagesContainerRef.current;
     if (!el) return;
+    if (isUserInteractingRef.current) return;
     isProgrammaticScrollRef.current = true;
-    if (messageEndRef.current) {
+    if (behavior === "smooth") {
       try {
-        messageEndRef.current.scrollIntoView({
-          behavior: behavior === "smooth" ? "smooth" : "instant",
-          block: "end",
-        });
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
       } catch {
         el.scrollTop = el.scrollHeight;
       }
@@ -1109,6 +1247,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const scrollToBottom = (behavior = "auto") => {
     isShowingLastMessageRef.current = true;
     hasUserScrolledSinceSwitchRef.current = true;
+    isUserInteractingRef.current = false;
     scrollToLastMessage(behavior);
     const el = messagesContainerRef.current;
     if (el) {
@@ -1132,7 +1271,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (isProgrammaticScrollRef.current) return;
     if (isMessagesLoading || messages.length === 0) return;
 
-    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 35;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
     if (!isAtBottom) {
       isShowingLastMessageRef.current = false;
     } else {
@@ -1253,13 +1392,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
 
         scrollToLastMessage();
 
-        const raf = requestAnimationFrame(() => {
-          scrollToLastMessage();
-        });
-        const t1 = setTimeout(() => scrollToLastMessage(), 60);
-        const t2 = setTimeout(() => scrollToLastMessage(), 180);
-        const t3 = setTimeout(() => scrollToLastMessage(), 350);
-        const t4 = setTimeout(() => scrollToLastMessage(), 600);
+        const runScrollIfNeeded = () => {
+          if (!hasUserScrolledSinceSwitchRef.current && !isUserInteractingRef.current) {
+            scrollToLastMessage();
+          }
+        };
+
+        const raf = requestAnimationFrame(runScrollIfNeeded);
+        const t1 = setTimeout(runScrollIfNeeded, 60);
+        const t2 = setTimeout(runScrollIfNeeded, 180);
+        const t3 = setTimeout(runScrollIfNeeded, 350);
+        const t4 = setTimeout(runScrollIfNeeded, 600);
 
         return () => {
           cancelAnimationFrame(raf);
@@ -1312,11 +1455,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     } else {
       if (isSelectMode) return;
 
-      if (isShowingLastMessageRef.current) {
+      if (isShowingLastMessageRef.current && !isUserInteractingRef.current) {
         scrollToLastMessage();
       }
     }
   }, [messages, isMessagesLoading, selectedContact?._id, isSelectMode]);
+
+  useEffect(() => {
+    if (isMetaAiTyping && isShowingLastMessageRef.current && !isUserInteractingRef.current) {
+      scrollToLastMessage("smooth");
+    }
+  }, [isMetaAiTyping]);
 
   useEffect(() => {
     const el = messagesContainerRef.current;
@@ -1327,7 +1476,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       if (isShowingLastMessageRef.current && !isMessagesLoading && messages.length > 0) {
         if (resizeTimer) clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
-          scrollToLastMessage();
+          if (!isUserInteractingRef.current) {
+            scrollToLastMessage();
+          }
         }, 30);
       }
     });
@@ -1347,27 +1498,39 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const el = messagesContainerRef.current;
     if (!el) return;
 
-    const handleUserInteractionStart = () => {
+    let wheelTimer = null;
+    const handleWheel = () => {
+      isUserInteractingRef.current = true;
+      if (wheelTimer) clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => {
+        isUserInteractingRef.current = false;
+      }, 250);
+    };
+
+    const handlePointerDown = () => {
       isUserInteractingRef.current = true;
     };
-    const handleUserInteractionEnd = () => {
+    const handlePointerUp = () => {
       setTimeout(() => {
         isUserInteractingRef.current = false;
       }, 150);
     };
 
-    el.addEventListener("wheel", handleUserInteractionStart, { passive: true });
-    el.addEventListener("touchstart", handleUserInteractionStart, { passive: true });
-    el.addEventListener("pointerdown", handleUserInteractionStart, { passive: true });
-    window.addEventListener("pointerup", handleUserInteractionEnd, { passive: true });
-    window.addEventListener("touchend", handleUserInteractionEnd, { passive: true });
+    el.addEventListener("wheel", handleWheel, { passive: true });
+    el.addEventListener("touchstart", handlePointerDown, { passive: true });
+    el.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    window.addEventListener("pointerup", handlePointerUp, { passive: true });
+    window.addEventListener("touchend", handlePointerUp, { passive: true });
+    window.addEventListener("touchcancel", handlePointerUp, { passive: true });
 
     return () => {
-      el.removeEventListener("wheel", handleUserInteractionStart);
-      el.removeEventListener("touchstart", handleUserInteractionStart);
-      el.removeEventListener("pointerdown", handleUserInteractionStart);
-      window.removeEventListener("pointerup", handleUserInteractionEnd);
-      window.removeEventListener("touchend", handleUserInteractionEnd);
+      if (wheelTimer) clearTimeout(wheelTimer);
+      el.removeEventListener("wheel", handleWheel);
+      el.removeEventListener("touchstart", handlePointerDown);
+      el.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("touchend", handlePointerUp);
+      window.removeEventListener("touchcancel", handlePointerUp);
     };
   }, []);
 
@@ -1476,9 +1639,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (stickerInputRef.current) stickerInputRef.current.value = "";
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (overrideText, extraOptions = {}) => {
     if (!selectedContact || isSending) return;
-    const trimmedMessage = message.trim();
+    const textToSend = typeof overrideText === "string" ? overrideText : message;
+    const trimmedMessage = textToSend.trim();
     if (!trimmedMessage && selectedFiles.length === 0) return;
 
     setIsSending(true);
@@ -1538,6 +1702,15 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             formData.append("replyMessage", JSON.stringify(replyData));
           }
 
+          if (extraOptions?.scheduledFor) {
+            formData.append("isScheduled", "true");
+            formData.append("scheduledFor", extraOptions.scheduledFor);
+          }
+
+          if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
+            const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
+            formData.append("metaAiPersona", currentPersona);
+          }
           await sendMessage(formData);
         }
       } else if (trimmedMessage) {
@@ -1557,7 +1730,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           formData.append("replyTo", replyData._id);
           formData.append("replyMessage", JSON.stringify(replyData));
         }
+        if (extraOptions?.scheduledFor) {
+          formData.append("isScheduled", "true");
+          formData.append("scheduledFor", extraOptions.scheduledFor);
+        }
+        if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
+          const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
+          formData.append("metaAiPersona", currentPersona);
+        }
         await sendMessage(formData);
+        if (extraOptions?.scheduledFor) {
+          toast.success("⏰ Message scheduled successfully!");
+        }
         if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
           setMetaAiOptimisticThinking(true);
           setTimeout(() => setMetaAiOptimisticThinking(false), 20000);
@@ -1583,6 +1767,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       setIsSending(false);
     }
   };
+  handleSendMessageRef.current = handleSendMessage;
 
   const handleSendPoll = async ({ question, options, allowMultiple }) => {
     if (!selectedContact || !question.trim()) return;
@@ -1760,8 +1945,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const acc = {};
     for (let i = 0; i < combinedMessages.length; i++) {
       const msg = combinedMessages[i];
-      if (!msg.createdAt) continue;
-      const date = new Date(msg.createdAt);
+      const msgTimestamp = msg.scheduledFor || msg.createdAt;
+      if (!msgTimestamp) continue;
+      const date = new Date(msgTimestamp);
       if (isValidate(date)) {
         const dateString = format(date, "yyyy-MM-dd");
         if (!acc[dateString]) {
@@ -1822,24 +2008,6 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const handleReaction = (messageId, emoji) => {
     addReaction(messageId, emoji);
   };
-
-  const groupParticipants = useMemo(() => {
-    if (!isGroupChat) return [];
-    return (
-      selectedContact?.participants ||
-      selectedContact?.conversation?.participants ||
-      []
-    );
-  }, [selectedContact, isGroupChat]);
-
-  const groupAdmins = useMemo(() => {
-    if (!isGroupChat) return [];
-    const raw =
-      selectedContact?.groupAdmin ||
-      selectedContact?.conversation?.groupAdmin ||
-      [];
-    return Array.isArray(raw) ? raw : [raw];
-  }, [selectedContact, isGroupChat]);
 
   const handleVideoCall = () => {
     if (!selectedContact) return;
@@ -2084,6 +2252,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           setHeaderMenuAnchor={setHeaderMenuAnchor}
           setShowHeaderMenu={setShowHeaderMenu}
           onCloseChat={handleCloseChatWindow}
+          handleOpenSummarize={handleOpenSummarize}
         />
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -2106,7 +2275,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           <div
             ref={messagesContainerRef}
             onScroll={handleMessageScroll}
-            className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto [overflow-anchor:none] custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"}`}
+            className={`flex-1 px-2 sm:px-4 md:px-5 py-2 overflow-y-auto custom-scrollbar relative transition-colors duration-500 ${theme === "dark" ? "bg-[#0b141a] bg-opacity-95" : "bg-[#efe7de]"}`}
             style={{
               backgroundColor:
                 theme === "dark"
@@ -2461,6 +2630,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               handleSendMessage={handleSendMessage}
               isSending={isSending}
               selectedFiles={selectedFiles}
+              isGroupChat={isGroupChat}
+              groupParticipants={groupParticipants}
+              groupAdmins={groupAdmins}
             />
           )}
         </div>
@@ -2533,6 +2705,50 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         showDeleteConfirm={showDeleteConfirm}
         setShowDeleteConfirm={setShowDeleteConfirm}
         handleExecuteDeleteChat={handleExecuteDeleteChat}
+      />
+
+      <ChatSummaryModal
+        isOpen={showSummaryModal}
+        onClose={() => setShowSummaryModal(false)}
+        summary={summaryData?.summary}
+        messageCount={summaryData?.messageCount || 0}
+        isLoading={isSummarizing}
+        theme={theme}
+      />
+
+      <RescheduleModal
+        isOpen={rescheduleModalState.isOpen}
+        message={rescheduleModalState.message}
+        onClose={() => setRescheduleModalState({ isOpen: false, message: null })}
+        theme={theme}
+      />
+
+      <TranslateModal
+        isOpen={translateModalState.isOpen}
+        initialText={translateModalState.text}
+        onClose={() =>
+          setTranslateModalState({ isOpen: false, text: "", messageId: null })
+        }
+        theme={theme}
+        onSendAsReply={(translation) => {
+          if (handleSendMessageRef.current) {
+            handleSendMessageRef.current(translation);
+          } else {
+            setMessage(translation);
+          }
+        }}
+      />
+
+      <ExportChatModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        messages={messages}
+        contactName={
+          selectedContact?.username ||
+          selectedContact?.name ||
+          (selectedContact?.isAI ? "Meta AI" : "Chat")
+        }
+        theme={theme}
       />
     </>
   );

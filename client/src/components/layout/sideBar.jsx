@@ -122,9 +122,8 @@ const sideBar = () => {
             title="Status"
           >
             <MdRadioButtonChecked
-              className={`h-6 w-6 transition-colors duration-200 ${
-                hasUnreadStatus && activeTab !== "status" ? "text-[#25d366]" : ""
-              }`}
+              className={`h-6 w-6 transition-colors duration-200 ${hasUnreadStatus && activeTab !== "status" ? "text-[#25d366]" : ""
+                }`}
             />
             {hasUnreadStatus && (
               <span

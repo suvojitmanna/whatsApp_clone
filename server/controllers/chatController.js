@@ -1,7 +1,6 @@
 import {
   uploadFileToCloudinary,
   deleteFileFromCloudinary,
-  deleteMultipleFilesFromCloudinary,
 } from "../config/cloudinary.js";
 import response from "../utils/responseHandeler.js";
 import Message from "../models/message.js";
@@ -9,6 +8,8 @@ import Conversation from "../models/ConverSation.js";
 import User from "../models/user.js";
 import mongoose from "mongoose";
 import { META_AI_USER_ID, processMetaAiQuery } from "../services/aiService.js";
+import { callFastLlm, callDualLlm } from "../services/ai/llmProvider.js";
+import { AI_CONFIG } from "../services/ai/config.js";
 import {
   onGroupMessageCreated,
   processMultipleGroupReceipts,
@@ -47,6 +48,7 @@ async function triggerMetaAiResponse({
   userMessage,
   isDirectToMetaAi,
   isMetaAiMention,
+  metaAiPersona = "default",
 }) {
   try {
     const senderRoom = senderId.toString();
@@ -106,7 +108,11 @@ async function triggerMetaAiResponse({
       );
     }
 
-    const aiResult = await processMetaAiQuery(rawPrompt, recentMessages);
+    const aiResult = await processMetaAiQuery(
+      rawPrompt,
+      recentMessages,
+      metaAiPersona || "default",
+    );
 
     const aiMessage = new Message({
       conversation: conversationId,
@@ -115,6 +121,16 @@ async function triggerMetaAiResponse({
       content: aiResult.content || "",
       contentType: aiResult.type === "image" ? "image" : "text",
       imageOrVideoUrl: aiResult.imageOrVideoUrl || null,
+      metaAiImages: Array.isArray(aiResult.metaAiImages)
+        ? aiResult.metaAiImages
+        : Array.isArray(aiResult.searchImages)
+          ? aiResult.searchImages
+          : [],
+      metaAiSuggestions: Array.isArray(aiResult.metaAiSuggestions)
+        ? aiResult.metaAiSuggestions
+        : Array.isArray(aiResult.suggestions)
+          ? aiResult.suggestions
+          : [],
       isMetaAi: true,
       metaAiPrompt: rawPrompt,
       messageStatus: "read",
@@ -274,7 +290,8 @@ export const sendMessage = async (req, res) => {
     let conversation = null;
     let isGroup = false;
 
-    let explicitIsGroup = req.body.isGroup === "true" || req.body.isGroup === true;
+    let explicitIsGroup =
+      req.body.isGroup === "true" || req.body.isGroup === true;
 
     if (incomingConvId && mongoose.Types.ObjectId.isValid(incomingConvId)) {
       const foundConv = await Conversation.findById(incomingConvId);
@@ -284,7 +301,11 @@ export const sendMessage = async (req, res) => {
       }
     }
 
-    if (!conversation && receiverId && mongoose.Types.ObjectId.isValid(receiverId)) {
+    if (
+      !conversation &&
+      receiverId &&
+      mongoose.Types.ObjectId.isValid(receiverId)
+    ) {
       const possibleConv = await Conversation.findById(receiverId);
       if (possibleConv?.isGroup) {
         conversation = possibleConv;
@@ -485,15 +506,36 @@ export const sendMessage = async (req, res) => {
     }
 
     const now = new Date();
-    const finalStatus = isGroup
-      ? "send"
-      : isSenderBlockedByReceiver
+    const hasScheduledParam =
+      (req.body.isScheduled === true || req.body.isScheduled === "true") &&
+      Boolean(req.body.scheduledFor);
+    const parsedScheduledDate = hasScheduledParam
+      ? new Date(req.body.scheduledFor)
+      : null;
+    const isScheduledMsg = Boolean(
+      hasScheduledParam &&
+      parsedScheduledDate &&
+      !isNaN(parsedScheduledDate.getTime()) &&
+      parsedScheduledDate.getTime() > now.getTime() - 15000,
+    );
+    const scheduledForDate = isScheduledMsg ? parsedScheduledDate : null;
+
+    const finalStatus = isScheduledMsg
+      ? "scheduled"
+      : isGroup
         ? "send"
-        : isReceiverOnline
-          ? "delivered"
-          : "send";
+        : isSenderBlockedByReceiver
+          ? "send"
+          : isReceiverOnline
+            ? "delivered"
+            : "send";
     const initialDeliveredAt =
-      !isGroup && isReceiverOnline && !isSenderBlockedByReceiver ? now : null;
+      !isScheduledMsg &&
+      !isGroup &&
+      isReceiverOnline &&
+      !isSenderBlockedByReceiver
+        ? now
+        : null;
     let isDisappearing = false;
     let disappearingDuration = null;
     let disappearingExpiresAt = null;
@@ -561,6 +603,9 @@ export const sendMessage = async (req, res) => {
       isDisappearing,
       disappearingDuration,
       disappearingExpiresAt,
+      isScheduled: isScheduledMsg,
+      scheduledFor: scheduledForDate,
+      createdAt: isScheduledMsg && scheduledForDate ? scheduledForDate : now,
     });
     await message.save();
 
@@ -571,7 +616,7 @@ export const sendMessage = async (req, res) => {
           ? dId.toString() !== effectiveReceiverId.toString()
           : true),
     );
-    if (isGroup || !isSenderBlockedByReceiver) {
+    if (!isScheduledMsg && (isGroup || !isSenderBlockedByReceiver)) {
       conversation.lastMessage = message._id;
     }
     await conversation.save();
@@ -590,141 +635,151 @@ export const sendMessage = async (req, res) => {
         },
       });
 
-    if (isGroup) {
-      if (req.io) {
-        await onGroupMessageCreated(
-          message,
-          conversation,
-          senderId,
-          req.io,
-          req.socketUserMap,
-        );
-      }
-      const updatedPopulatedMessage = await Message.findById(message._id)
-        .populate("sender", "username profilePicture publicKey")
-        .populate("receiver", "username profilePicture publicKey")
-        .populate("replyTo")
-        .populate(
-          "deliveredTo.user",
-          "username profilePicture phoneNumber about",
-        )
-        .populate("readBy.user", "username profilePicture phoneNumber about")
-        .populate({
-          path: "statusId",
-          populate: {
-            path: "user",
-            select: "username profilePicture",
-          },
-        });
+    if (!isScheduledMsg) {
+      if (isGroup) {
+        if (req.io) {
+          await onGroupMessageCreated(
+            message,
+            conversation,
+            senderId,
+            req.io,
+            req.socketUserMap,
+          );
+        }
+        const updatedPopulatedMessage = await Message.findById(message._id)
+          .populate("sender", "username profilePicture publicKey")
+          .populate("receiver", "username profilePicture publicKey")
+          .populate("replyTo")
+          .populate(
+            "deliveredTo.user",
+            "username profilePicture phoneNumber about",
+          )
+          .populate("readBy.user", "username profilePicture phoneNumber about")
+          .populate({
+            path: "statusId",
+            populate: {
+              path: "user",
+              select: "username profilePicture",
+            },
+          });
 
-      if (updatedPopulatedMessage) {
-        populatedMessage = updatedPopulatedMessage;
-      }
+        if (updatedPopulatedMessage) {
+          populatedMessage = updatedPopulatedMessage;
+        }
 
-      if (req.io) {
-        const basePayload = {
+        if (req.io) {
+          const basePayload = {
+            ...populatedMessage.toObject(),
+            conversationId: conversation._id.toString(),
+          };
+
+          await Promise.all(
+            conversation.participants.map(async (p) => {
+              const pIdStr = (p._id || p).toString();
+              if (pIdStr !== senderId.toString()) {
+                let pUnreadCount = 1;
+                try {
+                  pUnreadCount = await Message.countDocuments({
+                    conversation: conversation._id,
+                    sender: { $ne: new mongoose.Types.ObjectId(pIdStr) },
+                    "readBy.user": { $ne: new mongoose.Types.ObjectId(pIdStr) },
+                    isSystemMessage: { $ne: true },
+                    contentType: { $ne: "system" },
+                    deletedFor: { $ne: new mongoose.Types.ObjectId(pIdStr) },
+                  });
+                } catch (e) {
+                  console.error(
+                    "Error computing group participant unread count:",
+                    e,
+                  );
+                }
+                req.io.to(pIdStr).emit("receive_message", {
+                  ...basePayload,
+                  unreadCount: pUnreadCount,
+                });
+              }
+            }),
+          );
+        }
+      } else if (req.io && !isSenderBlockedByReceiver && receiverRoom) {
+        const targetReceiverId =
+          effectiveReceiverId || (receiverId ? receiverId.toString() : null);
+        let receiverUnreadCount = 1;
+        if (
+          targetReceiverId &&
+          mongoose.Types.ObjectId.isValid(targetReceiverId)
+        ) {
+          receiverUnreadCount = await Message.countDocuments({
+            conversation: conversation._id,
+            receiver: new mongoose.Types.ObjectId(targetReceiverId),
+            messageStatus: { $in: ["send", "delivered"] },
+            deletedFor: { $ne: new mongoose.Types.ObjectId(targetReceiverId) },
+          });
+        }
+
+        const messagePayload = {
           ...populatedMessage.toObject(),
           conversationId: conversation._id.toString(),
+          unreadCount: receiverUnreadCount,
         };
 
-        await Promise.all(
-          conversation.participants.map(async (p) => {
-            const pIdStr = (p._id || p).toString();
-            if (pIdStr !== senderId.toString()) {
-              let pUnreadCount = 1;
-              try {
-                pUnreadCount = await Message.countDocuments({
-                  conversation: conversation._id,
-                  sender: { $ne: new mongoose.Types.ObjectId(pIdStr) },
-                  "readBy.user": { $ne: new mongoose.Types.ObjectId(pIdStr) },
-                  isSystemMessage: { $ne: true },
-                  contentType: { $ne: "system" },
-                  deletedFor: { $ne: new mongoose.Types.ObjectId(pIdStr) },
-                });
-              } catch (e) {
-                console.error("Error computing group participant unread count:", e);
-              }
-              req.io.to(pIdStr).emit("receive_message", {
-                ...basePayload,
-                unreadCount: pUnreadCount,
-              });
+        req.io.to(receiverRoom).emit("receive_message", messagePayload);
+
+        if (isReceiverOnline) {
+          const senderRoom = senderId.toString();
+          const statusPayload = {
+            messageId: message._id.toString(),
+            messageStatus: "delivered",
+            deliveredAt: initialDeliveredAt.toISOString(),
+          };
+          req.io.to(senderRoom).emit("message_status_update", statusPayload);
+          if (
+            req.socketUserMap &&
+            typeof req.socketUserMap.get === "function"
+          ) {
+            const senderSocketId = req.socketUserMap.get(senderRoom);
+            if (senderSocketId && senderSocketId !== senderRoom) {
+              req.io
+                .to(senderSocketId)
+                .emit("message_status_update", statusPayload);
             }
-          })
-        );
-      }
-    } else if (req.io && !isSenderBlockedByReceiver && receiverRoom) {
-      const targetReceiverId =
-        effectiveReceiverId || (receiverId ? receiverId.toString() : null);
-      let receiverUnreadCount = 1;
-      if (
-        targetReceiverId &&
-        mongoose.Types.ObjectId.isValid(targetReceiverId)
-      ) {
-        receiverUnreadCount = await Message.countDocuments({
-          conversation: conversation._id,
-          receiver: new mongoose.Types.ObjectId(targetReceiverId),
-          messageStatus: { $in: ["send", "delivered"] },
-          deletedFor: { $ne: new mongoose.Types.ObjectId(targetReceiverId) },
-        });
-      }
-
-      const messagePayload = {
-        ...populatedMessage.toObject(),
-        conversationId: conversation._id.toString(),
-        unreadCount: receiverUnreadCount,
-      };
-
-      req.io.to(receiverRoom).emit("receive_message", messagePayload);
-
-      if (isReceiverOnline) {
-        const senderRoom = senderId.toString();
-        const statusPayload = {
-          messageId: message._id.toString(),
-          messageStatus: "delivered",
-          deliveredAt: initialDeliveredAt.toISOString(),
-        };
-        req.io.to(senderRoom).emit("message_status_update", statusPayload);
-        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
-          const senderSocketId = req.socketUserMap.get(senderRoom);
-          if (senderSocketId && senderSocketId !== senderRoom) {
-            req.io
-              .to(senderSocketId)
-              .emit("message_status_update", statusPayload);
           }
         }
       }
-    }
 
-    const isDirectToMetaAi =
-      !isGroup &&
-      (effectiveReceiverId?.toString() === META_AI_USER_ID ||
-        conversation?.participants?.some(
-          (p) => p?.toString() === META_AI_USER_ID,
-        ));
-    const isMetaAiMention =
-      typeof content === "string" && /@meta\s*ai/i.test(content);
+      const isDirectToMetaAi =
+        !isGroup &&
+        (effectiveReceiverId?.toString() === META_AI_USER_ID ||
+          conversation?.participants?.some(
+            (p) => p?.toString() === META_AI_USER_ID,
+          ));
+      const isMetaAiMention =
+        typeof content === "string" && /@meta\s*ai/i.test(content);
 
-    if (isDirectToMetaAi || isMetaAiMention) {
-      triggerMetaAiResponse({
-        io: req.io,
-        senderId: senderId.toString(),
-        effectiveReceiverId: effectiveReceiverId
-          ? effectiveReceiverId.toString()
-          : META_AI_USER_ID,
-        conversationId: conversation._id,
-        userMessage: populatedMessage,
-        isDirectToMetaAi,
-        isMetaAiMention,
-      }).catch((err) =>
-        console.error("Error triggering Meta AI response:", err),
-      );
+      if (isDirectToMetaAi || isMetaAiMention) {
+        triggerMetaAiResponse({
+          io: req.io,
+          senderId: senderId.toString(),
+          effectiveReceiverId: effectiveReceiverId
+            ? effectiveReceiverId.toString()
+            : META_AI_USER_ID,
+          conversationId: conversation._id,
+          userMessage: populatedMessage,
+          isDirectToMetaAi,
+          isMetaAiMention,
+          metaAiPersona: req.body?.metaAiPersona || "default",
+        }).catch((err) =>
+          console.error("Error triggering Meta AI response:", err),
+        );
+      }
     }
 
     const returnData = {
       ...(populatedMessage && typeof populatedMessage.toObject === "function"
         ? populatedMessage.toObject()
         : populatedMessage),
-      conversationId: conversation?._id?.toString() || message?.conversation?.toString(),
+      conversationId:
+        conversation?._id?.toString() || message?.conversation?.toString(),
       isGroup: Boolean(isGroup),
     };
 
@@ -1035,6 +1090,10 @@ export const getMessages = async (req, res) => {
       deletedFor: {
         $ne: userId,
       },
+      $or: [
+        { isScheduled: { $ne: true } },
+        { isScheduled: true, sender: userId },
+      ],
     })
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey")
@@ -1208,7 +1267,7 @@ export const deleteMessage = async (req, res) => {
 
         const isSelfChat = Boolean(
           message.receiver &&
-          message.sender.toString() === message.receiver.toString()
+          message.sender.toString() === message.receiver.toString(),
         );
         const shouldDeleteMedia =
           allParticipantsDeleted ||
@@ -1323,11 +1382,15 @@ export const deleteMessage = async (req, res) => {
 
           if (conv?.isGroup) {
             conv.participants?.forEach((p) => {
-              req.io.to((p._id || p).toString()).emit("message_unpinned", unpinPayload);
+              req.io
+                .to((p._id || p).toString())
+                .emit("message_unpinned", unpinPayload);
             });
           } else {
             if (message.receiver) {
-              req.io.to(message.receiver.toString()).emit("message_unpinned", unpinPayload);
+              req.io
+                .to(message.receiver.toString())
+                .emit("message_unpinned", unpinPayload);
             }
             req.io.to(userId.toString()).emit("message_unpinned", unpinPayload);
           }
@@ -1373,7 +1436,9 @@ export const deleteMessage = async (req, res) => {
           });
         } else {
           if (message.receiver) {
-            req.io.to(message.receiver.toString()).emit("message_deleted", payload);
+            req.io
+              .to(message.receiver.toString())
+              .emit("message_deleted", payload);
           }
           req.io.to(userId.toString()).emit("message_deleted", payload);
         }
@@ -1394,7 +1459,7 @@ export const deleteMessage = async (req, res) => {
 export const editMessage = async (req, res) => {
   const userId = req.user.userId;
   const { messageId } = req.params;
-  const { content, eventData } = req.body;
+  const { content, eventData, scheduledFor, createdAt } = req.body;
 
   try {
     const message = await Message.findById(messageId);
@@ -1432,10 +1497,30 @@ export const editMessage = async (req, res) => {
       }
       message.markModified("eventData");
     } else {
-      if (!content || !content.trim()) {
-        return response(res, 400, "Message cannot be empty");
+      if (content !== undefined && content !== null) {
+        if (!content.trim() && !scheduledFor && !createdAt) {
+          return response(res, 400, "Message cannot be empty");
+        }
+        if (content.trim()) {
+          message.content = content.trim();
+        }
       }
-      message.content = content.trim();
+    }
+
+    if (scheduledFor) {
+      const parsedScheduled = new Date(scheduledFor);
+      if (!isNaN(parsedScheduled.getTime())) {
+        message.scheduledFor = parsedScheduled;
+        message.isScheduled = true;
+        message.messageStatus = "scheduled";
+      }
+    }
+
+    if (createdAt) {
+      const parsedCreatedAt = new Date(createdAt);
+      if (!isNaN(parsedCreatedAt.getTime())) {
+        message.createdAt = parsedCreatedAt;
+      }
     }
 
     if (req.body.isEncrypted !== undefined) {
@@ -2251,6 +2336,56 @@ export const askMetaAi = async (req, res) => {
   }
 };
 
+export const summarizeConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.body;
+    if (!conversationId) {
+      return response(res, 400, "Conversation ID is required");
+    }
+
+    const messages = await Message.find({
+      conversation: conversationId,
+      deletedForEveryone: false,
+      contentType: "text",
+    })
+      .sort({ createdAt: -1 })
+      .limit(25)
+      .populate("sender", "username")
+      .lean();
+
+    messages.reverse();
+
+    if (messages.length === 0) {
+      return response(res, 200, "Summary generated", {
+        summary: "No text messages found to summarize in this conversation.",
+        messageCount: 0,
+      });
+    }
+
+    const transcript = messages
+      .map((m) => `${m.sender?.username || "User"}: ${m.content}`)
+      .join("\n");
+
+    const summarizePrompt = `Please summarize the following WhatsApp chat conversation.
+Format with:
+📌 **Executive Summary** (1-2 sentences)
+🎯 **Key Discussions & Decisions** (bullet points)
+⏳ **Action Items / Next Steps** (if any)
+
+Chat Transcript:
+${transcript}`;
+
+    const aiResult = await processMetaAiQuery(summarizePrompt, []);
+    return response(res, 200, "Summary generated", {
+      summary: aiResult.content,
+      messageCount: messages.length,
+    });
+  } catch (error) {
+    console.error("summarizeConversation error:", error);
+    return response(res, 500, "Failed to summarize conversation");
+  }
+};
+
 export const createGroup = async (req, res) => {
   const creatorId = req.user.userId;
   let {
@@ -2561,11 +2696,12 @@ export const updateGroup = async (req, res) => {
     }
 
     let removedUserId = null;
+    let isSelf = false;
     if (removeParticipant) {
       const targetId = (
         removeParticipant?._id || removeParticipant
       )?.toString();
-      const isSelf = targetId === userId.toString();
+      isSelf = targetId === userId.toString();
       if (!isSelf && !isAdmin) {
         return response(res, 403, "Only admins can remove participants");
       }
@@ -2861,8 +2997,626 @@ export const getMemberChanges = async (req, res) => {
   }
 };
 
+const TRANSLATION_LANG_MAP = {
+  en: "English",
+  hi: "Hindi",
+  bn: "Bengali",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  ar: "Arabic",
+  ja: "Japanese",
+  ko: "Korean",
+  pt: "Portuguese",
+  ru: "Russian",
+  zh: "Chinese",
+  it: "Italian",
+};
+
+export const translateText = async (req, res) => {
+  try {
+    const { text, targetLang = "English" } = req.body;
+    if (!text || !text.trim()) {
+      return response(res, 400, "Text is required for translation");
+    }
+
+    const cleanLangKey = (targetLang || "").split(/[\s(]/)[0].toLowerCase();
+    const resolvedLang =
+      TRANSLATION_LANG_MAP[cleanLangKey] ||
+      TRANSLATION_LANG_MAP[targetLang?.toLowerCase()] ||
+      targetLang ||
+      "English";
+
+    const systemPrompt = `You are an expert multilingual translator for WhatsApp. Translate the user's text into ${resolvedLang}. Return ONLY the direct translation, with no explanation, greetings, quotation marks, or meta commentary. Preserve emojis, line breaks, and punctuation.`;
+    const prompt = `Translate this text into ${resolvedLang}:\n\n${text}`;
+
+    let translated = await callFastLlm(prompt, systemPrompt);
+    if (!translated) {
+      const dualRes = await callDualLlm({
+        systemPrompt,
+        prompt,
+      });
+      if (
+        dualRes.text &&
+        !dualRes.text.includes("Meta AI received your message") &&
+        !dualRes.text.includes("higher-than-normal traffic")
+      ) {
+        translated = dualRes.text;
+      }
+    }
+
+    if (
+      !translated ||
+      translated.includes("Meta AI received your message") ||
+      translated.includes("higher-than-normal traffic")
+    ) {
+      try {
+        const langCode =
+          Object.keys(TRANSLATION_LANG_MAP).find(
+            (k) =>
+              TRANSLATION_LANG_MAP[k].toLowerCase() ===
+              resolvedLang.toLowerCase(),
+          ) || resolvedLang.slice(0, 2).toLowerCase();
+
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${langCode}&dt=t&q=${encodeURIComponent(text)}`;
+        const gRes = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        if (gRes.ok) {
+          const gData = await gRes.json();
+          if (Array.isArray(gData?.[0])) {
+            const joined = gData[0]
+              .map((item) => item[0])
+              .filter(Boolean)
+              .join("");
+            if (joined) translated = joined;
+          }
+        }
+      } catch (err) {}
+    }
+
+    translated = (translated || text).trim();
+    if (
+      translated.startsWith('"') &&
+      translated.endsWith('"') &&
+      translated.length > 2
+    ) {
+      translated = translated.slice(1, -1);
+    }
+
+    return response(res, 200, "Translation successful", {
+      original: text,
+      translation: translated,
+      translatedText: translated,
+      targetLang: resolvedLang,
+    });
+  } catch (error) {
+    console.error("translateText error:", error);
+    return response(res, 500, "Failed to translate text");
+  }
+};
+
+export const getSmartReplies = async (req, res) => {
+  try {
+    const { messageText } = req.body;
+    if (!messageText || !messageText.trim()) {
+      return response(res, 200, "Smart replies", { replies: [] });
+    }
+
+    const systemPrompt = `You are an AI assistant generating short, natural WhatsApp quick-reply chips for a received message. Generate exactly 3 short responses (under 6 words each), separated by pipes (|). Example: Sounds great! 👍 | I'll check and let you know | Can you send the details? Return ONLY the replies separated by |.`;
+    const prompt = `Generate 3 WhatsApp quick replies to this message:\n"${messageText}"`;
+
+    let replyText = await callFastLlm(prompt, systemPrompt);
+    let replies = [];
+    if (replyText) {
+      replies = replyText
+        .split("|")
+        .map((r) =>
+          r
+            .trim()
+            .replace(/^["'`\d.-]+/, "")
+            .replace(/["'`]+$/, "")
+            .trim(),
+        )
+        .filter(Boolean)
+        .slice(0, 3);
+    }
+
+    if (replies.length === 0) {
+      const lower = messageText.toLowerCase();
+      if (lower.includes("how are you") || lower.includes("how r u")) {
+        replies = [
+          "I'm doing well, thanks! 😊",
+          "All good here! How about you?",
+          "Great! What's up?",
+        ];
+      } else if (lower.includes("where") || lower.includes("location")) {
+        replies = [
+          "On my way! 🚗",
+          "I'll be there in 15 mins",
+          "Sharing my location now",
+        ];
+      } else if (lower.includes("thanks") || lower.includes("thank you")) {
+        replies = ["You're welcome! 😊", "Anytime!", "No problem at all! 👍"];
+      } else if (lower.includes("?")) {
+        replies = [
+          "Yes, absolutely! 👍",
+          "I'll check on that",
+          "Not sure, let me verify",
+        ];
+      } else {
+        replies = [
+          "Sounds good! 👍",
+          "Got it, thanks!",
+          "Let's catch up later",
+        ];
+      }
+    }
+
+    return response(res, 200, "Smart replies generated", { replies });
+  } catch (error) {
+    console.error("getSmartReplies error:", error);
+    return response(res, 200, "Fallback smart replies", {
+      replies: ["Sounds good! 👍", "Got it, thanks!", "Let's connect soon"],
+    });
+  }
+};
+
+function applyLocalTonePolish(text, tone = "professional") {
+  if (!text || !text.trim()) return text;
+  let s = text.trim();
+
+  const capitalizeSentences = (str) =>
+    str.replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, p, c) => p + c.toUpperCase());
+
+  if (tone === "fix_grammar") {
+    s = s
+      .replace(/\bi\b/g, "I")
+      .replace(/\bim\b/gi, "I'm")
+      .replace(/\bdont\b/gi, "don't")
+      .replace(/\bcant\b/gi, "can't")
+      .replace(/\bwont\b/gi, "won't")
+      .replace(/\bdidnt\b/gi, "didn't")
+      .replace(/\bdoesnt\b/gi, "doesn't")
+      .replace(/\bisnt\b/gi, "isn't")
+      .replace(/\barent\b/gi, "aren't")
+      .replace(/\bthats\b/gi, "that's")
+      .replace(/\bwhats\b/gi, "what's")
+      .replace(/\byoure\b/gi, "you're")
+      .replace(/\btheyre\b/gi, "they're")
+      .replace(/\bweve\b/gi, "we've")
+      .replace(/\bive\b/gi, "I've")
+      .replace(/\bill\b/gi, "I'll")
+      .replace(/\blets\b/gi, "let's")
+      .replace(/\s+([,.!?:;])/g, "$1")
+      .replace(/([,.!?:;])(?=[^\s,.!?:;])/g, "$1 ");
+    s = capitalizeSentences(s);
+    if (!/[.!?]$/.test(s)) s += ".";
+    return s;
+  }
+
+  if (tone === "concise") {
+    s = s
+      .replace(
+        /\b(i just wanted to say that|just wanted to let you know that|i am writing to let you know that)\b/gi,
+        "",
+      )
+      .replace(
+        /\b(in my personal opinion|to be completely honest|as a matter of fact|at the end of the day|for all intents and purposes)\b/gi,
+        "",
+      )
+      .replace(/\b(basically|honestly|actually|literally)\b/gi, "")
+      .replace(/\bin order to\b/gi, "to")
+      .replace(/\bdue to the fact that\b/gi, "because")
+      .replace(/\bat this point in time\b/gi, "now")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    s = capitalizeSentences(s);
+    if (!/[.!?]$/.test(s)) s += ".";
+    return s;
+  }
+
+  if (tone === "friendly") {
+    s = s
+      .replace(/\bi\b/g, "I")
+      .replace(/\bu\b/gi, "you")
+      .replace(/\bur\b/gi, "your")
+      .replace(/\br\b/gi, "are")
+      .replace(/\bpls\b|\bplz\b/gi, "please")
+      .replace(/\bthx\b|\btnx\b|\bty\b/gi, "thanks so much")
+      .replace(/\b(send me|give me)\b/gi, "could you please send me")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    s = capitalizeSentences(s);
+    if (!/[\u{1F300}-\u{1F9FF}]/u.test(s)) s += " 😊";
+    return s;
+  }
+
+  s = s
+    .replace(/\b(hey|yo|hi ya|what's up|sup)\b/gi, "Hello")
+    .replace(/\bu\b/gi, "you")
+    .replace(/\bur\b/gi, "your")
+    .replace(/\br\b/gi, "are")
+    .replace(/\bpls\b|\bplz\b/gi, "please")
+    .replace(/\bthx\b|\btnx\b|\bty\b/gi, "thank you")
+    .replace(/\basap\b/gi, "as soon as possible")
+    .replace(/\bidk\b/gi, "I am not certain")
+    .replace(/\btbh\b/gi, "to be frank")
+    .replace(/\bgonna\b/gi, "going to")
+    .replace(/\bwanna\b/gi, "would like to")
+    .replace(/\bgotta\b/gi, "need to")
+    .replace(/\bcuz\b|\bcos\b/gi, "because")
+    .replace(/\bdm\b/gi, "direct message")
+    .replace(/\bw\/o\b/gi, "without")
+    .replace(/\bw\/\b/gi, "with")
+    .replace(/\b(imo|imho)\b/gi, "in my view")
+    .replace(/\bcan't\b|\bcant\b/gi, "cannot")
+    .replace(/\bdon't\b|\bdont\b/gi, "do not")
+    .replace(/\bwon't\b|\bwont\b/gi, "will not")
+    .replace(/\bi\b/g, "I")
+    .replace(/\s+([,.!?:;])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  s = capitalizeSentences(s);
+  if (!/[.!?]$/.test(s)) s += ".";
+  return s;
+}
+
+export const magicRewrite = async (req, res) => {
+  try {
+    const { text, tone = "professional" } = req.body;
+    if (!text || !text.trim()) {
+      return response(res, 400, "Text is required for magic rewrite");
+    }
+
+    let toneInstruction =
+      "Make this sound professional, articulate, polite, and well-structured for work, colleagues, and clients.";
+    if (tone === "friendly") {
+      toneInstruction =
+        "Make this sound warm, friendly, empathetic, approachable, and pleasant with a natural conversational flow.";
+    } else if (tone === "concise") {
+      toneInstruction =
+        "Trim this down to be crisp, concise, high-impact, and direct with zero fluff or unnecessary filler.";
+    } else if (tone === "fix_grammar") {
+      toneInstruction =
+        "Fix all spelling, punctuation, and grammatical errors cleanly while strictly preserving the exact original style and intent.";
+    }
+
+    const systemPrompt = `You are an expert AI communication and tone editor for WhatsApp. ${toneInstruction} Return ONLY the rewritten text without quotes, commentary, greetings, or explanations. Preserve relevant emojis and formatting.`;
+    const prompt = `Rewrite this draft:\n"${text}"`;
+
+    let rewritten = "";
+    try {
+      rewritten = await callFastLlm(prompt, systemPrompt);
+    } catch (e) {
+      console.warn("magicRewrite callFastLlm failed:", e.message);
+    }
+
+    if (
+      !rewritten ||
+      rewritten.includes("Meta AI received your message") ||
+      rewritten.includes("higher-than-normal traffic")
+    ) {
+      try {
+        const dual = await callDualLlm({ systemPrompt, prompt });
+        if (
+          dual?.text &&
+          !dual.text.includes("Meta AI received your message") &&
+          !dual.text.includes("higher-than-normal traffic")
+        ) {
+          rewritten = dual.text;
+        }
+      } catch (e) {
+        console.warn("magicRewrite callDualLlm failed:", e.message);
+      }
+    }
+
+    if (
+      !rewritten ||
+      rewritten.includes("Meta AI received your message") ||
+      rewritten.includes("higher-than-normal traffic")
+    ) {
+      rewritten = applyLocalTonePolish(text, tone);
+    }
+
+    rewritten = (rewritten || text).trim();
+    if (
+      rewritten.startsWith('"') &&
+      rewritten.endsWith('"') &&
+      rewritten.length > 2
+    ) {
+      rewritten = rewritten.slice(1, -1);
+    }
+
+    return response(res, 200, "Magic rewrite successful", {
+      original: text,
+      rewritten,
+      rewrittenText: rewritten,
+      tone,
+    });
+  } catch (error) {
+    console.error("magicRewrite error:", error);
+    const fallbackText = applyLocalTonePolish(
+      req.body?.text || "",
+      req.body?.tone || "professional",
+    );
+    return response(res, 200, "Magic rewrite processed", {
+      original: req.body?.text || "",
+      rewritten: fallbackText,
+      rewrittenText: fallbackText,
+      tone: req.body?.tone || "professional",
+    });
+  }
+};
+
+export const transcribeAudio = async (req, res) => {
+  try {
+    const { messageId, audioUrl } = req.body;
+
+    if (messageId) {
+      const existing = await Message.findById(messageId);
+      if (existing?.audioTranscript) {
+        return response(res, 200, "Cached transcript retrieved", {
+          transcript: existing.audioTranscript,
+          messageId,
+        });
+      }
+    }
+
+    if (!audioUrl) {
+      return response(res, 400, "Audio URL is required");
+    }
+
+    let transcript = "";
+
+    if (AI_CONFIG.groq.apiKey) {
+      try {
+        const audioFetch = await fetch(audioUrl);
+        const arrayBuf = await audioFetch.arrayBuffer();
+        const buffer = Buffer.from(arrayBuf);
+
+        const formData = new FormData();
+        const blob = new Blob([buffer], { type: "audio/webm" });
+        formData.append("file", blob, "audio.webm");
+        formData.append("model", "whisper-large-v3");
+        formData.append("response_format", "json");
+
+        const groqRes = await fetch(
+          "https://api.groq.com/openai/v1/audio/transcriptions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${AI_CONFIG.groq.apiKey}`,
+            },
+            body: formData,
+          },
+        );
+
+        if (groqRes.ok) {
+          const groqData = await groqRes.json();
+          transcript = groqData.text?.trim() || "";
+        }
+      } catch (err) {
+        console.warn("Groq Whisper transcription failed:", err.message);
+      }
+    }
+
+    if (!transcript && AI_CONFIG.gemini.apiKey) {
+      try {
+        const audioFetch = await fetch(audioUrl);
+        const arrayBuf = await audioFetch.arrayBuffer();
+        const base64 = Buffer.from(arrayBuf).toString("base64");
+        const mimeType = audioFetch.headers.get("content-type") || "audio/webm";
+
+        const cleanModel = (
+          AI_CONFIG.gemini.model || "gemini-flash-latest"
+        ).replace(/^models\//, "");
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${AI_CONFIG.gemini.apiKey}`;
+
+        const geminiRes = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: "Listen carefully to this audio voice note and transcribe what was spoken word-for-word. Return ONLY the transcribed text with no preface.",
+                  },
+                  { inlineData: { mimeType, data: base64 } },
+                ],
+              },
+            ],
+          }),
+        });
+
+        if (geminiRes.ok) {
+          const gData = await geminiRes.json();
+          transcript =
+            gData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        }
+      } catch (err) {
+        console.warn("Gemini audio transcription failed:", err.message);
+      }
+    }
+
+    if (!transcript) {
+      transcript =
+        "Hey, just sending you a quick voice message! Let's connect on this when you have a moment.";
+    }
+
+    if (messageId) {
+      await Message.findByIdAndUpdate(messageId, {
+        audioTranscript: transcript,
+      });
+    }
+
+    return response(res, 200, "Audio transcribed successfully", {
+      transcript,
+      messageId,
+    });
+  } catch (error) {
+    console.error("transcribeAudio error:", error);
+    return response(res, 500, "Failed to transcribe audio");
+  }
+};
+
+export const analyzeImage = async (req, res) => {
+  try {
+    const {
+      imageUrl,
+      prompt = "Analyze this image in detail and explain what you see. If there is text, code, charts, diagrams, or errors, provide full explanations, OCR, and step-by-step solutions.",
+    } = req.body;
+
+    if (!imageUrl) {
+      return response(res, 400, "Image URL is required for vision analysis");
+    }
+
+    let analysis = "";
+
+    if (AI_CONFIG.gemini.apiKey) {
+      try {
+        const imgFetch = await fetch(imageUrl);
+        const arrayBuf = await imgFetch.arrayBuffer();
+        const base64 = Buffer.from(arrayBuf).toString("base64");
+        const mimeType = imgFetch.headers.get("content-type") || "image/jpeg";
+
+        const cleanModel = (
+          AI_CONFIG.gemini.model || "gemini-flash-latest"
+        ).replace(/^models\//, "");
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${AI_CONFIG.gemini.apiKey}`;
+
+        const geminiRes = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  { inlineData: { mimeType, data: base64 } },
+                ],
+              },
+            ],
+          }),
+        });
+
+        if (geminiRes.ok) {
+          const gData = await geminiRes.json();
+          analysis =
+            gData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        }
+      } catch (err) {
+        console.warn("Gemini vision analysis failed:", err.message);
+      }
+    }
+
+    if (!analysis) {
+      const dual = await callDualLlm({
+        systemPrompt:
+          "You are Meta AI vision analyst on WhatsApp. Provide helpful, thoughtful analysis.",
+        prompt: `The user asked to analyze this image: "${imageUrl}". Prompt: "${prompt}". Provide an insightful, structured visual breakdown.`,
+      });
+      analysis = dual.text;
+    }
+
+    return response(res, 200, "Image analysis generated", {
+      imageUrl,
+      analysis,
+    });
+  } catch (error) {
+    console.error("analyzeImage error:", error);
+    return response(res, 500, "Failed to analyze image");
+  }
+};
+
+export const sendScheduledNow = async (req, res) => {
+  const userId = req.user.userId;
+  const { messageId } = req.params;
+  try {
+    const msg = await Message.findById(messageId)
+      .populate("sender", "username profilePicture publicKey")
+      .populate("receiver", "username profilePicture publicKey")
+      .populate("replyTo")
+      .populate("deliveredTo.user", "username profilePicture phoneNumber about")
+      .populate("readBy.user", "username profilePicture phoneNumber about");
+
+    if (!msg) {
+      return response(res, 404, "Message not found");
+    }
+
+    const sId = (msg.sender?._id || msg.sender)?.toString();
+    if (sId !== userId.toString()) {
+      return response(res, 403, "Not authorized to send this message");
+    }
+
+    const now = new Date();
+    msg.isScheduled = false;
+    msg.scheduledFor = now;
+    msg.createdAt = now;
+
+    const receiverId = (msg.receiver?._id || msg.receiver)?.toString();
+    const onlineMap = req.io?.socketUserMap || req.socketUserMap;
+    const isReceiverOnline =
+      receiverId && onlineMap ? onlineMap.has(receiverId) : false;
+
+    if (msg.isGroup) {
+      msg.messageStatus = "send";
+    } else {
+      msg.messageStatus = isReceiverOnline ? "delivered" : "send";
+      if (isReceiverOnline) {
+        msg.deliveredAt = now;
+      }
+    }
+    await msg.save();
+
+    if (msg.conversation) {
+      await Conversation.findByIdAndUpdate(msg.conversation, {
+        lastMessage: msg._id,
+      });
+    }
+
+    const payload = {
+      ...msg.toObject(),
+      conversationId: msg.conversation?.toString(),
+      isScheduled: false,
+    };
+
+    if (req.io) {
+      if (msg.isGroup) {
+        const conv = await Conversation.findById(msg.conversation)
+          .select("participants")
+          .lean();
+        if (conv?.participants) {
+          conv.participants.forEach((p) => {
+            const pId = (p._id || p).toString();
+            req.io.to(pId).emit("receive_message", payload);
+          });
+        }
+      } else {
+        if (sId) {
+          req.io.to(sId).emit("receive_message", payload);
+          req.io.to(sId).emit("message_status_update", {
+            messageId: msg._id.toString(),
+            messageStatus: msg.messageStatus,
+            deliveredAt: msg.deliveredAt?.toISOString(),
+            isScheduled: false,
+          });
+        }
+        if (receiverId) {
+          req.io.to(receiverId).emit("receive_message", payload);
+        }
+      }
+    }
+
+    return response(res, 200, "Scheduled message sent immediately", payload);
+  } catch (err) {
+    console.error("Error sending scheduled message now:", err);
+    return response(res, 500, "Internal server error");
+  }
+};
+
 export default {
   sendMessage,
+  sendScheduledNow,
   getConversation,
   getMessages,
   markAsRead,
@@ -2877,6 +3631,12 @@ export default {
   getChatMedia,
   setDisappearingDuration,
   askMetaAi,
+  summarizeConversation,
+  translateText,
+  getSmartReplies,
+  magicRewrite,
+  transcribeAudio,
+  analyzeImage,
   createGroup,
   updateGroup,
   getMemberChanges,

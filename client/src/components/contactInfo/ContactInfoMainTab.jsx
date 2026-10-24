@@ -84,7 +84,6 @@ const ContactInfoMainTab = ({
   chatKeptMessages = [],
   disappearingDuration = "Off",
   activeChatTheme,
-  activeBubbleColor,
   messages = [],
   starredMessages = {},
   isMessageStarred,
@@ -757,7 +756,10 @@ const ContactInfoMainTab = ({
 
   const handleExitGroup = () => {
     const convId = (
-      selectedContact?.conversation?._id || selectedContact?._id
+      selectedContact?.conversation?._id ||
+      selectedContact?._id ||
+      groupChatId ||
+      chatId
     )?.toString();
     if (!convId) return;
 
@@ -769,15 +771,22 @@ const ContactInfoMainTab = ({
       isDanger: true,
       onConfirm: async () => {
         try {
-          await axiosInstance.put(`/chat/group/${convId}`, {
+          const { data } = await axiosInstance.put(`/chat/group/${convId}`, {
             removeParticipant: user?._id,
           });
+          const updated = data?.data || data;
+          if (useChatStore.getState().updateGroupInfo) {
+            useChatStore.getState().updateGroupInfo(convId, updated);
+          }
+          if (useChatStore.getState().fetchConversations) {
+            useChatStore.getState().fetchConversations();
+          }
           useLayoutStore.getState().setShowContactInfo(false);
           useLayoutStore.getState().setSelectedContact(null);
           toast.info("You left the group");
         } catch (err) {
           console.error("Error exiting group:", err);
-          toast.error("Failed to exit group");
+          toast.error(err?.response?.data?.message || "Failed to exit group");
         }
       },
     });
@@ -1477,6 +1486,7 @@ const ContactInfoMainTab = ({
                 onClick={() => handleVideoCallMember(viewingMember)}
                 disabled={!isViewingMemberOnline}
                 theme={theme}
+                title={"Video Call"}
               />
             </>
           ) : (
@@ -2381,10 +2391,10 @@ const ContactInfoMainTab = ({
                 </div>
               </div>
               {!isMetaAi &&
-                (!isGroup ? (
+                (!isGroup || viewingMember ? (
                   <>
                     <div
-                      onClick={handleToggleBlock}
+                      onClick={viewingMember ? handleToggleBlockMember : handleToggleBlock}
                       className={`flex items-center gap-3.5 p-3.5 cursor-pointer transition-colors ${theme === "dark"
                         ? "hover:bg-red-500/10"
                         : "hover:bg-red-50"
@@ -2396,12 +2406,12 @@ const ContactInfoMainTab = ({
 
                       <div className="flex-1 min-w-0">
                         <h4 className="text-[14.5px] font-medium text-red-500 truncate">
-                          {isBlocked
-                            ? `Unblock ${selectedContact?.username || "contact"}`
-                            : `Block ${selectedContact?.username || "contact"}`}
+                          {(viewingMember ? isViewingMemberBlocked : isBlocked)
+                            ? `Unblock ${viewingMember?.username || selectedContact?.username || "contact"}`
+                            : `Block ${viewingMember?.username || selectedContact?.username || "contact"}`}
                         </h4>
                         <p className="text-[12px] text-[#8696a0] truncate mt-0.5">
-                          {isBlocked
+                          {(viewingMember ? isViewingMemberBlocked : isBlocked)
                             ? "Allow calls and messages from this contact"
                             : "Calls and messages will be blocked"}
                         </p>

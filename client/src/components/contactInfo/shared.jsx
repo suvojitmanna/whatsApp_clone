@@ -32,17 +32,19 @@ export const formatMemberChangeDate = (dateVal) => {
   return `${day}/${month}/${year} at ${hours}:${minutes}`;
 };
 
-export const ActionButton = ({ icon, label, onClick, disabled, theme }) => (
+export const ActionButton = ({ icon, label, onClick, disabled, theme, title, ...props }) => (
   <button
     type="button"
+    title={title}
     onClick={!disabled ? onClick : undefined}
     className={`flex flex-col items-center gap-1.5 group transition-all duration-200 ${disabled ? "opacity-35 cursor-not-allowed" : "cursor-pointer active:scale-95"
       }`}
+    {...props}
   >
     <div
       className={`w-11 h-11 flex items-center justify-center rounded-full border transition-all duration-200 ${theme === "dark"
         ? "bg-white/5 border-transparent text-[#00a884] group-hover:bg-white/10 group-hover:border-[#00a884]/40"
-        : "bg-white border-gray-200 text-[#00897b] group-hover:bg-gray-100 group-hover:border-[#00897b]/40"
+        : "bg-white border-gray-200 text-[#00a884] group-hover:bg-gray-100 group-hover:border-[#00897b]/40"
         } shadow-xs`}
     >
       {icon}

@@ -12,6 +12,7 @@ import formatTimestamp from "../../utils/formatTime";
 import { WhatsAppDisappearingIcon } from "./MessageBuble";
 import { ChevronUpIcon, ChevronDownIcon } from "../../components/common/Icons";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
+import MetaAiPersonaSelector from "../../components/common/MetaAiPersonaSelector";
 import useUserStore from "../../store/useUserStore";
 import { useChatStore } from "../../store/chatStore";
 import useVideoCallStore from "../../store/videoCallStore";
@@ -46,6 +47,7 @@ const ChatHeader = ({
   setHeaderMenuAnchor,
   setShowHeaderMenu,
   onCloseChat,
+  handleOpenSummarize,
 }) => {
   const { user } = useUserStore();
   const onlineUsers = useChatStore((state) => state.onlineUsers);
@@ -53,6 +55,10 @@ const ChatHeader = ({
   const getGroupOnlineCount = useChatStore((state) => state.getGroupOnlineCount);
   const checkUserStatus = useChatStore((state) => state.checkUserStatus);
   const sendCallLinkMessage = useChatStore((state) => state.sendCallLinkMessage);
+  const liveTranslateEnabled = useChatStore((state) => state.liveTranslateEnabled);
+  const liveTranslateLang = useChatStore((state) => state.liveTranslateLang);
+  const toggleLiveTranslate = useChatStore((state) => state.toggleLiveTranslate);
+  const setLiveTranslate = useChatStore((state) => state.setLiveTranslate);
 
   const activeGroupCall = useVideoCallStore((state) => state.activeGroupCall);
   const currentCall = useVideoCallStore((state) => state.currentCall);
@@ -274,7 +280,9 @@ const ChatHeader = ({
             {selectedContact?.username}
           </h2>
           {isMetaAi ? (
-            <div className=""></div>
+            <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+              <MetaAiPersonaSelector theme={theme} />
+            </div>
           ) : (
             <button
               type="button"
@@ -311,7 +319,8 @@ const ChatHeader = ({
             {isMetaAi ? "thinking..." : "Typing..."}
           </div>
         ) : isMetaAi ? (
-          <div></div>
+          < >
+          </>
         ) : isGroup ? (
           isGroupOnline ? (
             <div className="flex items-center gap-1.5 text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium truncate"
@@ -521,6 +530,73 @@ const ChatHeader = ({
               </button>
             </div>
           )
+        )}
+
+        {!isMetaAi && handleOpenSummarize && (
+          <button
+            type="button"
+            onClick={handleOpenSummarize}
+            className="p-2 rounded-full border border-transparent hover:border-cyan-500/30 hover:bg-cyan-500/10 active:scale-95 transition-all cursor-pointer text-cyan-500"
+            title="Summarize conversation with Meta AI"
+          >
+            <span className="text-base leading-none">✨</span>
+          </button>
+        )}
+
+        {!isMetaAi && (
+          <div className="relative flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                toggleLiveTranslate();
+                toast.info(
+                  !liveTranslateEnabled
+                    ? `🌐 Live Chat Translation ON (${(liveTranslateLang || "en").toUpperCase()})`
+                    : "Live Chat Translation OFF"
+                );
+              }}
+              className={`p-2 rounded-full border transition-all cursor-pointer ${liveTranslateEnabled
+                  ? "bg-blue-500/20 text-blue-500 border-blue-500/40 shadow-xs scale-105"
+                  : "border-transparent text-gray-600 dark:text-[#aebac1] hover:text-blue-500 hover:bg-black/5 dark:hover:bg-white/10"
+                }`}
+              title={
+                liveTranslateEnabled
+                  ? `Live translation active (${(liveTranslateLang || "en").toUpperCase()}) - Click to turn off`
+                  : "Enable real-time chat translation"
+              }
+            >
+              <span className="text-base leading-none">🌐</span>
+            </button>
+
+            {liveTranslateEnabled && (
+              <select
+                value={liveTranslateLang || "en"}
+                onChange={(e) => {
+                  setLiveTranslate(true, e.target.value);
+                  toast.success(`Language set to ${e.target.value.toUpperCase()}`);
+                }}
+                className={`text-[11px] font-semibold uppercase px-1.5 py-1 rounded-lg border outline-none cursor-pointer transition-colors ${theme === "dark"
+                    ? "bg-[#202c33] border-blue-500/40 text-blue-400"
+                    : "bg-blue-50 border-blue-300 text-blue-600"
+                  }`}
+                title="Select target translation language"
+              >
+                <option value="en">EN (English)</option>
+                <option value="hi">HI (हिंदी)</option>
+                <option value="es">ES (Español)</option>
+                <option value="bn">BN (বাংলা)</option>
+                <option value="fr">FR (Français)</option>
+                <option value="de">DE (Deutsch)</option>
+                <option value="ar">AR (العربية)</option>
+                <option value="ja">JA (日本語)</option>
+                <option value="ru">RU (Русский)</option>
+                <option value="zh">ZH (中文)</option>
+                <option value="it">IT (Italiano)</option>
+                <option value="pt">PT (Português)</option>
+                <option value="ko">KO (한국어)</option>
+              </select>
+            )}
+          </div>
         )}
 
         {!isMetaAi && (

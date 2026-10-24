@@ -27,6 +27,27 @@ export const MessageStatusIcon = ({
     return null;
   }
 
+  if (
+    (message.isScheduled === true || message.messageStatus === "scheduled" || message.status === "scheduled") &&
+    message.isScheduled !== false &&
+    message.messageStatus !== "send" &&
+    message.messageStatus !== "delivered" &&
+    message.messageStatus !== "read"
+  ) {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 text-amber-500 font-medium text-[10px]"
+        title={
+          message.scheduledFor
+            ? `Scheduled to send at ${new Date(message.scheduledFor).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            : "Scheduled message"
+        }
+      >
+        <span>⏰</span>
+      </span>
+    );
+  }
+
   const status = message.messageStatus || message.status;
   if (!status || status === "pending" || status === "sending" || message.isPending) {
     return (
@@ -185,7 +206,7 @@ export const MessageTimestampAndStatus = ({
         {message.edited && (
           <span className="text-[9.5px] italic opacity-90 mr-0.5">Edited</span>
         )}
-        <span>{format(new Date(message.createdAt || Date.now()), "HH:mm")}</span>
+        <span>{format(new Date(message.scheduledFor || message.createdAt || Date.now()), "HH:mm")}</span>
         <MessageStatusIcon
           isUserMessage={isUserMessage}
           message={message}
@@ -248,7 +269,7 @@ export const MessageTimestampAndStatus = ({
           Edited
         </span>
       )}
-      <span>{format(new Date(message.createdAt || Date.now()), "HH:mm")}</span>
+      <span>{format(new Date(message.scheduledFor || message.createdAt || Date.now()), "HH:mm")}</span>
       <MessageStatusIcon
         isUserMessage={isUserMessage}
         message={message}

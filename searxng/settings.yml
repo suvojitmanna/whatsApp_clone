@@ -1,0 +1,20 @@
+# SearXNG configuration for WhatsApp Meta AI
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "WhatsApp Meta AI SearXNG"
+
+server:
+  secret_key: "8eb138871c63b9ff5abdcac0efcde71ec052e765b489934b66eec63dd4382287"
+  limiter: false       # Disable rate limiting for local Node.js AI backend requests
+  image_proxy: true   # Enable image proxy for thumbnail previews
+  port: 8080
+  bind_address: "0.0.0.0"
+
+search:
+  safe_search: 0
+  autocomplete: "duckduckgo"
+  formats:
+    - html
+    - json            # CRITICAL: Enables JSON API so our LangGraph backend can query it
