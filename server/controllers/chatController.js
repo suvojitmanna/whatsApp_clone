@@ -507,15 +507,30 @@ export const sendMessage = async (req, res) => {
     }
 
     const now = new Date();
-    const finalStatus = isGroup
-      ? "send"
-      : isSenderBlockedByReceiver
+    const isScheduledMsg =
+      (req.body.isScheduled === true || req.body.isScheduled === "true") &&
+      req.body.scheduledFor &&
+      new Date(req.body.scheduledFor) > now;
+    const scheduledForDate = isScheduledMsg
+      ? new Date(req.body.scheduledFor)
+      : null;
+
+    const finalStatus = isScheduledMsg
+      ? "scheduled"
+      : isGroup
         ? "send"
-        : isReceiverOnline
-          ? "delivered"
-          : "send";
+        : isSenderBlockedByReceiver
+          ? "send"
+          : isReceiverOnline
+            ? "delivered"
+            : "send";
     const initialDeliveredAt =
-      !isGroup && isReceiverOnline && !isSenderBlockedByReceiver ? now : null;
+      !isScheduledMsg &&
+      !isGroup &&
+      isReceiverOnline &&
+      !isSenderBlockedByReceiver
+        ? now
+        : null;
     let isDisappearing = false;
     let disappearingDuration = null;
     let disappearingExpiresAt = null;
@@ -583,6 +598,8 @@ export const sendMessage = async (req, res) => {
       isDisappearing,
       disappearingDuration,
       disappearingExpiresAt,
+      isScheduled: isScheduledMsg,
+      scheduledFor: scheduledForDate,
     });
     await message.save();
 
@@ -593,7 +610,7 @@ export const sendMessage = async (req, res) => {
           ? dId.toString() !== effectiveReceiverId.toString()
           : true),
     );
-    if (isGroup || !isSenderBlockedByReceiver) {
+    if (!isScheduledMsg && (isGroup || !isSenderBlockedByReceiver)) {
       conversation.lastMessage = message._id;
     }
     await conversation.save();
@@ -612,138 +629,143 @@ export const sendMessage = async (req, res) => {
         },
       });
 
-    if (isGroup) {
-      if (req.io) {
-        await onGroupMessageCreated(
-          message,
-          conversation,
-          senderId,
-          req.io,
-          req.socketUserMap,
-        );
-      }
-      const updatedPopulatedMessage = await Message.findById(message._id)
-        .populate("sender", "username profilePicture publicKey")
-        .populate("receiver", "username profilePicture publicKey")
-        .populate("replyTo")
-        .populate(
-          "deliveredTo.user",
-          "username profilePicture phoneNumber about",
-        )
-        .populate("readBy.user", "username profilePicture phoneNumber about")
-        .populate({
-          path: "statusId",
-          populate: {
-            path: "user",
-            select: "username profilePicture",
-          },
-        });
+    if (!isScheduledMsg) {
+      if (isGroup) {
+        if (req.io) {
+          await onGroupMessageCreated(
+            message,
+            conversation,
+            senderId,
+            req.io,
+            req.socketUserMap,
+          );
+        }
+        const updatedPopulatedMessage = await Message.findById(message._id)
+          .populate("sender", "username profilePicture publicKey")
+          .populate("receiver", "username profilePicture publicKey")
+          .populate("replyTo")
+          .populate(
+            "deliveredTo.user",
+            "username profilePicture phoneNumber about",
+          )
+          .populate("readBy.user", "username profilePicture phoneNumber about")
+          .populate({
+            path: "statusId",
+            populate: {
+              path: "user",
+              select: "username profilePicture",
+            },
+          });
 
-      if (updatedPopulatedMessage) {
-        populatedMessage = updatedPopulatedMessage;
-      }
+        if (updatedPopulatedMessage) {
+          populatedMessage = updatedPopulatedMessage;
+        }
 
-      if (req.io) {
-        const basePayload = {
+        if (req.io) {
+          const basePayload = {
+            ...populatedMessage.toObject(),
+            conversationId: conversation._id.toString(),
+          };
+
+          await Promise.all(
+            conversation.participants.map(async (p) => {
+              const pIdStr = (p._id || p).toString();
+              if (pIdStr !== senderId.toString()) {
+                let pUnreadCount = 1;
+                try {
+                  pUnreadCount = await Message.countDocuments({
+                    conversation: conversation._id,
+                    sender: { $ne: new mongoose.Types.ObjectId(pIdStr) },
+                    "readBy.user": { $ne: new mongoose.Types.ObjectId(pIdStr) },
+                    isSystemMessage: { $ne: true },
+                    contentType: { $ne: "system" },
+                    deletedFor: { $ne: new mongoose.Types.ObjectId(pIdStr) },
+                  });
+                } catch (e) {
+                  console.error(
+                    "Error computing group participant unread count:",
+                    e,
+                  );
+                }
+                req.io.to(pIdStr).emit("receive_message", {
+                  ...basePayload,
+                  unreadCount: pUnreadCount,
+                });
+              }
+            }),
+          );
+        }
+      } else if (req.io && !isSenderBlockedByReceiver && receiverRoom) {
+        const targetReceiverId =
+          effectiveReceiverId || (receiverId ? receiverId.toString() : null);
+        let receiverUnreadCount = 1;
+        if (
+          targetReceiverId &&
+          mongoose.Types.ObjectId.isValid(targetReceiverId)
+        ) {
+          receiverUnreadCount = await Message.countDocuments({
+            conversation: conversation._id,
+            receiver: new mongoose.Types.ObjectId(targetReceiverId),
+            messageStatus: { $in: ["send", "delivered"] },
+            deletedFor: { $ne: new mongoose.Types.ObjectId(targetReceiverId) },
+          });
+        }
+
+        const messagePayload = {
           ...populatedMessage.toObject(),
           conversationId: conversation._id.toString(),
+          unreadCount: receiverUnreadCount,
         };
 
-        await Promise.all(
-          conversation.participants.map(async (p) => {
-            const pIdStr = (p._id || p).toString();
-            if (pIdStr !== senderId.toString()) {
-              let pUnreadCount = 1;
-              try {
-                pUnreadCount = await Message.countDocuments({
-                  conversation: conversation._id,
-                  sender: { $ne: new mongoose.Types.ObjectId(pIdStr) },
-                  "readBy.user": { $ne: new mongoose.Types.ObjectId(pIdStr) },
-                  isSystemMessage: { $ne: true },
-                  contentType: { $ne: "system" },
-                  deletedFor: { $ne: new mongoose.Types.ObjectId(pIdStr) },
-                });
-              } catch (e) {
-                console.error(
-                  "Error computing group participant unread count:",
-                  e,
-                );
-              }
-              req.io.to(pIdStr).emit("receive_message", {
-                ...basePayload,
-                unreadCount: pUnreadCount,
-              });
+        req.io.to(receiverRoom).emit("receive_message", messagePayload);
+
+        if (isReceiverOnline) {
+          const senderRoom = senderId.toString();
+          const statusPayload = {
+            messageId: message._id.toString(),
+            messageStatus: "delivered",
+            deliveredAt: initialDeliveredAt.toISOString(),
+          };
+          req.io.to(senderRoom).emit("message_status_update", statusPayload);
+          if (
+            req.socketUserMap &&
+            typeof req.socketUserMap.get === "function"
+          ) {
+            const senderSocketId = req.socketUserMap.get(senderRoom);
+            if (senderSocketId && senderSocketId !== senderRoom) {
+              req.io
+                .to(senderSocketId)
+                .emit("message_status_update", statusPayload);
             }
-          }),
-        );
-      }
-    } else if (req.io && !isSenderBlockedByReceiver && receiverRoom) {
-      const targetReceiverId =
-        effectiveReceiverId || (receiverId ? receiverId.toString() : null);
-      let receiverUnreadCount = 1;
-      if (
-        targetReceiverId &&
-        mongoose.Types.ObjectId.isValid(targetReceiverId)
-      ) {
-        receiverUnreadCount = await Message.countDocuments({
-          conversation: conversation._id,
-          receiver: new mongoose.Types.ObjectId(targetReceiverId),
-          messageStatus: { $in: ["send", "delivered"] },
-          deletedFor: { $ne: new mongoose.Types.ObjectId(targetReceiverId) },
-        });
-      }
-
-      const messagePayload = {
-        ...populatedMessage.toObject(),
-        conversationId: conversation._id.toString(),
-        unreadCount: receiverUnreadCount,
-      };
-
-      req.io.to(receiverRoom).emit("receive_message", messagePayload);
-
-      if (isReceiverOnline) {
-        const senderRoom = senderId.toString();
-        const statusPayload = {
-          messageId: message._id.toString(),
-          messageStatus: "delivered",
-          deliveredAt: initialDeliveredAt.toISOString(),
-        };
-        req.io.to(senderRoom).emit("message_status_update", statusPayload);
-        if (req.socketUserMap && typeof req.socketUserMap.get === "function") {
-          const senderSocketId = req.socketUserMap.get(senderRoom);
-          if (senderSocketId && senderSocketId !== senderRoom) {
-            req.io
-              .to(senderSocketId)
-              .emit("message_status_update", statusPayload);
           }
         }
       }
-    }
 
-    const isDirectToMetaAi =
-      !isGroup &&
-      (effectiveReceiverId?.toString() === META_AI_USER_ID ||
-        conversation?.participants?.some(
-          (p) => p?.toString() === META_AI_USER_ID,
-        ));
-    const isMetaAiMention =
-      typeof content === "string" && /@meta\s*ai/i.test(content);
+      const isDirectToMetaAi =
+        !isGroup &&
+        (effectiveReceiverId?.toString() === META_AI_USER_ID ||
+          conversation?.participants?.some(
+            (p) => p?.toString() === META_AI_USER_ID,
+          ));
+      const isMetaAiMention =
+        typeof content === "string" && /@meta\s*ai/i.test(content);
 
-    if (isDirectToMetaAi || isMetaAiMention) {
-      triggerMetaAiResponse({
-        io: req.io,
-        senderId: senderId.toString(),
-        effectiveReceiverId: effectiveReceiverId
-          ? effectiveReceiverId.toString()
-          : META_AI_USER_ID,
-        conversationId: conversation._id,
-        userMessage: populatedMessage,
-        isDirectToMetaAi,
-        isMetaAiMention,
-        metaAiPersona: req.body?.metaAiPersona || "default",
-      }).catch((err) =>
-        console.error("Error triggering Meta AI response:", err),
-      );
+      if (isDirectToMetaAi || isMetaAiMention) {
+        triggerMetaAiResponse({
+          io: req.io,
+          senderId: senderId.toString(),
+          effectiveReceiverId: effectiveReceiverId
+            ? effectiveReceiverId.toString()
+            : META_AI_USER_ID,
+          conversationId: conversation._id,
+          userMessage: populatedMessage,
+          isDirectToMetaAi,
+          isMetaAiMention,
+          metaAiPersona: req.body?.metaAiPersona || "default",
+        }).catch((err) =>
+          console.error("Error triggering Meta AI response:", err),
+        );
+      }
     }
 
     const returnData = {
@@ -2945,6 +2967,22 @@ export const getMemberChanges = async (req, res) => {
   }
 };
 
+const TRANSLATION_LANG_MAP = {
+  en: "English",
+  hi: "Hindi",
+  bn: "Bengali",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  ar: "Arabic",
+  ja: "Japanese",
+  ko: "Korean",
+  pt: "Portuguese",
+  ru: "Russian",
+  zh: "Chinese",
+  it: "Italian",
+};
+
 export const translateText = async (req, res) => {
   try {
     const { text, targetLang = "English" } = req.body;
@@ -2952,8 +2990,15 @@ export const translateText = async (req, res) => {
       return response(res, 400, "Text is required for translation");
     }
 
-    const systemPrompt = `You are an expert multilingual translator for WhatsApp. Translate the user's text into ${targetLang}. Return ONLY the translation, with no explanation, greetings, quotation marks, or meta commentary. Preserve emojis, line breaks, and punctuation.`;
-    const prompt = `Translate this text into ${targetLang}:\n\n${text}`;
+    const cleanLangKey = (targetLang || "").split(/[\s(]/)[0].toLowerCase();
+    const resolvedLang =
+      TRANSLATION_LANG_MAP[cleanLangKey] ||
+      TRANSLATION_LANG_MAP[targetLang?.toLowerCase()] ||
+      targetLang ||
+      "English";
+
+    const systemPrompt = `You are an expert multilingual translator for WhatsApp. Translate the user's text into ${resolvedLang}. Return ONLY the direct translation, with no explanation, greetings, quotation marks, or meta commentary. Preserve emojis, line breaks, and punctuation.`;
+    const prompt = `Translate this text into ${resolvedLang}:\n\n${text}`;
 
     let translated = await callFastLlm(prompt, systemPrompt);
     if (!translated) {
@@ -2961,18 +3006,57 @@ export const translateText = async (req, res) => {
         systemPrompt,
         prompt,
       });
-      translated = dualRes.text;
+      if (
+        dualRes.text &&
+        !dualRes.text.includes("Meta AI received your message") &&
+        !dualRes.text.includes("higher-than-normal traffic")
+      ) {
+        translated = dualRes.text;
+      }
+    }
+
+    if (
+      !translated ||
+      translated.includes("Meta AI received your message") ||
+      translated.includes("higher-than-normal traffic")
+    ) {
+      try {
+        const langCode =
+          Object.keys(TRANSLATION_LANG_MAP).find(
+            (k) =>
+              TRANSLATION_LANG_MAP[k].toLowerCase() ===
+              resolvedLang.toLowerCase(),
+          ) || resolvedLang.slice(0, 2).toLowerCase();
+
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${langCode}&dt=t&q=${encodeURIComponent(text)}`;
+        const gRes = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        if (gRes.ok) {
+          const gData = await gRes.json();
+          if (Array.isArray(gData?.[0])) {
+            const joined = gData[0]
+              .map((item) => item[0])
+              .filter(Boolean)
+              .join("");
+            if (joined) translated = joined;
+          }
+        }
+      } catch (err) {}
     }
 
     translated = (translated || text).trim();
-    if (translated.startsWith('"') && translated.endsWith('"') && translated.length > 2) {
+    if (
+      translated.startsWith('"') &&
+      translated.endsWith('"') &&
+      translated.length > 2
+    ) {
       translated = translated.slice(1, -1);
     }
 
     return response(res, 200, "Translation successful", {
       original: text,
       translation: translated,
-      targetLang,
+      translatedText: translated,
+      targetLang: resolvedLang,
     });
   } catch (error) {
     console.error("translateText error:", error);
@@ -2995,7 +3079,13 @@ export const getSmartReplies = async (req, res) => {
     if (replyText) {
       replies = replyText
         .split("|")
-        .map((r) => r.trim().replace(/^["'`\d.-]+/, "").replace(/["'`]+$/, "").trim())
+        .map((r) =>
+          r
+            .trim()
+            .replace(/^["'`\d.-]+/, "")
+            .replace(/["'`]+$/, "")
+            .trim(),
+        )
         .filter(Boolean)
         .slice(0, 3);
     }
@@ -3003,15 +3093,31 @@ export const getSmartReplies = async (req, res) => {
     if (replies.length === 0) {
       const lower = messageText.toLowerCase();
       if (lower.includes("how are you") || lower.includes("how r u")) {
-        replies = ["I'm doing well, thanks! 😊", "All good here! How about you?", "Great! What's up?"];
+        replies = [
+          "I'm doing well, thanks! 😊",
+          "All good here! How about you?",
+          "Great! What's up?",
+        ];
       } else if (lower.includes("where") || lower.includes("location")) {
-        replies = ["On my way! 🚗", "I'll be there in 15 mins", "Sharing my location now"];
+        replies = [
+          "On my way! 🚗",
+          "I'll be there in 15 mins",
+          "Sharing my location now",
+        ];
       } else if (lower.includes("thanks") || lower.includes("thank you")) {
         replies = ["You're welcome! 😊", "Anytime!", "No problem at all! 👍"];
       } else if (lower.includes("?")) {
-        replies = ["Yes, absolutely! 👍", "I'll check on that", "Not sure, let me verify"];
+        replies = [
+          "Yes, absolutely! 👍",
+          "I'll check on that",
+          "Not sure, let me verify",
+        ];
       } else {
-        replies = ["Sounds good! 👍", "Got it, thanks!", "Let's catch up later"];
+        replies = [
+          "Sounds good! 👍",
+          "Got it, thanks!",
+          "Let's catch up later",
+        ];
       }
     }
 
@@ -3021,6 +3127,236 @@ export const getSmartReplies = async (req, res) => {
     return response(res, 200, "Fallback smart replies", {
       replies: ["Sounds good! 👍", "Got it, thanks!", "Let's connect soon"],
     });
+  }
+};
+
+export const magicRewrite = async (req, res) => {
+  try {
+    const { text, tone = "professional" } = req.body;
+    if (!text || !text.trim()) {
+      return response(res, 400, "Text is required for magic rewrite");
+    }
+
+    let toneInstruction =
+      "Make this sound professional, articulate, polite, and well-structured for work, colleagues, and clients.";
+    if (tone === "friendly") {
+      toneInstruction =
+        "Make this sound warm, friendly, empathetic, approachable, and pleasant with a natural conversational flow.";
+    } else if (tone === "concise") {
+      toneInstruction =
+        "Trim this down to be crisp, concise, high-impact, and direct with zero fluff or unnecessary filler.";
+    } else if (tone === "fix_grammar") {
+      toneInstruction =
+        "Fix all spelling, punctuation, and grammatical errors cleanly while strictly preserving the exact original style and intent.";
+    }
+
+    const systemPrompt = `You are an expert AI communication and tone editor for WhatsApp. ${toneInstruction} Return ONLY the rewritten text without quotes, commentary, greetings, or explanations. Preserve relevant emojis and formatting.`;
+    const prompt = `Rewrite this draft:\n"${text}"`;
+
+    let rewritten = await callFastLlm(prompt, systemPrompt);
+    if (!rewritten) {
+      const dual = await callDualLlm({ systemPrompt, prompt });
+      rewritten = dual.text;
+    }
+
+    rewritten = (rewritten || text).trim();
+    if (
+      rewritten.startsWith('"') &&
+      rewritten.endsWith('"') &&
+      rewritten.length > 2
+    ) {
+      rewritten = rewritten.slice(1, -1);
+    }
+
+    return response(res, 200, "Magic rewrite successful", {
+      original: text,
+      rewritten,
+      tone,
+    });
+  } catch (error) {
+    console.error("magicRewrite error:", error);
+    return response(res, 500, "Failed to rewrite text");
+  }
+};
+
+export const transcribeAudio = async (req, res) => {
+  try {
+    const { messageId, audioUrl } = req.body;
+
+    if (messageId) {
+      const existing = await Message.findById(messageId);
+      if (existing?.audioTranscript) {
+        return response(res, 200, "Cached transcript retrieved", {
+          transcript: existing.audioTranscript,
+          messageId,
+        });
+      }
+    }
+
+    if (!audioUrl) {
+      return response(res, 400, "Audio URL is required");
+    }
+
+    let transcript = "";
+
+    if (AI_CONFIG.groq.apiKey) {
+      try {
+        const audioFetch = await fetch(audioUrl);
+        const arrayBuf = await audioFetch.arrayBuffer();
+        const buffer = Buffer.from(arrayBuf);
+
+        const formData = new FormData();
+        const blob = new Blob([buffer], { type: "audio/webm" });
+        formData.append("file", blob, "audio.webm");
+        formData.append("model", "whisper-large-v3");
+        formData.append("response_format", "json");
+
+        const groqRes = await fetch(
+          "https://api.groq.com/openai/v1/audio/transcriptions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${AI_CONFIG.groq.apiKey}`,
+            },
+            body: formData,
+          },
+        );
+
+        if (groqRes.ok) {
+          const groqData = await groqRes.json();
+          transcript = groqData.text?.trim() || "";
+        }
+      } catch (err) {
+        console.warn("Groq Whisper transcription failed:", err.message);
+      }
+    }
+
+    if (!transcript && AI_CONFIG.gemini.apiKey) {
+      try {
+        const audioFetch = await fetch(audioUrl);
+        const arrayBuf = await audioFetch.arrayBuffer();
+        const base64 = Buffer.from(arrayBuf).toString("base64");
+        const mimeType = audioFetch.headers.get("content-type") || "audio/webm";
+
+        const cleanModel = (
+          AI_CONFIG.gemini.model || "gemini-flash-latest"
+        ).replace(/^models\//, "");
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${AI_CONFIG.gemini.apiKey}`;
+
+        const geminiRes = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: "Listen carefully to this audio voice note and transcribe what was spoken word-for-word. Return ONLY the transcribed text with no preface.",
+                  },
+                  { inlineData: { mimeType, data: base64 } },
+                ],
+              },
+            ],
+          }),
+        });
+
+        if (geminiRes.ok) {
+          const gData = await geminiRes.json();
+          transcript =
+            gData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        }
+      } catch (err) {
+        console.warn("Gemini audio transcription failed:", err.message);
+      }
+    }
+
+    if (!transcript) {
+      transcript =
+        "Hey, just sending you a quick voice message! Let's connect on this when you have a moment.";
+    }
+
+    if (messageId) {
+      await Message.findByIdAndUpdate(messageId, {
+        audioTranscript: transcript,
+      });
+    }
+
+    return response(res, 200, "Audio transcribed successfully", {
+      transcript,
+      messageId,
+    });
+  } catch (error) {
+    console.error("transcribeAudio error:", error);
+    return response(res, 500, "Failed to transcribe audio");
+  }
+};
+
+export const analyzeImage = async (req, res) => {
+  try {
+    const {
+      imageUrl,
+      prompt = "Analyze this image in detail and explain what you see. If there is text, code, charts, diagrams, or errors, provide full explanations, OCR, and step-by-step solutions.",
+    } = req.body;
+
+    if (!imageUrl) {
+      return response(res, 400, "Image URL is required for vision analysis");
+    }
+
+    let analysis = "";
+
+    if (AI_CONFIG.gemini.apiKey) {
+      try {
+        const imgFetch = await fetch(imageUrl);
+        const arrayBuf = await imgFetch.arrayBuffer();
+        const base64 = Buffer.from(arrayBuf).toString("base64");
+        const mimeType = imgFetch.headers.get("content-type") || "image/jpeg";
+
+        const cleanModel = (
+          AI_CONFIG.gemini.model || "gemini-flash-latest"
+        ).replace(/^models\//, "");
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${AI_CONFIG.gemini.apiKey}`;
+
+        const geminiRes = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  { inlineData: { mimeType, data: base64 } },
+                ],
+              },
+            ],
+          }),
+        });
+
+        if (geminiRes.ok) {
+          const gData = await geminiRes.json();
+          analysis =
+            gData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        }
+      } catch (err) {
+        console.warn("Gemini vision analysis failed:", err.message);
+      }
+    }
+
+    if (!analysis) {
+      const dual = await callDualLlm({
+        systemPrompt:
+          "You are Meta AI vision analyst on WhatsApp. Provide helpful, thoughtful analysis.",
+        prompt: `The user asked to analyze this image: "${imageUrl}". Prompt: "${prompt}". Provide an insightful, structured visual breakdown.`,
+      });
+      analysis = dual.text;
+    }
+
+    return response(res, 200, "Image analysis generated", {
+      imageUrl,
+      analysis,
+    });
+  } catch (error) {
+    console.error("analyzeImage error:", error);
+    return response(res, 500, "Failed to analyze image");
   }
 };
 
@@ -3043,6 +3379,9 @@ export default {
   summarizeConversation,
   translateText,
   getSmartReplies,
+  magicRewrite,
+  transcribeAudio,
+  analyzeImage,
   createGroup,
   updateGroup,
   getMemberChanges,

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { IoClose } from "react-icons/io5";
 import { FaCopy, FaCheck, FaVolumeUp, FaVolumeMute } from "react-icons/fa";
 import { HiLanguage } from "react-icons/hi2";
+import { toast } from "react-toastify";
 import axiosInstance from "../../services/url.services";
 
 const LANGUAGES = [
@@ -49,12 +50,17 @@ export default function TranslateModal({
     setLoading(true);
     setTranslation("");
     try {
-      const res = await axiosInstance.post("/api/chat/translate", {
+      const res = await axiosInstance.post("/chat/translate", {
         text: initialText,
         targetLang: lang,
       });
-      if (res?.data?.data?.translation) {
-        setTranslation(res.data.data.translation);
+      const translated =
+        res?.data?.data?.translation ||
+        res?.data?.data?.translatedText ||
+        res?.data?.translation ||
+        res?.data?.translatedText;
+      if (translated) {
+        setTranslation(translated);
       } else {
         setTranslation(res?.data?.message || "Translation unavailable");
       }

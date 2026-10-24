@@ -861,6 +861,13 @@ const ChatList = ({ contacts }) => {
   const [showThreeDotsMenu, setShowThreeDotsMenu] = useState(false);
   const threeDotsMenuRef = useRef(null);
 
+  const lockedChatIds = useChatStore((state) => state.lockedChatIds || []);
+  const [showLockedModal, setShowLockedModal] = useState(false);
+  const [viewingLockedFolder, setViewingLockedFolder] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [biometricSimulating, setBiometricSimulating] = useState(false);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -1166,6 +1173,20 @@ const ChatList = ({ contacts }) => {
     const term = searchTerms.trim().toLowerCase();
     let list = contacts;
 
+    const isContactLocked = (c) => {
+      if (!lockedChatIds || lockedChatIds.length === 0) return false;
+      const ids = [c?._id, c?.id, c?.conversation?._id, c?.conversation]
+        .filter(Boolean)
+        .map(String);
+      return ids.some((id) => lockedChatIds.includes(id));
+    };
+
+    if (viewingLockedFolder) {
+      list = list.filter(isContactLocked);
+    } else {
+      list = list.filter((c) => !isContactLocked(c));
+    }
+
     if (term) {
       list = list.filter((contact) =>
         contact?.username?.toLowerCase().includes(term)
@@ -1238,6 +1259,8 @@ const ChatList = ({ contacts }) => {
     archivedChats,
     markedUnreadChats,
     showArchivedOnly,
+    lockedChatIds,
+    viewingLockedFolder,
   ]);
 
   useEffect(() => {
@@ -1676,6 +1699,66 @@ const ChatList = ({ contacts }) => {
         }}
         className="overflow-y-auto flex-1 custom-scrollbar"
       >
+        {viewingLockedFolder ? (
+          <div
+            onClick={() => setViewingLockedFolder(false)}
+            className={`mx-2 my-1.5 px-3 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition-colors ${theme === "dark"
+              ? "bg-[#202c33] text-[#e9edef] border border-amber-500/30"
+              : "bg-amber-50 text-[#111b21] border border-amber-200"
+              }`}
+          >
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setViewingLockedFolder(false)}
+                className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded-full cursor-pointer text-amber-500"
+                title="Back to all chats"
+              >
+                <ArrowLeftIcon size={18} />
+              </button>
+              <span className="font-semibold text-[15px] flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                <FaLock size={14} />
+                <span>Locked Chats ({lockedChatIds.length})</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewingLockedFolder(false);
+              }}
+              className="text-xs text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+            >
+              Lock folder 🔒
+            </button>
+          </div>
+        ) : (
+          lockedChatIds && lockedChatIds.length > 0 && !searchTerms && activeListFilter === "All" && !showArchivedOnly && (
+            <div
+              onClick={() => setShowLockedModal(true)}
+              className={`mx-2 my-1 px-3.5 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition-all border border-transparent hover:border-amber-500/30 group ${theme === "dark"
+                ? "hover:bg-[#202c33] text-[#e9edef]"
+                : "hover:bg-[#f5f6f6] text-[#111b21]"
+                }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-500 shrink-0 group-hover:scale-105 transition-transform">
+                  <FaLock size={14} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-medium text-[15px] flex items-center gap-1.5">
+                    <span>Locked chats</span>
+                  </span>
+                  <span className="text-[11px] text-gray-400">PIN or Fingerprint to unlock</span>
+                </div>
+              </div>
+              <span className="text-xs bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full font-semibold">
+                {lockedChatIds.length}
+              </span>
+            </div>
+          )
+        )}
+
         {archivedCount > 0 && !searchTerms && activeListFilter === "All" && (
           showArchivedOnly ? (
             <div
@@ -2419,6 +2502,149 @@ const ChatList = ({ contacts }) => {
             currentUserId={user?._id || user?.id}
           />
         </AnimatePresence>,
+        document.body
+      )}
+
+      {showLockedModal && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[10002] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm select-none"
+          onClick={() => {
+            setShowLockedModal(false);
+            setPinInput("");
+          }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 15 }}
+            onClick={(e) => e.stopPropagation()}
+            className={`w-[340px] max-w-full rounded-2xl p-6 shadow-2xl border flex flex-col items-center text-center ${theme === "dark"
+              ? "bg-[#233138] border-white/10 text-white"
+              : "bg-white border-gray-100 text-gray-900"
+              }`}
+          >
+            <div className="w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 text-2xl mb-3 shadow-inner">
+              <FaLock />
+            </div>
+
+            <h3 className="font-bold text-lg mb-1">Locked Chats</h3>
+            <p className="text-xs text-gray-400 mb-5">
+              Enter your 4-digit PIN (default: <strong>1234</strong>) or use Touch ID to unlock.
+            </p>
+
+            <div className="flex items-center gap-3 mb-6">
+              {[0, 1, 2, 3].map((idx) => (
+                <div
+                  key={idx}
+                  className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-200 ${pinInput.length > idx
+                    ? "bg-amber-500 border-amber-500 scale-110"
+                    : "border-gray-400/50"
+                    } ${pinError ? "border-red-500" : ""}`}
+                />
+              ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5 w-full mb-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => {
+                    if (pinInput.length < 4) {
+                      const next = pinInput + num;
+                      setPinInput(next);
+                      if (next.length === 4) {
+                        if (next === "1234") {
+                          setViewingLockedFolder(true);
+                          setShowLockedModal(false);
+                          setPinInput("");
+                          toast.success("🔓 Chats unlocked!");
+                        } else {
+                          setPinError(true);
+                          setTimeout(() => {
+                            setPinError(false);
+                            setPinInput("");
+                          }, 600);
+                        }
+                      }
+                    }
+                  }}
+                  className="h-12 rounded-xl text-base font-semibold border border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                >
+                  {num}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setBiometricSimulating(true);
+                  setTimeout(() => {
+                    setBiometricSimulating(false);
+                    setViewingLockedFolder(true);
+                    setShowLockedModal(false);
+                    setPinInput("");
+                    toast.success("✨ Touch ID verified: Chats unlocked!");
+                  }, 700);
+                }}
+                className="h-12 rounded-xl text-xs font-semibold text-amber-500 border border-amber-500/20 hover:bg-amber-500/10 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5"
+                title="Simulate Fingerprint Authentication"
+              >
+                {biometricSimulating ? (
+                  <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span className="text-base">👆</span>
+                    <span className="text-[9px]">Touch ID</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (pinInput.length < 4) {
+                    const next = pinInput + "0";
+                    setPinInput(next);
+                    if (next.length === 4) {
+                      if (next === "1234") {
+                        setViewingLockedFolder(true);
+                        setShowLockedModal(false);
+                        setPinInput("");
+                        toast.success("🔓 Chats unlocked!");
+                      } else {
+                        setPinError(true);
+                        setTimeout(() => {
+                          setPinError(false);
+                          setPinInput("");
+                        }, 600);
+                      }
+                    }
+                  }
+                }}
+                className="h-12 rounded-xl text-base font-semibold border border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              >
+                0
+              </button>
+              <button
+                type="button"
+                onClick={() => setPinInput((prev) => prev.slice(0, -1))}
+                className="h-12 rounded-xl text-xs font-semibold text-gray-400 hover:text-white border border-black/5 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+              >
+                ⌫
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowLockedModal(false);
+                setPinInput("");
+              }}
+              className="text-xs text-gray-400 hover:text-gray-200 cursor-pointer pt-1"
+            >
+              Cancel
+            </button>
+          </motion.div>
+        </div>,
         document.body
       )}
 

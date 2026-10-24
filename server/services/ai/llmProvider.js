@@ -223,13 +223,13 @@ export async function callFastLlm(
       return await callOpenAiCompatible(
         "https://api.groq.com/openai/v1/chat/completions",
         AI_CONFIG.groq.apiKey,
-        AI_CONFIG.groq.fastModel,
+        AI_CONFIG.groq.fastModel || "qwen/qwen3.8-27b",
         systemPrompt,
         [{ role: "user", content: prompt }],
-        3000,
+        6000,
       );
     } catch (e) {
-      console.warn(`[Fast-LLM] Groq fallback failed (${e.message})`);
+      console.warn(`[Fast-LLM] Groq attempt failed (${e.message})`);
     }
   }
 
@@ -237,13 +237,28 @@ export async function callFastLlm(
     try {
       return await callGeminiApi(
         AI_CONFIG.gemini.apiKey,
-        AI_CONFIG.gemini.model,
+        AI_CONFIG.gemini.model || "gemini-3.8-flash",
         systemPrompt,
         [{ role: "user", parts: [{ text: prompt }] }],
-        4000,
+        7000,
       );
     } catch (e) {
-      console.warn(`[Fast-LLM] Gemini fallback failed (${e.message})`);
+      console.warn(`[Fast-LLM] Gemini attempt failed (${e.message})`);
+    }
+  }
+
+  if (AI_CONFIG.openai.apiKey) {
+    try {
+      return await callOpenAiCompatible(
+        "https://api.openai.com/v1/chat/completions",
+        AI_CONFIG.openai.apiKey,
+        AI_CONFIG.openai.model || "gpt-4o-mini",
+        systemPrompt,
+        [{ role: "user", content: prompt }],
+        6000,
+      );
+    } catch (e) {
+      console.warn(`[Fast-LLM] OpenAI attempt failed (${e.message})`);
     }
   }
 

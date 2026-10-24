@@ -18,6 +18,7 @@ import ForwardModal from "../../components/modals/ForwardModal";
 import PinDurationModal from "../../components/modals/PinDurationModal";
 import ReportModal from "../../components/modals/ReportModal";
 import MessageMenu from "./MessageMenu";
+import axiosInstance from "../../services/url.services";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import {
   MetaAiMarkdown,
@@ -577,6 +578,53 @@ const MessageBuble = ({
       setEditText(displayContent);
     }
   }, [displayContent, isEditing]);
+
+  const liveTranslateEnabled = useChatStore((state) => state.liveTranslateEnabled);
+  const liveTranslateLang = useChatStore((state) => state.liveTranslateLang);
+  const [liveTranslationText, setLiveTranslationText] = useState(
+    message.translatedText || null
+  );
+  const [isTranslatingLive, setIsTranslatingLive] = useState(false);
+
+  useEffect(() => {
+    if (
+      liveTranslateEnabled &&
+      !isUserMessage &&
+      !isMetaAiMessage &&
+      displayContent &&
+      !liveTranslationText &&
+      !isTranslatingLive
+    ) {
+      let active = true;
+      setIsTranslatingLive(true);
+      axiosInstance
+        .post("/chat/translate", {
+          text: displayContent,
+          targetLang: liveTranslateLang || "en",
+        })
+        .then((res) => {
+          if (!active) return;
+          const translated =
+            res.data?.data?.translation ||
+            res.data?.data?.translatedText ||
+            res.data?.translation ||
+            res.data?.translatedText;
+          if (
+            translated &&
+            translated.trim().toLowerCase() !== displayContent.trim().toLowerCase()
+          ) {
+            setLiveTranslationText(translated);
+          }
+        })
+        .catch(() => { })
+        .finally(() => {
+          if (active) setIsTranslatingLive(false);
+        });
+      return () => {
+        active = false;
+      };
+    }
+  }, [liveTranslateEnabled, liveTranslateLang, displayContent, isUserMessage, isMetaAiMessage]);
 
   const conversationId = currentConversation?._id || message?.conversationId || layoutSelectedContact?._id;
   const secondaryConvId = layoutSelectedContact?._id;
@@ -1434,9 +1482,31 @@ const MessageBuble = ({
                             />
                           </div>
                         ) : (
-                          <span className="break-words whitespace-pre-wrap">
-                            {renderContentWithMentions(displayContent, searchTerm)}
-                          </span>
+                          <>
+                            <span className="break-words whitespace-pre-wrap">
+                              {renderContentWithMentions(displayContent, searchTerm)}
+                            </span>
+                            {liveTranslateEnabled && !isUserMessage && (
+                              <div className="mt-1 pt-1 border-t border-black/10 dark:border-white/10 text-[12px] select-text">
+                                {isTranslatingLive ? (
+                                  <span className="text-gray-400 dark:text-gray-400 text-[11px] flex items-center gap-1 italic">
+                                    <span className="w-2.5 h-2.5 border border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                    <span>Translating...</span>
+                                  </span>
+                                ) : liveTranslationText ? (
+                                  <div className="text-blue-600 dark:text-blue-300">
+                                    <div className="text-[10px] uppercase font-bold tracking-wider text-blue-500/80 mb-0.5 flex items-center gap-1">
+                                      <span>🌐</span>
+                                      <span>Translated to {(liveTranslateLang || "en").toUpperCase()}</span>
+                                    </div>
+                                    <div className="italic font-medium leading-relaxed">
+                                      {liveTranslationText}
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            )}
+                          </>
                         )}
                         <span className="inline-flex items-center gap-1 float-right translate-y-[3px] ml-2.5 select-none shrink-0 pointer-events-auto">
                           <MessageTimestampAndStatus
@@ -1886,6 +1956,7 @@ const MessageBuble = ({
                         isGroupChat={isGroupChat}
                         senderDisplayName={senderDisplayName}
                         onOpenSenderContactInfo={handleOpenSenderContactInfo}
+                        displayContent={displayContent}
                       />
                     </motion.div>
                   </>

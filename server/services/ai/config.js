@@ -46,7 +46,7 @@ When the user asks for the current time, today's date, or day of the week, answe
 export const AI_CONFIG = {
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || "",
-    model: process.env.GEMINI_MODEL || "gemini-flash-latest",
+    model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     timeoutMs: 12000,
   },
   groq: {
@@ -66,7 +66,7 @@ export const AI_CONFIG = {
     maxImages: 5,
   },
   cache: {
-    searchTtlMs: 15 * 60 * 1000, // 15 minutes TTL for search queries
-    llmTtlMs: 5 * 60 * 1000,     // 5 minutes TTL for identical query cache
+    searchTtlMs: 15 * 60 * 1000,
+    llmTtlMs: 5 * 60 * 1000,
   },
 };

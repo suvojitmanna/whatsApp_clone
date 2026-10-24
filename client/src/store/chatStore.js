@@ -252,6 +252,18 @@ const getStoredBlocked = () => {
     if (!raw) return [];
     return JSON.parse(raw);
   } catch (e) {
+    console.log(e);
+    return [];
+  }
+};
+
+const getStoredLockedChats = () => {
+  try {
+    const raw = localStorage.getItem("whatsapp_locked_chats");
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    console.log(e);
     return [];
   }
 };
@@ -259,6 +271,45 @@ const getStoredBlocked = () => {
 const seenReceiveMessageIds = new Set();
 
 export const useChatStore = create((set, get) => ({
+  lockedChatIds: getStoredLockedChats(),
+  isLockedFolderOpen: false,
+  setLockedFolderOpen: (open) => set({ isLockedFolderOpen: Boolean(open) }),
+  toggleLockChat: (chatId) => {
+    if (!chatId) return false;
+    const strId = String(chatId);
+    const current = get().lockedChatIds || [];
+    let updated;
+    let isNowLocked = false;
+    if (current.includes(strId)) {
+      updated = current.filter((id) => id !== strId);
+      isNowLocked = false;
+    } else {
+      updated = [...current, strId];
+      isNowLocked = true;
+    }
+    try {
+      localStorage.setItem("whatsapp_locked_chats", JSON.stringify(updated));
+    } catch (e) {}
+    set({ lockedChatIds: updated });
+    return isNowLocked;
+  },
+  isChatLocked: (chatId) => {
+    if (!chatId) return false;
+    const strId = String(chatId);
+    return (get().lockedChatIds || []).includes(strId);
+  },
+  liveTranslateEnabled: false,
+  liveTranslateLang: "en",
+  setLiveTranslate: (enabled, lang) => {
+    set((state) => ({
+      liveTranslateEnabled:
+        enabled !== undefined ? Boolean(enabled) : state.liveTranslateEnabled,
+      liveTranslateLang: lang || state.liveTranslateLang,
+    }));
+  },
+  toggleLiveTranslate: () => {
+    set((state) => ({ liveTranslateEnabled: !state.liveTranslateEnabled }));
+  },
   users: [],
   setUsers: (users) => {
     if (Array.isArray(users)) {

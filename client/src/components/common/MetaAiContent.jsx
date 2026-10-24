@@ -46,7 +46,7 @@ function renderTextWithWordHighlights(rawText, wordCounterRef, activeWordIndex, 
         data-word-index={currentWordIdx}
         className={
           isCurrent
-            ? "relative inline-block bg-gradient-to-r from-cyan-400/40 via-sky-400/40 to-blue-500/40 text-cyan-950 dark:text-cyan-50 font-bold rounded px-1 -my-0.5 shadow-sm ring-2 ring-cyan-400/80 dark:ring-cyan-300 scale-105 transition-all duration-150 z-10 animate-pulse"
+            ? "relative inline-block bg-gradient-to-r from-[#0081fb]/25 via-[#7928ca]/25 to-[#ff0080]/25 dark:from-[#38bdf8]/30 dark:via-[#a855f7]/35 dark:to-[#f472b6]/30 text-indigo-950 dark:text-white font-bold rounded-md px-1.5 -my-0.5 shadow-xs ring-1.5 ring-[#7928ca]/50 dark:ring-[#a855f7]/70 scale-[1.04] transition-all duration-150 z-10"
             : isPast
               ? "text-inherit opacity-95 transition-opacity"
               : "text-inherit transition-colors"
@@ -79,7 +79,7 @@ function renderInlineFormatting(
         <code
           key={`code-${cIdx}`}
           className={`px-1.5 py-0.5 mx-0.5 rounded text-[13px] font-mono transition-all ${isCodeCurrent
-            ? "bg-cyan-500/30 text-cyan-200 ring-2 ring-cyan-400 font-bold scale-105"
+            ? "bg-gradient-to-r from-blue-500/25 via-indigo-500/30 to-purple-500/25 text-indigo-900 dark:text-white ring-1.5 ring-purple-400 font-bold scale-105"
             : "bg-black/10 dark:bg-white/10 text-pink-600 dark:text-pink-400"
             }`}
         >
@@ -373,19 +373,19 @@ export function MetaAiMarkdown({ content, theme = "dark", messageId }) {
   return (
     <div className="space-y-1.5 leading-relaxed break-words">
       {isSpeaking && (
-        <div className="flex items-center justify-between px-2.5 py-1 mb-1.5 rounded-lg bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-transparent border border-cyan-500/25 text-xs text-cyan-600 dark:text-cyan-300 animate-fadeIn select-none">
+        <div className="flex items-center justify-between px-2.5 py-1 mb-1.5 rounded-lg bg-gradient-to-r from-blue-500/15 via-indigo-500/15 to-purple-500/10 border border-indigo-500/25 text-xs text-indigo-600 dark:text-indigo-300 animate-fadeIn select-none">
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-0.5 h-3">
               <span
-                className="w-0.5 h-2 bg-cyan-400 rounded-full animate-bounce"
+                className="w-0.5 h-2 bg-blue-400 rounded-full animate-bounce"
                 style={{ animationDelay: "0ms" }}
               />
               <span
-                className="w-0.5 h-3.5 bg-cyan-500 rounded-full animate-bounce"
+                className="w-0.5 h-3.5 bg-indigo-500 rounded-full animate-bounce"
                 style={{ animationDelay: "150ms" }}
               />
               <span
-                className="w-0.5 h-2.5 bg-cyan-400 rounded-full animate-bounce"
+                className="w-0.5 h-2.5 bg-purple-400 rounded-full animate-bounce"
                 style={{ animationDelay: "300ms" }}
               />
             </span>
@@ -484,7 +484,7 @@ export function MetaAiMarkdown({ content, theme = "dark", messageId }) {
                 return (
                   <div
                     key={lIdx}
-                    className="bg-cyan-500/5 dark:bg-cyan-400/5 rounded-md px-1 py-0.5 -mx-1 border-l-2 border-cyan-400 dark:border-cyan-400 transition-colors duration-150"
+                    className="bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-transparent rounded-md px-1 py-0.5 -mx-1 border-l-2 border-indigo-400 dark:border-purple-400 transition-colors duration-150"
                   >
                     {lineElement}
                   </div>
@@ -838,7 +838,7 @@ export function MetaAiFeedbackBar({
   };
 
   return (
-    <div className="flex items-center justify-between pt-2 mt-2 border-t border-black/5 dark:border-white/5 text-[11px] select-none text-gray-500 dark:text-gray-400">
+    <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-black/5 dark:border-white/5 text-[11px] select-none text-gray-500 dark:text-gray-400">
       <div className="flex items-center gap-1">
         <button
           type="button"
@@ -862,29 +862,29 @@ export function MetaAiFeedbackBar({
           type="button"
           onClick={handleSpeak}
           className={`flex items-center gap-1.5 px-2 py-0.5 rounded transition-all cursor-pointer ${isSpeaking
-            ? "text-cyan-500 bg-cyan-500/15 border border-cyan-500/30 animate-pulse shadow-xs"
+            ? "text-indigo-600 dark:text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 animate-pulse shadow-xs"
             : "text-inherit hover:text-black dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10"
             }`}
           title={isSpeaking ? "Stop speaking" : "Listen to response with karaoke text highlight"}
         >
           {isSpeaking ? (
             <>
-              <FaVolumeMute size={12} className="text-cyan-400" />
+              <FaVolumeMute size={12} className="text-indigo-500 dark:text-indigo-400" />
               <span className="flex items-center gap-0.5 h-2.5">
                 <span
-                  className="w-0.5 h-full bg-cyan-400 rounded-full animate-bounce"
+                  className="w-0.5 h-full bg-blue-400 rounded-full animate-bounce"
                   style={{ animationDelay: "0ms" }}
                 />
                 <span
-                  className="w-0.5 h-2/3 bg-cyan-500 rounded-full animate-bounce"
+                  className="w-0.5 h-2/3 bg-indigo-500 rounded-full animate-bounce"
                   style={{ animationDelay: "150ms" }}
                 />
                 <span
-                  className="w-0.5 h-full bg-cyan-400 rounded-full animate-bounce"
+                  className="w-0.5 h-full bg-purple-400 rounded-full animate-bounce"
                   style={{ animationDelay: "300ms" }}
                 />
               </span>
-              <span className="text-[10px] font-semibold text-cyan-500">Speaking...</span>
+              <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-300">Speaking...</span>
             </>
           ) : (
             <FaVolumeUp size={13} />
@@ -1057,86 +1057,59 @@ export function MetaAiQuickFollowups({
 }
 
 export function MetaAiThumbnailGallery({ images = [], onOpenViewer, theme = "dark" }) {
-  const [hoveredIdx, setHoveredIdx] = useState(null);
-
   if (!Array.isArray(images) || images.length === 0) return null;
   const displayImages = images.slice(0, 5);
 
   return (
-    <div className="my-2 p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 select-none">
-      <div className="flex items-center justify-between mb-2 px-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
-        <span className="flex items-center gap-1.5 truncate pr-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 inline-block animate-pulse shrink-0" />
-          <span className="font-semibold text-gray-700 dark:text-gray-300">Web Images</span>
-          {hoveredIdx !== null && displayImages[hoveredIdx]?.title && (
-            <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-normal truncate transition-all">
-              • {displayImages[hoveredIdx].title}
-            </span>
-          )}
+    <div className="my-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 select-none">
+      <style>{`
+        @keyframes imgPanLR {
+          0% { transform: scale(1.18) translateX(-7%); }
+          100% { transform: scale(1.18) translateX(7%); }
+        }
+        @keyframes shineSweepLR {
+          0% { transform: translateX(-160%) skewX(-20deg); }
+          100% { transform: translateX(160%) skewX(-20deg); }
+        }
+        .group:hover .animate-pan-lr {
+          animation: imgPanLR 2.4s ease-in-out infinite alternate;
+        }
+        .group:hover .animate-shine-lr {
+          animation: shineSweepLR 2.4s ease-in-out infinite alternate;
+        }
+      `}</style>
+      <div className="flex items-center justify-between mb-1.5 px-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+        <span className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 inline-block animate-pulse" />
+          <span>Web Images</span>
         </span>
-        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 dark:bg-white/10 font-mono shrink-0">
+        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 dark:bg-white/10 font-mono">
           {displayImages.length} {displayImages.length === 1 ? "image" : "images"}
         </span>
       </div>
 
-      <div
-        className="grid grid-cols-5 gap-1.5 sm:gap-2 overflow-visible py-1.5"
-        onMouseLeave={() => setHoveredIdx(null)}
-      >
-        {displayImages.map((img, idx) => {
-          const isHovered = hoveredIdx === idx;
-          const isAnotherHovered = hoveredIdx !== null && !isHovered;
-
-          return (
-            <div
-              key={idx}
-              onMouseEnter={() => setHoveredIdx(idx)}
-              onClick={() => onOpenViewer?.(img.imageUrl)}
-              className={`relative aspect-square rounded-xl overflow-hidden cursor-pointer transition-all duration-300 ease-out ${
-                isHovered
-                  ? "scale-115 -translate-y-2 z-30 shadow-[0_12px_28px_-4px_rgba(6,182,212,0.45)] ring-2 ring-cyan-400 dark:ring-cyan-300 border-transparent"
-                  : isAnotherHovered
-                  ? "opacity-45 scale-95 filter brightness-90 border border-black/10 dark:border-white/10"
-                  : "opacity-100 scale-100 border border-black/10 dark:border-white/15 bg-black/10 dark:bg-white/10 shadow-xs hover:border-cyan-400/50"
-              }`}
-              title={img.title || "Click to view full image"}
-            >
-              <img
-                src={img.imageUrl}
-                alt={img.title || "Search image"}
-                loading="lazy"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-                className={`w-full h-full object-cover transition-transform duration-500 ease-out ${
-                  isHovered ? "scale-115" : "scale-100"
-                }`}
-              />
-
-              {/* Shimmer light reflection when hovering this separate image */}
-              {isHovered && (
-                <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-transparent via-white/20 to-transparent animate-pulse" />
-              )}
-
-              {/* Separate hover animation overlay with badge & title */}
-              <div
-                className={`absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/30 transition-all duration-300 flex flex-col justify-between p-1.5 pointer-events-none ${
-                  isHovered ? "opacity-100" : "opacity-0"
-                }`}
-              >
-                <div className="flex justify-end">
-                  <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/90 backdrop-blur-xs text-[9px] font-bold text-white shadow-sm flex items-center gap-1 transform transition-transform">
-                    <span className="text-[8px]">🔍</span>
-                    <span className="text-[8px]">View</span>
-                  </span>
-                </div>
-                <p className="text-[9px] text-white/95 font-medium truncate drop-shadow-sm">
-                  {img.title || "View image"}
-                </p>
-              </div>
+      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+        {displayImages.map((img, idx) => (
+          <div
+            key={idx}
+            onClick={() => onOpenViewer?.(img.imageUrl)}
+            className="group relative aspect-square rounded-lg overflow-hidden border border-black/10 dark:border-white/15 bg-black/10 dark:bg-white/10 cursor-pointer shadow-xs transition-all duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+            title={img.title || "Click to view full image"}
+          >
+            <img
+              src={img.imageUrl}
+              alt={img.title || "Search image"}
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+              className="w-full h-full object-cover transition-transform duration-300 ease-out animate-pan-lr"
+            />
+            <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <div className="w-full h-full bg-gradient-to-r from-transparent via-white/30 dark:via-white/20 to-transparent animate-shine-lr" />
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );

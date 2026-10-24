@@ -27,5 +27,8 @@ router.post("/meta-ai", authMiddleware, chatController.askMetaAi);
 router.post("/summarize", authMiddleware, chatController.summarizeConversation);
 router.post("/translate", authMiddleware, chatController.translateText);
 router.post("/smart-replies", authMiddleware, chatController.getSmartReplies);
+router.post("/magic-rewrite", authMiddleware, chatController.magicRewrite);
+router.post("/transcribe-audio", authMiddleware, chatController.transcribeAudio);
+router.post("/analyze-image", authMiddleware, chatController.analyzeImage);
 
 export default router;

@@ -894,6 +894,70 @@ function initializeSocket(server) {
     }
   }, 3000);
 
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const dueMessages = await Message.find({
+        isScheduled: true,
+        scheduledFor: { $lte: now },
+      })
+        .populate("sender", "username profilePicture publicKey")
+        .populate("receiver", "username profilePicture publicKey")
+        .populate("replyTo")
+        .populate(
+          "deliveredTo.user",
+          "username profilePicture phoneNumber about",
+        )
+        .populate("readBy.user", "username profilePicture phoneNumber about")
+        .populate({
+          path: "statusId",
+          populate: { path: "user", select: "username profilePicture" },
+        });
+
+      if (!dueMessages || dueMessages.length === 0) return;
+
+      for (const msg of dueMessages) {
+        msg.isScheduled = false;
+        const receiverId = msg.receiver?._id || msg.receiver;
+        const isReceiverOnline = receiverId
+          ? onlineUsers.has(receiverId.toString())
+          : false;
+        msg.messageStatus = isReceiverOnline ? "delivered" : "send";
+        if (isReceiverOnline) {
+          msg.deliveredAt = now;
+        }
+        await msg.save();
+
+        if (msg.conversation) {
+          await Conversation.findByIdAndUpdate(msg.conversation, {
+            lastMessage: msg._id,
+          });
+        }
+
+        const payload = {
+          ...msg.toObject(),
+          conversationId: msg.conversation?.toString(),
+        };
+
+        const senderId = (msg.sender?._id || msg.sender)?.toString();
+        if (senderId) {
+          io.to(senderId).emit("receive_message", payload);
+          io.to(senderId).emit("message_status_update", {
+            messageId: msg._id.toString(),
+            messageStatus: msg.messageStatus,
+            deliveredAt: msg.deliveredAt?.toISOString(),
+          });
+        }
+
+        if (receiverId) {
+          io.to(receiverId.toString()).emit("receive_message", payload);
+        }
+      }
+    } catch (err) {
+      console.error("Error in scheduled messages runner:", err);
+    }
+  }, 4000);
+
   io.socketUserMap = onlineUsers;
   return io;
 }

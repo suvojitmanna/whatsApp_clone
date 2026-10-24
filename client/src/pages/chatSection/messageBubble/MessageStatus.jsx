@@ -27,6 +27,21 @@ export const MessageStatusIcon = ({
     return null;
   }
 
+  if (message.isScheduled || message.messageStatus === "scheduled" || message.status === "scheduled") {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 text-amber-500 font-medium text-[10px]"
+        title={
+          message.scheduledFor
+            ? `Scheduled to send at ${new Date(message.scheduledFor).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+            : "Scheduled message"
+        }
+      >
+        <span>⏰</span>
+      </span>
+    );
+  }
+
   const status = message.messageStatus || message.status;
   if (!status || status === "pending" || status === "sending" || message.isPending) {
     return (

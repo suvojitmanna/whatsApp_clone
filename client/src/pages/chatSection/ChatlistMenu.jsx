@@ -6,7 +6,7 @@ import { FiHeart } from "react-icons/fi";
 import { MdArrowRight, MdBlock } from "react-icons/md";
 import { RiDeleteBin6Line } from "react-icons/ri";
 import { BsPinAngle } from "react-icons/bs";
-import { FaCheck, FaPlus } from "react-icons/fa";
+import { FaCheck, FaPlus, FaLock } from "react-icons/fa";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import useLayoutStore from "../../store/layoutStore";
@@ -44,6 +44,8 @@ const ChatlistMenu = ({
     clearChat,
     deleteChat,
     clearUnreadCount,
+    lockedChatIds = [],
+    toggleLockChat,
   } = useChatStore();
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -85,6 +87,27 @@ const ChatlistMenu = ({
   }, [contact]);
 
   const contactName = contact?.username || contact?.name || "Chat";
+
+  const isLocked = useMemo(() => {
+    const list = lockedChatIds || [];
+    const candidates = [chatId, contact?._id, contact?.id, targetId]
+      .filter(Boolean)
+      .map(String);
+    return candidates.some((id) => list.includes(id));
+  }, [lockedChatIds, chatId, contact, targetId]);
+
+  const handleToggleLock = () => {
+    const target = chatId || contact?._id;
+    if (toggleLockChat) {
+      const isNowLocked = toggleLockChat(target);
+      toast.success(
+        isNowLocked
+          ? "🔒 Chat locked and moved to Locked Chats folder"
+          : "🔓 Chat unlocked"
+      );
+    }
+    onClose();
+  };
 
   const isBlocked = useMemo(() => {
     if (!blockedContacts || blockedContacts.length === 0) return false;
@@ -456,7 +479,7 @@ const ChatlistMenu = ({
                 </button>
 
                 {activeSubmenu === "mute" && !isMuted && (
-                  <div className={`absolute top-0 py-1.5 rounded-2xl shadow-2xl border z-20 w-[160px] ${coords.isSubmenuLeft ? "right-full mr-1.5" : "left-full ml-1.5" } ${isDark ? "bg-[#182229] border-[#313d45]/70 text-[#d1d7db]" : "bg-white border-gray-200 text-[#111b21]"}`}>
+                  <div className={`absolute top-0 py-1.5 rounded-2xl shadow-2xl border z-20 w-[160px] ${coords.isSubmenuLeft ? "right-full mr-1.5" : "left-full ml-1.5"} ${isDark ? "bg-[#182229] border-[#313d45]/70 text-[#d1d7db]" : "bg-white border-gray-200 text-[#111b21]"}`}>
                     {["8 hours", "1 week", "Always"].map((opt) => (
                       <button
                         key={opt}
@@ -504,6 +527,17 @@ const ChatlistMenu = ({
                 </span>
               </button>
 
+              <button
+                type="button"
+                onClick={handleToggleLock}
+                className={itemClass}
+              >
+                <FaLock size={17} className="shrink-0 text-amber-500" />
+                <span className="truncate">
+                  {isLocked ? "Unlock chat" : "Lock chat 🔒"}
+                </span>
+              </button>
+
               <div className="relative"
                 onMouseEnter={() => setActiveSubmenu("list")}
                 onMouseLeave={() => activeSubmenu === "list" && setActiveSubmenu(null)}
@@ -522,12 +556,12 @@ const ChatlistMenu = ({
 
                 {activeSubmenu === "list" && (
                   <div className={`absolute top-0 py-1.5 rounded-2xl shadow-2xl border z-20 w-[190px] max-h-[300px] overflow-y-auto ${coords.isSubmenuLeft
-                      ? "right-full mr-1.5"
-                      : "left-full ml-1.5"
-                      } ${isDark
-                        ? "bg-[#182229] border-[#313d45]/70 text-[#d1d7db]"
-                        : "bg-white border-gray-200 text-[#111b21]"
-                      }`}
+                    ? "right-full mr-1.5"
+                    : "left-full ml-1.5"
+                    } ${isDark
+                      ? "bg-[#182229] border-[#313d45]/70 text-[#d1d7db]"
+                      : "bg-white border-gray-200 text-[#111b21]"
+                    }`}
                   >
                     {availableLists.map((listName) => {
                       const inList = isContactInList(contact, listName);
@@ -551,9 +585,9 @@ const ChatlistMenu = ({
 
                     <div className={`my-1 border-t ${isDark ? "border-[#313d45]/70" : "border-gray-200"}`} />
                     <button type="button" onClick={() => {
-                        onClose();
-                        onOpenNewList?.();
-                      }}
+                      onClose();
+                      onOpenNewList?.();
+                    }}
                       className={`w-full px-4 py-2 flex items-center gap-2.5 text-left text-[13.5px] cursor-pointer transition-colors ${isDark
                         ? "hover:bg-[#202c33] text-[#00a884]"
                         : "hover:bg-[#f5f6f6] text-[#00a884]"

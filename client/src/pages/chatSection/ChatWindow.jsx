@@ -1624,7 +1624,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     if (stickerInputRef.current) stickerInputRef.current.value = "";
   };
 
-  const handleSendMessage = async (overrideText) => {
+  const handleSendMessage = async (overrideText, extraOptions = {}) => {
     if (!selectedContact || isSending) return;
     const textToSend = typeof overrideText === "string" ? overrideText : message;
     const trimmedMessage = textToSend.trim();
@@ -1687,6 +1687,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             formData.append("replyMessage", JSON.stringify(replyData));
           }
 
+          if (extraOptions?.scheduledFor) {
+            formData.append("isScheduled", "true");
+            formData.append("scheduledFor", extraOptions.scheduledFor);
+          }
+
           if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
             const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
             formData.append("metaAiPersona", currentPersona);
@@ -1710,11 +1715,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           formData.append("replyTo", replyData._id);
           formData.append("replyMessage", JSON.stringify(replyData));
         }
+        if (extraOptions?.scheduledFor) {
+          formData.append("isScheduled", "true");
+          formData.append("scheduledFor", extraOptions.scheduledFor);
+        }
         if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
           const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
           formData.append("metaAiPersona", currentPersona);
         }
         await sendMessage(formData);
+        if (extraOptions?.scheduledFor) {
+          toast.success("⏰ Message scheduled successfully!");
+        }
         if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
           setMetaAiOptimisticThinking(true);
           setTimeout(() => setMetaAiOptimisticThinking(false), 20000);

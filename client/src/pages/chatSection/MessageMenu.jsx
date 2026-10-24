@@ -41,6 +41,7 @@ const MessageMenu = ({
     isGroupChat,
     senderDisplayName,
     onOpenSenderContactInfo,
+    displayContent,
 }) => {
     const chatToggleStar = useChatStore((state) => state.toggleStarMessage);
     const chatUnpinMessage = useChatStore((state) => state.unpinMessage);
@@ -563,14 +564,17 @@ const MessageMenu = ({
                 </button>
             )}
 
-            {message?.content && (
+            {(displayContent || message?.content) && (
                 <button
                     type="button"
                     onClick={() => {
                         setShowOptions?.(false);
                         window.dispatchEvent(
                             new CustomEvent("open_translate_modal", {
-                                detail: { text: message.content, messageId: message._id },
+                                detail: {
+                                    text: displayContent || message.content,
+                                    messageId: message._id,
+                                },
                             })
                         );
                     }}
