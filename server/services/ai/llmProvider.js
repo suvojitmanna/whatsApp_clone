@@ -21,7 +21,8 @@ async function callGeminiApi(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const cleanModel = (model || "gemini-3.8-flash").replace(/^models\//, "");
+  let cleanModel = (model || "gemini-1.5-flash").replace(/^models\//, "");
+  if (cleanModel.includes("3.8")) cleanModel = "gemini-1.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
   const body = {
     contents,
@@ -136,10 +137,14 @@ export async function callDualLlm({
 
   if (AI_CONFIG.groq.apiKey) {
     try {
+      const groqModel =
+        AI_CONFIG.groq.model && !AI_CONFIG.groq.model.includes("qwen")
+          ? AI_CONFIG.groq.model
+          : "llama-3.3-70b-versatile";
       const text = await callOpenAiCompatible(
         "https://api.groq.com/openai/v1/chat/completions",
         AI_CONFIG.groq.apiKey,
-        AI_CONFIG.groq.model,
+        groqModel,
         systemPrompt,
         groqMessages,
         AI_CONFIG.groq.timeoutMs,
@@ -154,9 +159,11 @@ export async function callDualLlm({
 
   if (AI_CONFIG.gemini.apiKey) {
     try {
+      let geminiModel = (AI_CONFIG.gemini.model || "gemini-1.5-flash").replace(/^models\//, "");
+      if (geminiModel.includes("3.8")) geminiModel = "gemini-1.5-flash";
       const text = await callGeminiApi(
         AI_CONFIG.gemini.apiKey,
-        AI_CONFIG.gemini.model,
+        geminiModel,
         systemPrompt,
         contents,
         AI_CONFIG.gemini.timeoutMs,
@@ -220,10 +227,14 @@ export async function callFastLlm(
 ) {
   if (AI_CONFIG.groq.apiKey) {
     try {
+      const fastGroq =
+        AI_CONFIG.groq.fastModel && !AI_CONFIG.groq.fastModel.includes("qwen")
+          ? AI_CONFIG.groq.fastModel
+          : "llama-3.1-8b-instant";
       return await callOpenAiCompatible(
         "https://api.groq.com/openai/v1/chat/completions",
         AI_CONFIG.groq.apiKey,
-        AI_CONFIG.groq.fastModel || "qwen/qwen3.8-27b",
+        fastGroq,
         systemPrompt,
         [{ role: "user", content: prompt }],
         6000,
@@ -235,9 +246,11 @@ export async function callFastLlm(
 
   if (AI_CONFIG.gemini.apiKey) {
     try {
+      let fastGemini = (AI_CONFIG.gemini.model || "gemini-1.5-flash").replace(/^models\//, "");
+      if (fastGemini.includes("3.8")) fastGemini = "gemini-1.5-flash";
       return await callGeminiApi(
         AI_CONFIG.gemini.apiKey,
-        AI_CONFIG.gemini.model || "gemini-3.8-flash",
+        fastGemini,
         systemPrompt,
         [{ role: "user", parts: [{ text: prompt }] }],
         7000,

@@ -206,7 +206,7 @@ export const MessageTimestampAndStatus = ({
         {message.edited && (
           <span className="text-[9.5px] italic opacity-90 mr-0.5">Edited</span>
         )}
-        <span>{format(new Date(message.createdAt || Date.now()), "HH:mm")}</span>
+        <span>{format(new Date(message.scheduledFor || message.createdAt || Date.now()), "HH:mm")}</span>
         <MessageStatusIcon
           isUserMessage={isUserMessage}
           message={message}
@@ -269,7 +269,7 @@ export const MessageTimestampAndStatus = ({
           Edited
         </span>
       )}
-      <span>{format(new Date(message.createdAt || Date.now()), "HH:mm")}</span>
+      <span>{format(new Date(message.scheduledFor || message.createdAt || Date.now()), "HH:mm")}</span>
       <MessageStatusIcon
         isUserMessage={isUserMessage}
         message={message}

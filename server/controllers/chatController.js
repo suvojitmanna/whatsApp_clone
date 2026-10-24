@@ -1,7 +1,6 @@
 import {
   uploadFileToCloudinary,
   deleteFileFromCloudinary,
-  deleteMultipleFilesFromCloudinary,
 } from "../config/cloudinary.js";
 import response from "../utils/responseHandeler.js";
 import Message from "../models/message.js";
@@ -606,6 +605,7 @@ export const sendMessage = async (req, res) => {
       disappearingExpiresAt,
       isScheduled: isScheduledMsg,
       scheduledFor: scheduledForDate,
+      createdAt: isScheduledMsg && scheduledForDate ? scheduledForDate : now,
     });
     await message.save();
 
@@ -3160,6 +3160,106 @@ export const getSmartReplies = async (req, res) => {
   }
 };
 
+function applyLocalTonePolish(text, tone = "professional") {
+  if (!text || !text.trim()) return text;
+  let s = text.trim();
+
+  const capitalizeSentences = (str) =>
+    str.replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, p, c) => p + c.toUpperCase());
+
+  if (tone === "fix_grammar") {
+    s = s
+      .replace(/\bi\b/g, "I")
+      .replace(/\bim\b/gi, "I'm")
+      .replace(/\bdont\b/gi, "don't")
+      .replace(/\bcant\b/gi, "can't")
+      .replace(/\bwont\b/gi, "won't")
+      .replace(/\bdidnt\b/gi, "didn't")
+      .replace(/\bdoesnt\b/gi, "doesn't")
+      .replace(/\bisnt\b/gi, "isn't")
+      .replace(/\barent\b/gi, "aren't")
+      .replace(/\bthats\b/gi, "that's")
+      .replace(/\bwhats\b/gi, "what's")
+      .replace(/\byoure\b/gi, "you're")
+      .replace(/\btheyre\b/gi, "they're")
+      .replace(/\bweve\b/gi, "we've")
+      .replace(/\bive\b/gi, "I've")
+      .replace(/\bill\b/gi, "I'll")
+      .replace(/\blets\b/gi, "let's")
+      .replace(/\s+([,.!?:;])/g, "$1")
+      .replace(/([,.!?:;])(?=[^\s,.!?:;])/g, "$1 ");
+    s = capitalizeSentences(s);
+    if (!/[.!?]$/.test(s)) s += ".";
+    return s;
+  }
+
+  if (tone === "concise") {
+    s = s
+      .replace(
+        /\b(i just wanted to say that|just wanted to let you know that|i am writing to let you know that)\b/gi,
+        "",
+      )
+      .replace(
+        /\b(in my personal opinion|to be completely honest|as a matter of fact|at the end of the day|for all intents and purposes)\b/gi,
+        "",
+      )
+      .replace(/\b(basically|honestly|actually|literally)\b/gi, "")
+      .replace(/\bin order to\b/gi, "to")
+      .replace(/\bdue to the fact that\b/gi, "because")
+      .replace(/\bat this point in time\b/gi, "now")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    s = capitalizeSentences(s);
+    if (!/[.!?]$/.test(s)) s += ".";
+    return s;
+  }
+
+  if (tone === "friendly") {
+    s = s
+      .replace(/\bi\b/g, "I")
+      .replace(/\bu\b/gi, "you")
+      .replace(/\bur\b/gi, "your")
+      .replace(/\br\b/gi, "are")
+      .replace(/\bpls\b|\bplz\b/gi, "please")
+      .replace(/\bthx\b|\btnx\b|\bty\b/gi, "thanks so much")
+      .replace(/\b(send me|give me)\b/gi, "could you please send me")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    s = capitalizeSentences(s);
+    if (!/[\u{1F300}-\u{1F9FF}]/u.test(s)) s += " 😊";
+    return s;
+  }
+
+  s = s
+    .replace(/\b(hey|yo|hi ya|what's up|sup)\b/gi, "Hello")
+    .replace(/\bu\b/gi, "you")
+    .replace(/\bur\b/gi, "your")
+    .replace(/\br\b/gi, "are")
+    .replace(/\bpls\b|\bplz\b/gi, "please")
+    .replace(/\bthx\b|\btnx\b|\bty\b/gi, "thank you")
+    .replace(/\basap\b/gi, "as soon as possible")
+    .replace(/\bidk\b/gi, "I am not certain")
+    .replace(/\btbh\b/gi, "to be frank")
+    .replace(/\bgonna\b/gi, "going to")
+    .replace(/\bwanna\b/gi, "would like to")
+    .replace(/\bgotta\b/gi, "need to")
+    .replace(/\bcuz\b|\bcos\b/gi, "because")
+    .replace(/\bdm\b/gi, "direct message")
+    .replace(/\bw\/o\b/gi, "without")
+    .replace(/\bw\/\b/gi, "with")
+    .replace(/\b(imo|imho)\b/gi, "in my view")
+    .replace(/\bcan't\b|\bcant\b/gi, "cannot")
+    .replace(/\bdon't\b|\bdont\b/gi, "do not")
+    .replace(/\bwon't\b|\bwont\b/gi, "will not")
+    .replace(/\bi\b/g, "I")
+    .replace(/\s+([,.!?:;])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  s = capitalizeSentences(s);
+  if (!/[.!?]$/.test(s)) s += ".";
+  return s;
+}
+
 export const magicRewrite = async (req, res) => {
   try {
     const { text, tone = "professional" } = req.body;
@@ -3183,10 +3283,38 @@ export const magicRewrite = async (req, res) => {
     const systemPrompt = `You are an expert AI communication and tone editor for WhatsApp. ${toneInstruction} Return ONLY the rewritten text without quotes, commentary, greetings, or explanations. Preserve relevant emojis and formatting.`;
     const prompt = `Rewrite this draft:\n"${text}"`;
 
-    let rewritten = await callFastLlm(prompt, systemPrompt);
-    if (!rewritten) {
-      const dual = await callDualLlm({ systemPrompt, prompt });
-      rewritten = dual.text;
+    let rewritten = "";
+    try {
+      rewritten = await callFastLlm(prompt, systemPrompt);
+    } catch (e) {
+      console.warn("magicRewrite callFastLlm failed:", e.message);
+    }
+
+    if (
+      !rewritten ||
+      rewritten.includes("Meta AI received your message") ||
+      rewritten.includes("higher-than-normal traffic")
+    ) {
+      try {
+        const dual = await callDualLlm({ systemPrompt, prompt });
+        if (
+          dual?.text &&
+          !dual.text.includes("Meta AI received your message") &&
+          !dual.text.includes("higher-than-normal traffic")
+        ) {
+          rewritten = dual.text;
+        }
+      } catch (e) {
+        console.warn("magicRewrite callDualLlm failed:", e.message);
+      }
+    }
+
+    if (
+      !rewritten ||
+      rewritten.includes("Meta AI received your message") ||
+      rewritten.includes("higher-than-normal traffic")
+    ) {
+      rewritten = applyLocalTonePolish(text, tone);
     }
 
     rewritten = (rewritten || text).trim();
@@ -3201,11 +3329,21 @@ export const magicRewrite = async (req, res) => {
     return response(res, 200, "Magic rewrite successful", {
       original: text,
       rewritten,
+      rewrittenText: rewritten,
       tone,
     });
   } catch (error) {
     console.error("magicRewrite error:", error);
-    return response(res, 500, "Failed to rewrite text");
+    const fallbackText = applyLocalTonePolish(
+      req.body?.text || "",
+      req.body?.tone || "professional",
+    );
+    return response(res, 200, "Magic rewrite processed", {
+      original: req.body?.text || "",
+      rewritten: fallbackText,
+      rewrittenText: fallbackText,
+      tone: req.body?.tone || "professional",
+    });
   }
 };
 
@@ -3413,6 +3551,7 @@ export const sendScheduledNow = async (req, res) => {
     const now = new Date();
     msg.isScheduled = false;
     msg.scheduledFor = now;
+    msg.createdAt = now;
 
     const receiverId = (msg.receiver?._id || msg.receiver)?.toString();
     const onlineMap = req.io?.socketUserMap || req.socketUserMap;

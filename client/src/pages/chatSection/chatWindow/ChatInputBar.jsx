@@ -150,7 +150,11 @@ export const ChatInputBar = ({
   }, [showScheduleMenu]);
 
   const handleMagicRewrite = async (tone) => {
-    if (!message.trim() || isRewriting) return;
+    if (!message || !message.trim()) {
+      toast.error("Please type a message first to polish tone!");
+      return;
+    }
+    if (isRewriting) return;
     setIsRewriting(true);
     try {
       const original = message;
@@ -158,10 +162,14 @@ export const ChatInputBar = ({
         text: original,
         tone,
       });
-      const rewritten = res.data?.data?.rewrittenText || res.data?.rewrittenText;
-      if (rewritten) {
+      const rewritten =
+        res.data?.data?.rewritten ||
+        res.data?.data?.rewrittenText ||
+        res.data?.rewritten ||
+        res.data?.rewrittenText;
+      if (rewritten && rewritten.trim()) {
         setPreviousDraft(original);
-        setMessage(rewritten);
+        setMessage(rewritten.trim());
         setShowRewriteMenu(false);
         const toneLabels = {
           professional: "💼 Professional",
@@ -170,9 +178,15 @@ export const ChatInputBar = ({
           fix_grammar: "✍️ Grammar Fixed",
         };
         toast.success(`✨ Rewritten in ${toneLabels[tone] || tone} style!`);
+      } else {
+        toast.error("Could not rewrite text. Please try again.");
       }
     } catch (err) {
-      toast.error("Failed to polish tone. Please try again.");
+      console.error("Magic rewrite error:", err);
+      const errMsg =
+        err.response?.data?.message ||
+        "Failed to polish tone. Please try again.";
+      toast.error(errMsg);
     } finally {
       setIsRewriting(false);
     }
@@ -1353,7 +1367,7 @@ export const ChatInputBar = ({
                         <div className="flex items-center justify-between w-full mb-1">
                           <span className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center text-xs">⚡</span>
                           <span className="text-[10px] font-mono text-gray-400 group-hover:text-emerald-500 transition-colors">
-                            {new Date(Date.now() + 15 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(currentDateTime.getTime() + 15 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                         <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">In 15 mins</span>
@@ -1370,7 +1384,7 @@ export const ChatInputBar = ({
                         <div className="flex items-center justify-between w-full mb-1">
                           <span className="w-6 h-6 rounded-lg bg-blue-500/15 text-blue-500 flex items-center justify-center text-xs">🕒</span>
                           <span className="text-[10px] font-mono text-gray-400 group-hover:text-emerald-500 transition-colors">
-                            {new Date(Date.now() + 60 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(currentDateTime.getTime() + 60 * 60 * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                         <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">In 1 hour</span>
@@ -1416,45 +1430,69 @@ export const ChatInputBar = ({
                           </span>
                         </div>
                         <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                          {new Date().getHours() < 19 ? "Tonight" : "Tomorrow Night"}
+                          {currentDateTime.getHours() < 19 ? "Tonight" : "Tomorrow Night"}
                         </span>
                       </button>
                     </div>
 
                     <div className="pt-2.5 border-t border-black/5 dark:border-white/10">
-                      <div className="flex items-center justify-between mb-2 gap-2">
-                        <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-400 px-0.5 flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center justify-between mb-2 px-0.5">
+                        <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5 shrink-0">
                           <IoCalendarOutline className="text-xs" />
                           <span>Custom Date & Time</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-[10px] sm:text-[10.5px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 px-2 py-0.5 rounded-lg font-mono min-w-0 truncate" title="Current Local Date & Time">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                          <span className="truncate">
-                            {currentDateTime.toLocaleDateString([], { month: "short", day: "numeric" })},{" "}
-                            {currentDateTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                          </span>
+                        <div className="flex items-center gap-1.5 text-[10px] sm:text-[10.5px] text-emerald-600 dark:text-emerald-400 font-mono font-medium" title="Live Local Clock">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                          <span>LIVE CLOCK</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 mb-2.5">
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-800 dark:text-emerald-200">
+                          <MdAccessTime className="text-emerald-600 dark:text-emerald-400 text-xs shrink-0" />
+                          <span>Current:</span>
+                        </div>
+                        <div className="text-[11px] font-bold font-mono text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                          <span>{currentDateTime.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</span>
+                          <span>•</span>
+                          <span>{currentDateTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 mb-2">
-                        <div className="relative flex items-center">
-                          <MdCalendarToday className="absolute left-2.5 text-gray-400 text-xs pointer-events-none" />
-                          <input
-                            type="date"
-                            value={customDate || getLocalDateString()}
-                            onChange={(e) => setCustomDate(e.target.value)}
-                            min={getLocalDateString()}
-                            className="w-full text-xs py-2 pl-7 pr-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/30 text-gray-800 dark:text-gray-100 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-medium [color-scheme:light] dark:[color-scheme:dark]"
-                          />
+                        <div>
+                          <div className="flex items-center justify-between text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1 px-1">
+                            <span>Date</span>
+                            <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-mono">Today</span>
+                          </div>
+                          <div className="relative flex items-center">
+                            <MdCalendarToday className="absolute left-2.5 text-gray-400 text-xs pointer-events-none" />
+                            <input
+                              type="date"
+                              value={customDate || getLocalDateString()}
+                              onChange={(e) => setCustomDate(e.target.value || getLocalDateString())}
+                              min={getLocalDateString()}
+                              className="w-full text-xs py-2 pl-7 pr-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/30 text-gray-800 dark:text-gray-100 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-medium [color-scheme:light] dark:[color-scheme:dark]"
+                            />
+                          </div>
                         </div>
-                        <div className="relative flex items-center">
-                          <MdAccessTime className="absolute left-2.5 text-gray-400 text-xs pointer-events-none" />
-                          <input
-                            type="time"
-                            value={customTime || getLocalTimeString()}
-                            onChange={(e) => setCustomTime(e.target.value)}
-                            className="w-full text-xs py-2 pl-7 pr-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/30 text-gray-800 dark:text-gray-100 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-medium [color-scheme:light] dark:[color-scheme:dark]"
-                          />
+
+                        <div>
+                          <div className="flex items-center justify-between text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1 px-1">
+                            <span>Time</span>
+                            <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-mono">
+                              {currentDateTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                          <div className="relative flex items-center">
+                            <MdAccessTime className="absolute left-2.5 text-gray-400 text-xs pointer-events-none" />
+                            <input
+                              type="time"
+                              value={customTime || getLocalTimeString()}
+                              onChange={(e) => setCustomTime(e.target.value || getLocalTimeString())}
+                              className="w-full text-xs py-2 pl-7 pr-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/30 text-gray-800 dark:text-gray-100 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-medium [color-scheme:light] dark:[color-scheme:dark]"
+                            />
+                          </div>
                         </div>
                       </div>
 

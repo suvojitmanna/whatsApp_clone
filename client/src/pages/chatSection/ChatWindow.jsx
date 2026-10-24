@@ -584,8 +584,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
     const combined = [...validMsgs, ...chatDisappearingEvents];
     combined.sort((a, b) => {
-      const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
-      const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+      const timeA = new Date(a.scheduledFor || a.createdAt || a.timestamp || 0).getTime();
+      const timeB = new Date(b.scheduledFor || b.createdAt || b.timestamp || 0).getTime();
       return timeA - timeB;
     });
     return combined;
@@ -1945,8 +1945,9 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const acc = {};
     for (let i = 0; i < combinedMessages.length; i++) {
       const msg = combinedMessages[i];
-      if (!msg.createdAt) continue;
-      const date = new Date(msg.createdAt);
+      const msgTimestamp = msg.scheduledFor || msg.createdAt;
+      if (!msgTimestamp) continue;
+      const date = new Date(msgTimestamp);
       if (isValidate(date)) {
         const dateString = format(date, "yyyy-MM-dd");
         if (!acc[dateString]) {

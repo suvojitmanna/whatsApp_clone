@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import useThemeStore from "../../store/themeStore";
 import useLayoutStore from "../../store/layoutStore";
@@ -834,6 +835,7 @@ export const isChatMarkedUnread = (contact, unreadList) => {
 
 const ChatList = ({ contacts }) => {
   const { user } = useUserStore();
+  const navigate = useNavigate();
   const { isUserTyping } = useChatStore();
   const onlineUsers = useChatStore((state) => state.onlineUsers);
   const isUserOnline = useChatStore((state) => state.isUserOnline);
@@ -1360,8 +1362,40 @@ const ChatList = ({ contacts }) => {
                       : "hover:bg-gray-100 text-gray-800"
                       }`}
                   >
-                    <MdList size={18} className="text-gray-400 shrink-0" />
+                    <MdList size={18} className="text-[#00a884] shrink-0" />
                     <span>New list</span>
+                  </button>
+
+                  {lockedChatIds && lockedChatIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowThreeDotsMenu(false);
+                        setShowLockedModal(true);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl cursor-pointer transition-colors ${theme === "dark"
+                        ? "hover:bg-[#182229] text-[#e9edef]"
+                        : "hover:bg-gray-100 text-gray-800"
+                        }`}
+                    >
+                      <FaLock size={14} className="text-amber-500 shrink-0" />
+                      <span>Locked chats</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowThreeDotsMenu(false);
+                      navigate("/setting");
+                    }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl cursor-pointer transition-colors ${theme === "dark"
+                      ? "hover:bg-[#182229] text-[#e9edef]"
+                      : "hover:bg-gray-100 text-gray-800"
+                      }`}
+                  >
+                    <span className="text-gray-400 font-bold shrink-0 text-sm">⚙️</span>
+                    <span>Settings</span>
                   </button>
                 </motion.div>
               )}
@@ -1990,7 +2024,10 @@ const ChatList = ({ contacts }) => {
                         className={`text-[12px] shrink-0 ${theme === "dark" ? "text-[#8696a0]" : "text-[#667781]"}`}
                       >
                         {formatTimestamp(
-                          latestTimestamp || contactPin?.pinnedAt || contact?.conversation?.lastMessage?.createdAt,
+                          latestTimestamp ||
+                          contactPin?.pinnedAt ||
+                          contact?.conversation?.lastMessage?.scheduledFor ||
+                          contact?.conversation?.lastMessage?.createdAt,
                         )}
                       </span>
                     )}

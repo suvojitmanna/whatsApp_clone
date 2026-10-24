@@ -918,6 +918,10 @@ function initializeSocket(server) {
 
       for (const msg of dueMessages) {
         msg.isScheduled = false;
+        const targetSentTime = msg.scheduledFor
+          ? new Date(msg.scheduledFor)
+          : now;
+        msg.createdAt = targetSentTime;
         const receiverId = (msg.receiver?._id || msg.receiver)?.toString();
         const senderId = (msg.sender?._id || msg.sender)?.toString();
 

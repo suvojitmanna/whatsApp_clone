@@ -2579,6 +2579,11 @@ export const useChatStore = create((set, get) => ({
       } catch (e) {}
     }
 
+    const scheduledForParam = formData.get("scheduledFor");
+    const isScheduledParam =
+      formData.get("isScheduled") === "true" ||
+      formData.get("isScheduled") === true;
+
     const optimisticMessage = {
       _id: tempId,
       sender: {
@@ -2608,8 +2613,10 @@ export const useChatStore = create((set, get) => ({
       pollData: parsedPollData,
       eventData: parsedEventData,
       contactData: parsedContactData,
-      createdAt: nowIso,
-      messageStatus: messageStatus || "send",
+      createdAt: scheduledForParam || nowIso,
+      scheduledFor: scheduledForParam || null,
+      isScheduled: isScheduledParam,
+      messageStatus: isScheduledParam ? "scheduled" : messageStatus || "send",
       replyTo: replyTo || null,
       replyMessage: parsedReplyMessage,
       isDisappearing,
@@ -2727,6 +2734,8 @@ export const useChatStore = create((set, get) => ({
       const isAlreadyRead = readStatusCache.has(savedMsgId);
       const savedMessage = {
         ...messageData,
+        createdAt: messageData.scheduledFor || messageData.createdAt,
+        scheduledFor: messageData.scheduledFor || null,
         messageStatus: isAlreadyRead
           ? "read"
           : messageData.messageStatus || "send",

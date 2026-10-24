@@ -29,6 +29,13 @@ import { useChatStore, getTargetUserId } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
 import ReportModal from "../../components/modals/ReportModal";
 import BlockModal from "../../components/modals/BlockModal";
+import AddToListModal from "../../components/modals/AddToListModal";
+import {
+  getAllLists,
+  isContactInList,
+  getContactListNames,
+  toggleContactList,
+} from "../../utils/chatListsUtil";
 import { WhatsAppMediaFolderIcon } from "../../components/media/Media";
 import { META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 
@@ -57,6 +64,36 @@ const ChatHeaderMenu = ({
   const [activeSubmenu, setActiveSubmenu] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [listsTick, setListsTick] = useState(0);
+  const [showAddToListModal, setShowAddToListModal] = useState(false);
+
+  useEffect(() => {
+    const handleListsChanged = () => setListsTick((t) => t + 1);
+    window.addEventListener("whatsapp_lists_changed", handleListsChanged);
+    return () =>
+      window.removeEventListener("whatsapp_lists_changed", handleListsChanged);
+  }, []);
+
+  const availableLists = useMemo(() => {
+    return getAllLists().filter(
+      (l) => l !== "All" && l !== "Unread" && l !== "Groups"
+    );
+  }, [listsTick]);
+
+  const handleToggleList = (listName) => {
+    if (!selectedContact) return;
+    const isCurrentlyIn = isContactInList(selectedContact, listName);
+    toggleContactList(selectedContact, listName);
+    setListsTick((t) => t + 1);
+    window.dispatchEvent(new Event("whatsapp_lists_changed"));
+
+    const name = selectedContact?.username || selectedContact?.name || "Chat";
+    if (isCurrentlyIn) {
+      toast.info(`Removed ${name} from ${listName}`);
+    } else {
+      toast.success(`Added ${name} to ${listName}`);
+    }
+  };
   const menuRef = useRef(null);
   const submenuRef = useRef(null);
 
@@ -198,6 +235,11 @@ const ChatHeaderMenu = ({
     }
     setFavorites(next);
     localStorage.setItem("whatsapp_favourite_chats", JSON.stringify(next));
+    if (selectedContact) {
+      toggleContactList(selectedContact, "Favourites");
+      setListsTick((t) => t + 1);
+      window.dispatchEvent(new Event("whatsapp_lists_changed"));
+    }
     onClose();
   };
 
@@ -872,21 +914,46 @@ const ChatHeaderMenu = ({
                               : "bg-white border-black/10 text-gray-800 shadow-[0_10px_25px_rgba(0,0,0,0.15)]"
                             }`}
                         >
-                          {["Favourites", "Work", "Personal", "New list..."].map(
-                            (tag) => (
-                              <button
-                                key={tag}
-                                type="button"
-                                onClick={() => {
-                                  toast.success(`Chat added to ${tag}`);
-                                  onClose();
-                                }}
-                                className={submenuItemClass}
-                              >
-                                <span>{tag}</span>
-                              </button>
-                            )
+                          {availableLists.length > 0 ? (
+                            availableLists.map((listName) => {
+                              const inList = isContactInList(selectedContact, listName);
+                              return (
+                                <button
+                                  key={listName}
+                                  type="button"
+                                  onClick={() => handleToggleList(listName)}
+                                  className={submenuItemClass}
+                                >
+                                  <span className="truncate">{listName}</span>
+                                  {inList && (
+                                    <MdCheck
+                                      size={16}
+                                      className="text-emerald-500 shrink-0 ml-2"
+                                    />
+                                  )}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="px-3.5 py-1.5 text-xs text-gray-400">
+                              No lists yet
+                            </div>
                           )}
+
+                          <div className={`my-1 border-t ${isDark ? "border-white/10" : "border-black/10"}`} />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              setShowAddToListModal(true);
+                            }}
+                            className={submenuItemClass}
+                          >
+                            <span className="flex items-center gap-1.5 text-emerald-500 font-medium">
+                              <span>+</span> New list...
+                            </span>
+                          </button>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -1066,6 +1133,14 @@ const ChatHeaderMenu = ({
         contactName={contactName}
         theme={theme}
       />
+
+      {showAddToListModal && selectedContact && (
+        <AddToListModal
+          isOpen={showAddToListModal}
+          onClose={() => setShowAddToListModal(false)}
+          contact={selectedContact}
+        />
+      )}
 
       <ReportModal
         isOpen={showReportModal}
