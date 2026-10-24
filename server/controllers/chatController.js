@@ -507,13 +507,19 @@ export const sendMessage = async (req, res) => {
     }
 
     const now = new Date();
-    const isScheduledMsg =
+    const hasScheduledParam =
       (req.body.isScheduled === true || req.body.isScheduled === "true") &&
-      req.body.scheduledFor &&
-      new Date(req.body.scheduledFor) > now;
-    const scheduledForDate = isScheduledMsg
+      Boolean(req.body.scheduledFor);
+    const parsedScheduledDate = hasScheduledParam
       ? new Date(req.body.scheduledFor)
       : null;
+    const isScheduledMsg = Boolean(
+      hasScheduledParam &&
+      parsedScheduledDate &&
+      !isNaN(parsedScheduledDate.getTime()) &&
+      parsedScheduledDate.getTime() > now.getTime() - 15000,
+    );
+    const scheduledForDate = isScheduledMsg ? parsedScheduledDate : null;
 
     const finalStatus = isScheduledMsg
       ? "scheduled"
@@ -1084,6 +1090,10 @@ export const getMessages = async (req, res) => {
       deletedFor: {
         $ne: userId,
       },
+      $or: [
+        { isScheduled: { $ne: true } },
+        { isScheduled: true, sender: userId },
+      ],
     })
       .populate("sender", "username profilePicture publicKey")
       .populate("receiver", "username profilePicture publicKey")
@@ -1449,7 +1459,7 @@ export const deleteMessage = async (req, res) => {
 export const editMessage = async (req, res) => {
   const userId = req.user.userId;
   const { messageId } = req.params;
-  const { content, eventData } = req.body;
+  const { content, eventData, scheduledFor, createdAt } = req.body;
 
   try {
     const message = await Message.findById(messageId);
@@ -1487,10 +1497,30 @@ export const editMessage = async (req, res) => {
       }
       message.markModified("eventData");
     } else {
-      if (!content || !content.trim()) {
-        return response(res, 400, "Message cannot be empty");
+      if (content !== undefined && content !== null) {
+        if (!content.trim() && !scheduledFor && !createdAt) {
+          return response(res, 400, "Message cannot be empty");
+        }
+        if (content.trim()) {
+          message.content = content.trim();
+        }
       }
-      message.content = content.trim();
+    }
+
+    if (scheduledFor) {
+      const parsedScheduled = new Date(scheduledFor);
+      if (!isNaN(parsedScheduled.getTime())) {
+        message.scheduledFor = parsedScheduled;
+        message.isScheduled = true;
+        message.messageStatus = "scheduled";
+      }
+    }
+
+    if (createdAt) {
+      const parsedCreatedAt = new Date(createdAt);
+      if (!isNaN(parsedCreatedAt.getTime())) {
+        message.createdAt = parsedCreatedAt;
+      }
     }
 
     if (req.body.isEncrypted !== undefined) {
@@ -3360,8 +3390,94 @@ export const analyzeImage = async (req, res) => {
   }
 };
 
+export const sendScheduledNow = async (req, res) => {
+  const userId = req.user.userId;
+  const { messageId } = req.params;
+  try {
+    const msg = await Message.findById(messageId)
+      .populate("sender", "username profilePicture publicKey")
+      .populate("receiver", "username profilePicture publicKey")
+      .populate("replyTo")
+      .populate("deliveredTo.user", "username profilePicture phoneNumber about")
+      .populate("readBy.user", "username profilePicture phoneNumber about");
+
+    if (!msg) {
+      return response(res, 404, "Message not found");
+    }
+
+    const sId = (msg.sender?._id || msg.sender)?.toString();
+    if (sId !== userId.toString()) {
+      return response(res, 403, "Not authorized to send this message");
+    }
+
+    const now = new Date();
+    msg.isScheduled = false;
+    msg.scheduledFor = now;
+
+    const receiverId = (msg.receiver?._id || msg.receiver)?.toString();
+    const onlineMap = req.io?.socketUserMap || req.socketUserMap;
+    const isReceiverOnline =
+      receiverId && onlineMap ? onlineMap.has(receiverId) : false;
+
+    if (msg.isGroup) {
+      msg.messageStatus = "send";
+    } else {
+      msg.messageStatus = isReceiverOnline ? "delivered" : "send";
+      if (isReceiverOnline) {
+        msg.deliveredAt = now;
+      }
+    }
+    await msg.save();
+
+    if (msg.conversation) {
+      await Conversation.findByIdAndUpdate(msg.conversation, {
+        lastMessage: msg._id,
+      });
+    }
+
+    const payload = {
+      ...msg.toObject(),
+      conversationId: msg.conversation?.toString(),
+      isScheduled: false,
+    };
+
+    if (req.io) {
+      if (msg.isGroup) {
+        const conv = await Conversation.findById(msg.conversation)
+          .select("participants")
+          .lean();
+        if (conv?.participants) {
+          conv.participants.forEach((p) => {
+            const pId = (p._id || p).toString();
+            req.io.to(pId).emit("receive_message", payload);
+          });
+        }
+      } else {
+        if (sId) {
+          req.io.to(sId).emit("receive_message", payload);
+          req.io.to(sId).emit("message_status_update", {
+            messageId: msg._id.toString(),
+            messageStatus: msg.messageStatus,
+            deliveredAt: msg.deliveredAt?.toISOString(),
+            isScheduled: false,
+          });
+        }
+        if (receiverId) {
+          req.io.to(receiverId).emit("receive_message", payload);
+        }
+      }
+    }
+
+    return response(res, 200, "Scheduled message sent immediately", payload);
+  } catch (err) {
+    console.error("Error sending scheduled message now:", err);
+    return response(res, 500, "Internal server error");
+  }
+};
+
 export default {
   sendMessage,
+  sendScheduledNow,
   getConversation,
   getMessages,
   markAsRead,

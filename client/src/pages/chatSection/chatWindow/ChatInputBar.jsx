@@ -93,21 +93,40 @@ export const ChatInputBar = ({
   const [isDictating, setIsDictating] = useState(false);
   const [interimTranscript, setInterimTranscript] = useState("");
   const recognitionRef = useRef(null);
-
   const [showRewriteMenu, setShowRewriteMenu] = useState(false);
   const [isRewriting, setIsRewriting] = useState(false);
   const [previousDraft, setPreviousDraft] = useState(null);
+  const getLocalDateString = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const getLocalTimeString = (d = new Date()) => {
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+
   const [scheduledFor, setScheduledFor] = useState(null);
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
-  const [customDate, setCustomDate] = useState("");
-  const [customTime, setCustomTime] = useState("");
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
+  const [customDate, setCustomDate] = useState(() => getLocalDateString());
+  const [customTime, setCustomTime] = useState(() => getLocalTimeString());
   const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
-
   const rewriteMenuRef = useRef(null);
   const scheduleMenuRef = useRef(null);
 
   const liveTranslateEnabled = useChatStore((state) => state.liveTranslateEnabled);
   const liveTranslateLang = useChatStore((state) => state.liveTranslateLang);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -123,14 +142,12 @@ export const ChatInputBar = ({
   }, []);
 
   useEffect(() => {
-    if (showScheduleMenu && !customDate) {
-      const future = new Date(Date.now() + 30 * 60 * 1000);
-      setCustomDate(future.toISOString().split("T")[0]);
-      const hh = String(future.getHours()).padStart(2, "0");
-      const mm = String(future.getMinutes()).padStart(2, "0");
-      setCustomTime(`${hh}:${mm}`);
+    if (showScheduleMenu) {
+      const now = new Date();
+      setCustomDate(getLocalDateString(now));
+      setCustomTime(getLocalTimeString(now));
     }
-  }, [showScheduleMenu, customDate]);
+  }, [showScheduleMenu]);
 
   const handleMagicRewrite = async (tone) => {
     if (!message.trim() || isRewriting) return;
@@ -189,10 +206,43 @@ export const ChatInputBar = ({
 
   const handleExecuteSend = () => {
     if (scheduledFor) {
-      handleSendMessage(undefined, { scheduledFor: scheduledFor.toISOString() });
+      const scheduleTime = scheduledFor.toISOString();
       setScheduledFor(null);
+      handleSendMessage(undefined, { scheduledFor: scheduleTime });
     } else {
       handleSendMessage();
+    }
+  };
+
+  const applySchedule = (dt) => {
+    const hasContent = Boolean(message.trim() || (selectedFiles && selectedFiles.length > 0));
+    if (hasContent) {
+      const scheduleTime = dt.toISOString();
+      setScheduledFor(null);
+      setShowScheduleMenu(false);
+      handleSendMessage(undefined, { scheduledFor: scheduleTime });
+      toast.success(
+        `⏰ Scheduled message queued for ${dt.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+        })} at ${dt.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`
+      );
+    } else {
+      setScheduledFor(dt);
+      setShowScheduleMenu(false);
+      toast.info(
+        `⏰ Schedule set for ${dt.toLocaleDateString([], {
+          month: "short",
+          day: "numeric",
+        })} at ${dt.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}. Type your message and click Send!`
+      );
+      messageInputRef.current?.focus();
     }
   };
 
@@ -503,7 +553,7 @@ export const ChatInputBar = ({
 
       {liveTranslateEnabled && (
         <div className="flex items-center justify-between gap-2 px-3 py-1 mb-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs select-none">
-          <span className="text-blue-600 dark:text-blue-300 text-[11px] truncate flex items-center gap-1">
+          <span className={`${theme === "dark" ? "text-blue-200" : "text-blue-600"} dark:text-blue-300 text-[11px] truncate flex items-center gap-1`}>
             <span>🌐</span>
             <span>Live Translate active ({(liveTranslateLang || "en").toUpperCase()})</span>
           </span>
@@ -539,38 +589,88 @@ export const ChatInputBar = ({
       )}
 
       {scheduledFor && (
-        <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-1.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/30 text-xs select-none animate-fadeIn shadow-sm">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-            </span>
-            <span className="text-amber-700 dark:text-amber-300 text-[11.5px] font-medium truncate flex items-center gap-1.5">
-              <IoTimeOutline className="text-sm shrink-0 text-amber-500" />
-              <span>Will send on:</span>
-              <strong className="font-semibold text-amber-900 dark:text-amber-100">
-                {new Date(scheduledFor).toLocaleDateString([], { month: "short", day: "numeric" })} at {new Date(scheduledFor).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </strong>
-            </span>
+        <div
+          className={`flex items-center justify-between gap-2 sm:gap-3 px-3 py-2 mb-2 rounded-2xl border shadow-md backdrop-blur-xl select-none transition-all duration-200 animate-fadeIn ${theme === "dark"
+            ? "bg-[#182229]/95 border-emerald-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
+            : "bg-emerald-50/90 border-emerald-300/80 shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
+            }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30 shadow-sm">
+              <IoTimeOutline className="text-base" />
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  Scheduled Delivery
+                </span>
+                <span className="hidden sm:inline text-gray-300 dark:text-gray-600 text-[10px]">•</span>
+                <span className="hidden sm:inline text-[11px] text-gray-500 dark:text-gray-400">
+                  Auto-send queued
+                </span>
+              </div>
+              <div className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">
+                {new Date(scheduledFor).toLocaleDateString([], {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                })}{" "}
+                at{" "}
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                  {new Date(scheduledFor).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleExecuteSend}
+              className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-xs hover:shadow-sm active:scale-95 transition-all cursor-pointer flex items-center gap-1"
+              title="Schedule this message for delivery at the chosen time"
+            >
+              <MdOutlineSchedule className="text-xs" />
+              <span>Schedule Send</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleSendMessage();
+                setScheduledFor(null);
+                toast.success("Message sent immediately!");
+              }}
+              className="px-2 py-1 rounded-xl text-[11px] font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 transition-all cursor-pointer"
+              title="Send message right now without scheduling"
+            >
+              Send now
+            </button>
             <button
               type="button"
               onClick={() => setShowScheduleMenu(true)}
-              className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:underline cursor-pointer"
+              className="px-2 py-1 rounded-xl text-[11px] font-medium text-gray-600 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer"
+              title="Change scheduled date or time"
             >
               Edit
             </button>
-            <span className="text-gray-300 dark:text-gray-600">•</span>
             <button
               type="button"
               onClick={() => {
                 setScheduledFor(null);
                 toast.info("Schedule cancelled");
               }}
-              className="text-[11px] font-semibold text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 hover:underline cursor-pointer"
+              className="p-1 rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+              title="Cancel schedule"
             >
-              Cancel
+              <MdClose className="text-base" />
             </button>
           </div>
         </div>
@@ -1246,9 +1346,7 @@ export const ChatInputBar = ({
                         type="button"
                         onClick={() => {
                           const dt = new Date(Date.now() + 15 * 60 * 1000);
-                          setScheduledFor(dt);
-                          setShowScheduleMenu(false);
-                          toast.success(`⏰ Scheduled for ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+                          applySchedule(dt);
                         }}
                         className="flex flex-col items-start p-2.5 rounded-xl border border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500/30 active:scale-[0.98] transition-all cursor-pointer group text-left"
                       >
@@ -1265,9 +1363,7 @@ export const ChatInputBar = ({
                         type="button"
                         onClick={() => {
                           const dt = new Date(Date.now() + 60 * 60 * 1000);
-                          setScheduledFor(dt);
-                          setShowScheduleMenu(false);
-                          toast.success(`⏰ Scheduled for ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+                          applySchedule(dt);
                         }}
                         className="flex flex-col items-start p-2.5 rounded-xl border border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500/30 active:scale-[0.98] transition-all cursor-pointer group text-left"
                       >
@@ -1286,9 +1382,7 @@ export const ChatInputBar = ({
                           const tom = new Date();
                           tom.setDate(tom.getDate() + 1);
                           tom.setHours(9, 0, 0, 0);
-                          setScheduledFor(tom);
-                          setShowScheduleMenu(false);
-                          toast.success("⏰ Scheduled for tomorrow at 9:00 AM");
+                          applySchedule(tom);
                         }}
                         className="flex flex-col items-start p-2.5 rounded-xl border border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500/30 active:scale-[0.98] transition-all cursor-pointer group text-left"
                       >
@@ -1311,9 +1405,7 @@ export const ChatInputBar = ({
                             eve.setDate(eve.getDate() + 1);
                             eve.setHours(20, 0, 0, 0);
                           }
-                          setScheduledFor(eve);
-                          setShowScheduleMenu(false);
-                          toast.success(`⏰ Scheduled for ${eve.toLocaleDateString([], { weekday: 'short' })} at 8:00 PM`);
+                          applySchedule(eve);
                         }}
                         className="flex flex-col items-start p-2.5 rounded-xl border border-black/5 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] hover:bg-emerald-500/10 hover:border-emerald-500/30 active:scale-[0.98] transition-all cursor-pointer group text-left"
                       >
@@ -1330,20 +1422,28 @@ export const ChatInputBar = ({
                     </div>
 
                     <div className="pt-2.5 border-t border-black/5 dark:border-white/10">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-400 px-0.5 flex items-center gap-1.5">
+                      <div className="flex items-center justify-between mb-2 gap-2">
+                        <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-400 px-0.5 flex items-center gap-1.5 shrink-0">
                           <IoCalendarOutline className="text-xs" />
                           <span>Custom Date & Time</span>
                         </div>
+                        <div className="flex items-center gap-1.5 text-[10px] sm:text-[10.5px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25 px-2 py-0.5 rounded-lg font-mono min-w-0 truncate" title="Current Local Date & Time">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                          <span className="truncate">
+                            {currentDateTime.toLocaleDateString([], { month: "short", day: "numeric" })},{" "}
+                            {currentDateTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                          </span>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 mb-2.5">
+
+                      <div className="grid grid-cols-2 gap-2 mb-2">
                         <div className="relative flex items-center">
                           <MdCalendarToday className="absolute left-2.5 text-gray-400 text-xs pointer-events-none" />
                           <input
                             type="date"
-                            value={customDate}
+                            value={customDate || getLocalDateString()}
                             onChange={(e) => setCustomDate(e.target.value)}
-                            min={new Date().toISOString().split("T")[0]}
+                            min={getLocalDateString()}
                             className="w-full text-xs py-2 pl-7 pr-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/30 text-gray-800 dark:text-gray-100 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-medium [color-scheme:light] dark:[color-scheme:dark]"
                           />
                         </div>
@@ -1351,29 +1451,81 @@ export const ChatInputBar = ({
                           <MdAccessTime className="absolute left-2.5 text-gray-400 text-xs pointer-events-none" />
                           <input
                             type="time"
-                            value={customTime}
+                            value={customTime || getLocalTimeString()}
                             onChange={(e) => setCustomTime(e.target.value)}
                             className="w-full text-xs py-2 pl-7 pr-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/30 text-gray-800 dark:text-gray-100 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer font-medium [color-scheme:light] dark:[color-scheme:dark]"
                           />
                         </div>
                       </div>
+
+                      <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto custom-scrollbar pb-0.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const now = new Date();
+                            setCustomDate(getLocalDateString(now));
+                            setCustomTime(getLocalTimeString(now));
+                          }}
+                          className="px-2 py-0.5 text-[10px] font-semibold rounded-md border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:text-emerald-500 hover:border-emerald-500/30 active:scale-95 transition-all cursor-pointer shrink-0"
+                          title="Reset to current local date and time"
+                        >
+                          Now
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const future = new Date(Date.now() + 5 * 60 * 1000);
+                            setCustomDate(getLocalDateString(future));
+                            setCustomTime(getLocalTimeString(future));
+                          }}
+                          className="px-2 py-0.5 text-[10px] font-semibold rounded-md border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer shrink-0"
+                        >
+                          +5m
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const future = new Date(Date.now() + 15 * 60 * 1000);
+                            setCustomDate(getLocalDateString(future));
+                            setCustomTime(getLocalTimeString(future));
+                          }}
+                          className="px-2 py-0.5 text-[10px] font-semibold rounded-md border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer shrink-0"
+                        >
+                          +15m
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const future = new Date(Date.now() + 30 * 60 * 1000);
+                            setCustomDate(getLocalDateString(future));
+                            setCustomTime(getLocalTimeString(future));
+                          }}
+                          className="px-2 py-0.5 text-[10px] font-semibold rounded-md border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer shrink-0"
+                        >
+                          +30m
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const future = new Date(Date.now() + 60 * 60 * 1000);
+                            setCustomDate(getLocalDateString(future));
+                            setCustomTime(getLocalTimeString(future));
+                          }}
+                          className="px-2 py-0.5 text-[10px] font-semibold rounded-md border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all cursor-pointer shrink-0"
+                        >
+                          +1h
+                        </button>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => {
-                          if (customDate && customTime) {
-                            const dt = new Date(`${customDate}T${customTime}`);
+                          const chosenDate = customDate || getLocalDateString();
+                          const chosenTime = customTime || getLocalTimeString();
+                          if (chosenDate && chosenTime) {
+                            const dt = new Date(`${chosenDate}T${chosenTime}`);
                             if (dt > new Date()) {
-                              setScheduledFor(dt);
-                              setShowScheduleMenu(false);
-                              toast.success(
-                                `⏰ Scheduled for ${dt.toLocaleDateString([], {
-                                  month: "short",
-                                  day: "numeric",
-                                })} at ${dt.toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}`
-                              );
+                              applySchedule(dt);
                             } else {
                               toast.error("Please pick a future time!");
                             }

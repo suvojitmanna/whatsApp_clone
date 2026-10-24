@@ -27,7 +27,13 @@ export const MessageStatusIcon = ({
     return null;
   }
 
-  if (message.isScheduled || message.messageStatus === "scheduled" || message.status === "scheduled") {
+  if (
+    (message.isScheduled === true || message.messageStatus === "scheduled" || message.status === "scheduled") &&
+    message.isScheduled !== false &&
+    message.messageStatus !== "send" &&
+    message.messageStatus !== "delivered" &&
+    message.messageStatus !== "read"
+  ) {
     return (
       <span
         className="inline-flex items-center gap-0.5 text-amber-500 font-medium text-[10px]"

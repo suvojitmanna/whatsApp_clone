@@ -1863,6 +1863,68 @@ const MessageBuble = ({
                     )}
                   />
                 )}
+
+                {isUserMessage && (message.isScheduled || message.messageStatus === "scheduled") && (
+                  <div className="mt-2 pt-1.5 border-t border-amber-500/25 flex flex-wrap items-center justify-between gap-1.5 text-[11px] select-none">
+                    <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                      </span>
+                      <span>
+                        {message.scheduledFor
+                          ? `Will send: ${new Date(message.scheduledFor).toLocaleDateString([], { month: "short", day: "numeric" })} at ${new Date(message.scheduledFor).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                          : "Scheduled delivery"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(message.contentType === "text" || !message.contentType) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditText(displayContent || message.content || "");
+                            setIsEditing(true);
+                          }}
+                          className="px-2 py-0.5 rounded-lg bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 font-semibold cursor-pointer transition-colors"
+                          title="Edit message text"
+                        >
+                          ✏️ Edit
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.dispatchEvent(
+                            new CustomEvent("open_reschedule_modal", {
+                              detail: { message },
+                            })
+                          );
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 font-semibold cursor-pointer transition-colors"
+                        title="Edit scheduled date & time"
+                      >
+                        🕒 Edit Time
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await useChatStore.getState().sendScheduledNow?.(message._id);
+                          } catch (err) {
+                            toast.error("Failed to send now");
+                          }
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-semibold cursor-pointer transition-colors shadow-2xs"
+                        title="Send right now"
+                      >
+                        🚀 Send Now
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -178,7 +178,7 @@ const messageSchema = new mongoose.Schema(
 
     messageStatus: {
       type: String,
-      enum: ["send", "delivered", "read"],
+      enum: ["send", "delivered", "read", "scheduled"],
       default: "send",
     },
     deliveredAt: {
@@ -251,7 +251,8 @@ messageSchema.index({ conversation: 1, createdAt: 1 });
 messageSchema.index({ conversation: 1, receiver: 1, messageStatus: 1 });
 messageSchema.index({ conversation: 1, disappearingExpiresAt: 1 });
 
-const Message = mongoose.models.Message || mongoose.model("Message", messageSchema);
+const Message =
+  mongoose.models.Message || mongoose.model("Message", messageSchema);
 
 export default Message;
 export { Message };

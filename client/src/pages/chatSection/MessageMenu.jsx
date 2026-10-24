@@ -585,6 +585,46 @@ const MessageMenu = ({
                 </button>
             )}
 
+            {isUserMessage && (message?.isScheduled || message?.messageStatus === "scheduled") && (
+                <button
+                    type="button"
+                    onClick={async () => {
+                        setShowOptions?.(false);
+                        try {
+                            await useChatStore.getState().sendScheduledNow?.(message._id);
+                        } catch (e) {
+                            toast.error("Failed to send scheduled message now");
+                        }
+                    }}
+                    className={itemClass}
+                >
+                    <span className="text-base shrink-0">🚀</span>
+                    <span className="font-semibold text-emerald-500">Send Now</span>
+                </button>
+            )}
+
+            {isUserMessage && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        setShowOptions?.(false);
+                        window.dispatchEvent(
+                            new CustomEvent("open_reschedule_modal", {
+                                detail: { message },
+                            })
+                        );
+                    }}
+                    className={itemClass}
+                >
+                    <span className="text-base shrink-0">🕒</span>
+                    <span>
+                        {message?.isScheduled || message?.messageStatus === "scheduled"
+                            ? "Edit Time / Reschedule"
+                            : "Edit Message Time"}
+                    </span>
+                </button>
+            )}
+
             {isUserMessage && message?.contentType === "text" && (
                 <button
                     type="button"

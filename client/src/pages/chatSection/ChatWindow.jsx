@@ -21,6 +21,7 @@ import axiosInstance from "../../services/url.services.js";
 import ChatSummaryModal from "../../components/modals/ChatSummaryModal.jsx";
 import TranslateModal from "../../components/modals/TranslateModal.jsx";
 import ExportChatModal from "../../components/modals/ExportChatModal.jsx";
+import RescheduleModal from "../../components/modals/RescheduleModal.jsx";
 import {
   ChatWindowEmpty,
   PinnedBanner,
@@ -87,6 +88,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     isOpen: false,
     text: "",
     messageId: null,
+  });
+  const [rescheduleModalState, setRescheduleModalState] = useState({
+    isOpen: false,
+    message: null,
   });
   const [showExportModal, setShowExportModal] = useState(false);
   const [showPinnedMenu, setShowPinnedMenu] = useState(false);
@@ -328,14 +333,24 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     const handleOpenExport = () => {
       setShowExportModal(true);
     };
+    const handleOpenReschedule = (e) => {
+      if (e.detail?.message) {
+        setRescheduleModalState({
+          isOpen: true,
+          message: e.detail.message,
+        });
+      }
+    };
 
     window.addEventListener("open_translate_modal", handleOpenTranslate);
     window.addEventListener("open_export_modal", handleOpenExport);
+    window.addEventListener("open_reschedule_modal", handleOpenReschedule);
 
     return () => {
       window.removeEventListener("meta_ai_prefill", handlePrefill);
       window.removeEventListener("open_translate_modal", handleOpenTranslate);
       window.removeEventListener("open_export_modal", handleOpenExport);
+      window.removeEventListener("open_reschedule_modal", handleOpenReschedule);
     };
   }, []);
 
@@ -2697,6 +2712,13 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         summary={summaryData?.summary}
         messageCount={summaryData?.messageCount || 0}
         isLoading={isSummarizing}
+        theme={theme}
+      />
+
+      <RescheduleModal
+        isOpen={rescheduleModalState.isOpen}
+        message={rescheduleModalState.message}
+        onClose={() => setRescheduleModalState({ isOpen: false, message: null })}
         theme={theme}
       />
 

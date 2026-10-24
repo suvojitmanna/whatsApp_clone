@@ -918,45 +918,91 @@ function initializeSocket(server) {
 
       for (const msg of dueMessages) {
         msg.isScheduled = false;
-        const receiverId = msg.receiver?._id || msg.receiver;
-        const isReceiverOnline = receiverId
-          ? onlineUsers.has(receiverId.toString())
-          : false;
-        msg.messageStatus = isReceiverOnline ? "delivered" : "send";
-        if (isReceiverOnline) {
-          msg.deliveredAt = now;
-        }
-        await msg.save();
-
-        if (msg.conversation) {
-          await Conversation.findByIdAndUpdate(msg.conversation, {
-            lastMessage: msg._id,
-          });
-        }
-
-        const payload = {
-          ...msg.toObject(),
-          conversationId: msg.conversation?.toString(),
-        };
-
+        const receiverId = (msg.receiver?._id || msg.receiver)?.toString();
         const senderId = (msg.sender?._id || msg.sender)?.toString();
-        if (senderId) {
-          io.to(senderId).emit("receive_message", payload);
-          io.to(senderId).emit("message_status_update", {
-            messageId: msg._id.toString(),
-            messageStatus: msg.messageStatus,
-            deliveredAt: msg.deliveredAt?.toISOString(),
-          });
-        }
 
-        if (receiverId) {
-          io.to(receiverId.toString()).emit("receive_message", payload);
+        if (msg.isGroup) {
+          msg.messageStatus = "send";
+          await msg.save();
+
+          if (msg.conversation) {
+            await Conversation.findByIdAndUpdate(msg.conversation, {
+              lastMessage: msg._id,
+            });
+            const conv = await Conversation.findById(msg.conversation)
+              .select("participants")
+              .lean();
+            if (conv && conv.participants) {
+              const payload = {
+                ...msg.toObject(),
+                conversationId: msg.conversation.toString(),
+                isScheduled: false,
+              };
+              conv.participants.forEach((p) => {
+                const pId = (p._id || p).toString();
+                io.to(pId).emit("receive_message", payload);
+                if (onlineUsers.has(pId)) {
+                  io.to(onlineUsers.get(pId)).emit("receive_message", payload);
+                }
+              });
+            }
+          }
+        } else {
+          const isReceiverOnline = receiverId
+            ? onlineUsers.has(receiverId)
+            : false;
+          msg.messageStatus = isReceiverOnline ? "delivered" : "send";
+          if (isReceiverOnline) {
+            msg.deliveredAt = now;
+          }
+          await msg.save();
+
+          if (msg.conversation) {
+            await Conversation.findByIdAndUpdate(msg.conversation, {
+              lastMessage: msg._id,
+            });
+          }
+
+          const payload = {
+            ...msg.toObject(),
+            conversationId: msg.conversation?.toString(),
+            isScheduled: false,
+          };
+
+          if (senderId) {
+            io.to(senderId).emit("receive_message", payload);
+            io.to(senderId).emit("message_status_update", {
+              messageId: msg._id.toString(),
+              messageStatus: msg.messageStatus,
+              deliveredAt: msg.deliveredAt?.toISOString(),
+              isScheduled: false,
+            });
+            if (onlineUsers.has(senderId)) {
+              io.to(onlineUsers.get(senderId)).emit("receive_message", payload);
+              io.to(onlineUsers.get(senderId)).emit("message_status_update", {
+                messageId: msg._id.toString(),
+                messageStatus: msg.messageStatus,
+                deliveredAt: msg.deliveredAt?.toISOString(),
+                isScheduled: false,
+              });
+            }
+          }
+
+          if (receiverId) {
+            io.to(receiverId).emit("receive_message", payload);
+            if (onlineUsers.has(receiverId)) {
+              io.to(onlineUsers.get(receiverId)).emit(
+                "receive_message",
+                payload,
+              );
+            }
+          }
         }
       }
     } catch (err) {
       console.error("Error in scheduled messages runner:", err);
     }
-  }, 4000);
+  }, 2000);
 
   io.socketUserMap = onlineUsers;
   return io;
