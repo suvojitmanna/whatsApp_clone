@@ -18,6 +18,7 @@ import {
   getContactListNames,
   toggleContactList,
 } from "../../utils/chatListsUtil";
+import { isChatLockConfigured } from "../../utils/chatLockUtil";
 import {
   MutedBellIcon,
   ArchivedBoxIcon,
@@ -32,6 +33,7 @@ const ChatlistMenu = ({
   contact,
   anchorCoords,
   onOpenNewList,
+  onOpenSetPin,
 }) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
@@ -98,6 +100,16 @@ const ChatlistMenu = ({
 
   const handleToggleLock = () => {
     const target = chatId || contact?._id;
+    if (!target) return;
+    if (!isChatLockConfigured()) {
+      if (onOpenSetPin) {
+        onOpenSetPin(contact);
+      } else {
+        toast.info("Please set up a Chat Lock PIN in Settings first.");
+      }
+      onClose();
+      return;
+    }
     if (toggleLockChat) {
       const isNowLocked = toggleLockChat(target);
       toast.success(

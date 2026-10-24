@@ -45,6 +45,12 @@ import {
   getContactListNames,
   deleteCustomList,
 } from "../../utils/chatListsUtil";
+import {
+  isChatLockConfigured,
+  verifyChatLockPin,
+  isBiometricEnabled,
+} from "../../utils/chatLockUtil";
+import SetChatLockPinModal from "../../components/modals/SetChatLockPinModal";
 import { AVATAR_BG_COLORS } from "../../assets/rawData";
 import { MetaAiRing, META_AI_USER_ID, META_AI_AVATAR } from "../../components/common/MetaAiIcon";
 
@@ -864,11 +870,22 @@ const ChatList = ({ contacts }) => {
   const threeDotsMenuRef = useRef(null);
 
   const lockedChatIds = useChatStore((state) => state.lockedChatIds || []);
+  const toggleLockChat = useChatStore((state) => state.toggleLockChat);
   const [showLockedModal, setShowLockedModal] = useState(false);
+  const [showSetPinModal, setShowSetPinModal] = useState(false);
+  const [pendingLockContact, setPendingLockContact] = useState(null);
   const [viewingLockedFolder, setViewingLockedFolder] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
   const [biometricSimulating, setBiometricSimulating] = useState(false);
+
+  const handleOpenLockedFolder = () => {
+    if (!isChatLockConfigured()) {
+      setShowSetPinModal(true);
+      return;
+    }
+    setShowLockedModal(true);
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -1371,7 +1388,7 @@ const ChatList = ({ contacts }) => {
                       type="button"
                       onClick={() => {
                         setShowThreeDotsMenu(false);
-                        setShowLockedModal(true);
+                        handleOpenLockedFolder();
                       }}
                       className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm rounded-xl cursor-pointer transition-colors ${theme === "dark"
                         ? "hover:bg-[#182229] text-[#e9edef]"
@@ -1769,7 +1786,7 @@ const ChatList = ({ contacts }) => {
         ) : (
           lockedChatIds && lockedChatIds.length > 0 && !searchTerms && activeListFilter === "All" && !showArchivedOnly && (
             <div
-              onClick={() => setShowLockedModal(true)}
+              onClick={handleOpenLockedFolder}
               className={`mx-2 my-1 px-3.5 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition-all border border-transparent hover:border-amber-500/30 group ${theme === "dark"
                 ? "hover:bg-[#202c33] text-[#e9edef]"
                 : "hover:bg-[#f5f6f6] text-[#111b21]"
@@ -2455,6 +2472,10 @@ const ChatList = ({ contacts }) => {
           anchorCoords={chatlistMenu.coords}
           onOpenAddToList={() => setListModalContact(chatlistMenu.contact)}
           onOpenNewList={openNewListPanel}
+          onOpenSetPin={(contactToLock) => {
+            setPendingLockContact(contactToLock);
+            setShowSetPinModal(true);
+          }}
         />
       )}
 
@@ -2566,7 +2587,9 @@ const ChatList = ({ contacts }) => {
 
             <h3 className="font-bold text-lg mb-1">Locked Chats</h3>
             <p className="text-xs text-gray-400 mb-5">
-              Enter your 4-digit PIN (default: <strong>1234</strong>) or use Touch ID to unlock.
+              {isBiometricEnabled()
+                ? "Enter your 4-digit PIN or use Touch ID to unlock."
+                : "Enter your 4-digit PIN to unlock."}
             </p>
 
             <div className="flex items-center gap-3 mb-6">
@@ -2591,7 +2614,7 @@ const ChatList = ({ contacts }) => {
                       const next = pinInput + num;
                       setPinInput(next);
                       if (next.length === 4) {
-                        if (next === "1234") {
+                        if (verifyChatLockPin(next)) {
                           setViewingLockedFolder(true);
                           setShowLockedModal(false);
                           setPinInput("");
@@ -2614,6 +2637,10 @@ const ChatList = ({ contacts }) => {
               <button
                 type="button"
                 onClick={() => {
+                  if (!isBiometricEnabled()) {
+                    toast.info("Touch ID is disabled in Settings > Chat Lock.");
+                    return;
+                  }
                   setBiometricSimulating(true);
                   setTimeout(() => {
                     setBiometricSimulating(false);
@@ -2642,7 +2669,7 @@ const ChatList = ({ contacts }) => {
                     const next = pinInput + "0";
                     setPinInput(next);
                     if (next.length === 4) {
-                      if (next === "1234") {
+                      if (verifyChatLockPin(next)) {
                         setViewingLockedFolder(true);
                         setShowLockedModal(false);
                         setPinInput("");
@@ -2689,6 +2716,30 @@ const ChatList = ({ contacts }) => {
         isOpen={showNewGroupModal}
         onClose={() => setShowNewGroupModal(false)}
       />
+
+      {showSetPinModal && (
+        <SetChatLockPinModal
+          isOpen={showSetPinModal}
+          onClose={() => {
+            setShowSetPinModal(false);
+            setPendingLockContact(null);
+          }}
+          onSuccess={() => {
+            if (pendingLockContact) {
+              const target =
+                pendingLockContact?.conversation?._id ||
+                pendingLockContact?.conversation ||
+                pendingLockContact?._id ||
+                pendingLockContact?.id;
+              if (target && toggleLockChat) {
+                toggleLockChat(target);
+                toast.success("🔒 Chat locked and moved to Locked Chats folder");
+              }
+              setPendingLockContact(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

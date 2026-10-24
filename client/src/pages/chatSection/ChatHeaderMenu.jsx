@@ -29,13 +29,15 @@ import { useChatStore, getTargetUserId } from "../../store/chatStore";
 import useLayoutStore from "../../store/layoutStore";
 import ReportModal from "../../components/modals/ReportModal";
 import BlockModal from "../../components/modals/BlockModal";
+import { FaLock } from "react-icons/fa";
 import AddToListModal from "../../components/modals/AddToListModal";
+import SetChatLockPinModal from "../../components/modals/SetChatLockPinModal";
 import {
   getAllLists,
   isContactInList,
-  getContactListNames,
   toggleContactList,
 } from "../../utils/chatListsUtil";
+import { isChatLockConfigured } from "../../utils/chatLockUtil";
 import { WhatsAppMediaFolderIcon } from "../../components/media/Media";
 import { META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 
@@ -66,6 +68,49 @@ const ChatHeaderMenu = ({
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [listsTick, setListsTick] = useState(0);
   const [showAddToListModal, setShowAddToListModal] = useState(false);
+  const [showSetPinModalForHeader, setShowSetPinModalForHeader] = useState(false);
+
+  const lockedChatIds = useChatStore((state) => state.lockedChatIds || []);
+  const toggleLockChat = useChatStore((state) => state.toggleLockChat);
+
+  const menuRef = useRef(null);
+  const submenuRef = useRef(null);
+
+  const chatId =
+    (selectedContact?.conversation?._id ||
+      selectedContact?.conversation ||
+      selectedContact?._id ||
+      "")?.toString();
+
+  const targetUserId = useMemo(() => {
+    return getTargetUserId(selectedContact, user?._id);
+  }, [selectedContact, user?._id]);
+
+  const isChatLocked = useMemo(() => {
+    const list = lockedChatIds || [];
+    const candidates = [chatId, selectedContact?._id, selectedContact?.id, targetUserId]
+      .filter(Boolean)
+      .map(String);
+    return candidates.some((id) => list.includes(id));
+  }, [chatId, selectedContact, targetUserId, lockedChatIds]);
+
+  const handleToggleLockChat = () => {
+    const target = chatId || selectedContact?._id;
+    if (!target) return;
+    if (!isChatLockConfigured()) {
+      setShowSetPinModalForHeader(true);
+      return;
+    }
+    if (toggleLockChat) {
+      const isNowLocked = toggleLockChat(target);
+      toast.success(
+        isNowLocked
+          ? "🔒 Chat locked and moved to Locked Chats folder"
+          : "🔓 Chat unlocked"
+      );
+    }
+    onClose();
+  };
 
   useEffect(() => {
     const handleListsChanged = () => setListsTick((t) => t + 1);
@@ -94,14 +139,6 @@ const ChatHeaderMenu = ({
       toast.success(`Added ${name} to ${listName}`);
     }
   };
-  const menuRef = useRef(null);
-  const submenuRef = useRef(null);
-
-  const chatId =
-    (selectedContact?.conversation?._id ||
-      selectedContact?.conversation ||
-      selectedContact?._id ||
-      "")?.toString();
 
   const [favorites, setFavorites] = useState(() => {
     try {
@@ -137,10 +174,6 @@ const ChatHeaderMenu = ({
   const { blockedContacts, blockContact, unblockContact, clearChat, deleteChat } =
     useChatStore();
   const [showBlockModal, setShowBlockModal] = useState(false);
-
-  const targetUserId = useMemo(() => {
-    return getTargetUserId(selectedContact, user?._id);
-  }, [selectedContact, user?._id]);
 
   const isMetaAi = useMemo(() => {
     return Boolean(
@@ -609,6 +642,17 @@ const ChatHeaderMenu = ({
 
                   <button
                     type="button"
+                    onClick={handleToggleLockChat}
+                    className={itemClass}
+                  >
+                    <FaLock size={17} className={`shrink-0 ${isChatLocked ? "text-amber-500" : "text-[#8696a0]"}`} />
+                    <span className="truncate">
+                      {isChatLocked ? "Unlock chat" : "Lock chat"}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={handleExportChat}
                     className={itemClass}
                   >
@@ -888,16 +932,24 @@ const ChatHeaderMenu = ({
                   >
                     <button
                       type="button"
-                      onClick={() =>
-                        setActiveSubmenu(
-                          activeSubmenu === "list" ? null : "list"
-                        )
-                      }
+                      onClick={() => {
+                        onClose();
+                        setShowAddToListModal(true);
+                      }}
                       className={itemClass}
                     >
                       <MdOutlinePlaylistAdd size={19} className="text-[#8696a0] shrink-0" />
-                      <span>Add to list</span>
-                      <MdChevronRight size={16} className="text-[#8696a0] ml-auto shrink-0" />
+                      <span className="flex-1">Add to list</span>
+                      <span
+                        className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded-md transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveSubmenu(activeSubmenu === "list" ? null : "list");
+                        }}
+                        title="Toggle lists menu"
+                      >
+                        <MdChevronRight size={16} className="text-[#8696a0] shrink-0" />
+                      </span>
                     </button>
 
                     <AnimatePresence>
@@ -954,6 +1006,16 @@ const ChatHeaderMenu = ({
                               <span>+</span> New list...
                             </span>
                           </button>
+
+                          {availableLists.some((listName) => isContactInList(selectedContact, listName)) && (
+                            <button
+                              type="button"
+                              onClick={onClose}
+                              className="mx-1.5 mt-1.5 mb-1 w-[calc(100%-12px)] py-1.5 rounded-lg bg-[#00a884] hover:bg-[#06cf9c] active:scale-[0.98] text-[#111b21] font-bold text-xs transition-all text-center cursor-pointer shadow-sm"
+                            >
+                              Done
+                            </button>
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -1139,6 +1201,23 @@ const ChatHeaderMenu = ({
           isOpen={showAddToListModal}
           onClose={() => setShowAddToListModal(false)}
           contact={selectedContact}
+        />
+      )}
+
+
+
+      {showSetPinModalForHeader && (
+        <SetChatLockPinModal
+          isOpen={showSetPinModalForHeader}
+          onClose={() => setShowSetPinModalForHeader(false)}
+          onSuccess={() => {
+            const target = chatId || selectedContact?._id;
+            if (target) {
+              toggleLockChat(target);
+              toast.success("🔒 Chat locked and moved to Locked Chats folder");
+            }
+            onClose();
+          }}
         />
       )}
 
