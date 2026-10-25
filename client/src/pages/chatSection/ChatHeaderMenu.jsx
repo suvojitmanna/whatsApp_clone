@@ -14,7 +14,8 @@ import {
   FiThumbsDown,
   FiMinusCircle,
 } from "react-icons/fi";
-import { IoColorPaletteOutline, IoTimerOutline } from "react-icons/io5";
+import { IoColorPaletteOutline, IoTimerOutline, IoStatsChart } from "react-icons/io5";
+import { HiSparkles } from "react-icons/hi2";
 import {
   MdBlock,
   MdOutlinePlaylistAdd,
@@ -58,6 +59,8 @@ const ChatHeaderMenu = ({
   onOpenDisappearingMessages,
   onOpenChatTheme,
   onOpenCallLink,
+  onOpenChatWrapped,
+  onOpenSummarize,
   onCloseChat,
 }) => {
   const isDark = theme === "dark";
@@ -629,6 +632,36 @@ const ChatHeaderMenu = ({
                     <MdChevronRight size={16} className="text-[#8696a0] ml-auto shrink-0" />
                   </button>
 
+                  {onOpenSummarize && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenSummarize();
+                      }}
+                      className={itemClass}
+                      title="Summarize conversation with Meta AI"
+                    >
+                      <HiSparkles size={18} className="text-cyan-500 shrink-0" />
+                      <span className="truncate">Summarize with AI</span>
+                    </button>
+                  )}
+
+                  {onOpenChatWrapped && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenChatWrapped();
+                      }}
+                      className={itemClass}
+                      title="View Spotify-style Chat Wrapped & Analytics"
+                    >
+                      <IoStatsChart size={18} className="text-amber-400 shrink-0" />
+                      <span className="truncate">Chat Wrapped & Insights</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={handleToggleFavorite}
@@ -913,6 +946,36 @@ const ChatHeaderMenu = ({
                     <span className="truncate">Chat theme</span>
                     <MdChevronRight size={16} className="text-[#8696a0] ml-auto shrink-0" />
                   </button>
+
+                  {onOpenSummarize && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenSummarize();
+                      }}
+                      className={itemClass}
+                      title="Summarize conversation with Meta AI"
+                    >
+                      <HiSparkles size={18} className="text-cyan-500 shrink-0" />
+                      <span className="truncate">Summarize with AI</span>
+                    </button>
+                  )}
+
+                  {onOpenChatWrapped && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenChatWrapped();
+                      }}
+                      className={itemClass}
+                      title="View Spotify-style Chat Wrapped & Analytics"
+                    >
+                      <IoStatsChart size={18} className="text-amber-400 shrink-0" />
+                      <span className="truncate">Chat Wrapped & Insights</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"

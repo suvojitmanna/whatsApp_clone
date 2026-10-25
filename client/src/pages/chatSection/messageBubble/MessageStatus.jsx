@@ -7,6 +7,7 @@ import {
   WhatsAppPinIcon,
   WhatsAppDisappearingIcon,
 } from "../../../components/common/Icons";
+import useReminderStore from "../../../store/useReminderStore";
 
 export const MessageStatusIcon = ({
   isUserMessage,
@@ -183,9 +184,18 @@ export const MessageTimestampAndStatus = ({
   handleToggleOptions,
   isDark,
 }) => {
+  const hasActiveReminder = useReminderStore((state) =>
+    state.reminders.some(
+      (r) => (r.messageId === message?._id || r.messageId === message?.id) && r.status === "pending"
+    )
+  );
+
   if (isOverlay) {
     return (
       <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/50 backdrop-blur-[2px] text-white text-[10.5px] select-none pointer-events-auto shadow-sm z-10">
+        {hasActiveReminder && (
+          <span className="text-amber-400 font-bold" title="Active reminder">⏰</span>
+        )}
         {isPinned && (
           <WhatsAppPinIcon className="w-[11px] h-[13px] text-white/80 shrink-0" />
         )}
@@ -236,6 +246,9 @@ export const MessageTimestampAndStatus = ({
       className={`float-right inline-flex items-center gap-1 text-[11px] select-none ml-2 leading-none self-end shrink-0 relative top-[1px] ${isDark ? "text-white/60" : "text-[#667781]"
         }`}
     >
+      {hasActiveReminder && (
+        <span className="text-amber-500 font-bold text-xs" title="Active reminder">⏰</span>
+      )}
       {isPinned && (
         <WhatsAppPinIcon
           className={`w-[11px] h-[13px] shrink-0 ${isDark ? "text-[#8696a0]" : "text-[#667781]"

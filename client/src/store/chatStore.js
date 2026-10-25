@@ -967,6 +967,9 @@ export const useChatStore = create((set, get) => ({
     socket.off("message_reencrypted");
     socket.off("new_group_created");
     socket.off("group_message_receipt_update");
+    socket.off("view_once_opened");
+    socket.off("split_bill_updated");
+    socket.off("location_access_updated");
 
     get().fetchBlockedUsers();
 
@@ -1819,6 +1822,121 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
+    socket.on("view_once_opened", ({ messageId, userId, conversationId, viewOnceOpenedBy }) => {
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if ((m._id || m.id)?.toString() === messageId?.toString()) {
+            const openedList = viewOnceOpenedBy || m.viewOnceOpenedBy || [];
+            const hasUser = openedList.some((id) => (id?._id || id)?.toString() === userId?.toString());
+            return {
+              ...m,
+              viewOnceOpenedBy: hasUser ? openedList : [...openedList, userId],
+            };
+          }
+          return m;
+        });
+        const convId = conversationId?.toString() || state.currentConversation?._id?.toString();
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+
+        const convList = Array.isArray(state.conversations?.data)
+          ? state.conversations.data
+          : Array.isArray(state.conversations)
+          ? state.conversations
+          : [];
+        let convChanged = false;
+        const nextConversationsData = convList.map((c) => {
+          if (c.lastMessage && (c.lastMessage._id || c.lastMessage.id)?.toString() === messageId?.toString()) {
+            convChanged = true;
+            const openedList = viewOnceOpenedBy || c.lastMessage.viewOnceOpenedBy || [];
+            const hasUser = openedList.some((id) => (id?._id || id)?.toString() === userId?.toString());
+            return {
+              ...c,
+              lastMessage: {
+                ...c.lastMessage,
+                viewOnceOpenedBy: hasUser ? openedList : [...openedList, userId],
+              },
+            };
+          }
+          return c;
+        });
+
+        const nextConversations = convChanged
+          ? (Array.isArray(state.conversations?.data)
+              ? { ...state.conversations, data: nextConversationsData }
+              : nextConversationsData)
+          : state.conversations;
+
+        return { messages: nextMessages, messagesCache: nextCache, conversations: nextConversations };
+      });
+    });
+
+    socket.on("split_bill_updated", ({ messageId, conversationId, splitBillData }) => {
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if ((m._id || m.id)?.toString() === messageId?.toString()) {
+            return {
+              ...m,
+              splitBillData,
+            };
+          }
+          return m;
+        });
+        const convId = conversationId?.toString() || state.currentConversation?._id?.toString();
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+
+        const convList = Array.isArray(state.conversations?.data)
+          ? state.conversations.data
+          : Array.isArray(state.conversations)
+          ? state.conversations
+          : [];
+        let convChanged = false;
+        const nextConversationsData = convList.map((c) => {
+          if (c.lastMessage && (c.lastMessage._id || c.lastMessage.id)?.toString() === messageId?.toString()) {
+            convChanged = true;
+            return {
+              ...c,
+              lastMessage: {
+                ...c.lastMessage,
+                splitBillData,
+              },
+            };
+          }
+          return c;
+        });
+
+        const nextConversations = convChanged
+          ? (Array.isArray(state.conversations?.data)
+              ? { ...state.conversations, data: nextConversationsData }
+              : nextConversationsData)
+          : state.conversations;
+
+        return { messages: nextMessages, messagesCache: nextCache, conversations: nextConversations };
+      });
+    });
+
+    socket.on("location_access_updated", ({ messageId, conversationId, locationData }) => {
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if ((m._id || m.id)?.toString() === messageId?.toString()) {
+            return {
+              ...m,
+              locationData,
+            };
+          }
+          return m;
+        });
+        const convId = conversationId?.toString() || state.currentConversation?._id?.toString();
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
+    });
+
     socket.on("message_error", (error) => {
       console.error("Message error:", error);
       set({ error: error.message });
@@ -2585,6 +2703,34 @@ export const useChatStore = create((set, get) => ({
       } catch (e) {}
     }
 
+    const splitBillDataRaw = formData.get("splitBillData");
+    let parsedSplitBillData = null;
+    if (splitBillDataRaw) {
+      try {
+        parsedSplitBillData =
+          typeof splitBillDataRaw === "string"
+            ? JSON.parse(splitBillDataRaw)
+            : splitBillDataRaw;
+      } catch (e) {}
+    }
+
+    const locationDataRaw = formData.get("locationData");
+    let parsedLocationData = null;
+    if (locationDataRaw) {
+      try {
+        parsedLocationData =
+          typeof locationDataRaw === "string"
+            ? JSON.parse(locationDataRaw)
+            : locationDataRaw;
+      } catch (e) {}
+    }
+
+    const isTimeCapsule =
+      formData.get("isTimeCapsule") === "true" ||
+      formData.get("isTimeCapsule") === true;
+    const timeCapsuleUnlockAt = formData.get("timeCapsuleUnlockAt") || null;
+    const timeCapsuleHint = formData.get("timeCapsuleHint") || "";
+
     const scheduledForParam = formData.get("scheduledFor");
     const isScheduledParam =
       formData.get("isScheduled") === "true" ||
@@ -2619,6 +2765,11 @@ export const useChatStore = create((set, get) => ({
       pollData: parsedPollData,
       eventData: parsedEventData,
       contactData: parsedContactData,
+      splitBillData: parsedSplitBillData,
+      locationData: parsedLocationData,
+      isTimeCapsule,
+      timeCapsuleUnlockAt,
+      timeCapsuleHint,
       createdAt: scheduledForParam || nowIso,
       scheduledFor: scheduledForParam || null,
       isScheduled: isScheduledParam,
@@ -3754,6 +3905,199 @@ export const useChatStore = create((set, get) => ({
     } catch (err) {
       console.error("sendScheduledNow error:", err);
       toast.error("Failed to send scheduled message now");
+    }
+  },
+
+  openViewOnceMessage: async (messageId) => {
+    try {
+      const currentUser = useUserStore.getState()?.user;
+      const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
+
+      if (currentUserId) {
+        set((state) => {
+          const nextMessages = state.messages.map((m) => {
+            if ((m._id || m.id)?.toString() === messageId?.toString()) {
+              const openedList = m.viewOnceOpenedBy || [];
+              const hasUser = openedList.some((id) => (id?._id || id)?.toString() === currentUserId);
+              return {
+                ...m,
+                viewOnceOpenedBy: hasUser ? openedList : [...openedList, currentUserId],
+              };
+            }
+            return m;
+          });
+          return { messages: nextMessages };
+        });
+      }
+
+      const res = await axiosInstance.post(
+        `/chat/messages/${messageId}/view-once-open`,
+        { userId: currentUserId }
+      );
+      const updatedMsg = res.data?.data || res.data;
+      if (updatedMsg) {
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, ...updatedMsg }
+              : m
+          );
+          const convId = (
+            updatedMsg.conversation?._id ||
+            updatedMsg.conversation ||
+            updatedMsg.conversationId
+          )?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+      }
+      return updatedMsg;
+    } catch (err) {
+      console.error("openViewOnceMessage error:", err);
+      throw err;
+    }
+  },
+
+  toggleSplitBillPayment: async (messageId, targetUserId) => {
+    try {
+      const currentUser = useUserStore.getState()?.user;
+      const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
+      const userToToggle = (targetUserId || currentUserId)?.toString();
+
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if (
+            (m._id || m.id)?.toString() === messageId?.toString() &&
+            m.splitBillData
+          ) {
+            const bill = JSON.parse(JSON.stringify(m.splitBillData));
+            if (Array.isArray(bill.participants)) {
+              const pIdx = bill.participants.findIndex(
+                (p) =>
+                  (p.user?._id || p.user || p.userId)?.toString() ===
+                  userToToggle,
+              );
+              if (pIdx !== -1) {
+                const prev = Boolean(bill.participants[pIdx].isPaid);
+                bill.participants[pIdx].isPaid = !prev;
+                bill.participants[pIdx].paidAt = !prev
+                  ? new Date().toISOString()
+                  : null;
+                bill.isSettled = bill.participants.every((p) =>
+                  Boolean(p.isPaid),
+                );
+              }
+            }
+            return { ...m, splitBillData: bill };
+          }
+          return m;
+        });
+
+        const convId = state.currentConversation?._id?.toString();
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
+
+      const res = await axiosInstance.post(
+        `/chat/messages/${messageId}/split-bill/toggle`,
+        { targetUserId: userToToggle },
+      );
+
+      if (res.data?.data?.splitBillData) {
+        const serverBill = res.data.data.splitBillData;
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, splitBillData: serverBill }
+              : m,
+          );
+          const convId = state.currentConversation?._id?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+      }
+    } catch (err) {
+      console.error("toggleSplitBillPayment error:", err);
+      toast.error(
+        err?.response?.data?.message || "Failed to update payment status",
+      );
+    }
+  },
+
+  recordLocationAccess: async (messageId) => {
+    try {
+      const res = await axiosInstance.post(
+        `/chat/messages/${messageId}/access-location`,
+      );
+      if (res.data?.data?.locationData) {
+        const updatedLoc = res.data.data.locationData;
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, locationData: updatedLoc }
+              : m,
+          );
+          const convId = state.currentConversation?._id?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+        return res.data.data;
+      }
+    } catch (err) {
+      console.warn(
+        "recordLocationAccess notice:",
+        err?.response?.data?.message || err.message,
+      );
+      if (err?.response?.data?.data?.locationData) {
+        const updatedLoc = err.response.data.data.locationData;
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, locationData: updatedLoc }
+              : m,
+          );
+          return { messages: nextMessages };
+        });
+      }
+    }
+  },
+
+  revokeLocationSharing: async (messageId) => {
+    try {
+      const res = await axiosInstance.post(
+        `/chat/messages/${messageId}/revoke-location`,
+      );
+      if (res.data?.data?.locationData) {
+        const updatedLoc = res.data.data.locationData;
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, locationData: updatedLoc }
+              : m,
+          );
+          const convId = state.currentConversation?._id?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+        toast.info("Location sharing stopped");
+        return res.data.data;
+      }
+    } catch (err) {
+      console.error("revokeLocationSharing error:", err);
+      toast.error(
+        err?.response?.data?.message || "Failed to stop location sharing",
+      );
     }
   },
 

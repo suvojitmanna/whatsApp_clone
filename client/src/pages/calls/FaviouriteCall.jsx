@@ -12,14 +12,12 @@ import {
   MdOutlineCall,
   MdOutlineVideocam,
 } from "react-icons/md";
-import { FaUser } from "react-icons/fa";
 import { FavouritesEmptyIllustration } from "../../components/common/Icons";
 import { getAvatarBg, getAvatarInitial } from "../chatSection/ChatList";
 
 export const ContactAvatar = ({ contact, size = 48, className = "" }) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
-
   const username = contact?.username || contact?.name || "";
   const profilePicture = contact?.profilePicture || contact?.avatar;
 
@@ -27,9 +25,8 @@ export const ContactAvatar = ({ contact, size = 48, className = "" }) => {
     return (
       <div
         style={{ width: size, height: size }}
-        className={`rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-xs ${
-          isDark ? "bg-[#374248]" : "bg-[#dfe5e7]"
-        } ${className}`}
+        className={`rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-xs ${isDark ? "bg-[#374248]" : "bg-[#dfe5e7]"
+          } ${className}`}
       >
         <img
           src={profilePicture}
@@ -69,11 +66,9 @@ export const AddFavouritesModal = ({
 }) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
-
   const { favourites, setFavourites } = useCallStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
-
   const allCandidates = useMemo(() => {
     const map = new Map();
     contacts.forEach((c) => {
@@ -139,15 +134,13 @@ export const AddFavouritesModal = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/65 backdrop-blur-sm animate-fadeIn"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/65 backdrop-blur-sm animate-fadeIn"
       onClick={onClose}
     >
-      <div
-        className={`w-full max-w-[480px] h-[88vh] max-h-[700px] rounded-3xl shadow-2xl flex flex-col overflow-hidden border relative transition-all duration-200 ${isDark
-          ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
-          : "bg-white border-gray-200 text-[#111b21]"
-          }`}
+      <div className={`w-full max-w-[480px] h-[88vh] max-h-[700px] rounded-3xl shadow-2xl flex flex-col overflow-hidden border relative transition-all duration-200 ${isDark
+        ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
+        : "bg-white border-gray-200 text-[#111b21]"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 pt-5 pb-3 flex items-center gap-4 shrink-0">
@@ -162,25 +155,19 @@ export const AddFavouritesModal = ({
           >
             <MdClose className="text-2xl" />
           </button>
-          <h2
-            className={`text-[19px] font-semibold tracking-tight ${isDark ? "text-white" : "text-[#111b21]"
-              }`}
+          <h2 className={`text-[19px] font-semibold tracking-tight ${isDark ? "text-white" : "text-[#111b21]"
+            }`}
           >
             Add to Favourites
           </h2>
         </div>
 
         <div className="px-5 pb-3 shrink-0">
-          <div
-            className={`flex items-center gap-3 px-5 py-3 rounded-full border-2 transition-all duration-300 ${isDark
-              ? "bg-[#161a1d] border-[#00c878] focus-within:border-[#00d982]"
-              : "bg-[#f0f2f5] border-[#00a884] focus-within:border-[#00c878]"
-              }`}
-          >
-            <MdSearch
-              className={`text-xl shrink-0 ${isDark ? "text-[#aebac1]" : "text-[#54656f]"
-                }`}
-            />
+          <div className={`flex items-center gap-3 px-5 py-3 rounded-full border-2 transition-all duration-300 ${isDark
+            ? "bg-[#161a1d] border-[#00c878] focus-within:border-[#00d982]"
+            : "bg-[#f0f2f5] border-[#00a884] focus-within:border-[#00c878]"
+            }`}>
+            <MdSearch className={`text-xl shrink-0 ${isDark ? "text-[#aebac1]" : "text-[#54656f]"}`} />
 
             <input
               type="text"
@@ -251,13 +238,12 @@ export const AddFavouritesModal = ({
                     }`}
                 >
                   <div className="shrink-0 flex items-center justify-center">
-                    <div
-                      className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${isSelected
-                        ? "bg-[#00a884] text-black shadow-xs"
-                        : isDark
-                          ? "border-2 border-[#8696a0]"
-                          : "border-2 border-[#8696a0]"
-                        }`}
+                    <div className={`w-5 h-5 rounded-md flex items-center justify-center transition-all ${isSelected
+                      ? "bg-[#00a884] text-black shadow-xs"
+                      : isDark
+                        ? "border-2 border-[#8696a0]"
+                        : "border-2 border-[#8696a0]"
+                      }`}
                     >
                       {isSelected && <MdCheck className="text-sm font-bold stroke-2" />}
                     </div>
@@ -266,10 +252,8 @@ export const AddFavouritesModal = ({
                   <ContactAvatar contact={candidate} size={48} />
 
                   <div className="min-w-0 flex-1">
-                    <div
-                      className={`flex items-center gap-1.5 font-medium text-[15px] truncate leading-tight ${isDark ? "text-white" : "text-[#111b21]"
-                        }`}
-                    >
+                    <div className={`flex items-center gap-1.5 font-medium text-[15px] truncate leading-tight ${isDark ? "text-white" : "text-[#111b21]"
+                      }`}>
                       <span>{name}</span>
                       {candidate.isVerified && (
                         <MdVerified className="text-[#00a884] text-base shrink-0" />
@@ -337,15 +321,13 @@ export const FavouritesView = ({
   }
 
   return (
-    <div
-      className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 ${isDark
-        ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
-        : "bg-white border-gray-200 text-[#111b21]"
-        }`}
+    <div className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 ${isDark
+      ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
+      : "bg-white border-gray-200 text-[#111b21]"
+      }`}
     >
-      <div
-        className={`h-16 px-4 flex items-center justify-between shrink-0 border-b ${isDark ? "border-[#222e35]" : "border-gray-200"
-          }`}
+      <div className={`h-16 px-4 flex items-center justify-between shrink-0 border-b ${isDark ? "border-[#222e35]" : "border-gray-200"
+        }`}
       >
         <div className="flex items-center gap-3">
           <button
@@ -359,9 +341,8 @@ export const FavouritesView = ({
           >
             <MdArrowBack className="text-2xl" />
           </button>
-          <h2
-            className={`text-[20px] font-bold ${isDark ? "text-white" : "text-[#111b21]"
-              }`}
+          <h2 className={`text-[20px] font-bold ${isDark ? "text-white" : "text-[#111b21]"
+            }`}
           >
             Favourites
           </h2>
@@ -399,19 +380,11 @@ export const FavouritesView = ({
           <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12 my-auto">
             <FavouritesEmptyIllustration />
 
-            <h3
-              className={`text-[22px] font-medium tracking-tight mb-2.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
-                }`}
-            >
+            <h3 className={`text-[22px] font-medium tracking-tight mb-2.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"}`} >
               Add to Favourites
             </h3>
 
-            <p
-              className={`text-[14px] leading-relaxed max-w-[280px] mb-8 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                }`}
-            >
-              Make it easy to find the people and groups that matter most across WhatsApp.
-            </p>
+            <p className={`text-[14px] leading-relaxed max-w-[280px] mb-8 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"}`}>Make it easy to find the people and groups that matter most across WhatsApp.</p>
 
             <button
               type="button"
@@ -506,7 +479,6 @@ export const EditFavouritesView = ({
 }) => {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
-
   const { favourites, removeFavourite, reorderFavourites } = useCallStore();
   const [localList, setLocalList] = useState(favourites);
   const [draggedIndex, setDraggedIndex] = useState(null);
@@ -525,59 +497,12 @@ export const EditFavouritesView = ({
     setLocalList(favourites);
   }, [favourites]);
 
-  const handleRemove = (contactId) => {
-    removeFavourite(contactId);
-    setLocalList((prev) =>
-      prev.filter((item) => (item.contactId || item._id) !== contactId)
-    );
-  };
-
-  const handleDragStart = (e, index) => {
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", index);
-  };
-
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    if (dragOverIndex !== index) {
-      setDragOverIndex(index);
-    }
-  };
-
-  const handleDrop = (e, targetIndex) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === targetIndex) {
-      setDraggedIndex(null);
-      setDragOverIndex(null);
-      return;
-    }
-
-    const updated = [...localList];
-    const [movedItem] = updated.splice(draggedIndex, 1);
-    updated.splice(targetIndex, 0, movedItem);
-
-    setLocalList(updated);
-    reorderFavourites(updated);
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  };
-
   return (
-    <div
-      className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 ${isDark
-        ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
-        : "bg-white border-gray-200 text-[#111b21]"
-        }`}
+    <div className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 ${isDark
+      ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
+      : "bg-white border-gray-200 text-[#111b21]"}`}
     >
-      <div
-        className={`h-16 px-4 flex items-center justify-between shrink-0 border-b ${isDark ? "border-[#222e35]" : "border-gray-200"
-          }`}
+      <div className={`h-16 px-4 flex items-center justify-between shrink-0 border-b ${isDark ? "border-[#222e35]" : "border-gray-200"}`}
       >
         <div className="flex items-center gap-3">
           <button
@@ -591,9 +516,7 @@ export const EditFavouritesView = ({
           >
             <MdArrowBack className="text-2xl" />
           </button>
-          <h2
-            className={`text-[20px] font-bold ${isDark ? "text-white" : "text-[#111b21]"
-              }`}
+          <h2 className={`text-[20px] font-bold ${isDark ? "text-white" : "text-[#111b21]"}`}
           >
             Edit favourites
           </h2>
@@ -617,17 +540,11 @@ export const EditFavouritesView = ({
           <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12 my-auto">
             <FavouritesEmptyIllustration />
 
-            <h3
-              className={`text-[22px] font-medium tracking-tight mb-2.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
-                }`}
-            >
+            <h3 className={`text-[22px] font-medium tracking-tight mb-2.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"}`} >
               Add to Favourites
             </h3>
 
-            <p
-              className={`text-[14px] leading-relaxed max-w-[280px] mb-8 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                }`}
-            >
+            <p className={`text-[14px] leading-relaxed max-w-[280px] mb-8 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"}`} >
               Make it easy to find the people and groups that matter most across WhatsApp.
             </p>
 
@@ -656,10 +573,7 @@ export const EditFavouritesView = ({
                 >
                   <ContactAvatar contact={fav} size={48} />
                   <div className="min-w-0 flex-1">
-                    <div
-                      className={`flex items-center gap-1.5 font-medium text-[16px] truncate ${isDark ? "text-white" : "text-[#111b21]"
-                        }`}
-                    >
+                    <div className={`flex items-center gap-1.5 font-medium text-[16px] truncate ${isDark ? "text-white" : "text-[#111b21]"}`} >
                       <span>{name}</span>
                       {fav.isVerified && (
                         <MdVerified className="text-[#00a884] text-base shrink-0" />

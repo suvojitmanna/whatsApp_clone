@@ -17,7 +17,7 @@ import {
   FaUsers,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
-import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam, MdLink } from "react-icons/md";
+import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam, MdLink, MdReceiptLong, MdLocationOn, MdHourglassBottom } from "react-icons/md";
 import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill, RiDeleteBin6Line } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
@@ -196,8 +196,14 @@ export const getPinnedItemTypeAndLabel = (msg) => {
   ) {
     return { type: "event", target: "an event" };
   }
+  if (contentType === "split_bill" || msg.splitBillData || content.startsWith("Split Bill:")) {
+    return { type: "split bill", target: "a split bill" };
+  }
   if (contentType === "location" || msg.locationData || content.startsWith("Location:")) {
     return { type: "location", target: "a location" };
+  }
+  if (contentType === "time_capsule" || msg.isTimeCapsule) {
+    return { type: "time capsule", target: "a time capsule" };
   }
   if (contentType === "call") {
     const isVid = msg.callData?.callType === "video" || msg.callType === "video";
@@ -493,6 +499,51 @@ const getLastMessagePreview = (lastMessage) => {
     };
   }
 
+  if (lastMessage.isViewOnce) {
+    const isOpened = Boolean(
+      (lastMessage.viewOnceOpenedBy &&
+        Array.isArray(lastMessage.viewOnceOpenedBy) &&
+        lastMessage.viewOnceOpenedBy.some(
+          (id) => String(id?._id || id) === String(currentUserId)
+        )) ||
+        (String(lastMessage.sender?._id || lastMessage.sender) === String(currentUserId) &&
+          lastMessage.viewOnceOpenedBy?.length > 0)
+    );
+
+    if (isOpened) {
+      return {
+        icon: (
+          <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-dashed border-current text-[9px] font-bold mr-1 shrink-0">
+            1
+          </span>
+        ),
+        text: "Opened",
+        isDeleted: false,
+        isEncrypted: false,
+      };
+    }
+
+    const typeLabel =
+      lastMessage.contentType === "image"
+        ? "Photo"
+        : lastMessage.contentType === "video"
+        ? "Video"
+        : lastMessage.contentType === "audio"
+        ? "Voice message"
+        : "View once message";
+
+    return {
+      icon: (
+        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-emerald-500 text-[9px] font-bold mr-1 shrink-0 text-emerald-500 dark:text-emerald-400">
+          1
+        </span>
+      ),
+      text: typeLabel,
+      isDeleted: false,
+      isEncrypted: false,
+    };
+  }
+
   const contentType = lastMessage.contentType;
   let pollData = lastMessage.pollData;
   if (typeof pollData === "string") {
@@ -612,6 +663,49 @@ const getLastMessagePreview = (lastMessage) => {
     };
   }
 
+  if (contentType === "split_bill" || lastMessage.splitBillData) {
+    let bill = lastMessage.splitBillData;
+    if (typeof bill === "string") {
+      try {
+        bill = JSON.parse(bill);
+      } catch (e) {}
+    }
+    const title = bill?.title || "Split Bill";
+    const amount = bill?.totalAmount ? ` (${bill?.currency || "₹"}${bill?.totalAmount})` : "";
+    return {
+      icon: <MdReceiptLong className="inline mr-1 text-cyan-500 shrink-0" size={13} />,
+      text: `Split Bill: ${title}${amount}`,
+      isEncrypted: false,
+    };
+  }
+
+  if (contentType === "location" || lastMessage.locationData) {
+    let loc = lastMessage.locationData;
+    if (typeof loc === "string") {
+      try {
+        loc = JSON.parse(loc);
+      } catch (e) {}
+    }
+    const locName = loc?.name || "Live Location";
+    return {
+      icon: <MdLocationOn className="inline mr-1 text-red-500 shrink-0" size={13} />,
+      text: `Location: ${locName}`,
+      isEncrypted: false,
+    };
+  }
+
+  if (contentType === "time_capsule" || lastMessage.isTimeCapsule) {
+    const hint = lastMessage.timeCapsuleHint || "Confidential Surprise";
+    const isUnlocked =
+      lastMessage.timeCapsuleUnlockAt &&
+      new Date(lastMessage.timeCapsuleUnlockAt).getTime() <= Date.now();
+    return {
+      icon: <MdHourglassBottom className="inline mr-1 text-amber-400 shrink-0" size={13} />,
+      text: isUnlocked ? `Time Capsule Unlocked: ${hint}` : `⏳ Time Capsule: ${hint}`,
+      isEncrypted: false,
+    };
+  }
+
   if (contentType === "call") {
     const isVideo = lastMessage.callData?.callType === "video" || lastMessage.callType === "video";
     const duration = lastMessage.callData?.duration || lastMessage.duration || "Voice call";
@@ -721,6 +815,7 @@ const getLastMessagePreview = (lastMessage) => {
 export const getFullMessageTooltip = (lastMsg) => {
   if (!lastMsg) return "";
   if (lastMsg.deletedForEveryone) return "This message was deleted";
+  if (lastMsg.isViewOnce) return "View once message";
   if (isGroupSystemMessage(lastMsg)) {
     const currentUser = useUserStore.getState()?.user;
     return (
@@ -778,6 +873,15 @@ export const getFullMessageTooltip = (lastMsg) => {
   }
   if (lastMsg.contentType === "event") {
     return `Event: ${lastMsg.eventData?.title || lastMsg.content || ""}`;
+  }
+  if (lastMsg.contentType === "split_bill") {
+    return `Split Bill: ${lastMsg.splitBillData?.title || lastMsg.content || ""}`;
+  }
+  if (lastMsg.contentType === "location") {
+    return `Location: ${lastMsg.locationData?.name || lastMsg.content || ""}`;
+  }
+  if (lastMsg.contentType === "time_capsule" || lastMsg.isTimeCapsule) {
+    return `Time Capsule: ${lastMsg.timeCapsuleHint || "Confidential"}`;
   }
   if (
     lastMsg.contentType === "call_link" ||

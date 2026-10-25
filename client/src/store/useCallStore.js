@@ -2,16 +2,16 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export const DEFAULT_CALL_HISTORY = [];
-
 export const DEFAULT_FAVOURITES = [];
-
 export const SEED_FAVOURITE_CANDIDATES = [];
 
 export const isDummyCall = (call) => {
   if (!call) return false;
   const id = String(call.id || "");
   const contactId = String(call.contactId || "");
-  const name = String(call.contactName || "").toLowerCase().trim();
+  const name = String(call.contactName || "")
+    .toLowerCase()
+    .trim();
   return (
     id.startsWith("call-seed-") ||
     id.startsWith("seed-") ||
@@ -29,7 +29,9 @@ export const isDummyCall = (call) => {
 export const isDummyFavourite = (fav) => {
   if (!fav) return false;
   const id = String(fav.id || fav._id || fav.contactId || "");
-  const name = String(fav.username || fav.name || "").toLowerCase().trim();
+  const name = String(fav.username || fav.name || "")
+    .toLowerCase()
+    .trim();
   return (
     id.startsWith("fav-") ||
     id.startsWith("seed-") ||
@@ -56,14 +58,18 @@ if (typeof window !== "undefined" && window.localStorage) {
       if (parsed?.state) {
         let changed = false;
         if (Array.isArray(parsed.state.callHistory)) {
-          const filteredCalls = parsed.state.callHistory.filter((c) => !isDummyCall(c));
+          const filteredCalls = parsed.state.callHistory.filter(
+            (c) => !isDummyCall(c),
+          );
           if (filteredCalls.length !== parsed.state.callHistory.length) {
             parsed.state.callHistory = filteredCalls;
             changed = true;
           }
         }
         if (Array.isArray(parsed.state.favourites)) {
-          const filteredFavs = parsed.state.favourites.filter((f) => !isDummyFavourite(f));
+          const filteredFavs = parsed.state.favourites.filter(
+            (f) => !isDummyFavourite(f),
+          );
           if (filteredFavs.length !== parsed.state.favourites.length) {
             parsed.state.favourites = filteredFavs;
             changed = true;
@@ -75,7 +81,10 @@ if (typeof window !== "undefined" && window.localStorage) {
         }
         if (changed || parsed.version !== 3) {
           parsed.version = 3;
-          window.localStorage.setItem("whatsapp-call-storage", JSON.stringify(parsed));
+          window.localStorage.setItem(
+            "whatsapp-call-storage",
+            JSON.stringify(parsed),
+          );
         }
       }
     }
@@ -122,7 +131,10 @@ const useCallStore = create(
         };
 
         set((state) => ({
-          callHistory: [newCall, ...state.callHistory.filter((c) => !isDummyCall(c))],
+          callHistory: [
+            newCall,
+            ...state.callHistory.filter((c) => !isDummyCall(c)),
+          ],
           selectedCall: newCall,
         }));
 
@@ -134,6 +146,16 @@ const useCallStore = create(
           callHistory: state.callHistory.filter((c) => c.id !== callId),
           selectedCall:
             state.selectedCall?.id === callId ? null : state.selectedCall,
+        }));
+      },
+
+      removeCalls: (callIds) => {
+        const idSet = new Set(callIds || []);
+        set((state) => ({
+          callHistory: state.callHistory.filter((c) => !idSet.has(c.id)),
+          selectedCall: idSet.has(state.selectedCall?.id)
+            ? null
+            : state.selectedCall,
         }));
       },
 
@@ -149,7 +171,9 @@ const useCallStore = create(
         set((state) => ({
           callHistory: state.callHistory.filter((c) => !isDummyCall(c)),
           favourites: state.favourites.filter((f) => !isDummyFavourite(f)),
-          selectedCall: isDummyCall(state.selectedCall) ? null : state.selectedCall,
+          selectedCall: isDummyCall(state.selectedCall)
+            ? null
+            : state.selectedCall,
         }));
       },
 
@@ -228,10 +252,10 @@ const useCallStore = create(
       version: 3,
       migrate: (persistedState) => {
         const cleanHistory = (persistedState?.callHistory || []).filter(
-          (c) => !isDummyCall(c)
+          (c) => !isDummyCall(c),
         );
         const cleanFavourites = (persistedState?.favourites || []).filter(
-          (f) => !isDummyFavourite(f)
+          (f) => !isDummyFavourite(f),
         );
         return {
           ...persistedState,
@@ -245,10 +269,10 @@ const useCallStore = create(
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         state.callHistory = (state.callHistory || []).filter(
-          (c) => !isDummyCall(c)
+          (c) => !isDummyCall(c),
         );
         state.favourites = (state.favourites || []).filter(
-          (f) => !isDummyFavourite(f)
+          (f) => !isDummyFavourite(f),
         );
         if (isDummyCall(state.selectedCall)) {
           state.selectedCall = null;

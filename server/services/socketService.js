@@ -838,7 +838,6 @@ function initializeSocket(server) {
 
         const expiredIds = expiredMsgs.map((m) => m._id);
         await Message.deleteMany({ _id: { $in: expiredIds } });
-
         const convGroups = new Map();
         expiredMsgs.forEach((m) => {
           const cId = m.conversation?.toString();

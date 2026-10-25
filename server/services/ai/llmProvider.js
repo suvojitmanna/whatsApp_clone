@@ -21,8 +21,7 @@ async function callGeminiApi(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  let cleanModel = (model || "gemini-1.5-flash").replace(/^models\//, "");
-  if (cleanModel.includes("3.8")) cleanModel = "gemini-1.5-flash";
+  let cleanModel = (model || AI_CONFIG.gemini.model || "gemini-flash-lite-latest").replace(/^models\//, "");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
   const body = {
     contents,
@@ -137,10 +136,7 @@ export async function callDualLlm({
 
   if (AI_CONFIG.groq.apiKey) {
     try {
-      const groqModel =
-        AI_CONFIG.groq.model && !AI_CONFIG.groq.model.includes("qwen")
-          ? AI_CONFIG.groq.model
-          : "llama-3.3-70b-versatile";
+      const groqModel = AI_CONFIG.groq.model || "openai/gpt-oss-120b";
       const text = await callOpenAiCompatible(
         "https://api.groq.com/openai/v1/chat/completions",
         AI_CONFIG.groq.apiKey,
@@ -159,8 +155,7 @@ export async function callDualLlm({
 
   if (AI_CONFIG.gemini.apiKey) {
     try {
-      let geminiModel = (AI_CONFIG.gemini.model || "gemini-1.5-flash").replace(/^models\//, "");
-      if (geminiModel.includes("3.8")) geminiModel = "gemini-1.5-flash";
+      let geminiModel = (AI_CONFIG.gemini.model || "gemini-flash-lite-latest").replace(/^models\//, "");
       const text = await callGeminiApi(
         AI_CONFIG.gemini.apiKey,
         geminiModel,
@@ -227,10 +222,7 @@ export async function callFastLlm(
 ) {
   if (AI_CONFIG.groq.apiKey) {
     try {
-      const fastGroq =
-        AI_CONFIG.groq.fastModel && !AI_CONFIG.groq.fastModel.includes("qwen")
-          ? AI_CONFIG.groq.fastModel
-          : "llama-3.1-8b-instant";
+      const fastGroq = AI_CONFIG.groq.fastModel || "openai/gpt-oss-20b";
       return await callOpenAiCompatible(
         "https://api.groq.com/openai/v1/chat/completions",
         AI_CONFIG.groq.apiKey,
@@ -246,8 +238,7 @@ export async function callFastLlm(
 
   if (AI_CONFIG.gemini.apiKey) {
     try {
-      let fastGemini = (AI_CONFIG.gemini.model || "gemini-1.5-flash").replace(/^models\//, "");
-      if (fastGemini.includes("3.8")) fastGemini = "gemini-1.5-flash";
+      let fastGemini = (AI_CONFIG.gemini.model || "gemini-flash-lite-latest").replace(/^models\//, "");
       return await callGeminiApi(
         AI_CONFIG.gemini.apiKey,
         fastGemini,

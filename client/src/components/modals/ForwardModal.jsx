@@ -98,7 +98,6 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
             (c.isGroup && String(c._id) === String(targetId))
         );
         const isGroupTarget = Boolean(targetConv?.isGroup);
-
         for (const msg of messageList) {
           const formData = new FormData();
           formData.append("senderId", user?._id || user?.id);
@@ -164,8 +163,7 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
 
   const modalContent = (
     <AnimatePresence>
-      <div
-        className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
@@ -179,10 +177,7 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
             : "bg-white border-black/10 text-[#111b21]"
             }`}
         >
-          <div
-            className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? "bg-[#202c33] border-white/10" : "bg-[#f0f2f5] border-black/10"
-              }`}
-          >
+          <div className={`flex items-center justify-between px-5 py-4 border-b ${isDark ? "bg-[#202c33] border-white/10" : "bg-[#f0f2f5] border-black/10"}`}>
             <h3 className="font-semibold text-base">Forward message to</h3>
             <button
               type="button"
@@ -194,11 +189,10 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
           </div>
 
           <div className="p-3">
-            <div
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${isDark
-                ? "bg-[#202c33] border-white/10 text-white"
-                : "bg-gray-100 border-gray-200 text-gray-800"
-                }`}
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${isDark
+              ? "bg-[#202c33] border-white/10 text-white"
+              : "bg-gray-100 border-gray-200 text-gray-800"
+              }`}
             >
               <FiSearch size={16} className="opacity-60 shrink-0" />
               <input
@@ -265,17 +259,11 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
           )}
 
           <div className="flex items-center gap-2 px-5 py-2 text-xs font-medium opacity-65 select-none">
-            <div
-              className={`h-px w-[8%] ${isDark ? "bg-white/10" : "bg-black/10"
-                }`}
-            />
+            <div className={`h-px w-[8%] ${isDark ? "bg-white/10" : "bg-black/10"}`} />
             <span className="whitespace-nowrap uppercase tracking-wider text-[11.5px]">
               Recent chat
             </span>
-            <div
-              className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-black/10"
-                }`}
-            />
+            <div className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
           </div>
 
           <div className="flex-1 overflow-y-auto py-1">
@@ -333,9 +321,8 @@ const ForwardModal = ({ isOpen, onClose, message, messages, theme = "dark" }) =>
           </div>
 
           {selectedContacts.length > 0 &&
-            <div
-              className={`p-4 border-t flex items-center justify-between ${isDark ? "bg-[#202c33]/50 border-white/10" : "bg-gray-50 border-black/10"
-                }`}
+            <div className={`p-4 border-t flex items-center justify-between ${isDark ? "bg-[#202c33]/50 border-white/10" : "bg-gray-50 border-black/10"
+              }`}
             >
               <span className="text-xs opacity-75">
                 {selectedContacts.length} {selectedContacts.length === 1 ? "chat" : "chats"} selected

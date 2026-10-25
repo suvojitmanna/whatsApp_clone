@@ -10,7 +10,6 @@ import {
   MdClose,
   MdCall,
   MdVideocam,
-  MdBackspace,
 } from "react-icons/md";
 import { CallLaptopIllustration, BackspaceIcon } from "../../components/common/Icons";
 import NewCallLinkModal from "./NewCallLinkModal";
@@ -25,7 +24,6 @@ const CallPlaceholder = ({
   const navigate = useNavigate();
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
-
   const [showCallLinkModal, setShowCallLinkModal] = useState(false);
   const [showDialpad, setShowDialpad] = useState(false);
   const [dialedNumber, setDialedNumber] = useState("");
@@ -76,29 +74,24 @@ const CallPlaceholder = ({
   ];
 
   return (
-    <div
-      className={`h-full w-full flex flex-col items-center justify-between p-6 sm:p-8 select-none transition-colors duration-300 relative overflow-y-auto ${isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-[#f0f2f5] text-[#111b21]"
-        }`}
+    <div className={`h-full w-full flex flex-col items-center justify-between p-6 sm:p-8 select-none transition-colors duration-300 relative overflow-y-auto ${isDark ? "bg-[#111b21] text-[#e9edef]" : "bg-[#f0f2f5] text-[#111b21]"
+      }`}
     >
       <div className="my-auto flex flex-col items-center justify-center w-full max-w-lg">
-        <div
-          className={`w-full max-w-[440px] rounded-[28px] p-8 sm:px-10 sm:py-9 flex flex-col items-center text-center transition-all ${isDark
-              ? "bg-[#182229] border border-white/[0.05] shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
-              : "bg-white border border-gray-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
-            }`}
+        <div className={`w-full max-w-[440px] rounded-[28px] p-8 sm:px-10 sm:py-9 flex flex-col items-center text-center transition-all ${isDark
+          ? "bg-[#182229] border border-white/[0.05] shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
+          : "bg-white border border-gray-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
+          }`}
         >
           <CallLaptopIllustration />
 
-          <h2
-            className={`text-[22px] sm:text-[23px] font-semibold tracking-tight mt-6 mb-2.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
-              }`}
-          >
+          <h2 className={`text-[22px] sm:text-[23px] font-semibold tracking-tight mt-6 mb-2.5 ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+            }`}>
             Voice and video calling
           </h2>
 
-          <p
-            className={`text-[13.5px] sm:text-[14px] leading-relaxed max-w-[320px] ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
-              }`}
+          <p className={`text-[13.5px] sm:text-[14px] leading-relaxed max-w-[320px] ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+            }`}
           >
             Share your screen, react with emoji and more, with up to 32 people.
           </p>
@@ -128,8 +121,8 @@ const CallPlaceholder = ({
               type="button"
               onClick={() => setShowCallLinkModal(true)}
               className={`w-14 h-14 rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all duration-200 cursor-pointer ${isDark
-                  ? "bg-[#202c33] hover:bg-[#2a3942] text-[#e9edef] border border-white/[0.06]"
-                  : "bg-[#e9edef] hover:bg-[#dfe5e7] text-[#111b21] border border-gray-300/60"
+                ? "bg-[#202c33] hover:bg-[#2a3942] text-[#e9edef] border border-white/[0.06]"
+                : "bg-[#e9edef] hover:bg-[#dfe5e7] text-[#111b21] border border-gray-300/60"
                 }`}
               title="New call link"
               aria-label="New call link"
@@ -155,16 +148,15 @@ const CallPlaceholder = ({
                 }
               }}
               className={`w-14 h-14 rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all duration-200 cursor-pointer ${isDark
-                  ? "bg-[#202c33] hover:bg-[#2a3942] text-[#e9edef] border border-white/[0.06]"
-                  : "bg-[#e9edef] hover:bg-[#dfe5e7] text-[#111b21] border border-gray-300/60"
+                ? "bg-[#202c33] hover:bg-[#2a3942] text-[#e9edef] border border-white/[0.06]"
+                : "bg-[#e9edef] hover:bg-[#dfe5e7] text-[#111b21] border border-gray-300/60"
                 }`}
               title="Call a number or email"
               aria-label="Call a number or email"
             >
               <MdDialpad className="text-2xl" />
             </button>
-            <span
-              className={`text-xs font-medium mt-2.5 text-center ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+            <span className={`text-xs font-medium mt-2.5 text-center ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
                 }`}
             >
               Call a number or email
@@ -173,8 +165,7 @@ const CallPlaceholder = ({
         </div>
       </div>
 
-      <div
-        className={`flex items-center gap-2 text-xs select-none pt-4 pb-2 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
+      <div className={`flex items-center gap-2 text-xs select-none pt-4 pb-2 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
           }`}
       >
         <MdLockOutline className="text-sm opacity-80" />
@@ -196,14 +187,12 @@ const CallPlaceholder = ({
       />
 
       {showDialpad && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn"
           onClick={() => setShowDialpad(false)}
         >
-          <div
-            className={`w-full max-w-[360px] rounded-[24px] p-6 shadow-2xl border flex flex-col items-center ${isDark
-                ? "bg-[#202c33] border-[#313d45] text-[#e9edef]"
-                : "bg-white border-gray-200 text-[#111b21]"
+          <div className={`w-full max-w-[360px] rounded-[24px] p-6 shadow-2xl border flex flex-col items-center ${isDark
+            ? "bg-[#202c33] border-[#313d45] text-[#e9edef]"
+              : "bg-white border-gray-200 text-[#111b21]"
               }`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -228,8 +217,8 @@ const CallPlaceholder = ({
                 onChange={(e) => setDialedNumber(e.target.value)}
                 placeholder="Phone number"
                 className={`w-full px-4 py-3 rounded-2xl text-[16px] outline-none border-2 ${isDark
-                    ? "bg-[#161a1d] border-[#00c878] text-white placeholder-[#8696a0]"
-                    : "bg-[#f0f2f5] border-[#00a884] text-[#111b21] placeholder-[#54656f]"
+                  ? "bg-[#161a1d] border-[#00c878] text-white placeholder-[#8696a0]"
+                  : "bg-[#f0f2f5] border-[#00a884] text-[#111b21] placeholder-[#54656f]"
                   }`}
                 autoFocus
               />
@@ -248,8 +237,8 @@ const CallPlaceholder = ({
                       type="button"
                       onClick={handleBackspace}
                       className={`h-14 rounded-2xl flex items-center justify-center transition-all active:scale-95 cursor-pointer ${isDark
-                          ? "hover:bg-white/[0.06] text-[#e9edef]"
-                          : "hover:bg-black/[0.05] text-[#111b21]"
+                        ? "hover:bg-white/[0.06] text-[#e9edef]"
+                        : "hover:bg-black/[0.05] text-[#111b21]"
                         }`}
                     >
                       <BackspaceIcon size={24} className="w-6 h-6 stroke-current" />
@@ -264,8 +253,8 @@ const CallPlaceholder = ({
                       type="button"
                       onClick={() => handleDialDigit("+")}
                       className={`h-14 rounded-2xl flex items-center justify-center transition-all active:scale-95 cursor-pointer ${isDark
-                          ? "hover:bg-white/[0.06] text-[#e9edef]"
-                          : "hover:bg-black/[0.05] text-[#111b21]"
+                        ? "hover:bg-white/[0.06] text-[#e9edef]"
+                        : "hover:bg-black/[0.05] text-[#111b21]"
                         }`}
                     >
                       <span className="text-[24px] font-medium leading-none">+</span>
@@ -279,8 +268,8 @@ const CallPlaceholder = ({
                     type="button"
                     onClick={() => handleDialDigit(item.digit)}
                     className={`h-14 rounded-2xl flex flex-col items-center justify-center transition-all active:scale-95 cursor-pointer ${isDark
-                        ? "hover:bg-white/[0.06] text-[#e9edef]"
-                        : "hover:bg-black/[0.05] text-[#111b21]"
+                      ? "hover:bg-white/[0.06] text-[#e9edef]"
+                      : "hover:bg-black/[0.05] text-[#111b21]"
                       }`}
                   >
                     <span className="text-[22px] font-normal leading-none">

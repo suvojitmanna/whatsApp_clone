@@ -41,10 +41,7 @@ const WhatsAppSwitch = ({ checked, onChange, className = "" }) => (
       : "bg-transparent border-2 border-[#8696a0] justify-start"
       } ${className}`}
   >
-    <div
-      className={`w-4 h-4 rounded-full transition-transform ${checked ? "bg-[#111b21] mr-0.5" : "bg-[#8696a0] ml-0.5"
-        }`}
-    />
+    <div className={`w-4 h-4 rounded-full transition-transform ${checked ? "bg-[#111b21] mr-0.5" : "bg-[#8696a0] ml-0.5"}`} />
   </button>
 );
 
@@ -227,9 +224,7 @@ const NewGroupModal = ({ isOpen, onClose }) => {
         >
           {screen === 1 && (
             <div className="flex-1 flex flex-col h-full min-h-0 relative select-none">
-              <div
-                className={`flex items-center gap-4 px-5 py-4 shrink-0 border-b ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-[#008069] text-white border-transparent"
-                  }`}
+              <div className={`flex items-center gap-4 px-5 py-4 shrink-0 border-b ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-[#008069] text-white border-transparent"}`}
               >
                 <button
                   type="button"
@@ -245,10 +240,7 @@ const NewGroupModal = ({ isOpen, onClose }) => {
               </div>
 
               {selectedUserIds.length > 0 && (
-                <div
-                  className={`px-4 py-3 flex items-center gap-2.5 overflow-x-auto scrollbar-hide border-b shrink-0 flex-wrap max-h-32 ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-gray-50 border-gray-200"
-                    }`}
-                >
+                <div className={`px-4 py-3 flex items-center gap-2.5 overflow-x-auto scrollbar-hide border-b shrink-0 flex-wrap max-h-32 ${isDark ? "bg-[#111b21] border-[#222d34]" : "bg-gray-50 border-gray-200"}`}>
                   {selectedUserIds.map((id) => {
                     const u = candidateUsers.find((user) => user._id === id);
                     if (!u) return null;
@@ -288,12 +280,10 @@ const NewGroupModal = ({ isOpen, onClose }) => {
               )}
 
               <div className="px-4 py-2 border-b border-black/5 dark:border-white/5 shrink-0">
-                <div
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs ${isDark
-                    ? "bg-[#202c33] border-transparent text-[#e9edef]"
-                    : "bg-gray-100 border-transparent text-gray-800"
-                    }`}
-                >
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs ${isDark
+                  ? "bg-[#202c33] border-transparent text-[#e9edef]"
+                  : "bg-gray-100 border-transparent text-gray-800"
+                  }`}>
                   <FiSearch className="text-gray-400 shrink-0" size={15} />
                   <input
                     type="text"
@@ -688,8 +678,7 @@ const NewGroupModal = ({ isOpen, onClose }) => {
           )}
 
           {showDisappearingModal && (
-            <div
-              className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs select-none"
+            <div className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs select-none"
               onClick={() => setShowDisappearingModal(false)}
             >
               <motion.div

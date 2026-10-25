@@ -17,6 +17,7 @@ import FileViewerModal from "../../components/modals/FileViewerModal";
 import ForwardModal from "../../components/modals/ForwardModal";
 import PinDurationModal from "../../components/modals/PinDurationModal";
 import ReportModal from "../../components/modals/ReportModal";
+import ViewOnceRevealModal from "../../components/modals/ViewOnceRevealModal";
 import MessageMenu from "./MessageMenu";
 import axiosInstance from "../../services/url.services";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
@@ -51,6 +52,9 @@ import {
   MessageEventContent,
   MessageCallLinkContent,
   MessageCallHistoryContent,
+  MessageSplitBillContent,
+  MessageLocationContent,
+  MessageTimeCapsuleContent,
   MessageDeleteModal,
 } from "./messageBubble/index.js";
 
@@ -89,6 +93,7 @@ const MessageBuble = ({
   const [showOptions, setShowOptions] = useState(false);
   const [menuCoords, setMenuCoords] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
+  const [showViewOnceModal, setShowViewOnceModal] = useState(false);
 
   useEffect(() => {
     if (!deleteModal) return;
@@ -1260,6 +1265,8 @@ const MessageBuble = ({
           }`}
           ref={bubbleRef}
           data-bubble="true"
+          id={`msg-${message._id || message.id}`}
+          data-message-id={message._id || message.id}
           onContextMenu={isSelectMode ? undefined : handleContextMenu}
           onDoubleClick={(e) => {
             if (isSelectMode) return;
@@ -1363,7 +1370,104 @@ const MessageBuble = ({
               />
 
               <div className="flex flex-col gap-1">
-                {(message.contentType === "text" || !message.contentType) && !message.callData && (
+                {message.isViewOnce ? (
+                  (() => {
+                    const currentUserIdStr = (
+                      effectiveUser?._id ||
+                      effectiveUser?.id ||
+                      currentUser?._id ||
+                      currentUser?.id ||
+                      useUserStore.getState()?.user?._id ||
+                      useUserStore.getState()?.user?.id
+                    )?.toString();
+
+                    const isOpened = Boolean(
+                      (Array.isArray(message.viewOnceOpenedBy) &&
+                        message.viewOnceOpenedBy.some(
+                          (id) => (id?._id || id?.id || id)?.toString() === currentUserIdStr
+                        )) ||
+                        (isUserMessage && Array.isArray(message.viewOnceOpenedBy) && message.viewOnceOpenedBy.length > 0)
+                    );
+
+                    if (isOpened) {
+                      return (
+                        <div className="flex items-center gap-2.5 py-1 px-1.5 select-none opacity-60 min-w-[130px]">
+                          <div className="relative flex items-center justify-center w-7 h-7 rounded-full border border-dashed border-gray-400 text-xs font-bold text-gray-400">
+                            1
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[13.5px] font-medium italic">Opened</span>
+                            <span className="text-[10px] opacity-75">View once expired</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (isUserMessage) {
+                      return (
+                        <div className="flex items-center gap-2.5 py-1 px-1.5 select-none min-w-[160px]">
+                          <div className="relative flex items-center justify-center w-7 h-7 rounded-full border-2 border-emerald-500 text-xs font-bold text-emerald-500">
+                            1
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[13.5px] font-semibold text-emerald-600 dark:text-emerald-400">
+                              {message.contentType === "image"
+                                ? "1 View Once Photo"
+                                : message.contentType === "video"
+                                ? "1 View Once Video"
+                                : message.contentType === "audio"
+                                ? "1 View Once Audio"
+                                : "1 View Once Message"}
+                            </span>
+                            <span className="text-[10.5px] opacity-70">
+                              Waiting for recipient to open
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isOpened) {
+                              setShowViewOnceModal(true);
+                            }
+                          }}
+                          className="flex items-center gap-3 py-1.5 px-2 rounded-xl text-left transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.98] cursor-pointer group min-w-[170px]"
+                        >
+                          <div className="relative flex items-center justify-center w-8 h-8 rounded-full border-2 border-emerald-500 bg-emerald-500/10 text-emerald-500 text-sm font-bold shadow-sm group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                            1
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[13.5px] font-bold text-emerald-600 dark:text-emerald-400 group-hover:underline">
+                              {message.contentType === "image"
+                                ? "View Once Photo"
+                                : message.contentType === "video"
+                                ? "View Once Video"
+                                : message.contentType === "audio"
+                                ? "View Once Audio"
+                                : "View Once Message"}
+                            </span>
+                            <span className="text-[10.5px] text-gray-500 dark:text-gray-400">
+                              Tap to view • Disappears in 5s
+                            </span>
+                          </div>
+                        </button>
+
+                        <ViewOnceRevealModal
+                          isOpen={showViewOnceModal}
+                          onClose={() => setShowViewOnceModal(false)}
+                          message={message}
+                        />
+                      </>
+                    );
+                  })()
+                ) : (
+                  <>
+                    {(message.contentType === "text" || !message.contentType) && !message.callData && (
                   <>
                     {isEditing ? (
                       <div
@@ -1864,6 +1968,93 @@ const MessageBuble = ({
                   />
                 )}
 
+                {(message.contentType === "split_bill" ||
+                  Boolean(message.splitBillData)) && (
+                  <MessageSplitBillContent
+                    message={message}
+                    isUserMessage={isUserMessage}
+                    effectiveUser={effectiveUser}
+                    isDark={isDark}
+                    renderTimestampAndStatus={(isOverlay) => (
+                      <MessageTimestampAndStatus
+                        message={message}
+                        isUserMessage={isUserMessage}
+                        isGroupChat={isGroupChat}
+                        activeContact={activeContact}
+                        conversationObj={conversationObj}
+                        currentUserId={currentUserId}
+                        isPinned={isPinned}
+                        disappearingDuration={disappearingDuration}
+                        onOpenDisappearing={onOpenDisappearing}
+                        isStarred={isStarred}
+                        isOverlay={isOverlay}
+                        isSelectMode={isSelectMode}
+                        showOptions={showOptions}
+                        handleToggleOptions={handleToggleOptions}
+                        isDark={isDark}
+                      />
+                    )}
+                  />
+                )}
+
+                {(message.contentType === "location" ||
+                  Boolean(message.locationData)) && (
+                  <MessageLocationContent
+                    message={message}
+                    isUserMessage={isUserMessage}
+                    effectiveUser={effectiveUser}
+                    isDark={isDark}
+                    renderTimestampAndStatus={(isOverlay) => (
+                      <MessageTimestampAndStatus
+                        message={message}
+                        isUserMessage={isUserMessage}
+                        isGroupChat={isGroupChat}
+                        activeContact={activeContact}
+                        conversationObj={conversationObj}
+                        currentUserId={currentUserId}
+                        isPinned={isPinned}
+                        disappearingDuration={disappearingDuration}
+                        onOpenDisappearing={onOpenDisappearing}
+                        isStarred={isStarred}
+                        isOverlay={isOverlay}
+                        isSelectMode={isSelectMode}
+                        showOptions={showOptions}
+                        handleToggleOptions={handleToggleOptions}
+                        isDark={isDark}
+                      />
+                    )}
+                  />
+                )}
+
+                {(message.isTimeCapsule ||
+                  message.contentType === "time_capsule") && (
+                  <MessageTimeCapsuleContent
+                    message={message}
+                    isUserMessage={isUserMessage}
+                    effectiveUser={effectiveUser}
+                    isDark={isDark}
+                    renderTimestampAndStatus={(isOverlay) => (
+                      <MessageTimestampAndStatus
+                        message={message}
+                        isUserMessage={isUserMessage}
+                        isGroupChat={isGroupChat}
+                        activeContact={activeContact}
+                        conversationObj={conversationObj}
+                        currentUserId={currentUserId}
+                        isPinned={isPinned}
+                        disappearingDuration={disappearingDuration}
+                        onOpenDisappearing={onOpenDisappearing}
+                        isStarred={isStarred}
+                        isOverlay={isOverlay}
+                        isSelectMode={isSelectMode}
+                        showOptions={showOptions}
+                        handleToggleOptions={handleToggleOptions}
+                        isDark={isDark}
+                      />
+                    )}
+                  />
+                )}
+
                 {isUserMessage && (message.isScheduled || message.messageStatus === "scheduled") && (
                   <div className="mt-2 pt-1.5 border-t border-amber-500/25 flex flex-wrap items-center justify-between gap-1.5 text-[11px] select-none">
                     <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
@@ -1924,6 +2115,8 @@ const MessageBuble = ({
                       </button>
                     </div>
                   </div>
+                )}
+                  </>
                 )}
               </div>
             </div>

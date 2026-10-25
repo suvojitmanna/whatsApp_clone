@@ -11,7 +11,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 export const META_AI_USER_ID = "66f000000000000000000001";
 export const META_AI_AVATAR = "https://cdn.simpleicons.org/meta/0081FB";
 
-export const SYSTEM_PROMPT = `You are Meta AI, the intelligent virtual assistant on WhatsApp built by Meta using Llama 3 technology.
+export const SYSTEM_PROMPT = `You are Meta AI, the intelligent virtual assistant on WhatsApp built by Meta.
 Your personality is helpful, friendly, natural, concise, and thoughtful.
 
 Formatting rules for WhatsApp:
@@ -24,7 +24,7 @@ Formatting rules for WhatsApp:
 3. If real-time search context is provided, ground your response accurately on the retrieved facts and include clickable sources at the bottom:
    🌐 *Sources:*
    • [Source Title](URL)
-4. If asked who you are or what model you use, state that you are Meta AI on WhatsApp, powered by Meta's Llama 3 architecture.`;
+4. If asked who you are or what model you use, state that you are Meta AI on WhatsApp, powered by Meta's architecture.`;
 
 export function getSystemPromptWithTime() {
   const now = new Date();
@@ -46,19 +46,13 @@ When the user asks for the current time, today's date, or day of the week, answe
 export const AI_CONFIG = {
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || "",
-    model:
-      process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes("3.8")
-        ? process.env.GEMINI_MODEL
-        : "gemini-1.5-flash",
+    model: process.env.GEMINI_MODEL || "gemini-flash-lite-latest",
     timeoutMs: 12000,
   },
   groq: {
     apiKey: process.env.GROQ_API_KEY || "",
-    model:
-      process.env.GROQ_MODEL && !process.env.GROQ_MODEL.includes("qwen")
-        ? process.env.GROQ_MODEL
-        : "llama-3.3-70b-versatile",
-    fastModel: "llama-3.1-8b-instant",
+    model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+    fastModel: process.env.GROQ_FAST_MODEL || "openai/gpt-oss-20b",
     timeoutMs: 10000,
   },
   openai: {

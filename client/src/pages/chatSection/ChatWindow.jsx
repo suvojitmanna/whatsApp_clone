@@ -23,6 +23,7 @@ import ChatSummaryModal from "../../components/modals/ChatSummaryModal.jsx";
 import TranslateModal from "../../components/modals/TranslateModal.jsx";
 import ExportChatModal from "../../components/modals/ExportChatModal.jsx";
 import RescheduleModal from "../../components/modals/RescheduleModal.jsx";
+import RemindMeModal from "../../components/modals/RemindMeModal.jsx";
 import {
   ChatWindowEmpty,
   PinnedBanner,
@@ -58,6 +59,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [editingEventMessage, setEditingEventMessage] = useState(null);
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [showCallLinkModal, setShowCallLinkModal] = useState(false);
+  const [showSplitBillModal, setShowSplitBillModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showTimeCapsuleModal, setShowTimeCapsuleModal] = useState(false);
+  const [showChatWrappedModal, setShowChatWrappedModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
@@ -91,6 +96,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     text: "",
     messageId: null,
   });
+  const [remindModalData, setRemindModalData] = useState(null);
   const [rescheduleModalState, setRescheduleModalState] = useState({
     isOpen: false,
     message: null,
@@ -343,16 +349,37 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         });
       }
     };
+    const handleOpenRemind = (e) => {
+      if (e.detail?.message) {
+        setRemindModalData(e.detail);
+      }
+    };
+    const handleJumpToMsg = (e) => {
+      const msgId = e.detail?.messageId;
+      if (!msgId) return;
+      const el = document.getElementById(`msg-${msgId}`) || document.querySelector(`[data-message-id="${msgId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-4", "ring-amber-400", "rounded-2xl", "transition-all", "duration-500");
+        setTimeout(() => {
+          el.classList.remove("ring-4", "ring-amber-400");
+        }, 3000);
+      }
+    };
 
     window.addEventListener("open_translate_modal", handleOpenTranslate);
     window.addEventListener("open_export_modal", handleOpenExport);
     window.addEventListener("open_reschedule_modal", handleOpenReschedule);
+    window.addEventListener("open_remind_me_modal", handleOpenRemind);
+    window.addEventListener("jump_to_message", handleJumpToMsg);
 
     return () => {
       window.removeEventListener("meta_ai_prefill", handlePrefill);
       window.removeEventListener("open_translate_modal", handleOpenTranslate);
       window.removeEventListener("open_export_modal", handleOpenExport);
       window.removeEventListener("open_reschedule_modal", handleOpenReschedule);
+      window.removeEventListener("open_remind_me_modal", handleOpenRemind);
+      window.removeEventListener("jump_to_message", handleJumpToMsg);
     };
   }, []);
 
@@ -1709,11 +1736,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             formData.append("scheduledFor", extraOptions.scheduledFor);
           }
 
+          if (extraOptions?.isViewOnce) {
+            formData.append("isViewOnce", "true");
+          }
+
           if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
             const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
             formData.append("metaAiPersona", currentPersona);
           }
           await sendMessage(formData);
+          if (extraOptions?.isViewOnce) {
+            toast.success("1 View-once media sent!");
+          }
         }
       } else if (trimmedMessage) {
         const formData = new FormData();
@@ -1736,11 +1770,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           formData.append("isScheduled", "true");
           formData.append("scheduledFor", extraOptions.scheduledFor);
         }
+        if (extraOptions?.isViewOnce) {
+          formData.append("isViewOnce", "true");
+        }
         if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
           const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
           formData.append("metaAiPersona", currentPersona);
         }
         await sendMessage(formData);
+        if (extraOptions?.isViewOnce) {
+          toast.success("1 View-once message sent!");
+        }
         if (extraOptions?.scheduledFor) {
           toast.success("⏰ Message scheduled successfully!");
         }
@@ -1924,6 +1964,89 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
       setShowStickerModal(false);
     } catch (error) {
       console.error("Failed to send sticker", error);
+    }
+  };
+
+  const handleSendSplitBill = async (billData) => {
+    if (!selectedContact || !billData.title || !billData.totalAmount) return;
+    try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
+      formData.append("messageStatus", "send");
+      formData.append("contentType", "split_bill");
+      formData.append(
+        "content",
+        `Split Bill: ${billData.title} (${billData.currency || "₹"}${billData.totalAmount})`
+      );
+      formData.append("splitBillData", JSON.stringify(billData));
+
+      await sendMessage(formData);
+      setShowSplitBillModal(false);
+    } catch (error) {
+      console.error("Failed to send split bill", error);
+      toast.error("Failed to send split bill");
+    }
+  };
+
+  const handleSendLocation = async (locData) => {
+    if (!selectedContact || locData.latitude === undefined || locData.longitude === undefined) return;
+    try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
+      formData.append("messageStatus", "send");
+      formData.append("contentType", "location");
+      formData.append("content", `Location: ${locData.name || "Live Location"}`);
+      formData.append("locationData", JSON.stringify(locData));
+
+      await sendMessage(formData);
+      setShowLocationModal(false);
+    } catch (error) {
+      console.error("Failed to send location", error);
+      toast.error("Failed to send location");
+    }
+  };
+
+  const handleSendTimeCapsule = async ({ content, hint, unlockAt }) => {
+    if (!selectedContact || !content) return;
+    try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
+      formData.append("messageStatus", "send");
+      formData.append("contentType", "time_capsule");
+      formData.append("content", content);
+      formData.append("isTimeCapsule", "true");
+      formData.append("timeCapsuleUnlockAt", unlockAt);
+      formData.append("timeCapsuleHint", hint || "");
+
+      await sendMessage(formData);
+      setShowTimeCapsuleModal(false);
+    } catch (error) {
+      console.error("Failed to send time capsule", error);
+      toast.error("Failed to send time capsule");
     }
   };
 
@@ -2255,6 +2378,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           setShowHeaderMenu={setShowHeaderMenu}
           onCloseChat={handleCloseChatWindow}
           handleOpenSummarize={handleOpenSummarize}
+          handleOpenChatWrapped={() => setShowChatWrappedModal(true)}
         />
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -2622,6 +2746,11 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               setShowEventModal={setShowEventModal}
               setShowStickerModal={setShowStickerModal}
               setShowCallLinkModal={setShowCallLinkModal}
+              setShowSplitBillModal={setShowSplitBillModal}
+              setShowLocationModal={setShowLocationModal}
+              setShowTimeCapsuleModal={setShowTimeCapsuleModal}
+              lastMessage={messages && messages.length > 0 ? messages[messages.length - 1] : null}
+              currentUserId={user?._id}
               showEmojiPicker={showEmojiPicker}
               setShowEmojiPicker={setShowEmojiPicker}
               emojiPickerRef={emojiPickerRef}
@@ -2710,6 +2839,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         showDeleteConfirm={showDeleteConfirm}
         setShowDeleteConfirm={setShowDeleteConfirm}
         handleExecuteDeleteChat={handleExecuteDeleteChat}
+        showSplitBillModal={showSplitBillModal}
+        setShowSplitBillModal={setShowSplitBillModal}
+        handleSendSplitBill={handleSendSplitBill}
+        showLocationModal={showLocationModal}
+        setShowLocationModal={setShowLocationModal}
+        handleSendLocation={handleSendLocation}
+        showTimeCapsuleModal={showTimeCapsuleModal}
+        setShowTimeCapsuleModal={setShowTimeCapsuleModal}
+        handleSendTimeCapsule={handleSendTimeCapsule}
+        showChatWrappedModal={showChatWrappedModal}
+        setShowChatWrappedModal={setShowChatWrappedModal}
+        handleOpenSummarize={handleOpenSummarize}
       />
 
       <ChatSummaryModal
@@ -2754,6 +2895,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           (selectedContact?.isAI ? "Meta AI" : "Chat")
         }
         theme={theme}
+      />
+
+      <RemindMeModal
+        isOpen={Boolean(remindModalData)}
+        onClose={() => setRemindModalData(null)}
+        message={remindModalData?.message}
+        contactName={remindModalData?.senderDisplayName || selectedContact?.username}
+        conversationId={remindModalData?.conversationId || currentConversation?._id}
       />
     </>
   );

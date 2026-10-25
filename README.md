@@ -42,6 +42,13 @@ A production-grade, highly scalable real-time communication platform inspired by
 * 📞 **HD Voice & Video Calling**: WebRTC-powered 1-on-1 and group calls with shareable meeting links and call controls.
 * 📸 **Status (Stories)**: 24-hour disappearing photo, video, and text status updates with viewers analytics.
 * ⏰ **Scheduled Messages ("Send Later")**: Schedule messages for any future date/time with automatic background dispatching.
+* ⏰ **In-Chat Message Reminders & Snooze**: Set smart reminder alarms on any message with 1-click presets (10m, 1h, tonight, tomorrow, custom), audio chime notifications, and 1-click jump-to-message.
+* 👁️ **View-Once Confidential Messages & Media**: Send self-destructing text messages (passwords/secrets) and media with an animated 5-second countdown timer, screenshot/copy protection, and permanent "Opened" status.
+* ⚡ **AI Contextual "Smart Replies"**: Predictive one-tap reply chips hovering over the input bar with LLM analysis and direct auto-send or inline edit.
+* 🧾 **In-Chat Interactive "Split Bill"**: Split dining/group expenses with currencies (`₹`, `$`, `€`, `£`), equal/custom shares, live progress bar, and 1-click payment settlement toggles.
+* 📍 **Interactive Live Location Sharing**: Send current GPS location or places with an embedded OpenStreetMap mini-card, pulsing radar pin, and 1-tap Google Maps directions.
+* ⏳ **"Time Capsule" Future-Locked Messages**: Send secret/surprise messages locked behind an animated glowing cyber-padlock and countdown timer until an exact future date/time or preset (1h, 24h, 7d, New Year). Includes custom teaser hints and automatic reveal.
+* 📊 **Spotify-Style AI "Chat Wrapped" & Analytics**: Interactive multi-slide story modal analyzing total message volume, peak talking hours, 24h rhythm charts, top 6 emojis leaderboard, active chat streaks, and an AI Persona Vibe Certificate ready to share.
 * 📊 **Interactive In-Chat Cards**: Real-time multi-choice Polls and Event invitations with live RSVP tracking.
 
 <p align="center">
@@ -322,6 +329,10 @@ npm run dev
 | `POST` | `/api/chat/messages` | Send message (Text, Media, Audio, Scheduled) |
 | `GET` | `/api/chat/messages/:id` | Fetch conversation messages |
 | `POST` | `/api/chat/messages/react` | Add or update emoji reaction |
+| `POST` | `/api/chat/messages/:id/view-once-open` | Securely mark & lock view-once message |
+| `POST` | `/api/chat/messages/:id/split-bill/toggle` | Settle or toggle split bill participant payment |
+| `GET` | `/api/chat/conversation/:id/analytics` | Fetch Spotify-style Chat Wrapped conversation metrics |
+| `POST` | `/api/chat/smart-replies` | Generate AI contextual quick response chips |
 | `POST` | `/api/chat/ai/rewrite` | AI Magic message rewrite |
 | `POST` | `/api/status` | Create new 24h status story |
 | `GET` | `/api/status` | Fetch contacts status stories |
@@ -337,6 +348,8 @@ npm run dev
 | `receive_message` | Server ➔ Client | Receive new incoming message |
 | `typing` / `stop_typing` | Both | Trigger real-time typing state indicator |
 | `message_read` | Client ➔ Server | Send blue-tick read receipts |
+| `view_once_opened` | Server ➔ Client | Live sync view-once message consumption & burn |
+| `split_bill_updated` | Server ➔ Client | Live sync split bill payment toggle & settlement |
 | `call_user` | Client ➔ Server | Initiate WebRTC audio/video call |
 | `incoming_call` | Server ➔ Client | Prompt callee with call modal & ringtone |
 | `accept_call` / `end_call` | Both | WebRTC session acceptance & termination |

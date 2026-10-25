@@ -59,6 +59,9 @@ const messageSchema = new mongoose.Schema(
         "call_link",
         "ai_image",
         "system",
+        "split_bill",
+        "location",
+        "time_capsule",
       ],
       default: "text",
     },
@@ -156,6 +159,26 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
+    splitBillData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    locationData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    isTimeCapsule: {
+      type: Boolean,
+      default: false,
+    },
+    timeCapsuleUnlockAt: {
+      type: Date,
+      default: null,
+    },
+    timeCapsuleHint: {
+      type: String,
+      default: "",
+    },
     edited: {
       type: Boolean,
       default: false,
@@ -243,6 +266,16 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isViewOnce: {
+      type: Boolean,
+      default: false,
+    },
+    viewOnceOpenedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true },
 );

@@ -29,7 +29,7 @@ export default function TranslateModal({
   theme = "dark",
   onSendAsReply,
 }) {
-  const [targetLang, setTargetLang] = useState("Hindi (हिंदी)");
+  const [targetLang, setTargetLang] = useState("");
   const [translation, setTranslation] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);

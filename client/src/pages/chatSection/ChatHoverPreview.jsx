@@ -12,6 +12,9 @@ import {
   MdEventNote,
   MdOutlineCall,
   MdOutlineVideocam,
+  MdReceiptLong,
+  MdLocationOn,
+  MdHourglassBottom,
 } from "react-icons/md";
 import { ProhibitedIcon } from "../../components/common/Icons";
 
@@ -230,6 +233,30 @@ export const ChatHoverPreview = ({
         lastMsg.content.startsWith("Contact:")))
   );
 
+  const isSplitBill = Boolean(
+    !isPoll &&
+    (lastMsg?.contentType === "split_bill" ||
+      Boolean(lastMsg?.splitBillData) ||
+      (typeof lastMsg?.content === "string" &&
+        lastMsg.content.startsWith("Split Bill:")))
+  );
+
+  const isLocation = Boolean(
+    !isPoll &&
+    (lastMsg?.contentType === "location" ||
+      Boolean(lastMsg?.locationData) ||
+      (typeof lastMsg?.content === "string" &&
+        lastMsg.content.startsWith("Location:")))
+  );
+
+  const isTimeCapsule = Boolean(
+    !isPoll &&
+    (lastMsg?.contentType === "time_capsule" ||
+      Boolean(lastMsg?.isTimeCapsule) ||
+      (typeof lastMsg?.content === "string" &&
+        lastMsg.content.startsWith("Time Capsule:")))
+  );
+
   const isCall = Boolean(
     !isPoll &&
     (lastMsg?.contentType === "call" ||
@@ -286,6 +313,17 @@ export const ChatHoverPreview = ({
                   ? "You deleted this message"
                   : "This message was deleted"}
               </span>
+            </div>
+          );
+        }
+
+        if (lastMsg?.isViewOnce) {
+          return (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center justify-center w-5 h-5 rounded-full border border-emerald-400 text-[11px] font-bold text-emerald-400 shrink-0">
+                1
+              </span>
+              <span className="font-semibold text-emerald-400">View once message</span>
             </div>
           );
         }
@@ -505,6 +543,68 @@ export const ChatHoverPreview = ({
                   📍 {eventData.location}
                 </div>
               )}
+            </div>
+          );
+        }
+
+        if (isSplitBill) {
+          let bill = lastMsg?.splitBillData;
+          if (typeof bill === "string") {
+            try { bill = JSON.parse(bill); } catch {}
+          }
+          const title = bill?.title || "Split Bill";
+          const amount = bill?.totalAmount ? `${bill.currency || "₹"}${bill.totalAmount}` : "";
+          const isSettled = bill?.isSettled;
+
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-medium text-cyan-400">
+                <MdReceiptLong size={16} />
+                <span>Split Bill: {title} {amount && `(${amount})`}</span>
+              </div>
+              <div className="text-xs opacity-75">
+                {isSettled ? "🎉 All Settled" : "⏳ Active Expense"}
+              </div>
+            </div>
+          );
+        }
+
+        if (isLocation) {
+          let loc = lastMsg?.locationData;
+          if (typeof loc === "string") {
+            try { loc = JSON.parse(loc); } catch {}
+          }
+          const locName = loc?.name || "Live Location";
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-medium text-red-400">
+                <MdLocationOn size={16} />
+                <span>Location: {locName}</span>
+              </div>
+              {loc?.address && (
+                <div className="text-xs opacity-75 line-clamp-2">
+                  {loc.address}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (isTimeCapsule) {
+          const hint = lastMsg?.timeCapsuleHint || "Confidential Surprise";
+          const isUnlocked =
+            lastMsg?.timeCapsuleUnlockAt &&
+            new Date(lastMsg.timeCapsuleUnlockAt).getTime() <= Date.now();
+
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-medium text-amber-400">
+                <MdHourglassBottom size={16} />
+                <span>Time Capsule: {hint}</span>
+              </div>
+              <div className="text-xs opacity-75">
+                {isUnlocked ? "🔓 Unlocked" : "⏳ Currently Locked"}
+              </div>
             </div>
           );
         }
