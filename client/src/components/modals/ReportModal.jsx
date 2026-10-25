@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -8,6 +9,7 @@ const ReportModal = ({
   onReport,
   theme = "dark",
 }) => {
+  const navigate = useNavigate();
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -69,11 +71,8 @@ const ReportModal = ({
             <span
               onClick={(e) => {
                 e.stopPropagation();
-                window.open(
-                  "https://faq.whatsapp.com/594991778257077",
-                  "_blank",
-                  "noopener,noreferrer"
-                );
+                onClose?.();
+                navigate("/help?topic=privacy-lock");
               }}
               className="text-[#00a884] hover:underline cursor-pointer font-normal inline"
             >

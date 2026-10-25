@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
 import { DisappearingMessagesIllustration } from "../common/Icons";
@@ -13,6 +14,7 @@ const ContactInfoDisappearingTab = ({
   setDefaultMessageTimer,
   theme,
 }) => {
+  const navigate = useNavigate();
   const isDark = theme === "dark";
   const disappearingDuration = (chatId && disappearingDurations?.[chatId]) || "Off";
 
@@ -61,12 +63,7 @@ const ContactInfoDisappearingTab = ({
             from this chat for everyone after the selected duration, except
             when kept. Anyone in the chat can change this setting.{" "}
             <span
-              onClick={() =>
-                toast.info(
-                  "Disappearing messages can be kept or starred depending on chat permissions.",
-                  { autoClose: 3000 }
-                )
-              }
+              onClick={() => navigate("/help?topic=privacy-lock")}
               className="text-[#00a884] hover:underline cursor-pointer font-medium"
             >
               Learn more
@@ -191,12 +188,7 @@ const ContactInfoDisappearingTab = ({
         <div>
           <button
             type="button"
-            onClick={() =>
-              toast.info(
-                "New individual chats will automatically use this timer.",
-                { autoClose: 3000 }
-              )
-            }
+            onClick={() => navigate("/help?topic=privacy-lock")}
             className="text-[13px] text-[#00a884] hover:underline font-medium cursor-pointer"
           >
             Learn more

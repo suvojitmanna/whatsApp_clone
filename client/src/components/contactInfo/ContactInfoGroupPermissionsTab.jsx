@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FiEdit2, FiUserPlus, FiLink } from "react-icons/fi";
 import { MdOutlineChat, MdHistory, MdChevronRight } from "react-icons/md";
@@ -15,6 +16,7 @@ const ContactInfoGroupPermissionsTab = ({
   setContactInfoTab,
   adminDisplayNames,
 }) => {
+  const navigate = useNavigate();
   return (
     <motion.div
       key="tab-group-permissions"
@@ -126,7 +128,10 @@ const ContactInfoGroupPermissionsTab = ({
               </h5>
               <p className="text-[12px] opacity-60 leading-relaxed mt-0.5">
                 When turned on, admins must approve anyone who wants to join this group.{" "}
-                <span className="text-[#00a884] font-medium hover:underline cursor-pointer">
+                <span
+                  onClick={() => navigate("/help?topic=get-started")}
+                  className="text-[#00a884] font-medium hover:underline cursor-pointer"
+                >
                   Learn more
                 </span>
               </p>

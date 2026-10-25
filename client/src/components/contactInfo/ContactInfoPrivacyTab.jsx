@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
 import { FaLock, FaPhone, FaCamera, FaMapMarkerAlt, FaCircle } from "react-icons/fa";
@@ -16,6 +17,7 @@ const ContactInfoPrivacyTab = ({
   chatId,
   theme,
 }) => {
+  const navigate = useNavigate();
   const isDark = theme === "dark";
 
   const [advancedPrivacy, setAdvancedPrivacy] = useState({
@@ -241,7 +243,7 @@ const ContactInfoPrivacyTab = ({
           Your personal messages are protected with end-to-end encryption even if you don&apos;t turn on advanced chat privacy. No one outside of the chat, not even WhatsApp or Meta, can read, listen to, or share them.{" "}
           <button
             type="button"
-            onClick={() => setContactInfoTab("privacy")}
+            onClick={() => navigate("/help?topic=privacy-lock")}
             className="text-[#00a884] hover:text-[#06cf9c] hover:underline font-semibold inline cursor-pointer"
           >
             Learn more

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { RxCross2 } from "react-icons/rx";
 import {
@@ -48,6 +49,7 @@ const WhatsAppSwitch = ({ checked, onChange, className = "" }) => (
 );
 
 const NewGroupModal = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
   const { user: currentUser } = useUserStore();
@@ -657,7 +659,13 @@ const NewGroupModal = ({ isOpen, onClose }) => {
                         <p className="text-xs opacity-60 leading-relaxed mt-0.5">
                           When turned on, admins must approve anyone who wants to join
                           this group.{" "}
-                          <span className="text-[#00a884] font-medium hover:underline cursor-pointer">
+                          <span
+                            onClick={() => {
+                              onClose?.();
+                              navigate("/help?topic=get-started");
+                            }}
+                            className="text-[#00a884] font-medium hover:underline cursor-pointer"
+                          >
                             Learn more
                           </span>
                         </p>

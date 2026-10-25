@@ -60,7 +60,7 @@ const sideBar = () => {
 
   useEffect(() => {
     const path = location.pathname.split("/")[1] || "chats";
-    setActiveTab(path === "user-profile" ? "profile" : path);
+    setActiveTab(path === "user-profile" ? "profile" : (path === "help" ? "setting" : path));
   }, [location, setActiveTab]);
 
   const isChatRoute = location.pathname === "/";

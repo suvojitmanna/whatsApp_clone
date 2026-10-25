@@ -298,6 +298,12 @@ export const useChatStore = create((set, get) => ({
     const strId = String(chatId);
     return (get().lockedChatIds || []).includes(strId);
   },
+  unlockAllChats: () => {
+    try {
+      localStorage.removeItem("whatsapp_locked_chats");
+    } catch (e) {}
+    set({ lockedChatIds: [] });
+  },
   liveTranslateEnabled: false,
   liveTranslateLang: "en",
   setLiveTranslate: (enabled, lang) => {
