@@ -1,300 +1,491 @@
-# 💬 WhatsApp Web Clone (Full Stack MERN + Real-time Socket.IO + Meta AI)
+# 💬 WhatsApp Clone (MERN + Socket.IO + Meta AI)
 
-<div align="center">
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:25D366,100:075E54&height=220&section=header&text=WhatsApp%20Clone&fontSize=45&fontColor=ffffff&animation=fadeIn&desc=Real-time%20Chat%20%7C%20WebRTC%20Calls%20%7C%20Meta%20AI%20Assistant&descAlignY=75" alt="WhatsApp Clone Header" />
+</p>
 
-![WhatsApp Web Banner](https://img.shields.io/badge/WhatsApp_Web-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)
-![React 19](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Vite 8](https://img.shields.io/badge/Vite_8-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
-![Express 5](https://img.shields.io/badge/Express_5-000000?style=for-the-badge&logo=express&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
-![Socket.IO](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socketdotio&logoColor=white)
-![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS_v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-
-**A modern, production-ready WhatsApp Web application built with the MERN stack, WebSockets, WebRTC calling, Meta AI intelligence, Groq Whisper transcription, Secret Locked Chats, and interactive Help Center.**
-
-[Features](#-key-features) • [Tech Stack](#-tech-stack) • [Architecture](#-architecture) • [Getting Started](#-getting-started) • [Environment Setup](#-environment-variables) • [API & Sockets](#-api--socketio-events)
-
-</div>
+<p align="center">
+  <img src="https://readme-typing-svg.herokuapp.com?color=00FFAA&size=24&center=true&vCenter=true&width=850&lines=Real-time+Messaging+with+Socket.IO;WebRTC+HD+Voice+%26+Video+Calling;Meta+AI+Assistant+%26+Smart+Rewrite;Groq+Whisper+Voice+Transcription;Secret+PIN-Locked+Chats+%26+Touch+ID;Full-Stack+MERN+Architecture" alt="Typing SVG" />
+</p>
 
 ---
 
-## 🌟 Overview
+## 🏆 Badges
 
-This project is a high-fidelity replica and modern extension of **WhatsApp Web (2026 Edition)**. It provides end-to-end real-time communication with peer-to-peer audio/video calling, rich status updates, disappearing messages, secret PIN-protected chat locks, and next-generation **Meta AI** capabilities including text rewriting, image generation, voice transcription, live translation, and message scheduling.
-
----
-
-## 🚀 Key Features
-
-### 💬 Real-Time Messaging & Chat Experience
-* **Instant Peer & Group Messaging**: Powered by Socket.IO with instant message delivery, real-time typing indicators, active presence, and read receipts (`Sent` ➔ `Delivered` ➔ `Read` double blue ticks).
-* **Scheduled Messages ("Send Later")**: Schedule messages for any future date and time. Backend cron automatically dispatches them when due.
-* **Message Reactions & Details**: React with any emoji, inspect individual reaction breakdowns per participant, and unreact seamlessly.
-* **Pin Messages with Duration**: Pin critical messages to the top of any chat with custom durations (24 hours, 7 days, or 30 days).
-* **Quotes & Thread Replies**: Reply to specific messages with preview context, jump-to-quote scrolling, and highlighted animations.
-* **Disappearing Messages**: Set self-destructing conversation timers (24h, 7d, 90d) for ephemeral conversations.
-* **Search & Filters**: Instant full-text search across contacts, chat histories, unread messages, and media.
+<p align="center">
+  <img src="https://img.shields.io/badge/MERN-Stack-4CAF50?style=for-the-badge&logo=react&logoColor=white" alt="MERN Stack" />
+  <img src="https://img.shields.io/badge/Realtime-Socket.IO-010101?style=for-the-badge&logo=socketdotio&logoColor=white" alt="Socket.IO" />
+  <img src="https://img.shields.io/badge/WebRTC-Audio%20%26%20Video-333333?style=for-the-badge&logo=webrtc&logoColor=white" alt="WebRTC" />
+  <img src="https://img.shields.io/badge/AI-Meta%20AI%20%26%20Groq-blueviolet?style=for-the-badge&logo=openai&logoColor=white" alt="Meta AI & Groq" />
+  <img src="https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel" />
+  <img src="https://img.shields.io/badge/Status-Production-success?style=for-the-badge" alt="Status" />
+</p>
 
 ---
 
-### 🤖 Built-in Meta AI & Smart Assistant
-* **Direct Meta AI Chat**: Integrated conversational assistant powered by Google Gemini and Groq LLMs.
-* **AI Image Generation (`/imagine`)**: Generate high-resolution visuals directly inside chat using `/imagine <prompt>`.
-* **🪄 AI Magic Rewrite**: Select any drafted message in the input bar and polish it with one tap:
-  * 💼 **Professional**: Formal and business-ready tone.
-  * 🤝 **Friendly**: Warm, conversational, and welcoming.
-  * ⚡ **Concise**: Clear, brief, and punchy.
-  * ✍️ **Fix Grammar**: Clean syntax and spelling fixes.
-* **🎙️ Voice Note Auto-Transcription**: Transcribe incoming and outgoing voice notes using **Groq Whisper AI** to read audio messages silently in public.
-* **🌐 Real-Time Live Translation**: Auto-translate incoming foreign languages and translate outgoing drafts into 10+ target languages before sending.
-* **📊 AI Chat Summarization**: Instant multi-bullet executive summary of missed discussions in group or private chats.
+## 🌍 Live Demo & Repository
+
+- 🚀 **Live Application:** [https://whatsapp-gilt-alpha.vercel.app](https://whatsapp-gilt-alpha.vercel.app)
+- 💻 **GitHub Repository:** [https://github.com/suvojitmanna/whatsApp_clone](https://github.com/suvojitmanna/whatsApp_clone)
 
 ---
 
-### 🔒 Privacy, Security & Secret Locked Chats
-* **End-to-End Encryption Framework**: Visual security code verification via 60-digit codes and scannable QR verification.
-* **Secret Locked Chats (4-Digit PIN)**: Lock sensitive conversations behind a custom PIN or simulated Touch ID biometric.
-* **Hidden Locked Folder**: Locked conversations are quarantined in a dedicated protected folder at the top of the chat list.
-* **Chat Lock Management**: Configure, update PIN, toggle biometrics, or reset locks directly from Settings.
-* **Block & Report Safeguards**: Granular controls to report abusive accounts and block unwanted contacts.
+## 🧠 Project Overview
+
+A production-grade, highly scalable real-time communication platform inspired by **WhatsApp Web (2026 Edition)**. Built on the **MERN** stack, it delivers ultra-low-latency messaging via **Socket.IO**, peer-to-peer audio/video calling using **WebRTC**, intelligent messaging tools powered by **Meta AI & Groq Whisper**, 4-digit PIN secret locked chats, and rich media sharing backed by Cloudinary.
+
+### ✨ Core Highlights
+* ⚡ **Real-time Bi-directional Messaging**: Instant message delivery with live typing indicators and read receipts (`Sent` ➔ `Delivered` ➔ `Read` double blue ticks).
+* 🟢 **Live User Presence Tracking**: Accurate online/offline status with "Last Seen" updates.
+* 🤖 **Meta AI & Agentic Suite**: In-chat AI assistant, `/imagine` image generation, 🪄 Magic Rewrite (Professional, Friendly, Concise, Grammar), Groq Whisper audio transcription, and real-time live chat translation.
+* 🔒 **High-Grade Privacy & Security**: Visual 60-digit and QR End-to-End Encryption verification, Secret PIN Locked Chats with biometric simulation, and disappearing message timers.
+* 📞 **HD Voice & Video Calling**: WebRTC-powered 1-on-1 and group calls with shareable meeting links and call controls.
+* 📸 **Status (Stories)**: 24-hour disappearing photo, video, and text status updates with viewers analytics.
+* ⏰ **Scheduled Messages ("Send Later")**: Schedule messages for any future date/time with automatic background dispatching.
+* 📊 **Interactive In-Chat Cards**: Real-time multi-choice Polls and Event invitations with live RSVP tracking.
+
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=mongodb,express,react,nodejs,tailwind,vite,webrtc" alt="Tech Stack Icons" />
+</p>
 
 ---
 
-### 📞 WebRTC Voice & Video Calling
-* **1-on-1 & Group HD Calling**: Low-latency audio and video calls built with WebRTC and Socket.IO signaling.
-* **Shareable Call Links**: Generate joinable meeting links with custom permissions (Audio or Video).
-* **In-Call Controls**: Interactive controls for microphone mute, video toggle, camera flip, and screen sharing.
+## 🖼️ Demo Preview
+
+<p align="center">
+  <img width="100%" alt="WhatsApp Web App Demo Preview" src="https://github.com/user-attachments/assets/f51b131c-e1de-496a-9e30-e941f7987bcd" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.25);" />
+</p>
 
 ---
 
-### 📸 Status (Stories) & Rich Media
-* **24-Hour Ephemeral Stories**: Post text statuses, photos, and video clips that expire automatically after 24 hours.
-* **Story Viewers & Replies**: View detailed viewers lists and reply directly to stories into private chat threads.
-* **Media & Document Sharing**: Cloudinary integration for photos, videos, voice notes, and file attachments up to 2 GB.
-* **In-App Media Viewer**: Interactive modal gallery for inspecting images, video playback, and zooming documents.
+## 🧠 System Design & Architecture Diagrams
 
----
+### 1. High-Level System Architecture
+```mermaid
+flowchart TD
+    User["👤 Client (Browser / Mobile)"]
+    
+    subgraph Frontend["⚛️ Frontend Layer (React 19 + Vite + Zustand)"]
+        UI["UI / Layout Components"]
+        ZustandStore["Zustand Global State Stores"]
+        AxiosClient["Axios REST API Client"]
+        SocketClient["Socket.IO Client"]
+        WebRTCClient["WebRTC Peer Connection"]
+    end
 
-### 📊 Interactive Add-ons
-* **Live In-Chat Polls**: Create single-choice or multi-choice polls with live voting progress bars and voter insights.
-* **Event Scheduling**: Create event cards with titles, descriptions, locations, and interactive RSVP responses.
-* **Export Chat**: Download chat histories and media logs.
+    subgraph Backend["🟢 Backend Layer (Node.js + Express 5)"]
+        APIRouter["Express API Routes"]
+        AuthMiddleware["JWT Auth Middleware"]
+        Controllers["Controllers (Chat, Auth, Status)"]
+        SchedulerService["Background Message Scheduler"]
+        SocketServer["Socket.IO WebSocket Server"]
+        WebRTCSignaling["WebRTC Call Signaling"]
+    end
 
----
+    subgraph DataAndCloud["☁️ Data & Cloud Infrastructure"]
+        MongoDB[("🍃 MongoDB Atlas")]
+        Cloudinary["☁️ Cloudinary Media CDN"]
+        AIServices["🤖 AI APIs (Gemini + Groq Whisper + LangChain)"]
+    end
 
-### ❓ WhatsApp Web Help Center
-* **Complete Help Portal (`/help`)**: Modern WhatsApp Help Center matching WhatsApp Web's layout.
-* **Dynamic Deep-Linking**: Support for `?topic=chats-ai`, `?topic=security`, `?topic=privacy-lock`, `?topic=calls`, and `?topic=get-started`.
-* **Interactive FAQs & Search**: Fast search across all features, guides, and troubleshooting steps.
-* **24/7 In-App Support**: Live ticket submission system with instant ticket ID generation.
+    User <--> UI
+    UI <--> ZustandStore
+    ZustandStore <--> AxiosClient
+    ZustandStore <--> SocketClient
+    ZustandStore <--> WebRTCClient
 
----
+    AxiosClient -->|HTTPS REST| APIRouter
+    APIRouter --> AuthMiddleware --> Controllers
+    Controllers <--> MongoDB
+    Controllers <--> Cloudinary
+    Controllers <--> AIServices
+    SchedulerService <--> MongoDB
+    SchedulerService --> SocketServer
 
-## 🛠️ Tech Stack
-
-### Frontend
-| Technology | Description |
-| :--- | :--- |
-| **React 19** | Modern declarative UI library |
-| **Vite 8** | High-performance frontend bundler & dev server |
-| **Tailwind CSS v4** | Utility-first CSS framework with modern color palettes |
-| **DaisyUI v5** | Accessible semantic UI components |
-| **Zustand** | Lightweight, reactive state management |
-| **Socket.IO Client** | Bi-directional WebSocket communication |
-| **Framer Motion** | Fluid animations, transitions, and gesture handling |
-| **React Router v7** | Declarative client-side routing |
-| **Date-fns** | Modern date formatting and manipulation |
-| **React Icons** | Full suite of Material, FontAwesome, and Remix icons |
-
-### Backend
-| Technology | Description |
-| :--- | :--- |
-| **Node.js** | Server-side JavaScript runtime |
-| **Express 5** | RESTful web framework |
-| **MongoDB & Mongoose 9**| NoSQL database and schema modeling |
-| **Socket.IO** | Real-time WebSocket server for chat, status, and WebRTC |
-| **Cloudinary** | Cloud storage for images, videos, audio notes, and attachments |
-| **Twilio & Nodemailer** | SMS / OTP verification and email notifications |
-| **JWT & Bcrypt** | Secure token authentication and password hashing |
-| **LangChain & LangGraph** | Agentic workflows and AI chaining |
-| **Groq (Whisper / LLaMA)** | High-speed audio transcription and fast inference |
-| **Google Gemini API** | Multimodal AI assistant and image generation |
-
----
-
-## 📂 Project Structure
-
-```text
-WhatsApp/
-├── client/                     # Frontend React (Vite) application
-│   ├── src/
-│   │   ├── components/         # Shared UI components
-│   │   │   ├── common/         # Avatars, buttons, loaders, custom icons
-│   │   │   ├── contactInfo/    # Right-hand drawer for contact & group info
-│   │   │   ├── info/           # Help Center, Privacy & Security views
-│   │   │   ├── layout/         # Left sidebar rail, main layout container
-│   │   │   ├── media/          # Audio waveform player, media galleries
-│   │   │   ├── modals/         # AI, Call, Pin, Poll, Event, Lock modals
-│   │   │   └── panels/         # Overlays, message info, poll detail panels
-│   │   ├── pages/              # Routed page views
-│   │   │   ├── calls/          # Call history, dialpad, call link views
-│   │   │   ├── chatSection/    # Chat list, chat window, message input bar
-│   │   │   ├── helpPage/       # Interactive Help Center topics
-│   │   │   ├── mediaSection/   # Shared media, links, and documents browser
-│   │   │   ├── SettingSection/ # Profile, Chat Lock, Notifications, Theme
-│   │   │   ├── statusSection/  # Status creation, viewer, and active stories
-│   │   │   ├── user-login/     # Phone/Email login & registration flows
-│   │   │   └── videoCall/      # WebRTC video and audio call window
-│   │   ├── store/              # Zustand global state stores
-│   │   └── utils/              # Helper utilities, dates, audio recorders
-│   ├── package.json
-│   └── vite.config.js
-│
-├── server/                     # Backend Node.js / Express API
-│   ├── config/                 # Database and Cloudinary configuration
-│   ├── controllers/            # Route controllers (Auth, Chat, Status)
-│   ├── middleware/             # JWT auth validation, file upload handlers
-│   ├── models/                 # Mongoose schemas (User, Conversation, Message, Status)
-│   ├── routes/                 # Express route definitions
-│   ├── socket/                 # Socket.IO connection handlers & WebRTC signaling
-│   ├── index.js                # Server entrypoint
-│   └── package.json
-│
-└── README.md                   # Project documentation
+    SocketClient <-->|WSS Real-time Events| SocketServer
+    WebRTCClient <-->|ICE / SDP Signaling| WebRTCSignaling
+    WebRTCSignaling <--> SocketServer
+    WebRTCClient <==>|Encrypted P2P Media Stream| WebRTCClient
 ```
 
 ---
 
-## ⚙️ Environment Variables
+### 2. Real-Time Message Flow & Delivery Lifecycle
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Alice as 👩 Alice (Sender)
+    participant ClientA as 💻 Alice Client
+    participant Server as 🟢 Node.js / Socket.IO Server
+    participant DB as 🍃 MongoDB
+    participant ClientB as 💻 Bob Client
+    participant Bob as 👨 Bob (Recipient)
 
-Create `.env` files in both `server/` and `client/` directories based on the configurations below:
+    Alice->>ClientA: Types draft & clicks Send
+    ClientA->>ClientA: Optimistic UI render (Clock / Sending)
+    ClientA->>Server: HTTP POST /api/chat/messages (or socket 'send_message')
+    Server->>DB: Save message (status: 'sent')
+    Server-->>ClientA: HTTP 201 / ack with saved Message ID
+    ClientA->>ClientA: Update status icon: Single Tick (✓)
 
-### Server Configuration (`server/.env`)
+    alt Bob is Online & Connected
+        Server->>ClientB: emit 'receive_message' (Message Payload)
+        ClientB->>Server: emit 'message_delivered' (messageId, senderId)
+        Server->>DB: Update message status to 'delivered'
+        Server->>ClientA: emit 'message_status_update' (status: 'delivered')
+        ClientA->>Alice: Display Double Gray Ticks (✓✓)
+        
+        alt Bob Opens Alice's Chat Window
+            Bob->>ClientB: Focuses on Chat
+            ClientB->>Server: emit 'message_read' (conversationId, messageIds)
+            Server->>DB: Update message status to 'read'
+            Server->>ClientA: emit 'message_read_receipt' (conversationId)
+            ClientA->>Alice: Display Double Blue Ticks (✓✓)
+        end
+    else Bob is Offline
+        Server-->>DB: Message persists with status: 'sent'
+        Note over Server,Bob: Delivered automatically when Bob reconnects
+    end
+```
+
+---
+
+### 3. Frontend Component & Store Architecture
+```mermaid
+flowchart LR
+    subgraph UIComponents["🎨 Presentation Layer"]
+        Layout["Layout & Left Rail"]
+        ChatList["Chat List & Search"]
+        ChatWindow["Active Chat Window"]
+        ContactInfo["Contact Info Drawer"]
+        Modals["Modals (AI, PIN, Poll, Call)"]
+    end
+
+    subgraph StateStores["⚡ Zustand Reactive State Layer"]
+        UserStore["useUserStore (Auth & Profile)"]
+        ChatStore["chatStore (Chats, Messages, Typing)"]
+        CallStore["useCallStore (WebRTC Audio/Video)"]
+        ThemeStore["useThemeStore (Light / Dark)"]
+        StatusStore["statusStore (24h Stories)"]
+    end
+
+    subgraph NetworkClients["📡 Network Client Layer"]
+        AxiosAPI["Axios (HTTP / Interceptors)"]
+        SocketIO["Socket.IO (Event Listeners & Emitters)"]
+        PeerConn["RTCPeerConnection (Media Stream)"]
+    end
+
+    UIComponents <--> StateStores
+    StateStores <--> NetworkClients
+    NetworkClients <-->|REST API + WebSockets| ServerGateway["🟢 Backend API Gateway"]
+```
+
+---
+
+### 4. Backend Service Architecture
+```mermaid
+flowchart TD
+    Request["Incoming Client Request"] --> Router["Express Router Gateway"]
+
+    subgraph Middleware["🛡️ Middleware Pipeline"]
+        Cors["CORS Handler"]
+        CookieParser["Cookie Parser"]
+        JWTVerify["JWT Authentication Guard"]
+        MulterUpload["Multer File & Media Upload"]
+    end
+
+    subgraph Controllers["🎮 Business Controllers"]
+        AuthController["authController.js"]
+        ChatController["chatController.js"]
+        StatusController["statusController.js"]
+    end
+
+    subgraph Models["🗄️ MongoDB Mongoose Models"]
+        UserModel["User.js"]
+        ConvModel["ConverSation.js"]
+        MsgModel["message.js"]
+        StatusModel["status.js"]
+    end
+
+    subgraph ExternalIntegrations["🔌 External Integrations"]
+        CloudinaryCDN["Cloudinary Media Storage"]
+        GeminiAI["Google Gemini (Chat & Vision)"]
+        GroqWhisper["Groq Whisper (Voice Transcription)"]
+        TwilioSms["Twilio (SMS / OTP)"]
+        CronService["Node-Cron (Scheduled Dispatch)"]
+    end
+
+    Router --> Cors --> CookieParser --> JWTVerify --> MulterUpload
+    MulterUpload --> Controllers
+
+    AuthController <--> UserModel
+    AuthController <--> TwilioSms
+    ChatController <--> ConvModel
+    ChatController <--> MsgModel
+    ChatController <--> CloudinaryCDN
+    ChatController <--> GeminiAI
+    ChatController <--> GroqWhisper
+    StatusController <--> StatusModel
+    CronService --> MsgModel
+```
+
+---
+
+### 5. WebRTC Peer-to-Peer Calling Flow
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Caller as 📞 Caller (User A)
+    participant Signaling as ⚡ Socket.IO Signaling Server
+    participant Callee as 📲 Callee (User B)
+
+    Caller->>Signaling: emit 'call_user' (userToCall, from, signalData, callType)
+    Signaling->>Callee: emit 'incoming_call' (from, signalData, callType)
+    Callee->>Callee: Ringtone + Call Notification Modal
+    
+    alt Callee Accepts Call
+        Callee->>Signaling: emit 'accept_call' (to, signal)
+        Signaling->>Caller: emit 'call_accepted' (signal)
+        Caller->>Callee: Exchange ICE Candidates via Signaling
+        Note over Caller,Callee: 🔒 Direct Encrypted Peer-to-Peer Audio/Video Stream Established
+    else Callee Declines Call
+        Callee->>Signaling: emit 'end_call' (to)
+        Signaling->>Caller: emit 'call_ended'
+    end
+```
+
+---
+
+### 6. Meta AI Magic Rewrite & Voice Transcription Flow
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User as 👤 User
+    participant ChatBar as 🪄 Chat Input Bar
+    participant Server as 🟢 Backend API
+    participant GroqWhisper as 🎙️ Groq Whisper AI
+    participant GeminiAI as 🤖 Google Gemini / LLaMA
+
+    alt Voice Note Auto-Transcription
+        User->>ChatBar: Record Voice Note (.wav / .webm)
+        ChatBar->>Server: Upload Voice Clip
+        Server->>GroqWhisper: Audio Stream
+        GroqWhisper-->>Server: Accurate Transcribed Text
+        Server-->>ChatBar: Return message with audioUrl + transcript
+        ChatBar->>User: Display '📝 Read Transcript' Option
+    else Magic Rewrite
+        User->>ChatBar: Types draft: "plz send file asap"
+        User->>ChatBar: Clicks Magic Wand (Tone: Professional)
+        ChatBar->>Server: POST /api/chat/ai/rewrite (prompt, tone: 'professional')
+        Server->>GeminiAI: Generate polished rewrite
+        GeminiAI-->>Server: "Could you please share the file at your earliest convenience?"
+        Server-->>ChatBar: Replace draft with polished message
+    end
+```
+
+---
+
+## 🧩 Project Structure
+
+```text
+whatsApp_clone/
+├── client/                          # React 19 Frontend (Vite 8)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── common/              # Avatars, buttons, loaders, custom icons
+│   │   │   ├── contactInfo/         # Contact & group settings drawer
+│   │   │   ├── info/                # Modern WhatsApp Help Center & Privacy
+│   │   │   ├── layout/              # SideBar navigation rail & Layout container
+│   │   │   ├── media/               # Waveform audio player, media gallery
+│   │   │   ├── modals/              # AI, WebRTC Call, PIN Lock, Poll, Event modals
+│   │   │   └── panels/              # Message info, Poll analytics panels
+│   │   ├── pages/
+│   │   │   ├── calls/               # Call logs, Dialpad, Shareable Call Links
+│   │   │   ├── chatSection/         # Chat list, Message bubbles, Input bar
+│   │   │   ├── helpPage/            # Help Center topics, FAQs & 24/7 Support
+│   │   │   ├── mediaSection/        # Media, links & document explorer
+│   │   │   ├── SettingSection/      # Profile, Chat Lock PIN, Notifications, Themes
+│   │   │   ├── statusSection/       # 24-hour disappearing Stories & creator
+│   │   │   ├── user-login/          # Authentication & onboarding flow
+│   │   │   └── videoCall/           # Fullscreen WebRTC Audio/Video call room
+│   │   ├── store/                   # Zustand state stores (User, Chat, Call, Theme)
+│   │   └── utils/                   # Formatting helpers, audio recorder, socket client
+│   ├── package.json
+│   └── vite.config.js
+│
+├── server/                          # Node.js + Express 5 Backend
+│   ├── config/                      # MongoDB connection & Cloudinary setup
+│   ├── controllers/                 # authController.js, chatController.js, statusController.js
+│   ├── middleware/                  # JWT auth verification, Multer upload
+│   ├── models/                      # User.js, ConverSation.js, message.js, status.js
+│   ├── routes/                      # authRoute.js, chatRoute.js, statusRoute.js
+│   ├── socket/                      # Socket.IO connection handlers & WebRTC signaling
+│   ├── index.js                     # Server entrypoint
+│   └── package.json
+│
+└── README.md                        # Documentation & Architecture Guide
+```
+
+---
+
+## ⚙️ Installation & Setup
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/suvojitmanna/whatsApp_clone.git
+cd whatsApp_clone
+```
+
+### 2. Configure Environment Variables
+
+#### Backend Configuration (`server/.env`):
 ```env
-# Server Port & Database
+# Server Port & MongoDB
 PORT=5000
-MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/whatsapp?retryWrites=true&w=majority
+MONGO_URI=your_mongodb_atlas_connection_string
 
-# Security & Authentication
-JWT_SECRET=your_super_secret_jwt_key_here
+# Authentication & CORS
+JWT_SECRET=your_super_secret_jwt_key
 FRONTEND_URL=http://localhost:5173
 
-# Cloudinary (Media Storage)
-CLOUDINARY_CLOUD_NAME=your_cloud_name
+# Cloudinary Media Storage
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
-# AI & LLM Providers
+# AI & Speech Services
 GEMINI_API_KEY=your_google_gemini_api_key
 GEMINI_MODEL=gemini-1.5-flash
 GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=whisper-large-v3
 META_AI_MODEL=llama-3.3-70b-versatile
-OPENAI_API_KEY=your_openai_api_key_optional
-
-# Twilio (SMS / Phone Verification - Optional)
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
-TWILIO_SERVICE_SID=your_twilio_service_sid
-
-# Nodemailer (Email Verification - Optional)
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASS=your_email_app_password
 ```
 
-### Client Configuration (`client/.env`)
+#### Frontend Configuration (`client/.env`):
 ```env
-# Backend API Base URL
 VITE_API_URL=http://localhost:5000
 ```
 
 ---
 
-## 💻 Getting Started
+### 3. Install Dependencies & Run
 
-### Prerequisites
-* **Node.js** (v18.x or v20.x+ recommended)
-* **npm** or **pnpm**
-* **MongoDB** (Local instance or MongoDB Atlas cluster)
-
----
-
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/your-username/whatsapp-clone.git
-cd whatsapp-clone
-```
-
-### Step 2: Install Dependencies
-
-#### Install Server Dependencies:
+#### Backend:
 ```bash
 cd server
 npm install
+npm run dev
 ```
+*Server runs on `http://localhost:5000`*
 
-#### Install Client Dependencies:
+#### Frontend:
 ```bash
 cd ../client
 npm install
+npm run dev
 ```
+*Vite client runs on `http://localhost:5173`*
 
 ---
 
-### Step 3: Run the Application
-
-#### 1. Start the Backend Server:
-```bash
-cd server
-npm run dev
-```
-*Server starts on `http://localhost:5000` with MongoDB and Socket.IO initialized.*
-
-#### 2. Start the Frontend Client:
-```bash
-cd client
-npm run dev
-```
-*Vite dev server starts on `http://localhost:5173`.*
-
----
-
-## 📡 API & Socket.IO Events
-
-### Key REST Endpoints
+## 🔗 Key API Endpoints
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `POST` | `/api/auth/register` | Register a new user |
-| `POST` | `/api/auth/login` | Login and receive authentication token |
+| `POST` | `/api/auth/login` | Authenticate user & issue JWT cookie |
 | `GET` | `/api/auth/me` | Fetch authenticated user profile |
-| `GET` | `/api/chat/conversations` | Fetch all active conversations |
-| `POST` | `/api/chat/messages` | Send a new message (text, media, audio, scheduled) |
-| `GET` | `/api/chat/messages/:id` | Retrieve messages for a conversation |
-| `POST` | `/api/status` | Upload a new 24-hour status story |
-| `GET` | `/api/status` | Retrieve status stories from contacts |
+| `GET` | `/api/chat/conversations` | Retrieve all active user chats & groups |
+| `POST` | `/api/chat/messages` | Send message (Text, Media, Audio, Scheduled) |
+| `GET` | `/api/chat/messages/:id` | Fetch conversation messages |
+| `POST` | `/api/chat/messages/react` | Add or update emoji reaction |
+| `POST` | `/api/chat/ai/rewrite` | AI Magic message rewrite |
+| `POST` | `/api/status` | Create new 24h status story |
+| `GET` | `/api/status` | Fetch contacts status stories |
 
-### Real-Time WebSocket Events
+---
 
-| Event Name | Direction | Payload / Description |
+## 📡 Socket.IO Real-Time Events Reference
+
+| Event Name | Direction | Purpose |
 | :--- | :--- | :--- |
-| `join_chat` | Client ➔ Server | Join private or group chat room |
-| `send_message` | Client ➔ Server | Emit outgoing message |
+| `join_chat` | Client ➔ Server | Join private conversation or group channel |
+| `send_message` | Client ➔ Server | Broadcast new chat message |
 | `receive_message` | Server ➔ Client | Receive new incoming message |
-| `typing` / `stop_typing` | Both | Display / hide real-time typing indicators |
-| `message_read` | Client ➔ Server | Update message status to read (double blue ticks) |
-| `call_user` / `call_accepted` | Both | WebRTC peer-to-peer call signaling |
-| `user_status` | Server ➔ Client | Broadcast online / offline presence |
+| `typing` / `stop_typing` | Both | Trigger real-time typing state indicator |
+| `message_read` | Client ➔ Server | Send blue-tick read receipts |
+| `call_user` | Client ➔ Server | Initiate WebRTC audio/video call |
+| `incoming_call` | Server ➔ Client | Prompt callee with call modal & ringtone |
+| `accept_call` / `end_call` | Both | WebRTC session acceptance & termination |
+| `user_status` | Server ➔ Client | Broadcast online/offline presence |
 
 ---
 
-## 🛡️ Security & Privacy Notice
-* All chat messages sent over WebSockets are authenticated with JWT.
-* Passwords are encrypted using salted `bcrypt` hashing before storage.
-* Passcode-protected Locked Chats use local device hashing to keep conversations safe even if your physical machine is left unattended.
+## 📊 GitHub Insights & Statistics
+
+<p align="center">
+  <img src="https://github-readme-stats.vercel.app/api?username=suvojitmanna&show_icons=true&theme=tokyonight&hide_border=true" alt="GitHub Stats" />
+  <img src="https://github-readme-streak-stats.herokuapp.com/?user=suvojitmanna&theme=tokyonight&hide_border=true" alt="GitHub Streak" />
+</p>
+
+<p align="center">
+  <img src="https://github-readme-activity-graph.vercel.app/graph?username=suvojitmanna&theme=react-dark&hide_border=true&area=true" alt="Contribution Graph" />
+</p>
+
+<p align="center">
+  <img src="https://github-profile-trophy.vercel.app/?username=suvojitmanna&theme=onedark&no-frame=true&margin-w=10" alt="Trophies" />
+</p>
 
 ---
 
-## 📄 License
-This project is open-source and available under the [ISC License](LICENSE).
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+```bash
+# 1. Fork the Project
+# 2. Create your Feature Branch
+git checkout -b feature/AmazingFeature
+
+# 3. Commit your Changes
+git commit -m "Add some AmazingFeature"
+
+# 4. Push to the Branch
+git push origin feature/AmazingFeature
+
+# 5. Open a Pull Request
+```
+
+---
+
+## ⭐ Support & Acknowledgments
+
+If you found this project helpful or inspiring, please consider giving it a **star**! ⭐
+
+- ⭐ **Star** the repository on [GitHub](https://github.com/suvojitmanna/whatsApp_clone)
+- 🍴 **Fork** it to build your own custom real-time features
+- 📢 **Share** it with your developer community
+
+---
+
+## 👨‍💻 Author
+
+**Suvojit Manna**
+- 🌐 **Portfolio / Live App:** [https://whatsapp-gilt-alpha.vercel.app](https://whatsapp-gilt-alpha.vercel.app)
+- 🐙 **GitHub:** [@suvojitmanna](https://github.com/suvojitmanna)
+
+---
+
+## 📜 License
+
+Distributed under the **MIT License**. See `LICENSE` for more information.
+
+---
+
+## 👁️ Profile Views
+<p align="center">
+  <img src="https://komarev.com/ghpvc/?username=suvojitmanna&label=Profile%20Views&color=brightgreen&style=for-the-badge" alt="Profile Views" />
+</p>
+
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:075E54,100:25D366&height=140&section=footer" alt="Footer Waving Banner" />
+</p>
