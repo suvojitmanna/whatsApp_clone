@@ -275,26 +275,19 @@ export const sendMessage = async (req, res) => {
       receiverId,
       conversationId: incomingConvId,
       content,
-      messageStatus,
       statusId,
       contentType: customContentType,
       pollData,
       contactData,
       eventData,
-      splitBillData,
-      locationData,
       fileName,
       fileSize,
       isEncrypted,
       iv,
       isViewOnce,
     } = req.body;
-
     let conversation = null;
     let isGroup = false;
-
-    let explicitIsGroup =
-      req.body.isGroup === "true" || req.body.isGroup === true;
 
     if (incomingConvId && mongoose.Types.ObjectId.isValid(incomingConvId)) {
       const foundConv = await Conversation.findById(incomingConvId);
@@ -427,6 +420,13 @@ export const sendMessage = async (req, res) => {
       } catch (e) {}
     }
 
+    const isTimeCapsuleMsg =
+      req.body.isTimeCapsule === true || req.body.isTimeCapsule === "true";
+    const timeCapsuleUnlockDate = req.body.timeCapsuleUnlockAt
+      ? new Date(req.body.timeCapsuleUnlockAt)
+      : null;
+    const timeCapsuleHintText = req.body.timeCapsuleHint || "";
+
     let mediaPublicId = null;
     let mediaResourceType = null;
 
@@ -460,6 +460,7 @@ export const sendMessage = async (req, res) => {
         "call_link",
         "split_bill",
         "location",
+        "time_capsule",
       ].includes(customContentType)
     ) {
       contentType = customContentType;
@@ -613,6 +614,9 @@ export const sendMessage = async (req, res) => {
       callLinkData: parsedCallLink,
       splitBillData: parsedSplitBill,
       locationData: parsedLocation,
+      isTimeCapsule: isTimeCapsuleMsg,
+      timeCapsuleUnlockAt: timeCapsuleUnlockDate,
+      timeCapsuleHint: timeCapsuleHintText,
       messageStatus: finalStatus,
       deliveredAt: initialDeliveredAt,
       blockedDelivery: isSenderBlockedByReceiver,
@@ -3645,7 +3649,11 @@ export const sendScheduledNow = async (req, res) => {
 export const openViewOnceMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
-    const userId = (req.user?.userId || req.user?._id || req.body?.userId)?.toString();
+    const userId = (
+      req.user?.userId ||
+      req.user?._id ||
+      req.body?.userId
+    )?.toString();
     if (!messageId || !mongoose.Types.ObjectId.isValid(messageId)) {
       return response(res, 400, "Invalid message ID");
     }
@@ -3665,7 +3673,7 @@ export const openViewOnceMessage = async (req, res) => {
     }
 
     const alreadyOpened = message.viewOnceOpenedBy.some(
-      (id) => (id?._id || id)?.toString() === userId
+      (id) => (id?._id || id)?.toString() === userId,
     );
     if (!alreadyOpened) {
       message.viewOnceOpenedBy.push(new mongoose.Types.ObjectId(userId));
@@ -3676,7 +3684,9 @@ export const openViewOnceMessage = async (req, res) => {
       messageId: message._id.toString(),
       userId,
       conversationId: message.conversation?.toString(),
-      viewOnceOpenedBy: message.viewOnceOpenedBy.map((id) => (id?._id || id)?.toString()),
+      viewOnceOpenedBy: message.viewOnceOpenedBy.map((id) =>
+        (id?._id || id)?.toString(),
+      ),
     };
 
     if (req.io) {
@@ -3688,7 +3698,9 @@ export const openViewOnceMessage = async (req, res) => {
         req.io.to(message.sender.toString()).emit("view_once_opened", payload);
       }
       if (message.receiver) {
-        req.io.to(message.receiver.toString()).emit("view_once_opened", payload);
+        req.io
+          .to(message.receiver.toString())
+          .emit("view_once_opened", payload);
       }
     }
 
@@ -3698,7 +3710,12 @@ export const openViewOnceMessage = async (req, res) => {
       .populate("replyTo")
       .lean();
 
-    return response(res, 200, "View once message opened", updatedPopulatedMessage || message);
+    return response(
+      res,
+      200,
+      "View once message opened",
+      updatedPopulatedMessage || message,
+    );
   } catch (error) {
     console.error("Error in openViewOnceMessage:", error);
     return response(res, 500, "Internal server error");
@@ -3780,11 +3797,12 @@ export const toggleSplitBillPayment = async (req, res) => {
         req.io.to(convRoom).emit("split_bill_updated", payload);
       }
       if (message.sender) {
-        req.io.to(message.sender.toString()).emit("split_bill_updated", payload);
+        req.io
+          .to(message.sender.toString())
+          .emit("split_bill_updated", payload);
       }
       if (message.receiver) {
-        req
-          .io
+        req.io
           .to(message.receiver.toString())
           .emit("split_bill_updated", payload);
       }
@@ -3800,11 +3818,404 @@ export const toggleSplitBillPayment = async (req, res) => {
   }
 };
 
+export const accessLocation = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const currentUserId = (
+      req.user?.userId ||
+      req.user?._id ||
+      req.user?.id
+    )?.toString();
+
+    if (!messageId) {
+      return response(res, 400, "Message ID is required");
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return response(res, 404, "Message not found");
+    }
+
+    if (message.contentType !== "location" || !message.locationData) {
+      return response(res, 400, "Message is not a location message");
+    }
+
+    const loc =
+      typeof message.locationData === "string"
+        ? JSON.parse(message.locationData)
+        : { ...message.locationData };
+
+    const senderId = (message.sender?._id || message.sender)?.toString();
+    const isSender = currentUserId === senderId;
+
+    // Check if expired by time
+    const now = Date.now();
+    const isExpiredByTime =
+      loc.expiresAt && new Date(loc.expiresAt).getTime() <= now;
+    if (isExpiredByTime || loc.isExpired) {
+      loc.isExpired = true;
+      message.locationData = loc;
+      message.markModified("locationData");
+      await message.save();
+
+      const payload = {
+        messageId: message._id.toString(),
+        conversationId: message.conversation?.toString(),
+        locationData: loc,
+      };
+      if (req.io) {
+        const convRoom = message.conversation?.toString();
+        if (convRoom) req.io.to(convRoom).emit("location_access_updated", payload);
+      }
+
+      return response(res, 403, "Location sharing has expired", {
+        isExpired: true,
+        locationData: loc,
+      });
+    }
+
+    // Check if access limit reached
+    const maxAccesses =
+      typeof loc.maxAccesses === "number" && loc.maxAccesses > 0
+        ? loc.maxAccesses
+        : null;
+    const currentCount =
+      typeof loc.accessCount === "number" ? loc.accessCount : 0;
+
+    if (maxAccesses !== null && currentCount >= maxAccesses) {
+      loc.isLimitReached = true;
+      message.locationData = loc;
+      message.markModified("locationData");
+      await message.save();
+
+      const payload = {
+        messageId: message._id.toString(),
+        conversationId: message.conversation?.toString(),
+        locationData: loc,
+      };
+      if (req.io) {
+        const convRoom = message.conversation?.toString();
+        if (convRoom) req.io.to(convRoom).emit("location_access_updated", payload);
+      }
+
+      return response(res, 403, "Location access limit reached", {
+        isLimitReached: true,
+        locationData: loc,
+      });
+    }
+
+    // If sender is viewing, do not increment recipient access count
+    if (isSender) {
+      return response(res, 200, "Location accessed by sender", {
+        locationData: loc,
+        isSender: true,
+      });
+    }
+
+    // Recipient accessing: increment count and record access log
+    const userObj = await User.findById(currentUserId).select(
+      "username profilePicture",
+    );
+    if (!Array.isArray(loc.accessLogs)) {
+      loc.accessLogs = [];
+    }
+
+    loc.accessCount = currentCount + 1;
+    loc.accessLogs.push({
+      userId: currentUserId,
+      username: userObj?.username || "Recipient",
+      profilePicture: userObj?.profilePicture || "",
+      accessedAt: new Date().toISOString(),
+    });
+
+    if (maxAccesses !== null && loc.accessCount >= maxAccesses) {
+      loc.isLimitReached = true;
+    }
+
+    message.locationData = loc;
+    message.markModified("locationData");
+    await message.save();
+
+    const payload = {
+      messageId: message._id.toString(),
+      conversationId: message.conversation?.toString(),
+      locationData: loc,
+    };
+
+    if (req.io) {
+      const convRoom = message.conversation?.toString();
+      if (convRoom) req.io.to(convRoom).emit("location_access_updated", payload);
+      if (message.sender)
+        req.io.to(message.sender.toString()).emit("location_access_updated", payload);
+      if (message.receiver)
+        req.io.to(message.receiver.toString()).emit("location_access_updated", payload);
+    }
+
+    return response(res, 200, "Location access recorded", {
+      locationData: loc,
+    });
+  } catch (error) {
+    console.error("Error in accessLocation:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+export const revokeLocation = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const currentUserId = (
+      req.user?.userId ||
+      req.user?._id ||
+      req.user?.id
+    )?.toString();
+
+    const message = await Message.findById(messageId);
+    if (!message) return response(res, 404, "Message not found");
+
+    const senderId = (message.sender?._id || message.sender)?.toString();
+    if (currentUserId !== senderId) {
+      return response(res, 403, "Only the sender can stop sharing this location");
+    }
+
+    const loc =
+      typeof message.locationData === "string"
+        ? JSON.parse(message.locationData)
+        : { ...message.locationData };
+
+    loc.isExpired = true;
+    loc.revokedAt = new Date().toISOString();
+
+    message.locationData = loc;
+    message.markModified("locationData");
+    await message.save();
+
+    const payload = {
+      messageId: message._id.toString(),
+      conversationId: message.conversation?.toString(),
+      locationData: loc,
+    };
+
+    if (req.io) {
+      const convRoom = message.conversation?.toString();
+      if (convRoom) req.io.to(convRoom).emit("location_access_updated", payload);
+      if (message.sender)
+        req.io.to(message.sender.toString()).emit("location_access_updated", payload);
+      if (message.receiver)
+        req.io.to(message.receiver.toString()).emit("location_access_updated", payload);
+    }
+
+    return response(res, 200, "Location sharing stopped", {
+      locationData: loc,
+    });
+  } catch (error) {
+    console.error("Error in revokeLocation:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
+export const getChatAnalytics = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = (
+      req.user?.userId ||
+      req.user?._id ||
+      req.body?.userId
+    )?.toString();
+
+    if (!conversationId || !mongoose.Types.ObjectId.isValid(conversationId)) {
+      return response(res, 400, "Invalid conversation ID");
+    }
+
+    const conversation = await Conversation.findById(conversationId)
+      .populate("participants", "username profilePicture")
+      .lean();
+
+    if (!conversation) {
+      return response(res, 404, "Conversation not found");
+    }
+
+    const isMember = conversation.participants?.some(
+      (p) => (p._id || p).toString() === userId,
+    );
+    if (!isMember) {
+      return response(res, 403, "Access denied");
+    }
+
+    const messages = await Message.find({
+      conversation: conversationId,
+      deletedForEveryone: false,
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const totalMessages = messages.length;
+    if (totalMessages === 0) {
+      return response(res, 200, "No messages yet", {
+        totalMessages: 0,
+        participants: conversation.participants,
+        hourlyActivity: new Array(24).fill(0),
+        topEmojis: [],
+        aiPersona: "🌱 Fresh New Connection",
+        aiDescription: "Start texting to unlock your relationship stats!",
+      });
+    }
+
+    const participantStats = {};
+    (conversation.participants || []).forEach((p) => {
+      const pId = (p._id || p).toString();
+      participantStats[pId] = {
+        userId: pId,
+        username: p.username || "User",
+        profilePicture: p.profilePicture || "",
+        messageCount: 0,
+        wordCount: 0,
+      };
+    });
+
+    const hourlyActivity = new Array(24).fill(0);
+    const dayOfWeekActivity = [0, 0, 0, 0, 0, 0, 0];
+    const mediaBreakdown = {
+      text: 0,
+      image: 0,
+      video: 0,
+      audio: 0,
+      document: 0,
+      poll: 0,
+      event: 0,
+      split_bill: 0,
+      location: 0,
+      time_capsule: 0,
+    };
+
+    const emojiRegex = /[\p{Extended_Pictographic}]/gu;
+    const emojiCounts = {};
+    const datesWithMessages = new Set();
+
+    messages.forEach((m) => {
+      const sId = (m.sender?._id || m.sender)?.toString();
+      if (participantStats[sId]) {
+        participantStats[sId].messageCount++;
+        const words = (m.content || "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean).length;
+        participantStats[sId].wordCount += words;
+      }
+
+      const d = new Date(m.createdAt);
+      if (!isNaN(d.getTime())) {
+        hourlyActivity[d.getHours()]++;
+        dayOfWeekActivity[d.getDay()]++;
+        datesWithMessages.add(d.toISOString().slice(0, 10));
+      }
+
+      const type = m.contentType || "text";
+      if (mediaBreakdown[type] !== undefined) {
+        mediaBreakdown[type]++;
+      } else {
+        mediaBreakdown.text++;
+      }
+
+      if (m.content && typeof m.content === "string") {
+        const matches = m.content.match(emojiRegex);
+        if (matches) {
+          matches.forEach((em) => {
+            emojiCounts[em] = (emojiCounts[em] || 0) + 1;
+          });
+        }
+      }
+    });
+
+    const topEmojis = Object.entries(emojiCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([emoji, count]) => ({ emoji, count }));
+
+    let peakHour = 0;
+    let maxHourCount = 0;
+    hourlyActivity.forEach((count, hour) => {
+      if (count > maxHourCount) {
+        maxHourCount = count;
+        peakHour = hour;
+      }
+    });
+
+    const sortedDates = Array.from(datesWithMessages).sort();
+    let maxStreak = 0;
+    let currentStreak = 0;
+    let prevDate = null;
+    for (const dateStr of sortedDates) {
+      const curr = new Date(dateStr);
+      if (prevDate) {
+        const diffDays = Math.round((curr - prevDate) / (1000 * 60 * 60 * 24));
+        if (diffDays === 1) {
+          currentStreak++;
+        } else {
+          currentStreak = 1;
+        }
+      } else {
+        currentStreak = 1;
+      }
+      prevDate = curr;
+      if (currentStreak > maxStreak) maxStreak = currentStreak;
+    }
+
+    let aiPersona = "✨ Great Companions";
+    let aiDescription = "A well-balanced chat with consistent interaction.";
+    if (peakHour >= 22 || peakHour <= 4) {
+      aiPersona = "🦉 Midnight Philosophers";
+      aiDescription =
+        "Deep late-night thoughts and twilight conversations are your specialty!";
+    } else if (mediaBreakdown.audio > totalMessages * 0.25) {
+      aiPersona = "🎙️ Podcast Hosts";
+      aiDescription =
+        "Who needs text when voice notes tell the story so much better?";
+    } else if (
+      mediaBreakdown.image + mediaBreakdown.video >
+      totalMessages * 0.25
+    ) {
+      aiPersona = "📸 Visual Storytellers";
+      aiDescription =
+        "A picture is worth a thousand words, and your chat proves it daily!";
+    } else if (maxStreak >= 7) {
+      aiPersona = "🔥 Unbreakable Chat Streak";
+      aiDescription =
+        "Days turn into weeks and the conversation never drops a beat!";
+    } else if (totalMessages > 200) {
+      aiPersona = "⚡ Rapid-Fire Chatters";
+      aiDescription =
+        "Instant replies, endless topics, and unmatched texting synergy!";
+    }
+
+    return response(res, 200, "Chat analytics generated", {
+      totalMessages,
+      participantStats: Object.values(participantStats),
+      hourlyActivity,
+      peakHour,
+      dayOfWeekActivity,
+      mediaBreakdown,
+      topEmojis,
+      chatStreak: maxStreak,
+      activeDaysCount: datesWithMessages.size,
+      aiPersona,
+      aiDescription,
+      firstMessageDate: messages[0]?.createdAt,
+      lastMessageDate: messages[messages.length - 1]?.createdAt,
+    });
+  } catch (error) {
+    console.error("getChatAnalytics error:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
 export default {
   sendMessage,
   sendScheduledNow,
   openViewOnceMessage,
   toggleSplitBillPayment,
+  accessLocation,
+  revokeLocation,
+  getChatAnalytics,
   getConversation,
   getMessages,
   markAsRead,

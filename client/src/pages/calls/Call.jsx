@@ -39,7 +39,7 @@ import {
 } from "react-icons/md";
 import { FaUserPlus } from "react-icons/fa";
 import { IoIosArrowDown } from "react-icons/io";
-import { RiDeleteBin5Fill, RiDeleteBin6Line } from "react-icons/ri";
+import { RiDeleteBin6Line } from "react-icons/ri";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { RxCross2 } from "react-icons/rx";
 import { toast } from "react-toastify";
@@ -232,8 +232,7 @@ const Call = () => {
           contacts={availableContacts}
         />
       ) : (
-        <div
-          className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 ${isDark
+        <div className={`h-full w-full flex flex-col select-none border-r transition-colors duration-200 ${isDark
             ? "bg-[#111b21] border-[#222e35] text-[#e9edef]"
             : "bg-white border-gray-200 text-[#111b21]"
             }`}
@@ -337,8 +336,7 @@ const Call = () => {
             </div>
           </div>
           {isSelectMode ? (
-            <div
-              className={`h-16 px-4 flex items-center justify-between shrink-0 border-b select-none transition-colors ${isDark
+            <div className={`h-16 px-4 flex items-center justify-between shrink-0 border-b select-none transition-colors ${isDark
                 ? "bg-[#202c33] border-[#222d34] text-white"
                 : "bg-[#f0f2f5] border-gray-200 text-gray-900"
                 }`}
@@ -383,17 +381,12 @@ const Call = () => {
           ) : (
 
             <div className="px-4 pb-2 shrink-0">
-              <div
-                className={`flex items-center gap-3 px-5 py-2.5 rounded-full border-2 transition-all duration-300 ${isDark
+              <div className={`flex items-center gap-3 px-5 py-2.5 rounded-full border-2 transition-all duration-300 ${isDark
                   ? "bg-[#161a1d] border-[#00c878]"
                   : "bg-[#f0f2f5] border-[#00a884]"
                   }`}
               >
-                <MdSearch
-                  className={`text-xl shrink-0 ${isDark ? "text-[#aebac1]" : "text-[#54656f]"
-                    }`}
-                />
-
+                <MdSearch className={`text-xl shrink-0 ${isDark ? "text-[#aebac1]" : "text-[#54656f]"}`} />
                 <input
                   type="text"
                   value={searchQuery}
@@ -432,8 +425,7 @@ const Call = () => {
                   <MdLink className="text-2xl transform -rotate-45" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div
-                    className={`font-semibold text-[16px] leading-tight ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
+                  <div className={`font-semibold text-[16px] leading-tight ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
                       }`}
                   >
                     Create call link
@@ -511,9 +503,7 @@ const Call = () => {
                         >
                           <ContactAvatar contact={fav} size={48} />
                           <div className="min-w-0 flex-1">
-                            <div
-                              className={`flex items-center gap-1.5 font-medium text-[16px] truncate ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
-                                }`}
+                            <div className={`flex items-center gap-1.5 font-medium text-[16px] truncate ${isDark ? "text-[#e9edef]" : "text-[#111b21]"}`}
                             >
                               <span>{name}</span>
                               {fav.isVerified && (
@@ -624,11 +614,11 @@ const Call = () => {
                             {isSelectMode && (
                               <div className="shrink-0 flex items-center justify-center mr-0.5">
                                 <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${isChecked
-                                    ? "bg-[#00a884] border-[#00a884] text-white shadow-sm scale-105"
-                                    : isDark
-                                      ? "border-white/30 bg-transparent hover:border-white/60"
-                                      : "border-black/30 bg-transparent hover:border-black/60"
-                                    }`}
+                                  ? "bg-[#00a884] border-[#00a884] text-white shadow-sm scale-105"
+                                  : isDark
+                                    ? "border-white/30 bg-transparent hover:border-white/60"
+                                    : "border-black/30 bg-transparent hover:border-black/60"
+                                  }`}
                                 >
                                   {isChecked && <MdCheck className="text-white text-sm" />}
                                 </div>
@@ -920,8 +910,7 @@ const Call = () => {
         }}
       />
       {showClearConfirmModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn"
           onClick={() => setShowClearConfirmModal(false)}
         >
           <div

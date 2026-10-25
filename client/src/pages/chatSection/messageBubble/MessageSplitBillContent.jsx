@@ -74,9 +74,9 @@ export const MessageSplitBillContent = ({
     <div className="flex flex-col min-w-[270px] max-w-[330px] w-full select-none">
       <div className="flex items-start gap-3">
         <div
-          className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${isDark
-            ? "bg-cyan-950/60 text-cyan-400 border border-cyan-800/40"
-            : "bg-cyan-100 text-cyan-700"
+          className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs border ${isDark
+            ? "bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-400 border-emerald-500/30"
+            : "bg-emerald-100 text-emerald-700 border-emerald-200"
             }`}
         >
           <MdReceiptLong size={24} />
@@ -84,7 +84,7 @@ export const MessageSplitBillContent = ({
         <div className="flex-1 min-w-0 pt-0.5">
           <div className="flex items-center gap-1.5">
             <span
-              className={`text-[11px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${isDark ? "bg-cyan-900/40 text-cyan-300" : "bg-cyan-100 text-cyan-800"
+              className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-900/40 text-emerald-300 border border-emerald-500/30" : "bg-emerald-100 text-emerald-800"
                 }`}
             >
               Split Bill
@@ -98,7 +98,7 @@ export const MessageSplitBillContent = ({
           <h4 className="text-[16px] font-bold leading-tight break-words mt-1">
             {bill.title}
           </h4>
-          <p className="text-[19px] font-extrabold text-cyan-500 dark:text-cyan-400 mt-0.5">
+          <p className="text-[20px] font-extrabold text-emerald-500 dark:text-emerald-400 mt-0.5 tracking-tight">
             {currency}
             {totalAmount.toLocaleString(undefined, {
               minimumFractionDigits: 2,
@@ -126,7 +126,7 @@ export const MessageSplitBillContent = ({
           <div
             className={`h-full transition-all duration-500 rounded-full ${isSettled
               ? "bg-emerald-500"
-              : "bg-gradient-to-r from-cyan-500 to-emerald-400"
+              : "bg-gradient-to-r from-emerald-600 via-[#00a884] to-teal-400"
               }`}
             style={{ width: `${percent}%` }}
           />

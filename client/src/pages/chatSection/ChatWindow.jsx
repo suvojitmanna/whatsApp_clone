@@ -61,6 +61,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [showCallLinkModal, setShowCallLinkModal] = useState(false);
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [showTimeCapsuleModal, setShowTimeCapsuleModal] = useState(false);
+  const [showChatWrappedModal, setShowChatWrappedModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
@@ -2020,6 +2022,34 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
   };
 
+  const handleSendTimeCapsule = async ({ content, hint, unlockAt }) => {
+    if (!selectedContact || !content) return;
+    try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
+      formData.append("messageStatus", "send");
+      formData.append("contentType", "time_capsule");
+      formData.append("content", content);
+      formData.append("isTimeCapsule", "true");
+      formData.append("timeCapsuleUnlockAt", unlockAt);
+      formData.append("timeCapsuleHint", hint || "");
+
+      await sendMessage(formData);
+      setShowTimeCapsuleModal(false);
+    } catch (error) {
+      console.error("Failed to send time capsule", error);
+      toast.error("Failed to send time capsule");
+    }
+  };
+
   const pinDate = useMemo(() => {
     if (!activePin) return null;
     const rawTime = activePin.pinnedAt || activePin.message?.createdAt;
@@ -2348,6 +2378,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           setShowHeaderMenu={setShowHeaderMenu}
           onCloseChat={handleCloseChatWindow}
           handleOpenSummarize={handleOpenSummarize}
+          handleOpenChatWrapped={() => setShowChatWrappedModal(true)}
         />
 
         <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -2717,6 +2748,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               setShowCallLinkModal={setShowCallLinkModal}
               setShowSplitBillModal={setShowSplitBillModal}
               setShowLocationModal={setShowLocationModal}
+              setShowTimeCapsuleModal={setShowTimeCapsuleModal}
               lastMessage={messages && messages.length > 0 ? messages[messages.length - 1] : null}
               currentUserId={user?._id}
               showEmojiPicker={showEmojiPicker}
@@ -2813,6 +2845,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         showLocationModal={showLocationModal}
         setShowLocationModal={setShowLocationModal}
         handleSendLocation={handleSendLocation}
+        showTimeCapsuleModal={showTimeCapsuleModal}
+        setShowTimeCapsuleModal={setShowTimeCapsuleModal}
+        handleSendTimeCapsule={handleSendTimeCapsule}
+        showChatWrappedModal={showChatWrappedModal}
+        setShowChatWrappedModal={setShowChatWrappedModal}
+        handleOpenSummarize={handleOpenSummarize}
       />
 
       <ChatSummaryModal

@@ -54,6 +54,7 @@ import {
   MessageCallHistoryContent,
   MessageSplitBillContent,
   MessageLocationContent,
+  MessageTimeCapsuleContent,
   MessageDeleteModal,
 } from "./messageBubble/index.js";
 
@@ -1999,6 +2000,35 @@ const MessageBuble = ({
                 {(message.contentType === "location" ||
                   Boolean(message.locationData)) && (
                   <MessageLocationContent
+                    message={message}
+                    isUserMessage={isUserMessage}
+                    effectiveUser={effectiveUser}
+                    isDark={isDark}
+                    renderTimestampAndStatus={(isOverlay) => (
+                      <MessageTimestampAndStatus
+                        message={message}
+                        isUserMessage={isUserMessage}
+                        isGroupChat={isGroupChat}
+                        activeContact={activeContact}
+                        conversationObj={conversationObj}
+                        currentUserId={currentUserId}
+                        isPinned={isPinned}
+                        disappearingDuration={disappearingDuration}
+                        onOpenDisappearing={onOpenDisappearing}
+                        isStarred={isStarred}
+                        isOverlay={isOverlay}
+                        isSelectMode={isSelectMode}
+                        showOptions={showOptions}
+                        handleToggleOptions={handleToggleOptions}
+                        isDark={isDark}
+                      />
+                    )}
+                  />
+                )}
+
+                {(message.isTimeCapsule ||
+                  message.contentType === "time_capsule") && (
+                  <MessageTimeCapsuleContent
                     message={message}
                     isUserMessage={isUserMessage}
                     effectiveUser={effectiveUser}

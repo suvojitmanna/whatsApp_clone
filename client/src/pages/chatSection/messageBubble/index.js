@@ -12,3 +12,4 @@ export * from "./MessageCallContent.jsx";
 export * from "./MessageDeleteModal.jsx";
 export * from "./MessageSplitBillContent.jsx";
 export * from "./MessageLocationContent.jsx";
+export * from "./MessageTimeCapsuleContent.jsx";

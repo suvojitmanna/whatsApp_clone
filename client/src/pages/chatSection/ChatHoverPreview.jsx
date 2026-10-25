@@ -14,6 +14,7 @@ import {
   MdOutlineVideocam,
   MdReceiptLong,
   MdLocationOn,
+  MdHourglassBottom,
 } from "react-icons/md";
 import { ProhibitedIcon } from "../../components/common/Icons";
 
@@ -246,6 +247,14 @@ export const ChatHoverPreview = ({
       Boolean(lastMsg?.locationData) ||
       (typeof lastMsg?.content === "string" &&
         lastMsg.content.startsWith("Location:")))
+  );
+
+  const isTimeCapsule = Boolean(
+    !isPoll &&
+    (lastMsg?.contentType === "time_capsule" ||
+      Boolean(lastMsg?.isTimeCapsule) ||
+      (typeof lastMsg?.content === "string" &&
+        lastMsg.content.startsWith("Time Capsule:")))
   );
 
   const isCall = Boolean(
@@ -577,6 +586,25 @@ export const ChatHoverPreview = ({
                   {loc.address}
                 </div>
               )}
+            </div>
+          );
+        }
+
+        if (isTimeCapsule) {
+          const hint = lastMsg?.timeCapsuleHint || "Confidential Surprise";
+          const isUnlocked =
+            lastMsg?.timeCapsuleUnlockAt &&
+            new Date(lastMsg.timeCapsuleUnlockAt).getTime() <= Date.now();
+
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-medium text-amber-400">
+                <MdHourglassBottom size={16} />
+                <span>Time Capsule: {hint}</span>
+              </div>
+              <div className="text-xs opacity-75">
+                {isUnlocked ? "🔓 Unlocked" : "⏳ Currently Locked"}
+              </div>
             </div>
           );
         }

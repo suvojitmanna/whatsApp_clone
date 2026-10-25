@@ -47,6 +47,8 @@ A production-grade, highly scalable real-time communication platform inspired by
 * ⚡ **AI Contextual "Smart Replies"**: Predictive one-tap reply chips hovering over the input bar with LLM analysis and direct auto-send or inline edit.
 * 🧾 **In-Chat Interactive "Split Bill"**: Split dining/group expenses with currencies (`₹`, `$`, `€`, `£`), equal/custom shares, live progress bar, and 1-click payment settlement toggles.
 * 📍 **Interactive Live Location Sharing**: Send current GPS location or places with an embedded OpenStreetMap mini-card, pulsing radar pin, and 1-tap Google Maps directions.
+* ⏳ **"Time Capsule" Future-Locked Messages**: Send secret/surprise messages locked behind an animated glowing cyber-padlock and countdown timer until an exact future date/time or preset (1h, 24h, 7d, New Year). Includes custom teaser hints and automatic reveal.
+* 📊 **Spotify-Style AI "Chat Wrapped" & Analytics**: Interactive multi-slide story modal analyzing total message volume, peak talking hours, 24h rhythm charts, top 6 emojis leaderboard, active chat streaks, and an AI Persona Vibe Certificate ready to share.
 * 📊 **Interactive In-Chat Cards**: Real-time multi-choice Polls and Event invitations with live RSVP tracking.
 
 <p align="center">
@@ -329,6 +331,7 @@ npm run dev
 | `POST` | `/api/chat/messages/react` | Add or update emoji reaction |
 | `POST` | `/api/chat/messages/:id/view-once-open` | Securely mark & lock view-once message |
 | `POST` | `/api/chat/messages/:id/split-bill/toggle` | Settle or toggle split bill participant payment |
+| `GET` | `/api/chat/conversation/:id/analytics` | Fetch Spotify-style Chat Wrapped conversation metrics |
 | `POST` | `/api/chat/smart-replies` | Generate AI contextual quick response chips |
 | `POST` | `/api/chat/ai/rewrite` | AI Magic message rewrite |
 | `POST` | `/api/status` | Create new 24h status story |

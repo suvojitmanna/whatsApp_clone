@@ -16,6 +16,8 @@ import GroupCallModal from "../../../components/modals/GroupCallModal";
 import NewCallLinkModal from "../../calls/NewCallLinkModal";
 import SplitBillModal from "../../../components/modals/SplitBillModal";
 import LocationModal from "../../../components/modals/LocationModal";
+import TimeCapsuleModal from "../../../components/modals/TimeCapsuleModal";
+import ChatWrappedModal from "../../../components/modals/ChatWrappedModal";
 import ChatHeaderMenu from "../ChatHeaderMenu";
 import useVideoCallStore from "../../../store/videoCallStore";
 
@@ -92,6 +94,12 @@ export const ChatModals = ({
   showLocationModal,
   setShowLocationModal,
   handleSendLocation,
+  showTimeCapsuleModal,
+  setShowTimeCapsuleModal,
+  handleSendTimeCapsule,
+  showChatWrappedModal,
+  setShowChatWrappedModal,
+  handleOpenSummarize,
 }) => {
   return (
     <>
@@ -173,6 +181,30 @@ export const ChatModals = ({
           isOpen={showLocationModal}
           onClose={() => setShowLocationModal(false)}
           onSend={handleSendLocation}
+          theme={theme}
+        />
+      )}
+
+      {showTimeCapsuleModal && (
+        <TimeCapsuleModal
+          isOpen={showTimeCapsuleModal}
+          onClose={() => setShowTimeCapsuleModal(false)}
+          onSend={handleSendTimeCapsule}
+          theme={theme}
+        />
+      )}
+
+      {showChatWrappedModal && (
+        <ChatWrappedModal
+          isOpen={showChatWrappedModal}
+          onClose={() => setShowChatWrappedModal(false)}
+          conversationId={
+            (currentConversation?._id ||
+              selectedContact?.conversation?._id ||
+              selectedContact?._id ||
+              selectedContact?.id)?.toString()
+          }
+          selectedContact={selectedContact}
           theme={theme}
         />
       )}
@@ -397,6 +429,8 @@ export const ChatModals = ({
         onOpenDisappearingMessages={() => openContactInfoWithTab("disappearing")}
         onOpenChatTheme={() => openContactInfoWithTab("chatTheme")}
         onOpenCallLink={() => setShowCallLinkModal(true)}
+        onOpenChatWrapped={() => setShowChatWrappedModal(true)}
+        onOpenSummarize={handleOpenSummarize}
         onCloseChat={handleCloseChatWindow}
       />
 

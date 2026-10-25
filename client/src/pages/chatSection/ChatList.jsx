@@ -17,7 +17,7 @@ import {
   FaUsers,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
-import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam, MdLink, MdReceiptLong, MdLocationOn } from "react-icons/md";
+import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam, MdLink, MdReceiptLong, MdLocationOn, MdHourglassBottom } from "react-icons/md";
 import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill, RiDeleteBin6Line } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
@@ -201,6 +201,9 @@ export const getPinnedItemTypeAndLabel = (msg) => {
   }
   if (contentType === "location" || msg.locationData || content.startsWith("Location:")) {
     return { type: "location", target: "a location" };
+  }
+  if (contentType === "time_capsule" || msg.isTimeCapsule) {
+    return { type: "time capsule", target: "a time capsule" };
   }
   if (contentType === "call") {
     const isVid = msg.callData?.callType === "video" || msg.callType === "video";
@@ -691,6 +694,18 @@ const getLastMessagePreview = (lastMessage) => {
     };
   }
 
+  if (contentType === "time_capsule" || lastMessage.isTimeCapsule) {
+    const hint = lastMessage.timeCapsuleHint || "Confidential Surprise";
+    const isUnlocked =
+      lastMessage.timeCapsuleUnlockAt &&
+      new Date(lastMessage.timeCapsuleUnlockAt).getTime() <= Date.now();
+    return {
+      icon: <MdHourglassBottom className="inline mr-1 text-amber-400 shrink-0" size={13} />,
+      text: isUnlocked ? `Time Capsule Unlocked: ${hint}` : `⏳ Time Capsule: ${hint}`,
+      isEncrypted: false,
+    };
+  }
+
   if (contentType === "call") {
     const isVideo = lastMessage.callData?.callType === "video" || lastMessage.callType === "video";
     const duration = lastMessage.callData?.duration || lastMessage.duration || "Voice call";
@@ -864,6 +879,9 @@ export const getFullMessageTooltip = (lastMsg) => {
   }
   if (lastMsg.contentType === "location") {
     return `Location: ${lastMsg.locationData?.name || lastMsg.content || ""}`;
+  }
+  if (lastMsg.contentType === "time_capsule" || lastMsg.isTimeCapsule) {
+    return `Time Capsule: ${lastMsg.timeCapsuleHint || "Confidential"}`;
   }
   if (
     lastMsg.contentType === "call_link" ||

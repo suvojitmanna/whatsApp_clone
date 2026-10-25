@@ -43,13 +43,10 @@ const FileViewerModal = ({
   const [showPinModal, setShowPinModal] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
   const moreMenuRef = useRef(null);
   const reactionPickerRef = useRef(null);
-
   const currentUser = useUserStore((s) => s.user);
   const currentUserId = String(currentUser?._id || currentUser?.id || "");
-
   const isMessageStarred = useChatStore((s) => s.isMessageStarred);
   const toggleStarMessage = useChatStore((s) => s.toggleStarMessage);
   const deleteMessage = useChatStore((s) => s.deleteMessage);
@@ -61,7 +58,6 @@ const FileViewerModal = ({
   const currentConversation = useChatStore((s) => s.currentConversation);
   const messages = useChatStore((s) => s.messages);
   const selectedContact = useLayoutStore((s) => s.selectedContact);
-
   const quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
   const mediaList = useMemo(() => {

@@ -175,12 +175,10 @@ export const RemindMeModal = ({
           </div>
 
           <div className="p-5 space-y-4">
-            <div
-              className={`p-3 rounded-xl border text-xs leading-relaxed ${isDark
-                ? "bg-[#111b21] border-emerald-500/20 text-[#8696a0]"
-                : "bg-emerald-50/50 border-emerald-500/20 text-[#54656f]"
-                }`}
-            >
+            <div className={`p-3 rounded-xl border text-xs leading-relaxed ${isDark
+              ? "bg-[#111b21] border-emerald-500/20 text-[#8696a0]"
+              : "bg-emerald-50/50 border-emerald-500/20 text-[#54656f]"
+              }`}>
               <div className="font-semibold text-emerald-600 dark:text-emerald-400 mb-1 flex items-center justify-between">
                 <span>{contactName || message.sender?.username || "Contact"}</span>
                 <span className="opacity-60 text-[10px]">Quote snippet</span>
@@ -295,10 +293,7 @@ export const RemindMeModal = ({
             </div>
           </div>
 
-          <div
-            className={`flex items-center justify-end gap-2.5 px-5 py-3.5 border-t ${isDark ? "border-white/10 bg-[#182229]" : "border-black/5 bg-[#f0f2f5]"
-              }`}
-          >
+          <div className={`flex items-center justify-end gap-2.5 px-5 py-3.5 border-t ${isDark ? "border-white/10 bg-[#182229]" : "border-black/5 bg-[#f0f2f5]"}`}>
             <button
               type="button"
               onClick={onClose}

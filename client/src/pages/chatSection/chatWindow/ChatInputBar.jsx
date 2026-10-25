@@ -23,7 +23,9 @@ import {
   MdAccessTime,
   MdReceiptLong,
   MdLocationOn,
+  MdHourglassBottom,
 } from "react-icons/md";
+import { PiEyeLight, PiEyeSlash } from "react-icons/pi";
 import { HiSparkles } from "react-icons/hi2";
 import { TfiClip } from "react-icons/tfi";
 import { RiContactsFill, RiEmojiStickerLine, RiDeleteBin6Line } from "react-icons/ri";
@@ -76,6 +78,7 @@ export const ChatInputBar = ({
   setShowCallLinkModal,
   setShowSplitBillModal,
   setShowLocationModal,
+  setShowTimeCapsuleModal,
   lastMessage,
   currentUserId,
   showEmojiPicker,
@@ -125,7 +128,6 @@ export const ChatInputBar = ({
   const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
   const rewriteMenuRef = useRef(null);
   const scheduleMenuRef = useRef(null);
-
   const liveTranslateEnabled = useChatStore((state) => state.liveTranslateEnabled);
   const liveTranslateLang = useChatStore((state) => state.liveTranslateLang);
 
@@ -275,41 +277,6 @@ export const ChatInputBar = ({
       messageInputRef.current?.focus();
     }
   };
-
-  const messages = useChatStore((state) => state.messages);
-
-  const smartReplies = useMemo(() => {
-    if (!messages || messages.length === 0 || isMetaAiChat) return [];
-    const lastMsg = [...messages].reverse().find((m) => {
-      if (!m || m.deletedForEveryone) return false;
-      const sId = m.sender?._id || m.sender;
-      return sId && String(sId) !== String(user?._id) && m.contentType === "text" && m.content;
-    });
-
-    if (!lastMsg || !lastMsg.content) return [];
-
-    const text = (lastMsg.content || "").toLowerCase().trim();
-    if (text.includes("how are you") || text.includes("how r u")) {
-      return ["I'm doing well, thanks! 😊", "All good here! How about you?", "Great! What's up?"];
-    }
-    if (text.includes("where are you") || text.includes("location") || text.includes("reached")) {
-      return ["On my way! 🚗", "Almost there, 5 mins!", "Just arrived!"];
-    }
-    if (text.includes("thanks") || text.includes("thank you")) {
-      return ["You're welcome! 😊", "Anytime!", "Glad to help! 👍"];
-    }
-    if (text.includes("ok") || text.includes("okay") || text.includes("sure")) {
-      return ["Awesome 👍", "Sounds good!", "See you soon!"];
-    }
-    if (text.includes("call me") || text.includes("can you talk")) {
-      return ["Calling you now 📞", "In a meeting, can I call later?", "Give me 5 mins"];
-    }
-    if (text.endsWith("?")) {
-      return ["Yes, absolutely! 👍", "I'll check and let you know", "No, not yet"];
-    }
-
-    return ["Sounds great! 👍", "Got it, thanks!", "Let's catch up later"];
-  }, [messages, user?._id, isMetaAiChat]);
 
   const toggleVoiceDictation = () => {
     const SpeechRecognition =
@@ -461,11 +428,10 @@ export const ChatInputBar = ({
 
   if (isBlocked) {
     return (
-      <div
-        className={`p-3 sm:p-4 select-none flex items-center justify-center gap-3.5 sm:gap-4 border-t transition-colors ${theme === "dark"
-          ? "bg-[#202c33] border-[#222d34]"
-          : "bg-[#f0f2f5] border-gray-200"
-          }`}
+      <div className={`p-3 sm:p-4 select-none flex items-center justify-center gap-3.5 sm:gap-4 border-t transition-colors ${theme === "dark"
+        ? "bg-[#202c33] border-[#222d34]"
+        : "bg-[#f0f2f5] border-gray-200"
+        }`}
       >
         <button
           type="button"
@@ -493,11 +459,10 @@ export const ChatInputBar = ({
   }
 
   return (
-    <div
-      className={`p-2.5 sm:p-3 border-t flex flex-col relative transition-colors ${theme === "dark"
-        ? "bg-[#202c33] border-[#222d34]"
-        : "bg-[#f0f2f5] border-gray-200"
-        }`}
+    <div className={`p-2.5 sm:p-3 border-t flex flex-col relative transition-colors ${theme === "dark"
+      ? "bg-[#202c33] border-[#222d34]"
+      : "bg-[#f0f2f5] border-gray-200"
+      }`}
     >
       <ReplyPreviewBar
         replyingTo={replyingTo}
@@ -607,11 +572,10 @@ export const ChatInputBar = ({
       )}
 
       {scheduledFor && (
-        <div
-          className={`flex items-center justify-between gap-2 sm:gap-3 px-3 py-2 mb-2 rounded-2xl border shadow-md backdrop-blur-xl select-none transition-all duration-200 animate-fadeIn ${theme === "dark"
-            ? "bg-[#182229]/95 border-emerald-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
-            : "bg-emerald-50/90 border-emerald-300/80 shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
-            }`}
+        <div className={`flex items-center justify-between gap-2 sm:gap-3 px-3 py-2 mb-2 rounded-2xl border shadow-md backdrop-blur-xl select-none transition-all duration-200 animate-fadeIn ${theme === "dark"
+          ? "bg-[#182229]/95 border-emerald-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
+          : "bg-emerald-50/90 border-emerald-300/80 shadow-[0_4px_16px_rgba(16,185,129,0.12)]"
+          }`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-emerald-500 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30 shadow-sm">
@@ -695,18 +659,17 @@ export const ChatInputBar = ({
       )}
 
       <div className="flex items-center gap-2 sm:gap-2.5 w-full">
-        <div
-          className={`relative flex-1 min-w-0 flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-[24px] sm:rounded-full transition-all duration-200 border shadow-2xs ${isDictating
-            ? "border-red-500/60 ring-2 ring-red-500/20 bg-red-500/5"
-            : theme === "dark"
-              ? "bg-[#2a3942] border-white/10 hover:border-emerald-500/40 hover:bg-[#303f49] focus-within:border-emerald-500/70 focus-within:ring-2 focus-within:ring-emerald-500/20"
-              : "bg-white border-gray-200/90 hover:border-emerald-500/40 hover:bg-gray-50/80 focus-within:border-emerald-500/70 focus-within:ring-2 focus-within:ring-emerald-500/20"
-            }`}
+        <div className={`relative flex-1 min-w-0 flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 min-h-[46px] sm:min-h-[48px] rounded-[24px] sm:rounded-full transition-all duration-200 border shadow-2xs ${isDictating
+          ? "border-red-500/60 ring-2 ring-red-500/20 bg-red-500/5"
+          : theme === "dark"
+            ? "bg-[#2a3942] border-white/10 hover:border-emerald-500/40 hover:bg-[#303f49] focus-within:border-emerald-500/70 focus-within:ring-2 focus-within:ring-emerald-500/20"
+            : "bg-white border-gray-200/90 hover:border-emerald-500/40 hover:bg-gray-50/80 focus-within:border-emerald-500/70 focus-within:ring-2 focus-within:ring-emerald-500/20"
+          }`}
         >
           <div className="relative shrink-0" ref={fileMenuRef}>
             <button
               type="button"
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border border-transparent transition-all duration-150 cursor-pointer active:scale-92 ${showFileMenu
+              className={`w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-full flex items-center justify-center border border-transparent transition-all duration-150 cursor-pointer active:scale-92 ${showFileMenu
                 ? "bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 border-emerald-500/30 scale-105"
                 : "text-gray-500 dark:text-[#8696a0] hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-black/5 dark:hover:bg-white/10"
                 }`}
@@ -775,196 +738,216 @@ export const ChatInputBar = ({
                     duration: 0.16,
                     ease: "easeOut",
                   }}
-                  className={`absolute bottom-full left-0 sm:-left-6 mb-4 sm:mb-7 w-[230px] sm:w-56 rounded-2xl p-2 z-50 border shadow-2xl backdrop-blur-xl ${theme === "dark"
+                  className={`absolute bottom-full left-0 sm:-left-6 mb-4 sm:mb-7 w-[230px] sm:w-56 max-h-[380px] sm:max-h-[420px] overflow-y-auto scrollbar-thin [scrollbar-width:thin] overscroll-contain rounded-2xl p-2 z-50 border shadow-2xl backdrop-blur-xl ${theme === "dark"
                     ? "bg-[#233138] border-white/10 text-[#e9edef] shadow-black/70"
                     : "bg-white border-gray-100 text-[#3b4a54] shadow-black/15"
                     }`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      documentInputRef.current?.click();
-                    }}
-                    title="Send document"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <FaFileAlt className="text-white text-[16px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Document
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      fileInputRef.current?.click();
-                    }}
-                    title="Send photos & videos"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <FaImage className="text-white text-[16px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Photos & videos
-                    </span>
-                  </button>
+                  <div className="flex flex-col space-y-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        documentInputRef.current?.click();
+                      }}
+                      title="Send document"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#7f66ff] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <FaFileAlt className="text-white text-[16px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Document
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowCamera(true);
-                    }}
-                    title="Take photo with camera"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <FaCamera className="text-white text-[16px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Camera
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        fileInputRef.current?.click();
+                      }}
+                      title="Send photos & videos"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#007bfc] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <FaImage className="text-white text-[16px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Photos & videos
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      audioInputRef.current?.click();
-                    }}
-                    title="Send audio"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <FaHeadphones className="text-white text-[16px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Audio
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowCamera(true);
+                      }}
+                      title="Take photo with camera"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#ff2e74] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <FaCamera className="text-white text-[16px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Camera
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowContactModal(true);
-                    }}
-                    title="Share contact"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <RiContactsFill className="text-white text-[17px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Contact
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        audioInputRef.current?.click();
+                      }}
+                      title="Send audio"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#f2790f] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <FaHeadphones className="text-white text-[16px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Audio
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowPollModal(true);
-                    }}
-                    title="Create poll"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <FaSquarePollHorizontal className="text-white text-[17px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Poll
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowContactModal(true);
+                      }}
+                      title="Share contact"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#009de2] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <RiContactsFill className="text-white text-[17px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Contact
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowEventModal(true);
-                    }}
-                    title="Create event"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <MdEventNote className="text-white text-[17px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Event
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowPollModal(true);
+                      }}
+                      title="Create poll"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#ffb703] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <FaSquarePollHorizontal className="text-white text-[17px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Poll
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowStickerModal(true);
-                    }}
-                    title="Send sticker"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <MdAddReaction className="text-white text-[17px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      New sticker
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowEventModal(true);
+                      }}
+                      title="Create event"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#a855f7] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <MdEventNote className="text-white text-[17px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Event
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      setShowCallLinkModal(true);
-                    }}
-                    title="Share call link"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#00a884] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <MdLink className="text-white text-[19px] transform -rotate-45" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Call link
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowStickerModal(true);
+                      }}
+                      title="Send sticker"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#02b875] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <MdAddReaction className="text-white text-[17px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        New sticker
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      if (setShowSplitBillModal) setShowSplitBillModal(true);
-                    }}
-                    title="Split a bill"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#06b6d4] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <MdReceiptLong className="text-white text-[19px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Split bill
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        setShowCallLinkModal(true);
+                      }}
+                      title="Share call link"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#00a884] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <MdLink className="text-white text-[19px] transform -rotate-45" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Call link
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFileMenu(false);
-                      if (setShowLocationModal) setShowLocationModal(true);
-                    }}
-                    title="Share location"
-                    className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-[#ef4444] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
-                      <MdLocationOn className="text-white text-[19px]" />
-                    </div>
-                    <span className="text-[14px] font-medium tracking-tight">
-                      Location
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        if (setShowSplitBillModal) setShowSplitBillModal(true);
+                      }}
+                      title="Split a bill"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#06b6d4] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <MdReceiptLong className="text-white text-[19px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Split bill
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        if (setShowLocationModal) setShowLocationModal(true);
+                      }}
+                      title="Share location"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-[#ef4444] flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <MdLocationOn className="text-white text-[19px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Location
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowFileMenu(false);
+                        if (setShowTimeCapsuleModal) setShowTimeCapsuleModal(true);
+                      }}
+                      title="Seal a time capsule"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl border border-transparent hover:border-black/10 dark:hover:border-white/15 cursor-pointer transition-all duration-150 hover:bg-black/5 dark:hover:bg-white/10 active:scale-98 group text-left"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center shrink-0 shadow-md group-hover:scale-110 active:scale-95 transition-transform duration-200">
+                        <MdHourglassBottom className="text-white text-[19px]" />
+                      </div>
+                      <span className="text-[14px] font-medium tracking-tight">
+                        Time capsule
+                      </span>
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -973,7 +956,7 @@ export const ChatInputBar = ({
           <div className="relative shrink-0">
             <button
               type="button"
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border border-transparent transition-all duration-150 cursor-pointer active:scale-92 ${showEmojiPicker
+              className={`w-9 h-9 sm:w-9.5 sm:h-9.5 rounded-full flex items-center justify-center border border-transparent transition-all duration-150 cursor-pointer active:scale-92 ${showEmojiPicker
                 ? "bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 border-emerald-500/30 scale-105"
                 : "text-gray-500 dark:text-[#8696a0] hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-black/5 dark:hover:bg-white/10"
                 }`}
@@ -1002,11 +985,10 @@ export const ChatInputBar = ({
           </div>
 
           {showMentionPopover && filteredMentionItems.length > 0 && (
-            <div
-              className={`absolute left-2 sm:left-4 bottom-full mb-3 w-[300px] sm:w-[350px] max-w-[calc(100vw-24px)] rounded-2xl shadow-2xl border overflow-hidden z-50 animate-fade-in ${theme === "dark"
-                ? "bg-[#202c33] border-white/10 text-white shadow-[0_12px_28px_rgba(0,0,0,0.55)]"
-                : "bg-white border-black/10 text-gray-900 shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
-                }`}
+            <div className={`absolute left-2 sm:left-4 bottom-full mb-3 w-[300px] sm:w-[350px] max-w-[calc(100vw-24px)] rounded-2xl shadow-2xl border overflow-hidden z-50 animate-fade-in ${theme === "dark"
+              ? "bg-[#202c33] border-white/10 text-white shadow-[0_12px_28px_rgba(0,0,0,0.55)]"
+              : "bg-white border-black/10 text-gray-900 shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
+              }`}
             >
               <div className="px-3.5 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 border-b border-black/5 dark:border-white/5 select-none flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
@@ -1622,14 +1604,18 @@ export const ChatInputBar = ({
                 onClick={() => {
                   setIsViewOnce((prev) => {
                     const next = !prev;
+
                     if (next) {
-                      toast.info("1 View-once message enabled. Disappears after viewing!");
+                      toast.info(
+                        "1 View-once message enabled. Disappears after viewing!"
+                      );
                     }
+
                     return next;
                   });
                 }}
-                className={`shrink-0 flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full border transition-all duration-150 cursor-pointer active:scale-92 ${isViewOnce
-                  ? "bg-emerald-500 text-white border-emerald-400 font-bold shadow-md shadow-emerald-500/30 scale-105"
+                className={`shrink-0 flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full border transition-all duration-200 cursor-pointer active:scale-90 ${isViewOnce
+                  ? "bg-emerald-500/20 text-white border-emerald-400/10 shadow-md shadow-emerald-500/30 scale-105"
                   : "border-transparent text-gray-500 dark:text-[#8696a0] hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-black/5 dark:hover:bg-white/10"
                   }`}
                 title={
@@ -1637,8 +1623,20 @@ export const ChatInputBar = ({
                     ? "View-once message active (disappears after viewing)"
                     : "Set as View-Once message"
                 }
+                aria-label={
+                  isViewOnce
+                    ? "Disable view once"
+                    : "Enable view once"
+                }
+                aria-pressed={isViewOnce}
               >
-                <span className="text-[13px] font-black leading-none">1</span>
+                <span className="flex items-center justify-center text-[20px] leading-none">
+                  {isViewOnce ? (
+                    <PiEyeLight className="text-green-500" />
+                  ) : (
+                    <PiEyeSlash className="text-green-500" />
+                  )}
+                </span>
               </button>
             </div>
           )}

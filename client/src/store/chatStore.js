@@ -967,6 +967,9 @@ export const useChatStore = create((set, get) => ({
     socket.off("message_reencrypted");
     socket.off("new_group_created");
     socket.off("group_message_receipt_update");
+    socket.off("view_once_opened");
+    socket.off("split_bill_updated");
+    socket.off("location_access_updated");
 
     get().fetchBlockedUsers();
 
@@ -1837,8 +1840,15 @@ export const useChatStore = create((set, get) => ({
           ? syncMessagesCache(state.messagesCache, convId, nextMessages)
           : state.messagesCache;
 
-        const nextConversations = (state.conversations || []).map((c) => {
+        const convList = Array.isArray(state.conversations?.data)
+          ? state.conversations.data
+          : Array.isArray(state.conversations)
+          ? state.conversations
+          : [];
+        let convChanged = false;
+        const nextConversationsData = convList.map((c) => {
           if (c.lastMessage && (c.lastMessage._id || c.lastMessage.id)?.toString() === messageId?.toString()) {
+            convChanged = true;
             const openedList = viewOnceOpenedBy || c.lastMessage.viewOnceOpenedBy || [];
             const hasUser = openedList.some((id) => (id?._id || id)?.toString() === userId?.toString());
             return {
@@ -1851,6 +1861,12 @@ export const useChatStore = create((set, get) => ({
           }
           return c;
         });
+
+        const nextConversations = convChanged
+          ? (Array.isArray(state.conversations?.data)
+              ? { ...state.conversations, data: nextConversationsData }
+              : nextConversationsData)
+          : state.conversations;
 
         return { messages: nextMessages, messagesCache: nextCache, conversations: nextConversations };
       });
@@ -1872,8 +1888,15 @@ export const useChatStore = create((set, get) => ({
           ? syncMessagesCache(state.messagesCache, convId, nextMessages)
           : state.messagesCache;
 
-        const nextConversations = (state.conversations || []).map((c) => {
+        const convList = Array.isArray(state.conversations?.data)
+          ? state.conversations.data
+          : Array.isArray(state.conversations)
+          ? state.conversations
+          : [];
+        let convChanged = false;
+        const nextConversationsData = convList.map((c) => {
           if (c.lastMessage && (c.lastMessage._id || c.lastMessage.id)?.toString() === messageId?.toString()) {
+            convChanged = true;
             return {
               ...c,
               lastMessage: {
@@ -1885,7 +1908,32 @@ export const useChatStore = create((set, get) => ({
           return c;
         });
 
+        const nextConversations = convChanged
+          ? (Array.isArray(state.conversations?.data)
+              ? { ...state.conversations, data: nextConversationsData }
+              : nextConversationsData)
+          : state.conversations;
+
         return { messages: nextMessages, messagesCache: nextCache, conversations: nextConversations };
+      });
+    });
+
+    socket.on("location_access_updated", ({ messageId, conversationId, locationData }) => {
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if ((m._id || m.id)?.toString() === messageId?.toString()) {
+            return {
+              ...m,
+              locationData,
+            };
+          }
+          return m;
+        });
+        const convId = conversationId?.toString() || state.currentConversation?._id?.toString();
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+        return { messages: nextMessages, messagesCache: nextCache };
       });
     });
 
@@ -2677,6 +2725,12 @@ export const useChatStore = create((set, get) => ({
       } catch (e) {}
     }
 
+    const isTimeCapsule =
+      formData.get("isTimeCapsule") === "true" ||
+      formData.get("isTimeCapsule") === true;
+    const timeCapsuleUnlockAt = formData.get("timeCapsuleUnlockAt") || null;
+    const timeCapsuleHint = formData.get("timeCapsuleHint") || "";
+
     const scheduledForParam = formData.get("scheduledFor");
     const isScheduledParam =
       formData.get("isScheduled") === "true" ||
@@ -2713,6 +2767,9 @@ export const useChatStore = create((set, get) => ({
       contactData: parsedContactData,
       splitBillData: parsedSplitBillData,
       locationData: parsedLocationData,
+      isTimeCapsule,
+      timeCapsuleUnlockAt,
+      timeCapsuleHint,
       createdAt: scheduledForParam || nowIso,
       scheduledFor: scheduledForParam || null,
       isScheduled: isScheduledParam,
@@ -3970,6 +4027,76 @@ export const useChatStore = create((set, get) => ({
       console.error("toggleSplitBillPayment error:", err);
       toast.error(
         err?.response?.data?.message || "Failed to update payment status",
+      );
+    }
+  },
+
+  recordLocationAccess: async (messageId) => {
+    try {
+      const res = await axiosInstance.post(
+        `/chat/messages/${messageId}/access-location`,
+      );
+      if (res.data?.data?.locationData) {
+        const updatedLoc = res.data.data.locationData;
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, locationData: updatedLoc }
+              : m,
+          );
+          const convId = state.currentConversation?._id?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+        return res.data.data;
+      }
+    } catch (err) {
+      console.warn(
+        "recordLocationAccess notice:",
+        err?.response?.data?.message || err.message,
+      );
+      if (err?.response?.data?.data?.locationData) {
+        const updatedLoc = err.response.data.data.locationData;
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, locationData: updatedLoc }
+              : m,
+          );
+          return { messages: nextMessages };
+        });
+      }
+    }
+  },
+
+  revokeLocationSharing: async (messageId) => {
+    try {
+      const res = await axiosInstance.post(
+        `/chat/messages/${messageId}/revoke-location`,
+      );
+      if (res.data?.data?.locationData) {
+        const updatedLoc = res.data.data.locationData;
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, locationData: updatedLoc }
+              : m,
+          );
+          const convId = state.currentConversation?._id?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+        toast.info("Location sharing stopped");
+        return res.data.data;
+      }
+    } catch (err) {
+      console.error("revokeLocationSharing error:", err);
+      toast.error(
+        err?.response?.data?.message || "Failed to stop location sharing",
       );
     }
   },

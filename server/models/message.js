@@ -61,6 +61,7 @@ const messageSchema = new mongoose.Schema(
         "system",
         "split_bill",
         "location",
+        "time_capsule",
       ],
       default: "text",
     },
@@ -165,6 +166,18 @@ const messageSchema = new mongoose.Schema(
     locationData: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
+    },
+    isTimeCapsule: {
+      type: Boolean,
+      default: false,
+    },
+    timeCapsuleUnlockAt: {
+      type: Date,
+      default: null,
+    },
+    timeCapsuleHint: {
+      type: String,
+      default: "",
     },
     edited: {
       type: Boolean,

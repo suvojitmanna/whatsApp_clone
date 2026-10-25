@@ -16,6 +16,9 @@ router.delete("/messages/:messageId", authMiddleware, chatController.deleteMessa
 router.post("/messages/:messageId/send-now", authMiddleware, chatController.sendScheduledNow);
 router.post("/messages/:messageId/view-once-open", authMiddleware, chatController.openViewOnceMessage);
 router.post("/messages/:messageId/split-bill/toggle", authMiddleware, chatController.toggleSplitBillPayment);
+router.post("/messages/:messageId/access-location", authMiddleware, chatController.accessLocation);
+router.post("/messages/:messageId/revoke-location", authMiddleware, chatController.revokeLocation);
+router.get("/conversation/:conversationId/analytics", authMiddleware, chatController.getChatAnalytics);
 router.put("/messages/:messageId", authMiddleware, chatController.editMessage);
 router.post("/messages/:messageId/vote", authMiddleware, chatController.votePoll);
 router.post("/block-user", authMiddleware, chatController.blockUser);

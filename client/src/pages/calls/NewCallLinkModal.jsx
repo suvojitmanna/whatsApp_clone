@@ -123,31 +123,13 @@ const NewCallLinkModal = ({
   });
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fadeIn select-none"
-      onClick={onClose}
-    >
-      <div
-        className={`w-full max-w-[460px] rounded-[22px] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)] border transition-all ${isDark
-          ? "bg-[#202428] border-white/[0.08] text-[#e9edef]"
-          : "bg-white border-gray-200 text-[#111b21]"
-          }`}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fadeIn select-none" onClick={onClose}>
+      <div className={`w-full max-w-[460px] rounded-[22px] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)] border transition-all ${isDark ? "bg-[#202428] border-white/[0.08] text-[#e9edef]" : "bg-white border-gray-200 text-[#111b21]"}`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[20px] font-semibold tracking-tight">
             New call link
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark
-              ? "text-[#aebac1] hover:text-white hover:bg-white/10"
-              : "text-[#54656f] hover:text-black hover:bg-black/5"
-              }`}
-            title="Close"
-            aria-label="Close"
-          >
+          <button type="button" onClick={onClose} className={`p-1.5 rounded-full transition-colors cursor-pointer ${isDark ? "text-[#aebac1] hover:text-white hover:bg-white/10" : "text-[#54656f] hover:text-black hover:bg-black/5"}`} title="Close" aria-label="Close">
             <MdClose className="text-xl" />
           </button>
         </div>
@@ -239,18 +221,14 @@ const NewCallLinkModal = ({
                     <MdCall className="text-base" />
                   )}
                   <span className="capitalize">{callType}</span>
-                  <IoIosArrowDown
-                    className={`text-xs transition-transform duration-200 ${isTypeDropdownOpen ? "rotate-180" : ""
-                      }`}
-                  />
+                  <IoIosArrowDown className={`text-xs transition-transform duration-200 ${isTypeDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {isTypeDropdownOpen && (
-                  <div
-                    className={`absolute top-12 left-0 z-30 w-36 py-1.5 rounded-xl shadow-xl border animate-fadeIn ${isDark
-                      ? "bg-[#182229] border-white/10 text-[#e9edef]"
-                      : "bg-white border-gray-200 text-[#111b21]"
-                      }`}
+                  <div className={`absolute top-12 left-0 z-30 w-36 py-1.5 rounded-xl shadow-xl border animate-fadeIn ${isDark
+                    ? "bg-[#182229] border-white/10 text-[#e9edef]"
+                    : "bg-white border-gray-200 text-[#111b21]"
+                    }`}
                   >
                     <button
                       type="button"
@@ -287,17 +265,12 @@ const NewCallLinkModal = ({
                 )}
               </div>
 
-              <div
-                className={`flex-1 min-w-0 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border ${isDark
-                  ? "bg-[#111b21] border-white/[0.06]"
-                  : "bg-[#f0f2f5] border-gray-200"
-                  }`}
+              <div className={`flex-1 min-w-0 flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border ${isDark
+                ? "bg-[#111b21] border-white/[0.06]"
+                : "bg-[#f0f2f5] border-gray-200"
+                }`}
               >
-                <span
-                  className={`text-[13.5px] truncate font-normal tracking-tight select-all ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
-                    }`}
-                  title={callUrl}
-                >
+                <span className={`text-[13.5px] truncate font-normal tracking-tight select-all ${isDark ? "text-[#e9edef]" : "text-[#111b21]"}`} title={callUrl} >
                   {callUrl}
                 </span>
 
@@ -322,12 +295,8 @@ const NewCallLinkModal = ({
               </div>
             </div>
 
-            <p
-              className={`text-[13.5px] leading-relaxed mb-5 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"
-                }`}
-            >
-              Anyone can use this link to join this call, even if they're not on
-              WhatsApp. Only share it with people you trust.{" "}
+            <p className={`text-[13.5px] leading-relaxed mb-5 ${isDark ? "text-[#8696a0]" : "text-[#54656f]"}`} >
+              Anyone can use this link to join this call, even if they're not on WhatsApp. Only share it with people you trust.{" "}
               <button
                 type="button"
                 onClick={() => {
@@ -342,10 +311,7 @@ const NewCallLinkModal = ({
 
             <div className="flex items-center justify-between gap-4 py-2 mb-6">
               <div className="flex flex-col pr-2">
-                <span
-                  className={`text-[15px] font-semibold ${isDark ? "text-[#e9edef]" : "text-[#111b21]"
-                    }`}
-                >
+                <span className={`text-[15px] font-semibold ${isDark ? "text-[#e9edef]" : "text-[#111b21]"}`} >
                   Require approval to join
                 </span>
                 <span
@@ -369,13 +335,11 @@ const NewCallLinkModal = ({
                     : "bg-[#d1d7db]"
                   }`}
               >
-                <div
-                  className={`w-5 h-5 rounded-full transition-transform duration-200 shadow-sm ${requireApproval
-                    ? "bg-white translate-x-5"
-                    : isDark
-                      ? "bg-[#8696a0] translate-x-0"
-                      : "bg-white translate-x-0"
-                    }`}
+                <div className={`w-5 h-5 rounded-full transition-transform duration-200 shadow-sm ${requireApproval
+                  ? "bg-white translate-x-5"
+                  : isDark
+                    ? "bg-[#8696a0] translate-x-0"
+                    : "bg-white translate-x-0"}`}
                 />
               </button>
             </div>
