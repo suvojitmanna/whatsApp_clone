@@ -53,7 +53,7 @@ A production-grade, highly scalable real-time communication platform inspired by
 ## 🖼️ Demo Preview
 
 <p align="center">
-  <img width="100%" alt="WhatsApp Web App Demo Preview" src="https://github.com/user-attachments/assets/f51b131c-e1de-496a-9e30-e941f7987bcd" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.25);" />
+  <img width="100%" alt="WhatsApp Web App Demo Preview" src="https://github.com/user-attachments/assets/f51b131c-e1de-496a-9e30-e941f7987bcd" />
 </p>
 
 ---
@@ -63,49 +63,21 @@ A production-grade, highly scalable real-time communication platform inspired by
 ### 1. High-Level System Architecture
 ```mermaid
 flowchart TD
-    User["👤 Client (Browser / Mobile)"]
+    User["👤 User (Web / Mobile)"] --> Frontend["⚛️ React 19 Frontend (Vite + Zustand)"]
+    Frontend -->|HTTPS REST| Backend["🟢 Express 5 Backend"]
+    Frontend <-->|WSS Real-time Events| Socket["⚡ Socket.IO Server"]
+    Frontend <-->|WebRTC Encrypted P2P| Peer["📱 Peer Client (Voice / Video)"]
     
-    subgraph Frontend["⚛️ Frontend Layer (React 19 + Vite + Zustand)"]
-        UI["UI / Layout Components"]
-        ZustandStore["Zustand Global State Stores"]
-        AxiosClient["Axios REST API Client"]
-        SocketClient["Socket.IO Client"]
-        WebRTCClient["WebRTC Peer Connection"]
-    end
-
-    subgraph Backend["🟢 Backend Layer (Node.js + Express 5)"]
-        APIRouter["Express API Routes"]
-        AuthMiddleware["JWT Auth Middleware"]
-        Controllers["Controllers (Chat, Auth, Status)"]
-        SchedulerService["Background Message Scheduler"]
-        SocketServer["Socket.IO WebSocket Server"]
-        WebRTCSignaling["WebRTC Call Signaling"]
-    end
-
-    subgraph DataAndCloud["☁️ Data & Cloud Infrastructure"]
-        MongoDB[("🍃 MongoDB Atlas")]
-        Cloudinary["☁️ Cloudinary Media CDN"]
-        AIServices["🤖 AI APIs (Gemini + Groq Whisper + LangChain)"]
-    end
-
-    User <--> UI
-    UI <--> ZustandStore
-    ZustandStore <--> AxiosClient
-    ZustandStore <--> SocketClient
-    ZustandStore <--> WebRTCClient
-
-    AxiosClient -->|HTTPS REST| APIRouter
-    APIRouter --> AuthMiddleware --> Controllers
-    Controllers <--> MongoDB
-    Controllers <--> Cloudinary
-    Controllers <--> AIServices
-    SchedulerService <--> MongoDB
-    SchedulerService --> SocketServer
-
-    SocketClient <-->|WSS Real-time Events| SocketServer
-    WebRTCClient <-->|ICE / SDP Signaling| WebRTCSignaling
-    WebRTCSignaling <--> SocketServer
-    WebRTCClient <==>|Encrypted P2P Media Stream| WebRTCClient
+    Backend --> Auth["🛡️ JWT Auth Middleware"]
+    Auth --> Controllers["🎮 Controllers (Chat, Auth, Status)"]
+    
+    Controllers <--> MongoDB[("🍃 MongoDB Database")]
+    Controllers <--> Cloudinary["☁️ Cloudinary CDN"]
+    Controllers <--> AI["🤖 Gemini AI & Groq Whisper"]
+    
+    Backend <--> Socket
+    Scheduler["⏰ Background Message Scheduler"] --> MongoDB
+    Scheduler --> Socket
 ```
 
 ---
@@ -122,29 +94,26 @@ sequenceDiagram
     participant Bob as 👨 Bob (Recipient)
 
     Alice->>ClientA: Types draft & clicks Send
-    ClientA->>ClientA: Optimistic UI render (Clock / Sending)
-    ClientA->>Server: HTTP POST /api/chat/messages (or socket 'send_message')
+    ClientA->>ClientA: Optimistic UI render (Clock icon)
+    ClientA->>Server: POST /api/chat/messages (or 'send_message')
     Server->>DB: Save message (status: 'sent')
-    Server-->>ClientA: HTTP 201 / ack with saved Message ID
-    ClientA->>ClientA: Update status icon: Single Tick (✓)
+    Server-->>ClientA: HTTP 201 ack (Message ID)
+    ClientA->>Alice: Display Single Tick (✓)
 
-    alt Bob is Online & Connected
-        Server->>ClientB: emit 'receive_message' (Message Payload)
-        ClientB->>Server: emit 'message_delivered' (messageId, senderId)
-        Server->>DB: Update message status to 'delivered'
-        Server->>ClientA: emit 'message_status_update' (status: 'delivered')
+    alt Bob is Online
+        Server->>ClientB: emit 'receive_message'
+        ClientB->>Server: emit 'message_delivered'
+        Server->>DB: Update status to 'delivered'
+        Server->>ClientA: emit 'message_status_update'
         ClientA->>Alice: Display Double Gray Ticks (✓✓)
         
-        alt Bob Opens Alice's Chat Window
-            Bob->>ClientB: Focuses on Chat
-            ClientB->>Server: emit 'message_read' (conversationId, messageIds)
-            Server->>DB: Update message status to 'read'
-            Server->>ClientA: emit 'message_read_receipt' (conversationId)
-            ClientA->>Alice: Display Double Blue Ticks (✓✓)
-        end
+        Bob->>ClientB: Opens chat conversation
+        ClientB->>Server: emit 'message_read'
+        Server->>DB: Update status to 'read'
+        Server->>ClientA: emit 'message_read_receipt'
+        ClientA->>Alice: Display Double Blue Ticks (✓✓)
     else Bob is Offline
-        Server-->>DB: Message persists with status: 'sent'
-        Note over Server,Bob: Delivered automatically when Bob reconnects
+        Server->>DB: Persist with status 'sent' until reconnect
     end
 ```
 
@@ -153,31 +122,14 @@ sequenceDiagram
 ### 3. Frontend Component & Store Architecture
 ```mermaid
 flowchart LR
-    subgraph UIComponents["🎨 Presentation Layer"]
-        Layout["Layout & Left Rail"]
-        ChatList["Chat List & Search"]
-        ChatWindow["Active Chat Window"]
-        ContactInfo["Contact Info Drawer"]
-        Modals["Modals (AI, PIN, Poll, Call)"]
-    end
-
-    subgraph StateStores["⚡ Zustand Reactive State Layer"]
-        UserStore["useUserStore (Auth & Profile)"]
-        ChatStore["chatStore (Chats, Messages, Typing)"]
-        CallStore["useCallStore (WebRTC Audio/Video)"]
-        ThemeStore["useThemeStore (Light / Dark)"]
-        StatusStore["statusStore (24h Stories)"]
-    end
-
-    subgraph NetworkClients["📡 Network Client Layer"]
-        AxiosAPI["Axios (HTTP / Interceptors)"]
-        SocketIO["Socket.IO (Event Listeners & Emitters)"]
-        PeerConn["RTCPeerConnection (Media Stream)"]
-    end
-
-    UIComponents <--> StateStores
-    StateStores <--> NetworkClients
-    NetworkClients <-->|REST API + WebSockets| ServerGateway["🟢 Backend API Gateway"]
+    UI["🎨 UI Layer (Layout, ChatWindow, Modals)"] --> Store["⚡ Zustand Stores (User, Chat, Call, Theme)"]
+    Store --> Axios["📡 Axios REST API Client"]
+    Store --> SocketClient["⚡ Socket.IO Client"]
+    Store --> WebRTCClient["📹 RTCPeerConnection"]
+    
+    Axios --> BackendAPI["🟢 Express.js API"]
+    SocketClient --> SocketServer["⚡ Socket.IO Server"]
+    WebRTCClient --> P2PPeer["📱 Remote Peer"]
 ```
 
 ---
@@ -185,48 +137,20 @@ flowchart LR
 ### 4. Backend Service Architecture
 ```mermaid
 flowchart TD
-    Request["Incoming Client Request"] --> Router["Express Router Gateway"]
-
-    subgraph Middleware["🛡️ Middleware Pipeline"]
-        Cors["CORS Handler"]
-        CookieParser["Cookie Parser"]
-        JWTVerify["JWT Authentication Guard"]
-        MulterUpload["Multer File & Media Upload"]
-    end
-
-    subgraph Controllers["🎮 Business Controllers"]
-        AuthController["authController.js"]
-        ChatController["chatController.js"]
-        StatusController["statusController.js"]
-    end
-
-    subgraph Models["🗄️ MongoDB Mongoose Models"]
-        UserModel["User.js"]
-        ConvModel["ConverSation.js"]
-        MsgModel["message.js"]
-        StatusModel["status.js"]
-    end
-
-    subgraph ExternalIntegrations["🔌 External Integrations"]
-        CloudinaryCDN["Cloudinary Media Storage"]
-        GeminiAI["Google Gemini (Chat & Vision)"]
-        GroqWhisper["Groq Whisper (Voice Transcription)"]
-        TwilioSms["Twilio (SMS / OTP)"]
-        CronService["Node-Cron (Scheduled Dispatch)"]
-    end
-
-    Router --> Cors --> CookieParser --> JWTVerify --> MulterUpload
-    MulterUpload --> Controllers
-
-    AuthController <--> UserModel
-    AuthController <--> TwilioSms
-    ChatController <--> ConvModel
-    ChatController <--> MsgModel
-    ChatController <--> CloudinaryCDN
-    ChatController <--> GeminiAI
-    ChatController <--> GroqWhisper
-    StatusController <--> StatusModel
-    CronService --> MsgModel
+    ClientReq["Incoming Client Request"] --> Router["Express Router Gateway"]
+    Router --> Middleware["🛡️ Middleware (CORS, JWT Guard, Multer)"]
+    Middleware --> Controllers["🎮 Controllers (Chat, Auth, Status)"]
+    
+    Controllers <--> Models["🗄️ Mongoose Models (User, Chat, Message, Status)"]
+    Models <--> DB[("🍃 MongoDB Database")]
+    
+    Controllers <--> Cloudinary["☁️ Cloudinary Storage"]
+    Controllers <--> Gemini["🤖 Google Gemini AI"]
+    Controllers <--> Groq["🎙️ Groq Whisper Transcription"]
+    Controllers <--> Twilio["📱 Twilio SMS"]
+    
+    Cron["⏰ Node-Cron Scheduler"] --> Models
+    Cron --> SocketGateway["⚡ Socket.IO Gateway"]
 ```
 
 ---
@@ -239,17 +163,16 @@ sequenceDiagram
     participant Signaling as ⚡ Socket.IO Signaling Server
     participant Callee as 📲 Callee (User B)
 
-    Caller->>Signaling: emit 'call_user' (userToCall, from, signalData, callType)
-    Signaling->>Callee: emit 'incoming_call' (from, signalData, callType)
-    Callee->>Callee: Ringtone + Call Notification Modal
+    Caller->>Signaling: emit 'call_user' (offer, signalData, type)
+    Signaling->>Callee: emit 'incoming_call' (offer, from)
+    Callee->>Callee: Trigger Ringtone & Call Modal
     
-    alt Callee Accepts Call
-        Callee->>Signaling: emit 'accept_call' (to, signal)
-        Signaling->>Caller: emit 'call_accepted' (signal)
-        Caller->>Callee: Exchange ICE Candidates via Signaling
-        Note over Caller,Callee: 🔒 Direct Encrypted Peer-to-Peer Audio/Video Stream Established
-    else Callee Declines Call
-        Callee->>Signaling: emit 'end_call' (to)
+    alt Call Accepted
+        Callee->>Signaling: emit 'accept_call' (answer, signal)
+        Signaling->>Caller: emit 'call_accepted' (answer)
+        Caller->>Callee: P2P Direct Media Stream (Audio/Video)
+    else Call Declined
+        Callee->>Signaling: emit 'end_call'
         Signaling->>Caller: emit 'call_ended'
     end
 ```
@@ -264,19 +187,19 @@ sequenceDiagram
     participant ChatBar as 🪄 Chat Input Bar
     participant Server as 🟢 Backend API
     participant GroqWhisper as 🎙️ Groq Whisper AI
-    participant GeminiAI as 🤖 Google Gemini / LLaMA
+    participant GeminiAI as 🤖 Google Gemini AI
 
     alt Voice Note Auto-Transcription
         User->>ChatBar: Record Voice Note (.wav / .webm)
-        ChatBar->>Server: Upload Voice Clip
-        Server->>GroqWhisper: Audio Stream
-        GroqWhisper-->>Server: Accurate Transcribed Text
-        Server-->>ChatBar: Return message with audioUrl + transcript
+        ChatBar->>Server: Upload Voice Audio
+        Server->>GroqWhisper: Stream Audio
+        GroqWhisper-->>Server: Transcribed Text
+        Server-->>ChatBar: Message with audioUrl + transcript
         ChatBar->>User: Display '📝 Read Transcript' Option
     else Magic Rewrite
-        User->>ChatBar: Types draft: "plz send file asap"
+        User->>ChatBar: Draft: "plz send file asap"
         User->>ChatBar: Clicks Magic Wand (Tone: Professional)
-        ChatBar->>Server: POST /api/chat/ai/rewrite (prompt, tone: 'professional')
+        ChatBar->>Server: POST /api/chat/ai/rewrite
         Server->>GeminiAI: Generate polished rewrite
         GeminiAI-->>Server: "Could you please share the file at your earliest convenience?"
         Server-->>ChatBar: Replace draft with polished message
