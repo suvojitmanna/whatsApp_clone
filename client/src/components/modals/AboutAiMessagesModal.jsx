@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -8,6 +9,7 @@ import {
 } from "../common/Icons";
 
 const AboutAiMessagesModal = ({ isOpen, onClose, theme = "dark" }) => {
+  const navigate = useNavigate();
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -113,11 +115,8 @@ const AboutAiMessagesModal = ({ isOpen, onClose, theme = "dark" }) => {
             <button
               type="button"
               onClick={() => {
-                window.open(
-                  "https://faq.whatsapp.com/1297594957591605",
-                  "_blank",
-                  "noopener,noreferrer"
-                );
+                onClose?.();
+                navigate("/help?topic=chats-ai");
               }}
               className="px-6 py-2 rounded-full font-medium text-[14px] bg-[#25d366] text-[#111b21] hover:bg-[#20ba5a] active:scale-95 transition shadow-md cursor-pointer"
             >

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MdHistory } from "react-icons/md";
 import { FaUser } from "react-icons/fa";
@@ -12,6 +13,7 @@ const ContactInfoMemberChangesTab = ({
   isGroup,
   theme,
 }) => {
+  const navigate = useNavigate();
   const [memberChanges, setMemberChanges] = useState([]);
   const [isLoadingMemberChanges, setIsLoadingMemberChanges] = useState(false);
 
@@ -72,11 +74,7 @@ const ContactInfoMemberChangesTab = ({
         <p className="text-[13px] text-[#8696a0] leading-relaxed max-w-sm mx-auto">
           See updates from the last 60 days like username changes or who has left or been removed.{" "}
           <span
-            onClick={() =>
-              toast.info(
-                "Only member changes from the last 60 days are shown in this list."
-              )
-            }
+            onClick={() => navigate("/help?topic=get-started")}
             className="text-[#00a884] font-medium hover:underline cursor-pointer"
           >
             Learn more

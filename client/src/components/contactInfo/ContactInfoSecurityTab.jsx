@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import QRCode from "qrcode";
 import jsQR from "jsqr";
@@ -17,6 +18,7 @@ const ContactInfoSecurityTab = ({
   setContactInfoTab,
   showContactInfo,
 }) => {
+  const navigate = useNavigate();
   const isDark = theme === "dark";
   const [safetyNumber, setSafetyNumber] = useState({
     blocks: Array(12).fill("00000"),
@@ -572,7 +574,7 @@ const ContactInfoSecurityTab = ({
             type="button"
             onClick={() => {
               stopCamera();
-              setContactInfoTab("privacy");
+              navigate("/help?topic=security");
             }}
             className="text-[#00a884] hover:text-[#06cf9c] hover:underline font-medium inline cursor-pointer"
           >

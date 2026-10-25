@@ -425,29 +425,27 @@ const Settings = () => {
                   type="button"
                   onClick={() => setIsChatLockModalOpen(true)}
                   title="Manage Chat Lock"
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer shadow-sm hover:shadow-md group ${theme === "dark"
-                    ? "bg-[#202c33] hover:bg-[#233138] border-white/10 hover:border-amber-500/30"
-                    : "bg-gray-50 hover:bg-emerald-50/40 border-gray-200 hover:border-emerald-500/40"
+                  className={`w-full flex items-center justify-between p-3.5 md:p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md group ${theme === "dark"
+                    ? "bg-[#202c33] hover:bg-[#233138] border-white/10 hover:border-amber-500/30 text-white"
+                    : "bg-white hover:bg-emerald-50/30 border-gray-200 hover:border-emerald-500/30 text-gray-900"
                     }`}
                 >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 text-xl shadow-inner shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="flex items-center gap-3.5 min-w-0 flex-1 mr-3 text-left">
+                    <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 text-lg md:text-xl shadow-xs shrink-0 group-hover:scale-105 transition-transform">
                       <FaLock />
                     </div>
-                    <div className="flex-1 min-w-0 text-left">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-base leading-tight">
-                          Chat Lock
-                        </h3>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1 truncate">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm md:text-base leading-snug">
+                        Chat Lock
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate">
                         Lock and hide secret chats on this device
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2.5 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <span
-                      className={`text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5 ${isLockConfigured
+                      className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1.5 shadow-xs ${isLockConfigured
                         ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                         : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
                         }`}
@@ -463,6 +461,29 @@ const Settings = () => {
                     <FaChevronRight className="text-gray-400 text-xs group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </motion.button>
+
+                <div
+                  className={`p-4 rounded-2xl border text-xs text-left leading-relaxed ${theme === "dark"
+                    ? "bg-[#111b21] border-white/5 text-gray-400"
+                    : "bg-white border-gray-200 text-gray-500"
+                    }`}
+                >
+                  <div className="font-semibold text-emerald-500 text-xs mb-1 flex items-center gap-1.5">
+                    <FaLock className="text-[10px]" />
+                    <span>Keep secret chats private</span>
+                  </div>
+                  <p>
+                    Locked chats are hidden behind your 4-digit PIN code and biometric verification. Click above to view or adjust settings.
+                  </p>
+                  {isLockConfigured && (
+                    <div className="mt-2.5 pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[11px]">
+                      <span className="text-gray-400">Locked Chats:</span>
+                      <span className="font-semibold text-amber-500">
+                        {lockedChatIds.length} {lockedChatIds.length === 1 ? "chat" : "chats"} protected
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaArrowLeft, FaCheck } from "react-icons/fa";
 import QRCode from "qrcode";
@@ -20,6 +21,7 @@ const SecurityVerifyModal = ({
   contact,
   initialView = "privacy",
 }) => {
+  const navigate = useNavigate();
   const { theme } = useThemeStore();
   const { user } = useUserStore();
   const [currentView, setCurrentView] = useState(initialView);
@@ -236,7 +238,10 @@ const SecurityVerifyModal = ({
                 device. You can also compare the number above instead.{" "}
                 <button
                   type="button"
-                  onClick={() => setCurrentView("privacy")}
+                  onClick={() => {
+                    onClose?.();
+                    navigate("/help?topic=security");
+                  }}
                   className="text-[#00a884] hover:text-[#06cf9c] hover:underline font-medium inline cursor-pointer"
                 >
                   Learn more
@@ -323,7 +328,10 @@ const SecurityVerifyModal = ({
               <div className="flex items-center justify-between w-full pt-1">
                 <button
                   type="button"
-                  onClick={() => setCurrentView("code")}
+                  onClick={() => {
+                    onClose?.();
+                    navigate("/help?topic=security");
+                  }}
                   className="text-[#00a884] hover:text-[#06cf9c] font-medium text-[14px] cursor-pointer transition-colors hover:underline"
                 >
                   Learn more

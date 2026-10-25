@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckmarkIcon } from "../common/Icons";
@@ -10,6 +11,7 @@ const BlockModal = ({
   contactName = "contact",
   theme = "dark",
 }) => {
+  const navigate = useNavigate();
   const [reportToWhatsApp, setReportToWhatsApp] = useState(false);
   const wasOpenRef = useRef(false);
 
@@ -131,11 +133,8 @@ const BlockModal = ({
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(
-                      "https://faq.whatsapp.com/594991778257077",
-                      "_blank",
-                      "noopener,noreferrer"
-                    );
+                    onClose?.();
+                    navigate("/help?topic=privacy-lock");
                   }}
                   className="text-[#00a884] hover:underline cursor-pointer font-medium"
                 >

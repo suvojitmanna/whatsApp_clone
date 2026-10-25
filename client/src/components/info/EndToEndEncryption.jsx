@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     MdClose,
     MdMessage,
@@ -22,6 +23,7 @@ export default function EndToEndEncryption({
     isDark = true,
     onClose,
 }) {
+    const navigate = useNavigate();
     const [showDetails, setShowDetails] = useState(false);
 
     useEffect(() => {
@@ -203,11 +205,14 @@ export default function EndToEndEncryption({
                     <div className="flex items-center justify-end gap-5 px-7 pb-8 sm:px-9 sm:pb-5 pt-10 ">
                         <button
                             type="button"
-                            onClick={() => setShowDetails((prev) => !prev)}
+                            onClick={() => {
+                                onClose?.();
+                                navigate("/help?topic=security");
+                            }}
                             className="flex cursor-pointer items-center gap-1.5 text-[15px] font-semibold text-[#16c875] transition hover:text-[#36e58d] hover:underline"
                         >
-                            {showDetails ? "Show less" : "Learn more"}
-                            {!showDetails && <MdOpenInNew size={15} />}
+                            Learn more
+                            <MdOpenInNew size={15} />
                         </button>
 
                         <button

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import useThemeStore from "../../store/themeStore";
 import { toast } from "react-toastify";
 import {
@@ -21,6 +22,7 @@ const CallPlaceholder = ({
   contacts = [],
   onSendToChat,
 }) => {
+  const navigate = useNavigate();
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
 
@@ -176,7 +178,13 @@ const CallPlaceholder = ({
           }`}
       >
         <MdLockOutline className="text-sm opacity-80" />
-        <span>Your personal calls are end-to-end encrypted</span>
+        <span>Your personal calls are end-to-end encrypted.</span>
+        <span
+          onClick={() => navigate("/help?topic=calls")}
+          className="text-[#00a884] dark:text-[#25d366] hover:underline font-semibold cursor-pointer ml-1"
+        >
+          Learn more
+        </span>
       </div>
 
       <NewCallLinkModal

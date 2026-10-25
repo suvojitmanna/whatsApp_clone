@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Layout from "../layout/layout";
 import {
   FaRocket,
@@ -270,17 +270,34 @@ const FAQS = [
 
 const HelpPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
 
-  const [selectedTopicId, setSelectedTopicId] = useState("overview");
-  const [search, setSearch] = useState("");
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const paramTopic = searchParams.get("topic");
+  const paramSearch = searchParams.get("search");
+
+  const [selectedTopicId, setSelectedTopicId] = useState(() => paramTopic || "overview");
+  const [search, setSearch] = useState(() => paramSearch || "");
   const [expandedFaq, setExpandedFaq] = useState(null);
   const [feedbackGiven, setFeedbackGiven] = useState(null);
   const [isMobile, setIsMobile] = useState(
     typeof window !== "undefined" ? window.innerWidth < 768 : false
   );
-  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(() => Boolean(paramTopic && paramTopic !== "overview"));
+
+  useEffect(() => {
+    if (paramTopic) {
+      setSelectedTopicId(paramTopic);
+      if (paramTopic !== "overview") {
+        setMobileDetailOpen(true);
+      }
+    }
+    if (paramSearch !== null && paramSearch !== undefined) {
+      setSearch(paramSearch);
+    }
+  }, [paramTopic, paramSearch]);
 
   const [supportTopic, setSupportTopic] = useState("general");
   const [supportMessage, setSupportMessage] = useState("");

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import useThemeStore from "../../store/themeStore";
 import { toast } from "react-toastify";
 import {
@@ -20,6 +21,7 @@ const NewCallLinkModal = ({
   onSendToChat,
   activeContact = null,
 }) => {
+  const navigate = useNavigate();
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
 
@@ -328,11 +330,10 @@ const NewCallLinkModal = ({
               WhatsApp. Only share it with people you trust.{" "}
               <button
                 type="button"
-                onClick={() =>
-                  toast.info(
-                    "Anyone with the link can join using WhatsApp or a web browser."
-                  )
-                }
+                onClick={() => {
+                  onClose?.();
+                  navigate("/help?topic=calls");
+                }}
                 className="text-[#00a884] hover:text-[#06cf9c] font-medium cursor-pointer hover:underline inline"
               >
                 Learn more

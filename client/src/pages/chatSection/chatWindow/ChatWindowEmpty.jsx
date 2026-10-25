@@ -1,8 +1,10 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { FaLock } from "react-icons/fa";
 import whatsappImage from "../../../assets/whatsapp_image.png";
 
 export const ChatWindowEmpty = ({ theme }) => {
+  const navigate = useNavigate();
   return (
     <div className="flex-1 flex flex-col items-center justify-center mx-auto h-screen text-center">
       <div className="max-w-md">
@@ -21,7 +23,13 @@ export const ChatWindowEmpty = ({ theme }) => {
           className={`${theme === "dark" ? "text-gray-400" : "text-gray-600"} mt-8 text-sm flex justify-center items-center gap-2 `}
         >
           <FaLock className="h-4 w-4" />
-          Your personal messages are end-to-end encrypted
+          <span>Your personal messages are end-to-end encrypted.</span>
+          <span
+            onClick={() => navigate("/help?topic=security")}
+            className="text-[#00a884] dark:text-[#25d366] hover:underline font-semibold cursor-pointer ml-1"
+          >
+            Learn more
+          </span>
         </p>
       </div>
     </div>

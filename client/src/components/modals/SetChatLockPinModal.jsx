@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { FaLock } from "react-icons/fa";
@@ -12,6 +13,7 @@ import {
 } from "../../utils/chatLockUtil";
 
 const SetChatLockPinModal = ({ isOpen, onClose, onSuccess }) => {
+  const navigate = useNavigate();
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
   const isConfigured = isChatLockConfigured();
@@ -189,6 +191,17 @@ const SetChatLockPinModal = ({ isOpen, onClose, onSuccess }) => {
             ⌫
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            onClose?.();
+            navigate("/help?topic=privacy-lock");
+          }}
+          className="text-[11.5px] text-[#8696a0] hover:text-[#00a884] hover:underline cursor-pointer pt-2"
+        >
+          Learn more about Chat Lock in Help Center
+        </button>
 
         {step === "confirm" && (
           <button
