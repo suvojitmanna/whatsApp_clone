@@ -32,8 +32,8 @@ export default function ChatSummaryModal({
     >
       <div
         className={`relative w-full max-w-[560px] max-h-[85vh] rounded-2xl flex flex-col shadow-2xl border overflow-hidden ${theme === "dark"
-            ? "bg-[#1f2c34] border-white/10 text-white"
-            : "bg-white border-black/10 text-gray-900"
+          ? "bg-[#1f2c34] border-white/10 text-white"
+          : "bg-white border-black/10 text-gray-900"
           }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -85,7 +85,7 @@ export default function ChatSummaryModal({
         {!isLoading && summary && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-black/5 dark:border-white/10 select-none bg-black/5 dark:bg-white/5">
             <span className="text-[11px] text-gray-400 font-mono">
-              ⚡ Powered by Meta AI Llama 3
+              ⚡ Powered by Meta AI
             </span>
             <div className="flex items-center gap-2">
               <button

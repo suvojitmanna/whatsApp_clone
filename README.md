@@ -42,6 +42,8 @@ A production-grade, highly scalable real-time communication platform inspired by
 * 📞 **HD Voice & Video Calling**: WebRTC-powered 1-on-1 and group calls with shareable meeting links and call controls.
 * 📸 **Status (Stories)**: 24-hour disappearing photo, video, and text status updates with viewers analytics.
 * ⏰ **Scheduled Messages ("Send Later")**: Schedule messages for any future date/time with automatic background dispatching.
+* ⏰ **In-Chat Message Reminders & Snooze**: Set smart reminder alarms on any message with 1-click presets (10m, 1h, tonight, tomorrow, custom), audio chime notifications, and 1-click jump-to-message.
+* 👁️ **View-Once Confidential Messages & Media**: Send self-destructing text messages (passwords/secrets) and media with an animated 5-second countdown timer, screenshot/copy protection, and permanent "Opened" status.
 * 📊 **Interactive In-Chat Cards**: Real-time multi-choice Polls and Event invitations with live RSVP tracking.
 
 <p align="center">

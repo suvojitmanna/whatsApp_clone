@@ -243,6 +243,16 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isViewOnce: {
+      type: Boolean,
+      default: false,
+    },
+    viewOnceOpenedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true },
 );

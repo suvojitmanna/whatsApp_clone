@@ -290,6 +290,17 @@ export const ChatHoverPreview = ({
           );
         }
 
+        if (lastMsg?.isViewOnce) {
+          return (
+            <div className="flex items-center gap-2">
+              <span className="flex items-center justify-center w-5 h-5 rounded-full border border-emerald-400 text-[11px] font-bold text-emerald-400 shrink-0">
+                1
+              </span>
+              <span className="font-semibold text-emerald-400">View once message</span>
+            </div>
+          );
+        }
+
         if (isPoll) {
           const pollQuestion =
             pollData?.question ||

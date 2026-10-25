@@ -96,6 +96,7 @@ export const ChatInputBar = ({
   const [showRewriteMenu, setShowRewriteMenu] = useState(false);
   const [isRewriting, setIsRewriting] = useState(false);
   const [previousDraft, setPreviousDraft] = useState(null);
+  const [isViewOnce, setIsViewOnce] = useState(false);
   const getLocalDateString = (d = new Date()) => {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -219,13 +220,16 @@ export const ChatInputBar = ({
   };
 
   const handleExecuteSend = () => {
+    const extraOptions = {};
     if (scheduledFor) {
-      const scheduleTime = scheduledFor.toISOString();
+      extraOptions.scheduledFor = scheduledFor.toISOString();
       setScheduledFor(null);
-      handleSendMessage(undefined, { scheduledFor: scheduleTime });
-    } else {
-      handleSendMessage();
     }
+    if (isViewOnce) {
+      extraOptions.isViewOnce = true;
+      setIsViewOnce(false);
+    }
+    handleSendMessage(undefined, extraOptions);
   };
 
   const applySchedule = (dt) => {
@@ -234,7 +238,12 @@ export const ChatInputBar = ({
       const scheduleTime = dt.toISOString();
       setScheduledFor(null);
       setShowScheduleMenu(false);
-      handleSendMessage(undefined, { scheduledFor: scheduleTime });
+      const extraOptions = { scheduledFor: scheduleTime };
+      if (isViewOnce) {
+        extraOptions.isViewOnce = true;
+        setIsViewOnce(false);
+      }
+      handleSendMessage(undefined, extraOptions);
       toast.success(
         `⏰ Scheduled message queued for ${dt.toLocaleDateString([], {
           month: "short",
@@ -1581,6 +1590,30 @@ export const ChatInputBar = ({
                 )}
               </AnimatePresence>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsViewOnce((prev) => {
+                  const next = !prev;
+                  if (next) {
+                    toast.info("1 View-once message enabled. Disappears after viewing!");
+                  }
+                  return next;
+                });
+              }}
+              className={`shrink-0 flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full border transition-all cursor-pointer ${isViewOnce
+                  ? "bg-emerald-500 text-white border-emerald-400 font-bold shadow-md shadow-emerald-500/30 scale-105"
+                  : "border-transparent text-gray-500 dark:text-[#8696a0] hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-black/5 dark:hover:bg-white/10"
+                }`}
+              title={
+                isViewOnce
+                  ? "View-once message active (disappears after viewing)"
+                  : "Set as View-Once message"
+              }
+            >
+              <span className="text-[13px] font-black leading-none">1</span>
+            </button>
 
             <button
               type="button"

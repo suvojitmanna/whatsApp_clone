@@ -493,6 +493,51 @@ const getLastMessagePreview = (lastMessage) => {
     };
   }
 
+  if (lastMessage.isViewOnce) {
+    const isOpened = Boolean(
+      (lastMessage.viewOnceOpenedBy &&
+        Array.isArray(lastMessage.viewOnceOpenedBy) &&
+        lastMessage.viewOnceOpenedBy.some(
+          (id) => String(id?._id || id) === String(currentUserId)
+        )) ||
+        (String(lastMessage.sender?._id || lastMessage.sender) === String(currentUserId) &&
+          lastMessage.viewOnceOpenedBy?.length > 0)
+    );
+
+    if (isOpened) {
+      return {
+        icon: (
+          <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-dashed border-current text-[9px] font-bold mr-1 shrink-0">
+            1
+          </span>
+        ),
+        text: "Opened",
+        isDeleted: false,
+        isEncrypted: false,
+      };
+    }
+
+    const typeLabel =
+      lastMessage.contentType === "image"
+        ? "Photo"
+        : lastMessage.contentType === "video"
+        ? "Video"
+        : lastMessage.contentType === "audio"
+        ? "Voice message"
+        : "View once message";
+
+    return {
+      icon: (
+        <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-emerald-500 text-[9px] font-bold mr-1 shrink-0 text-emerald-500 dark:text-emerald-400">
+          1
+        </span>
+      ),
+      text: typeLabel,
+      isDeleted: false,
+      isEncrypted: false,
+    };
+  }
+
   const contentType = lastMessage.contentType;
   let pollData = lastMessage.pollData;
   if (typeof pollData === "string") {
@@ -721,6 +766,7 @@ const getLastMessagePreview = (lastMessage) => {
 export const getFullMessageTooltip = (lastMsg) => {
   if (!lastMsg) return "";
   if (lastMsg.deletedForEveryone) return "This message was deleted";
+  if (lastMsg.isViewOnce) return "View once message";
   if (isGroupSystemMessage(lastMsg)) {
     const currentUser = useUserStore.getState()?.user;
     return (

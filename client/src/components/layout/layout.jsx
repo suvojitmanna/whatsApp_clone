@@ -13,6 +13,7 @@ import StatusPlaceholder from "../info/StatusPlaceholder";
 import MediaModal from "../modals/MediaModal";
 import VideoCallManager from "../../pages/videoCall/videoCallManager";
 import { META_AI_USER_ID } from "../common/MetaAiIcon";
+import ReminderAlertBanner from "../common/ReminderAlertBanner";
 
 const Layout = ({
   children,
@@ -222,6 +223,7 @@ const Layout = ({
           </div>
         </div>
       )}
+      <ReminderAlertBanner />
     </div>
   );
 };

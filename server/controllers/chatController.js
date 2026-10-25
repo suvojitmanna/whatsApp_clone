@@ -285,6 +285,7 @@ export const sendMessage = async (req, res) => {
       fileSize,
       isEncrypted,
       iv,
+      isViewOnce,
     } = req.body;
 
     let conversation = null;
@@ -605,6 +606,8 @@ export const sendMessage = async (req, res) => {
       disappearingExpiresAt,
       isScheduled: isScheduledMsg,
       scheduledFor: scheduledForDate,
+      isViewOnce: isViewOnce === "true" || isViewOnce === true,
+      viewOnceOpenedBy: [],
       createdAt: isScheduledMsg && scheduledForDate ? scheduledForDate : now,
     });
     await message.save();
@@ -3614,9 +3617,73 @@ export const sendScheduledNow = async (req, res) => {
   }
 };
 
+export const openViewOnceMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = (req.user?.userId || req.user?._id || req.body?.userId)?.toString();
+    if (!messageId || !mongoose.Types.ObjectId.isValid(messageId)) {
+      return response(res, 400, "Invalid message ID");
+    }
+    if (!userId) {
+      return response(res, 401, "User not authenticated");
+    }
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return response(res, 404, "Message not found");
+    }
+    if (!message.isViewOnce) {
+      return response(res, 400, "Not a view-once message");
+    }
+
+    if (!Array.isArray(message.viewOnceOpenedBy)) {
+      message.viewOnceOpenedBy = [];
+    }
+
+    const alreadyOpened = message.viewOnceOpenedBy.some(
+      (id) => (id?._id || id)?.toString() === userId
+    );
+    if (!alreadyOpened) {
+      message.viewOnceOpenedBy.push(new mongoose.Types.ObjectId(userId));
+      await message.save();
+    }
+
+    const payload = {
+      messageId: message._id.toString(),
+      userId,
+      conversationId: message.conversation?.toString(),
+      viewOnceOpenedBy: message.viewOnceOpenedBy.map((id) => (id?._id || id)?.toString()),
+    };
+
+    if (req.io) {
+      const convRoom = message.conversation?.toString();
+      if (convRoom) {
+        req.io.to(convRoom).emit("view_once_opened", payload);
+      }
+      if (message.sender) {
+        req.io.to(message.sender.toString()).emit("view_once_opened", payload);
+      }
+      if (message.receiver) {
+        req.io.to(message.receiver.toString()).emit("view_once_opened", payload);
+      }
+    }
+
+    const updatedPopulatedMessage = await Message.findById(message._id)
+      .populate("sender", "username profilePicture publicKey")
+      .populate("receiver", "username profilePicture publicKey")
+      .populate("replyTo")
+      .lean();
+
+    return response(res, 200, "View once message opened", updatedPopulatedMessage || message);
+  } catch (error) {
+    console.error("Error in openViewOnceMessage:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
 export default {
   sendMessage,
   sendScheduledNow,
+  openViewOnceMessage,
   getConversation,
   getMessages,
   markAsRead,

@@ -4,8 +4,8 @@ import { LuReply, LuForward } from "react-icons/lu";
 import { FaRegCopy, FaStar, FaRegStar, FaDownload } from "react-icons/fa";
 import { BsEmojiSmile } from "react-icons/bs";
 import { TbPin } from "react-icons/tb";
-import { SiMetaai } from "react-icons/si";
 import { HiLanguage } from "react-icons/hi2";
+import { MdOutlineAlarm } from "react-icons/md";
 import { MetaAiRing, META_AI_USER_ID } from "../../components/common/MetaAiIcon";
 import { RiEditLine, RiDeleteBin6Line } from "react-icons/ri";
 import { FiThumbsDown, FiCheckSquare, FiExternalLink, FiUser } from "react-icons/fi";
@@ -74,6 +74,23 @@ const MessageMenu = ({
     const unpinMessage = propUnpinMessage || chatUnpinMessage;
     const setSelectedMessageInfo =
         propSetSelectedMessageInfo || layoutSetSelectedMessageInfo;
+
+    const isMessageSeen = Boolean(
+        message?.messageStatus === "read" ||
+        message?.status === "read" ||
+        Boolean(message?.readAt) ||
+        Boolean(message?.isRead) ||
+        (Array.isArray(message?.readBy) && message.readBy.length > 0)
+    );
+
+    const isScheduledMessage = Boolean(
+        (message?.isScheduled === true || message?.messageStatus === "scheduled" || message?.status === "scheduled") &&
+        message?.isScheduled !== false &&
+        message?.messageStatus !== "send" &&
+        message?.messageStatus !== "delivered" &&
+        message?.messageStatus !== "read" &&
+        !isMessageSeen
+    );
 
     const itemClass = `mx-1.5 my-0.5 flex w-[calc(100%-12px)] items-center px-3.5 py-[7px] gap-3.5 cursor-pointer rounded-2xl border border-transparent transition-all duration-150 text-left font-normal text-[14px] group select-none ${isDark
         ? "text-[#d1d7db] hover:text-white hover:bg-white/10 hover:border-white/15"
@@ -533,6 +550,26 @@ const MessageMenu = ({
                 <span>{isPinned ? "Unpin" : "Pin"}</span>
             </button>
 
+            <button
+                type="button"
+                onClick={() => {
+                    setShowOptions?.(false);
+                    window.dispatchEvent(
+                        new CustomEvent("open_remind_me_modal", {
+                            detail: {
+                                message,
+                                conversationId: conversationId || secondaryConvId,
+                                senderDisplayName,
+                            },
+                        })
+                    );
+                }}
+                className={itemClass}
+            >
+                <MdOutlineAlarm size={17} className="shrink-0 text-amber-500 group-hover:scale-110 transition-transform" />
+                <span>Remind Me</span>
+            </button>
+
             {message?.content && (
                 <button
                     type="button"
@@ -585,7 +622,7 @@ const MessageMenu = ({
                 </button>
             )}
 
-            {isUserMessage && (message?.isScheduled || message?.messageStatus === "scheduled") && (
+            {isUserMessage && isScheduledMessage && (
                 <button
                     type="button"
                     onClick={async () => {
@@ -593,7 +630,7 @@ const MessageMenu = ({
                         try {
                             await useChatStore.getState().sendScheduledNow?.(message._id);
                         } catch (e) {
-                            toast.error("Failed to send scheduled message now");
+                            toast.error("Failed to send scheduled message now", e);
                         }
                     }}
                     className={itemClass}
@@ -603,7 +640,7 @@ const MessageMenu = ({
                 </button>
             )}
 
-            {isUserMessage && (
+            {isUserMessage && isScheduledMessage && (
                 <button
                     type="button"
                     onClick={() => {
@@ -617,11 +654,7 @@ const MessageMenu = ({
                     className={itemClass}
                 >
                     <span className="text-base shrink-0">🕒</span>
-                    <span>
-                        {message?.isScheduled || message?.messageStatus === "scheduled"
-                            ? "Edit Time / Reschedule"
-                            : "Edit Message Time"}
-                    </span>
+                    <span>Edit Time / Reschedule</span>
                 </button>
             )}
 

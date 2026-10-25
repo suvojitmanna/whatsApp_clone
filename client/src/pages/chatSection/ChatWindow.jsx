@@ -23,6 +23,7 @@ import ChatSummaryModal from "../../components/modals/ChatSummaryModal.jsx";
 import TranslateModal from "../../components/modals/TranslateModal.jsx";
 import ExportChatModal from "../../components/modals/ExportChatModal.jsx";
 import RescheduleModal from "../../components/modals/RescheduleModal.jsx";
+import RemindMeModal from "../../components/modals/RemindMeModal.jsx";
 import {
   ChatWindowEmpty,
   PinnedBanner,
@@ -91,6 +92,7 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     text: "",
     messageId: null,
   });
+  const [remindModalData, setRemindModalData] = useState(null);
   const [rescheduleModalState, setRescheduleModalState] = useState({
     isOpen: false,
     message: null,
@@ -343,16 +345,37 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         });
       }
     };
+    const handleOpenRemind = (e) => {
+      if (e.detail?.message) {
+        setRemindModalData(e.detail);
+      }
+    };
+    const handleJumpToMsg = (e) => {
+      const msgId = e.detail?.messageId;
+      if (!msgId) return;
+      const el = document.getElementById(`msg-${msgId}`) || document.querySelector(`[data-message-id="${msgId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-4", "ring-amber-400", "rounded-2xl", "transition-all", "duration-500");
+        setTimeout(() => {
+          el.classList.remove("ring-4", "ring-amber-400");
+        }, 3000);
+      }
+    };
 
     window.addEventListener("open_translate_modal", handleOpenTranslate);
     window.addEventListener("open_export_modal", handleOpenExport);
     window.addEventListener("open_reschedule_modal", handleOpenReschedule);
+    window.addEventListener("open_remind_me_modal", handleOpenRemind);
+    window.addEventListener("jump_to_message", handleJumpToMsg);
 
     return () => {
       window.removeEventListener("meta_ai_prefill", handlePrefill);
       window.removeEventListener("open_translate_modal", handleOpenTranslate);
       window.removeEventListener("open_export_modal", handleOpenExport);
       window.removeEventListener("open_reschedule_modal", handleOpenReschedule);
+      window.removeEventListener("open_remind_me_modal", handleOpenRemind);
+      window.removeEventListener("jump_to_message", handleJumpToMsg);
     };
   }, []);
 
@@ -1709,11 +1732,18 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
             formData.append("scheduledFor", extraOptions.scheduledFor);
           }
 
+          if (extraOptions?.isViewOnce) {
+            formData.append("isViewOnce", "true");
+          }
+
           if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
             const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
             formData.append("metaAiPersona", currentPersona);
           }
           await sendMessage(formData);
+          if (extraOptions?.isViewOnce) {
+            toast.success("1 View-once media sent!");
+          }
         }
       } else if (trimmedMessage) {
         const formData = new FormData();
@@ -1736,11 +1766,17 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           formData.append("isScheduled", "true");
           formData.append("scheduledFor", extraOptions.scheduledFor);
         }
+        if (extraOptions?.isViewOnce) {
+          formData.append("isViewOnce", "true");
+        }
         if (isMetaAiChat || trimmedMessage.toLowerCase().includes("@meta ai")) {
           const currentPersona = localStorage.getItem("meta_ai_persona") || "default";
           formData.append("metaAiPersona", currentPersona);
         }
         await sendMessage(formData);
+        if (extraOptions?.isViewOnce) {
+          toast.success("1 View-once message sent!");
+        }
         if (extraOptions?.scheduledFor) {
           toast.success("⏰ Message scheduled successfully!");
         }
@@ -2754,6 +2790,14 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
           (selectedContact?.isAI ? "Meta AI" : "Chat")
         }
         theme={theme}
+      />
+
+      <RemindMeModal
+        isOpen={Boolean(remindModalData)}
+        onClose={() => setRemindModalData(null)}
+        message={remindModalData?.message}
+        contactName={remindModalData?.senderDisplayName || selectedContact?.username}
+        conversationId={remindModalData?.conversationId || currentConversation?._id}
       />
     </>
   );

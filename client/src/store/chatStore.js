@@ -1819,6 +1819,43 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
+    socket.on("view_once_opened", ({ messageId, userId, conversationId, viewOnceOpenedBy }) => {
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if ((m._id || m.id)?.toString() === messageId?.toString()) {
+            const openedList = viewOnceOpenedBy || m.viewOnceOpenedBy || [];
+            const hasUser = openedList.some((id) => (id?._id || id)?.toString() === userId?.toString());
+            return {
+              ...m,
+              viewOnceOpenedBy: hasUser ? openedList : [...openedList, userId],
+            };
+          }
+          return m;
+        });
+        const convId = conversationId?.toString() || state.currentConversation?._id?.toString();
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+
+        const nextConversations = (state.conversations || []).map((c) => {
+          if (c.lastMessage && (c.lastMessage._id || c.lastMessage.id)?.toString() === messageId?.toString()) {
+            const openedList = viewOnceOpenedBy || c.lastMessage.viewOnceOpenedBy || [];
+            const hasUser = openedList.some((id) => (id?._id || id)?.toString() === userId?.toString());
+            return {
+              ...c,
+              lastMessage: {
+                ...c.lastMessage,
+                viewOnceOpenedBy: hasUser ? openedList : [...openedList, userId],
+              },
+            };
+          }
+          return c;
+        });
+
+        return { messages: nextMessages, messagesCache: nextCache, conversations: nextConversations };
+      });
+    });
+
     socket.on("message_error", (error) => {
       console.error("Message error:", error);
       set({ error: error.message });
@@ -3754,6 +3791,58 @@ export const useChatStore = create((set, get) => ({
     } catch (err) {
       console.error("sendScheduledNow error:", err);
       toast.error("Failed to send scheduled message now");
+    }
+  },
+
+  openViewOnceMessage: async (messageId) => {
+    try {
+      const currentUser = useUserStore.getState()?.user;
+      const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
+
+      if (currentUserId) {
+        set((state) => {
+          const nextMessages = state.messages.map((m) => {
+            if ((m._id || m.id)?.toString() === messageId?.toString()) {
+              const openedList = m.viewOnceOpenedBy || [];
+              const hasUser = openedList.some((id) => (id?._id || id)?.toString() === currentUserId);
+              return {
+                ...m,
+                viewOnceOpenedBy: hasUser ? openedList : [...openedList, currentUserId],
+              };
+            }
+            return m;
+          });
+          return { messages: nextMessages };
+        });
+      }
+
+      const res = await axiosInstance.post(
+        `/chat/messages/${messageId}/view-once-open`,
+        { userId: currentUserId }
+      );
+      const updatedMsg = res.data?.data || res.data;
+      if (updatedMsg) {
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, ...updatedMsg }
+              : m
+          );
+          const convId = (
+            updatedMsg.conversation?._id ||
+            updatedMsg.conversation ||
+            updatedMsg.conversationId
+          )?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+      }
+      return updatedMsg;
+    } catch (err) {
+      console.error("openViewOnceMessage error:", err);
+      throw err;
     }
   },
 
