@@ -14,6 +14,8 @@ import BlockModal from "../../../components/modals/BlockModal";
 import ReportModal from "../../../components/modals/ReportModal";
 import GroupCallModal from "../../../components/modals/GroupCallModal";
 import NewCallLinkModal from "../../calls/NewCallLinkModal";
+import SplitBillModal from "../../../components/modals/SplitBillModal";
+import LocationModal from "../../../components/modals/LocationModal";
 import ChatHeaderMenu from "../ChatHeaderMenu";
 import useVideoCallStore from "../../../store/videoCallStore";
 
@@ -84,6 +86,12 @@ export const ChatModals = ({
   showDeleteConfirm,
   setShowDeleteConfirm,
   handleExecuteDeleteChat,
+  showSplitBillModal,
+  setShowSplitBillModal,
+  handleSendSplitBill,
+  showLocationModal,
+  setShowLocationModal,
+  handleSendLocation,
 }) => {
   return (
     <>
@@ -144,6 +152,27 @@ export const ChatModals = ({
             setShowStickerModal(false);
             stickerInputRef.current?.click();
           }}
+          theme={theme}
+        />
+      )}
+
+      {showSplitBillModal && (
+        <SplitBillModal
+          isOpen={showSplitBillModal}
+          onClose={() => setShowSplitBillModal(false)}
+          onSend={handleSendSplitBill}
+          selectedContact={selectedContact}
+          currentConversation={currentConversation}
+          groupParticipants={groupParticipants}
+          theme={theme}
+        />
+      )}
+
+      {showLocationModal && (
+        <LocationModal
+          isOpen={showLocationModal}
+          onClose={() => setShowLocationModal(false)}
+          onSend={handleSendLocation}
           theme={theme}
         />
       )}

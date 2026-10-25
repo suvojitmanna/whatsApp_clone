@@ -281,6 +281,8 @@ export const sendMessage = async (req, res) => {
       pollData,
       contactData,
       eventData,
+      splitBillData,
+      locationData,
       fileName,
       fileSize,
       isEncrypted,
@@ -411,6 +413,20 @@ export const sendMessage = async (req, res) => {
       } catch (e) {}
     }
 
+    let parsedSplitBill = req.body.splitBillData;
+    if (typeof req.body.splitBillData === "string") {
+      try {
+        parsedSplitBill = JSON.parse(req.body.splitBillData);
+      } catch (e) {}
+    }
+
+    let parsedLocation = req.body.locationData;
+    if (typeof req.body.locationData === "string") {
+      try {
+        parsedLocation = JSON.parse(req.body.locationData);
+      } catch (e) {}
+    }
+
     let mediaPublicId = null;
     let mediaResourceType = null;
 
@@ -435,9 +451,16 @@ export const sendMessage = async (req, res) => {
       }
     } else if (
       customContentType &&
-      ["poll", "contact", "event", "sticker", "call", "call_link"].includes(
-        customContentType,
-      )
+      [
+        "poll",
+        "contact",
+        "event",
+        "sticker",
+        "call",
+        "call_link",
+        "split_bill",
+        "location",
+      ].includes(customContentType)
     ) {
       contentType = customContentType;
       if (req.body.imageOrVideoUrl) {
@@ -588,6 +611,8 @@ export const sendMessage = async (req, res) => {
       eventData: parsedEvent,
       callData: parsedCall,
       callLinkData: parsedCallLink,
+      splitBillData: parsedSplitBill,
+      locationData: parsedLocation,
       messageStatus: finalStatus,
       deliveredAt: initialDeliveredAt,
       blockedDelivery: isSenderBlockedByReceiver,
@@ -3680,10 +3705,106 @@ export const openViewOnceMessage = async (req, res) => {
   }
 };
 
+export const toggleSplitBillPayment = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { targetUserId } = req.body;
+    const currentUserId = (
+      req.user?.userId ||
+      req.user?._id ||
+      req.body?.userId
+    )?.toString();
+
+    if (!messageId || !mongoose.Types.ObjectId.isValid(messageId)) {
+      return response(res, 400, "Invalid message ID");
+    }
+    if (!currentUserId) {
+      return response(res, 401, "User not authenticated");
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return response(res, 404, "Message not found");
+    }
+
+    if (message.contentType !== "split_bill" || !message.splitBillData) {
+      return response(res, 400, "Message is not a split bill");
+    }
+
+    const bill = JSON.parse(JSON.stringify(message.splitBillData));
+    if (!Array.isArray(bill.participants)) {
+      return response(res, 400, "Invalid split bill participants");
+    }
+
+    const userToToggle = (targetUserId || currentUserId)?.toString();
+    const isCreator = message.sender.toString() === currentUserId;
+
+    const participantIndex = bill.participants.findIndex(
+      (p) =>
+        (p.user?._id || p.user || p.userId)?.toString() === userToToggle ||
+        (p.name && p.name.toLowerCase() === req.user?.username?.toLowerCase()),
+    );
+
+    if (participantIndex === -1) {
+      return response(res, 404, "Participant not found in this bill");
+    }
+
+    if (!isCreator && userToToggle !== currentUserId) {
+      return response(
+        res,
+        403,
+        "Not authorized to change payment status for this user",
+      );
+    }
+
+    const prevPaid = Boolean(bill.participants[participantIndex].isPaid);
+    bill.participants[participantIndex].isPaid = !prevPaid;
+    bill.participants[participantIndex].paidAt = !prevPaid ? new Date() : null;
+
+    const allPaid = bill.participants.every((p) => Boolean(p.isPaid));
+    bill.isSettled = allPaid;
+
+    message.splitBillData = bill;
+    message.markModified("splitBillData");
+    await message.save();
+
+    const payload = {
+      messageId: message._id.toString(),
+      conversationId: message.conversation?.toString(),
+      splitBillData: bill,
+    };
+
+    if (req.io) {
+      const convRoom = message.conversation?.toString();
+      if (convRoom) {
+        req.io.to(convRoom).emit("split_bill_updated", payload);
+      }
+      if (message.sender) {
+        req.io.to(message.sender.toString()).emit("split_bill_updated", payload);
+      }
+      if (message.receiver) {
+        req
+          .io
+          .to(message.receiver.toString())
+          .emit("split_bill_updated", payload);
+      }
+    }
+
+    return response(res, 200, "Split bill payment status updated", {
+      messageId: message._id.toString(),
+      splitBillData: bill,
+    });
+  } catch (error) {
+    console.error("Error in toggleSplitBillPayment:", error);
+    return response(res, 500, "Internal server error");
+  }
+};
+
 export default {
   sendMessage,
   sendScheduledNow,
   openViewOnceMessage,
+  toggleSplitBillPayment,
   getConversation,
   getMessages,
   markAsRead,

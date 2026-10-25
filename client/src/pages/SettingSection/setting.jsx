@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import useThemeStore from "../../store/themeStore";
 import { logoutUser } from "../../services/user.services";
@@ -35,7 +34,6 @@ import { toast } from "react-toastify";
 
 const Settings = () => {
   const [isThemeDialogOpen, setIsDialogOpen] = useState(false);
-  const [isChatLockModalOpen, setIsChatLockModalOpen] = useState(false);
   const [isSetPinModalOpen, setIsSetPinModalOpen] = useState(false);
   const [chatLockRevision, setChatLockRevision] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -49,7 +47,10 @@ const Settings = () => {
   const [currentView, setCurrentView] = useState(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("tab") === "privacy" || params.get("tab") === "chatLock") {
+      if (params.get("tab") === "chatLock") {
+        return "chatLock";
+      }
+      if (params.get("tab") === "privacy") {
         return "privacy";
       }
     } catch { }
@@ -147,8 +148,7 @@ const Settings = () => {
       isThemeDialogOpen={isThemeDialogOpen}
       toggleThemeDialoge={toggleThemeDialoge}
     >
-      <div
-        className={`h-full w-full flex flex-col border-r relative z-10 transition-all duration-300 ${theme === "dark"
+      <div className={`h-full w-full flex flex-col border-r relative z-10 transition-all duration-300 ${theme === "dark"
           ? "bg-[#111b21] border-gray-700 shadow-[4px_0_15px_rgba(0,0,0,0.5)] text-white"
           : "bg-white border-gray-200 shadow-[4px_0_10px_rgba(0,0,0,0.1)] text-gray-900"
           }`}
@@ -313,8 +313,7 @@ const Settings = () => {
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={() => {
-                            setCurrentView("privacy");
-                            setIsChatLockModalOpen(true);
+                            setCurrentView("chatLock");
                             setSearchTerm("");
                           }}
                           title="Manage Chat Lock (in Privacy)"
@@ -365,8 +364,7 @@ const Settings = () => {
                 )}
               </div>
 
-              <div
-                className={`p-3 md:p-4 border-t mt-auto shrink-0 ${theme === "dark" ? "border-gray-700/60" : "border-gray-200"
+              <div className={`p-3 md:p-4 border-t mt-auto shrink-0 ${theme === "dark" ? "border-gray-700/60" : "border-gray-200"
                   }`}
               >
                 <motion.button
@@ -392,7 +390,7 @@ const Settings = () => {
                 </motion.button>
               </div>
             </motion.div>
-          ) : (
+          ) : currentView === "privacy" ? (
             <motion.div
               key="privacy-view"
               initial={{ opacity: 0, x: 20 }}
@@ -423,7 +421,7 @@ const Settings = () => {
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   type="button"
-                  onClick={() => setIsChatLockModalOpen(true)}
+                  onClick={() => setCurrentView("chatLock")}
                   title="Manage Chat Lock"
                   className={`w-full flex items-center justify-between p-3.5 md:p-4 rounded-2xl border transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md group ${theme === "dark"
                     ? "bg-[#202c33] hover:bg-[#233138] border-white/10 hover:border-amber-500/30 text-white"
@@ -461,29 +459,6 @@ const Settings = () => {
                     <FaChevronRight className="text-gray-400 text-xs group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </motion.button>
-
-                <div
-                  className={`p-4 rounded-2xl border text-xs text-left leading-relaxed ${theme === "dark"
-                    ? "bg-[#111b21] border-white/5 text-gray-400"
-                    : "bg-white border-gray-200 text-gray-500"
-                    }`}
-                >
-                  <div className="font-semibold text-emerald-500 text-xs mb-1 flex items-center gap-1.5">
-                    <FaLock className="text-[10px]" />
-                    <span>Keep secret chats private</span>
-                  </div>
-                  <p>
-                    Locked chats are hidden behind your 4-digit PIN code and biometric verification. Click above to view or adjust settings.
-                  </p>
-                  {isLockConfigured && (
-                    <div className="mt-2.5 pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[11px]">
-                      <span className="text-gray-400">Locked Chats:</span>
-                      <span className="font-semibold text-amber-500">
-                        {lockedChatIds.length} {lockedChatIds.length === 1 ? "chat" : "chats"} protected
-                      </span>
-                    </div>
-                  )}
-                </div>
               </div>
 
               <div
@@ -499,174 +474,200 @@ const Settings = () => {
                 </button>
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {isChatLockModalOpen &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[10003] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm select-none"
-            onClick={() => setIsChatLockModalOpen(false)}
-          >
+          ) : (
             <motion.div
-              initial={{ opacity: 0, scale: 0.93, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.93, y: 15 }}
-              onClick={(e) => e.stopPropagation()}
-              className={`w-[400px] max-w-full rounded-2xl p-6 shadow-2xl border flex flex-col relative ${theme === "dark"
-                ? "bg-[#233138] border-white/10 text-white shadow-black/80"
-                : "bg-white border-gray-100 text-gray-900 shadow-xl"
-                }`}
+              key="chatlock-view"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1 flex flex-col min-h-0 overflow-hidden"
             >
-              <button
-                type="button"
-                onClick={() => setIsChatLockModalOpen(false)}
-                className="absolute right-4 top-4 p-1.5 rounded-full text-gray-400 hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                title="Close"
-              >
-                <RxCross2 size={18} />
-              </button>
-
-              <div className="flex items-center gap-3.5 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 text-2xl shadow-inner">
-                  <FaLock />
+              <div className="p-4 md:p-5 pb-2 shrink-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    type="button"
+                    onClick={() => setCurrentView("privacy")}
+                    className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-emerald-500 transition-colors cursor-pointer"
+                    title="Back to Privacy"
+                  >
+                    <FaArrowLeft className="w-4 h-4" />
+                  </motion.button>
+                  <h1 className="text-xl md:text-2xl font-bold">Chat Lock</h1>
                 </div>
-                <div className="text-left">
-                  <h3 className="font-bold text-lg leading-tight">Chat Lock</h3>
-                  <p className="text-xs text-gray-400">
-                    Keep secret chats hidden and secure
-                  </p>
-                </div>
+                <div className="h-[2px] w-full bg-gradient-to-r from-amber-500 via-[#00a884] to-blue-500 rounded-full mb-3" />
               </div>
 
-              <div
-                className={`p-4 rounded-xl border mb-4 text-left ${theme === "dark"
-                  ? "bg-[#111b21] border-white/5"
-                  : "bg-gray-50 border-gray-200"
-                  }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                    Lock Status
+              <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4 min-h-0">
+                <div
+                  className={`p-4 rounded-2xl border transition-all ${theme === "dark"
+                    ? "bg-[#202c33]/70 border-white/10"
+                    : "bg-gray-50 border-gray-200"
+                    }`}
+                >
+                  <div className="flex items-center gap-3.5 mb-2.5">
+                    <div className="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 text-xl shadow-xs shrink-0">
+                      <FaLock />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-base leading-tight">
+                        Chat Lock Protection
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Keep secret chats hidden and secure
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Locked chats are hidden from your main chat list and can only be unlocked with your passcode or biometric verification.
+                  </p>
+
+                  <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/5 flex items-center justify-between">
+                    <span className="text-xs text-gray-400 font-medium">Status</span>
+                    <span
+                      className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1.5 ${isLockConfigured
+                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                        : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                        }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${isLockConfigured ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                          }`}
+                      />
+                      {isLockConfigured ? "Protected" : "Setup PIN"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 px-1">
+                    Passcode & Security
                   </span>
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1.5 ${isLockConfigured
-                      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                      : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+
+                  <button
+                    type="button"
+                    onClick={() => setIsSetPinModalOpen(true)}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer group text-left ${theme === "dark"
+                      ? "bg-[#202c33] hover:bg-[#233138] border-white/10 hover:border-emerald-500/40 text-white"
+                      : "bg-white hover:bg-emerald-50/30 border-gray-200 hover:border-emerald-500/40 text-gray-900"
                       }`}
                   >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${isLockConfigured ? "bg-emerald-500" : "bg-amber-500"
-                        }`}
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1 mr-2">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center text-sm shrink-0">
+                        <FaKey />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium leading-snug">
+                          {isLockConfigured
+                            ? "Change 4-Digit PIN"
+                            : "Set Up 4-Digit PIN First"}
+                        </div>
+                        <div className="text-[11px] text-gray-400 mt-0.5 truncate">
+                          {isLockConfigured
+                            ? "Update your current lock code"
+                            : "Create your personal lock passcode"}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs text-emerald-500 font-semibold group-hover:translate-x-0.5 transition-transform shrink-0">
+                      →
+                    </span>
+                  </button>
+
+                  <div
+                    className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${theme === "dark"
+                      ? "bg-[#202c33] border-white/10"
+                      : "bg-white border-gray-200"
+                      }`}
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1 mr-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center text-base shrink-0">
+                        <FaFingerprint />
+                      </div>
+                      <div className="min-w-0 flex-1 text-left">
+                        <div className="text-sm font-medium leading-snug">
+                          Touch ID Simulation
+                        </div>
+                        <div className="text-[11px] text-gray-400 mt-0.5 truncate">
+                          Quick biometric unlock in modal
+                        </div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={biometricEnabled}
+                      onChange={(e) => setBiometricEnabled(e.target.checked)}
+                      className="toggle toggle-success toggle-sm cursor-pointer shrink-0"
                     />
-                    {isLockConfigured ? "PIN Active" : "No PIN Set"}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  {isLockConfigured
-                    ? "Your hidden Locked Chats folder is secured with a custom 4-digit PIN."
-                    : "No PIN has been configured yet. Set up a 4-digit PIN before locking your chats."}
-                </p>
-                <div className="mt-3 pt-2.5 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-xs">
-                  <span className="text-gray-400">Locked Chats:</span>
-                  <span className="font-semibold text-amber-500">
-                    {lockedChatIds.length} chat
-                    {lockedChatIds.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-4 text-left">
-                <button
-                  type="button"
-                  onClick={() => setIsSetPinModalOpen(true)}
-                  className="w-full flex items-center justify-between p-3 rounded-xl border border-black/5 dark:border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3">
-                    <FaKey className="text-emerald-500 text-sm" />
-                    <div>
-                      <div className="text-sm font-medium">
-                        {isLockConfigured
-                          ? "Change 4-Digit PIN"
-                          : "Set Up 4-Digit PIN First"}
-                      </div>
-                      <div className="text-[11px] text-gray-400">
-                        {isLockConfigured
-                          ? "Update your current lock code"
-                          : "Create your personal lock passcode"}
-                      </div>
-                    </div>
                   </div>
-                  <span className="text-xs text-emerald-500 font-semibold group-hover:translate-x-0.5 transition-transform">
-                    →
-                  </span>
-                </button>
-
-                <div className="flex items-center justify-between p-3 rounded-xl border border-black/5 dark:border-white/10">
-                  <div className="flex items-center gap-3">
-                    <span className="text-base">👆</span>
-                    <div>
-                      <div className="text-sm font-medium">
-                        Touch ID Simulation
-                      </div>
-                      <div className="text-[11px] text-gray-400">
-                        Quick biometric unlock in modal
-                      </div>
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={biometricEnabled}
-                    onChange={(e) => setBiometricEnabled(e.target.checked)}
-                    className="toggle toggle-success toggle-sm cursor-pointer"
-                  />
                 </div>
-              </div>
 
-              {isLockConfigured && (
-                <div className="flex items-center gap-2 pt-2 border-t border-black/5 dark:border-white/5">
-                  {lockedChatIds.length > 0 && (
+                {isLockConfigured && (
+                  <div className="space-y-2 pt-2 border-t border-black/5 dark:border-white/5">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 px-1">
+                      Danger Zone
+                    </span>
+
+                    {lockedChatIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Unlock all chats and return them to the main chat list?"
+                            )
+                          ) {
+                            unlockAllChats();
+                            toast.success("🔓 All chats unlocked!");
+                          }
+                        }}
+                        className="w-full py-2.5 px-3.5 rounded-xl text-xs font-medium border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-all cursor-pointer text-left flex items-center justify-between"
+                      >
+                        <span>Unlock All Locked Chats</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 font-bold">
+                          {lockedChatIds.length}
+                        </span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => {
                         if (
                           window.confirm(
-                            "Unlock all chats and return them to the main chat list?"
+                            "Remove Chat Lock PIN? Anyone will be able to view chats until a new PIN is set."
                           )
                         ) {
-                          unlockAllChats();
-                          toast.success("🔓 All chats unlocked!");
+                          removeChatLock();
+                          toast.info("Chat Lock PIN removed");
                         }
                       }}
-                      className="flex-1 py-2 px-3 rounded-xl text-xs font-medium border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 transition-all cursor-pointer"
+                      className="w-full py-2.5 px-3.5 rounded-xl text-xs font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all cursor-pointer text-center"
                     >
-                      Unlock All Chats
+                      Remove Lock PIN
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Remove Chat Lock PIN? Anyone will be able to view chats until a new PIN is set."
-                        )
-                      ) {
-                        removeChatLock();
-                        toast.info("Chat Lock PIN removed");
-                      }
-                    }}
-                    className="flex-1 py-2 px-3 rounded-xl text-xs font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all cursor-pointer"
-                  >
-                    Remove Lock
-                  </button>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
+
+              <div
+                className={`p-3 md:p-4 border-t mt-auto shrink-0 ${theme === "dark" ? "border-gray-700/60" : "border-gray-200"
+                  }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("privacy")}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-gray-400 hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                >
+                  <FaArrowLeft className="w-3.5 h-3.5" /> Back to Privacy
+                </button>
+              </div>
             </motion.div>
-          </div>,
-          document.body
-        )}
+          )}
+        </AnimatePresence>
+      </div>
 
       <SetChatLockPinModal
         isOpen={isSetPinModalOpen}

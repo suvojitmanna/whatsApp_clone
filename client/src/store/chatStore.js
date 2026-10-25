@@ -1856,6 +1856,39 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
+    socket.on("split_bill_updated", ({ messageId, conversationId, splitBillData }) => {
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if ((m._id || m.id)?.toString() === messageId?.toString()) {
+            return {
+              ...m,
+              splitBillData,
+            };
+          }
+          return m;
+        });
+        const convId = conversationId?.toString() || state.currentConversation?._id?.toString();
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+
+        const nextConversations = (state.conversations || []).map((c) => {
+          if (c.lastMessage && (c.lastMessage._id || c.lastMessage.id)?.toString() === messageId?.toString()) {
+            return {
+              ...c,
+              lastMessage: {
+                ...c.lastMessage,
+                splitBillData,
+              },
+            };
+          }
+          return c;
+        });
+
+        return { messages: nextMessages, messagesCache: nextCache, conversations: nextConversations };
+      });
+    });
+
     socket.on("message_error", (error) => {
       console.error("Message error:", error);
       set({ error: error.message });
@@ -2622,6 +2655,28 @@ export const useChatStore = create((set, get) => ({
       } catch (e) {}
     }
 
+    const splitBillDataRaw = formData.get("splitBillData");
+    let parsedSplitBillData = null;
+    if (splitBillDataRaw) {
+      try {
+        parsedSplitBillData =
+          typeof splitBillDataRaw === "string"
+            ? JSON.parse(splitBillDataRaw)
+            : splitBillDataRaw;
+      } catch (e) {}
+    }
+
+    const locationDataRaw = formData.get("locationData");
+    let parsedLocationData = null;
+    if (locationDataRaw) {
+      try {
+        parsedLocationData =
+          typeof locationDataRaw === "string"
+            ? JSON.parse(locationDataRaw)
+            : locationDataRaw;
+      } catch (e) {}
+    }
+
     const scheduledForParam = formData.get("scheduledFor");
     const isScheduledParam =
       formData.get("isScheduled") === "true" ||
@@ -2656,6 +2711,8 @@ export const useChatStore = create((set, get) => ({
       pollData: parsedPollData,
       eventData: parsedEventData,
       contactData: parsedContactData,
+      splitBillData: parsedSplitBillData,
+      locationData: parsedLocationData,
       createdAt: scheduledForParam || nowIso,
       scheduledFor: scheduledForParam || null,
       isScheduled: isScheduledParam,
@@ -3843,6 +3900,77 @@ export const useChatStore = create((set, get) => ({
     } catch (err) {
       console.error("openViewOnceMessage error:", err);
       throw err;
+    }
+  },
+
+  toggleSplitBillPayment: async (messageId, targetUserId) => {
+    try {
+      const currentUser = useUserStore.getState()?.user;
+      const currentUserId = (currentUser?._id || currentUser?.id)?.toString();
+      const userToToggle = (targetUserId || currentUserId)?.toString();
+
+      set((state) => {
+        const nextMessages = state.messages.map((m) => {
+          if (
+            (m._id || m.id)?.toString() === messageId?.toString() &&
+            m.splitBillData
+          ) {
+            const bill = JSON.parse(JSON.stringify(m.splitBillData));
+            if (Array.isArray(bill.participants)) {
+              const pIdx = bill.participants.findIndex(
+                (p) =>
+                  (p.user?._id || p.user || p.userId)?.toString() ===
+                  userToToggle,
+              );
+              if (pIdx !== -1) {
+                const prev = Boolean(bill.participants[pIdx].isPaid);
+                bill.participants[pIdx].isPaid = !prev;
+                bill.participants[pIdx].paidAt = !prev
+                  ? new Date().toISOString()
+                  : null;
+                bill.isSettled = bill.participants.every((p) =>
+                  Boolean(p.isPaid),
+                );
+              }
+            }
+            return { ...m, splitBillData: bill };
+          }
+          return m;
+        });
+
+        const convId = state.currentConversation?._id?.toString();
+        const nextCache = convId
+          ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+          : state.messagesCache;
+
+        return { messages: nextMessages, messagesCache: nextCache };
+      });
+
+      const res = await axiosInstance.post(
+        `/chat/messages/${messageId}/split-bill/toggle`,
+        { targetUserId: userToToggle },
+      );
+
+      if (res.data?.data?.splitBillData) {
+        const serverBill = res.data.data.splitBillData;
+        set((state) => {
+          const nextMessages = state.messages.map((m) =>
+            (m._id || m.id)?.toString() === messageId?.toString()
+              ? { ...m, splitBillData: serverBill }
+              : m,
+          );
+          const convId = state.currentConversation?._id?.toString();
+          const nextCache = convId
+            ? syncMessagesCache(state.messagesCache, convId, nextMessages)
+            : state.messagesCache;
+          return { messages: nextMessages, messagesCache: nextCache };
+        });
+      }
+    } catch (err) {
+      console.error("toggleSplitBillPayment error:", err);
+      toast.error(
+        err?.response?.data?.message || "Failed to update payment status",
+      );
     }
   },
 

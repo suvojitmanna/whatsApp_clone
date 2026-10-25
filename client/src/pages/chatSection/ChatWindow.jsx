@@ -59,6 +59,8 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
   const [editingEventMessage, setEditingEventMessage] = useState(null);
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [showCallLinkModal, setShowCallLinkModal] = useState(false);
+  const [showSplitBillModal, setShowSplitBillModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
   const [isStickerMode, setIsStickerMode] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
@@ -1963,6 +1965,61 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
     }
   };
 
+  const handleSendSplitBill = async (billData) => {
+    if (!selectedContact || !billData.title || !billData.totalAmount) return;
+    try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
+      formData.append("messageStatus", "send");
+      formData.append("contentType", "split_bill");
+      formData.append(
+        "content",
+        `Split Bill: ${billData.title} (${billData.currency || "₹"}${billData.totalAmount})`
+      );
+      formData.append("splitBillData", JSON.stringify(billData));
+
+      await sendMessage(formData);
+      setShowSplitBillModal(false);
+    } catch (error) {
+      console.error("Failed to send split bill", error);
+      toast.error("Failed to send split bill");
+    }
+  };
+
+  const handleSendLocation = async (locData) => {
+    if (!selectedContact || locData.latitude === undefined || locData.longitude === undefined) return;
+    try {
+      const { isGroupChat, effectiveConversationId, receiverId } = getSendRouting();
+      const formData = new FormData();
+      formData.append("senderId", user?._id);
+      formData.append("receiverId", receiverId);
+      if (effectiveConversationId) {
+        formData.append("conversationId", effectiveConversationId);
+      }
+      if (isGroupChat) {
+        formData.append("isGroup", "true");
+      }
+      formData.append("messageStatus", "send");
+      formData.append("contentType", "location");
+      formData.append("content", `Location: ${locData.name || "Live Location"}`);
+      formData.append("locationData", JSON.stringify(locData));
+
+      await sendMessage(formData);
+      setShowLocationModal(false);
+    } catch (error) {
+      console.error("Failed to send location", error);
+      toast.error("Failed to send location");
+    }
+  };
+
   const pinDate = useMemo(() => {
     if (!activePin) return null;
     const rawTime = activePin.pinnedAt || activePin.message?.createdAt;
@@ -2658,6 +2715,10 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
               setShowEventModal={setShowEventModal}
               setShowStickerModal={setShowStickerModal}
               setShowCallLinkModal={setShowCallLinkModal}
+              setShowSplitBillModal={setShowSplitBillModal}
+              setShowLocationModal={setShowLocationModal}
+              lastMessage={messages && messages.length > 0 ? messages[messages.length - 1] : null}
+              currentUserId={user?._id}
               showEmojiPicker={showEmojiPicker}
               setShowEmojiPicker={setShowEmojiPicker}
               emojiPickerRef={emojiPickerRef}
@@ -2746,6 +2807,12 @@ const ChatWindow = ({ selectedContact, setSelectedContact, onStatusClick }) => {
         showDeleteConfirm={showDeleteConfirm}
         setShowDeleteConfirm={setShowDeleteConfirm}
         handleExecuteDeleteChat={handleExecuteDeleteChat}
+        showSplitBillModal={showSplitBillModal}
+        setShowSplitBillModal={setShowSplitBillModal}
+        handleSendSplitBill={handleSendSplitBill}
+        showLocationModal={showLocationModal}
+        setShowLocationModal={setShowLocationModal}
+        handleSendLocation={handleSendLocation}
       />
 
       <ChatSummaryModal

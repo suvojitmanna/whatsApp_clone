@@ -52,6 +52,8 @@ import {
   MessageEventContent,
   MessageCallLinkContent,
   MessageCallHistoryContent,
+  MessageSplitBillContent,
+  MessageLocationContent,
   MessageDeleteModal,
 } from "./messageBubble/index.js";
 
@@ -1942,6 +1944,64 @@ const MessageBuble = ({
                     message={message}
                     isUserMessage={isUserMessage}
                     selectedContact={selectedContact}
+                    isDark={isDark}
+                    renderTimestampAndStatus={(isOverlay) => (
+                      <MessageTimestampAndStatus
+                        message={message}
+                        isUserMessage={isUserMessage}
+                        isGroupChat={isGroupChat}
+                        activeContact={activeContact}
+                        conversationObj={conversationObj}
+                        currentUserId={currentUserId}
+                        isPinned={isPinned}
+                        disappearingDuration={disappearingDuration}
+                        onOpenDisappearing={onOpenDisappearing}
+                        isStarred={isStarred}
+                        isOverlay={isOverlay}
+                        isSelectMode={isSelectMode}
+                        showOptions={showOptions}
+                        handleToggleOptions={handleToggleOptions}
+                        isDark={isDark}
+                      />
+                    )}
+                  />
+                )}
+
+                {(message.contentType === "split_bill" ||
+                  Boolean(message.splitBillData)) && (
+                  <MessageSplitBillContent
+                    message={message}
+                    isUserMessage={isUserMessage}
+                    effectiveUser={effectiveUser}
+                    isDark={isDark}
+                    renderTimestampAndStatus={(isOverlay) => (
+                      <MessageTimestampAndStatus
+                        message={message}
+                        isUserMessage={isUserMessage}
+                        isGroupChat={isGroupChat}
+                        activeContact={activeContact}
+                        conversationObj={conversationObj}
+                        currentUserId={currentUserId}
+                        isPinned={isPinned}
+                        disappearingDuration={disappearingDuration}
+                        onOpenDisappearing={onOpenDisappearing}
+                        isStarred={isStarred}
+                        isOverlay={isOverlay}
+                        isSelectMode={isSelectMode}
+                        showOptions={showOptions}
+                        handleToggleOptions={handleToggleOptions}
+                        isDark={isDark}
+                      />
+                    )}
+                  />
+                )}
+
+                {(message.contentType === "location" ||
+                  Boolean(message.locationData)) && (
+                  <MessageLocationContent
+                    message={message}
+                    isUserMessage={isUserMessage}
+                    effectiveUser={effectiveUser}
                     isDark={isDark}
                     renderTimestampAndStatus={(isOverlay) => (
                       <MessageTimestampAndStatus

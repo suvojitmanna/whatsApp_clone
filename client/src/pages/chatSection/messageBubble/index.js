@@ -10,3 +10,5 @@ export * from "./MessagePollContent.jsx";
 export * from "./MessageEventContent.jsx";
 export * from "./MessageCallContent.jsx";
 export * from "./MessageDeleteModal.jsx";
+export * from "./MessageSplitBillContent.jsx";
+export * from "./MessageLocationContent.jsx";

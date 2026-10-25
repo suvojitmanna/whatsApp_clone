@@ -12,6 +12,8 @@ import {
   MdEventNote,
   MdOutlineCall,
   MdOutlineVideocam,
+  MdReceiptLong,
+  MdLocationOn,
 } from "react-icons/md";
 import { ProhibitedIcon } from "../../components/common/Icons";
 
@@ -228,6 +230,22 @@ export const ChatHoverPreview = ({
       hasRealContactData ||
       (typeof lastMsg?.content === "string" &&
         lastMsg.content.startsWith("Contact:")))
+  );
+
+  const isSplitBill = Boolean(
+    !isPoll &&
+    (lastMsg?.contentType === "split_bill" ||
+      Boolean(lastMsg?.splitBillData) ||
+      (typeof lastMsg?.content === "string" &&
+        lastMsg.content.startsWith("Split Bill:")))
+  );
+
+  const isLocation = Boolean(
+    !isPoll &&
+    (lastMsg?.contentType === "location" ||
+      Boolean(lastMsg?.locationData) ||
+      (typeof lastMsg?.content === "string" &&
+        lastMsg.content.startsWith("Location:")))
   );
 
   const isCall = Boolean(
@@ -514,6 +532,49 @@ export const ChatHoverPreview = ({
               {eventData?.location && (
                 <div className="text-xs opacity-75">
                   📍 {eventData.location}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (isSplitBill) {
+          let bill = lastMsg?.splitBillData;
+          if (typeof bill === "string") {
+            try { bill = JSON.parse(bill); } catch {}
+          }
+          const title = bill?.title || "Split Bill";
+          const amount = bill?.totalAmount ? `${bill.currency || "₹"}${bill.totalAmount}` : "";
+          const isSettled = bill?.isSettled;
+
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-medium text-cyan-400">
+                <MdReceiptLong size={16} />
+                <span>Split Bill: {title} {amount && `(${amount})`}</span>
+              </div>
+              <div className="text-xs opacity-75">
+                {isSettled ? "🎉 All Settled" : "⏳ Active Expense"}
+              </div>
+            </div>
+          );
+        }
+
+        if (isLocation) {
+          let loc = lastMsg?.locationData;
+          if (typeof loc === "string") {
+            try { loc = JSON.parse(loc); } catch {}
+          }
+          const locName = loc?.name || "Live Location";
+          return (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-medium text-red-400">
+                <MdLocationOn size={16} />
+                <span>Location: {locName}</span>
+              </div>
+              {loc?.address && (
+                <div className="text-xs opacity-75 line-clamp-2">
+                  {loc.address}
                 </div>
               )}
             </div>

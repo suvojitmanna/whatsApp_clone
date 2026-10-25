@@ -59,6 +59,8 @@ const messageSchema = new mongoose.Schema(
         "call_link",
         "ai_image",
         "system",
+        "split_bill",
+        "location",
       ],
       default: "text",
     },
@@ -153,6 +155,14 @@ const messageSchema = new mongoose.Schema(
       default: null,
     },
     callLinkData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    splitBillData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    locationData: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },

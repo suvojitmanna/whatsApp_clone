@@ -17,7 +17,7 @@ import {
   FaUsers,
 } from "react-icons/fa";
 import { FaSquarePollHorizontal, FaCheckDouble } from "react-icons/fa6";
-import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam, MdLink } from "react-icons/md";
+import { MdEventNote, MdAccessTime, MdList, MdOutlineChat, MdOutlineKeyboardArrowDown, MdEdit, MdOutlineCall, MdOutlineVideocam, MdLink, MdReceiptLong, MdLocationOn } from "react-icons/md";
 import { FiCheck } from "react-icons/fi";
 import { RiEmojiStickerLine, RiContactsFill, RiDeleteBin6Line } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
@@ -195,6 +195,9 @@ export const getPinnedItemTypeAndLabel = (msg) => {
     content.startsWith("Event:")
   ) {
     return { type: "event", target: "an event" };
+  }
+  if (contentType === "split_bill" || msg.splitBillData || content.startsWith("Split Bill:")) {
+    return { type: "split bill", target: "a split bill" };
   }
   if (contentType === "location" || msg.locationData || content.startsWith("Location:")) {
     return { type: "location", target: "a location" };
@@ -657,6 +660,37 @@ const getLastMessagePreview = (lastMessage) => {
     };
   }
 
+  if (contentType === "split_bill" || lastMessage.splitBillData) {
+    let bill = lastMessage.splitBillData;
+    if (typeof bill === "string") {
+      try {
+        bill = JSON.parse(bill);
+      } catch (e) {}
+    }
+    const title = bill?.title || "Split Bill";
+    const amount = bill?.totalAmount ? ` (${bill?.currency || "₹"}${bill?.totalAmount})` : "";
+    return {
+      icon: <MdReceiptLong className="inline mr-1 text-cyan-500 shrink-0" size={13} />,
+      text: `Split Bill: ${title}${amount}`,
+      isEncrypted: false,
+    };
+  }
+
+  if (contentType === "location" || lastMessage.locationData) {
+    let loc = lastMessage.locationData;
+    if (typeof loc === "string") {
+      try {
+        loc = JSON.parse(loc);
+      } catch (e) {}
+    }
+    const locName = loc?.name || "Live Location";
+    return {
+      icon: <MdLocationOn className="inline mr-1 text-red-500 shrink-0" size={13} />,
+      text: `Location: ${locName}`,
+      isEncrypted: false,
+    };
+  }
+
   if (contentType === "call") {
     const isVideo = lastMessage.callData?.callType === "video" || lastMessage.callType === "video";
     const duration = lastMessage.callData?.duration || lastMessage.duration || "Voice call";
@@ -824,6 +858,12 @@ export const getFullMessageTooltip = (lastMsg) => {
   }
   if (lastMsg.contentType === "event") {
     return `Event: ${lastMsg.eventData?.title || lastMsg.content || ""}`;
+  }
+  if (lastMsg.contentType === "split_bill") {
+    return `Split Bill: ${lastMsg.splitBillData?.title || lastMsg.content || ""}`;
+  }
+  if (lastMsg.contentType === "location") {
+    return `Location: ${lastMsg.locationData?.name || lastMsg.content || ""}`;
   }
   if (
     lastMsg.contentType === "call_link" ||
