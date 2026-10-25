@@ -3848,7 +3848,6 @@ export const accessLocation = async (req, res) => {
     const senderId = (message.sender?._id || message.sender)?.toString();
     const isSender = currentUserId === senderId;
 
-    // Check if expired by time
     const now = Date.now();
     const isExpiredByTime =
       loc.expiresAt && new Date(loc.expiresAt).getTime() <= now;
@@ -3865,7 +3864,8 @@ export const accessLocation = async (req, res) => {
       };
       if (req.io) {
         const convRoom = message.conversation?.toString();
-        if (convRoom) req.io.to(convRoom).emit("location_access_updated", payload);
+        if (convRoom)
+          req.io.to(convRoom).emit("location_access_updated", payload);
       }
 
       return response(res, 403, "Location sharing has expired", {
@@ -3873,8 +3873,6 @@ export const accessLocation = async (req, res) => {
         locationData: loc,
       });
     }
-
-    // Check if access limit reached
     const maxAccesses =
       typeof loc.maxAccesses === "number" && loc.maxAccesses > 0
         ? loc.maxAccesses
@@ -3895,7 +3893,8 @@ export const accessLocation = async (req, res) => {
       };
       if (req.io) {
         const convRoom = message.conversation?.toString();
-        if (convRoom) req.io.to(convRoom).emit("location_access_updated", payload);
+        if (convRoom)
+          req.io.to(convRoom).emit("location_access_updated", payload);
       }
 
       return response(res, 403, "Location access limit reached", {
@@ -3903,16 +3902,12 @@ export const accessLocation = async (req, res) => {
         locationData: loc,
       });
     }
-
-    // If sender is viewing, do not increment recipient access count
     if (isSender) {
       return response(res, 200, "Location accessed by sender", {
         locationData: loc,
         isSender: true,
       });
     }
-
-    // Recipient accessing: increment count and record access log
     const userObj = await User.findById(currentUserId).select(
       "username profilePicture",
     );
@@ -3944,11 +3939,16 @@ export const accessLocation = async (req, res) => {
 
     if (req.io) {
       const convRoom = message.conversation?.toString();
-      if (convRoom) req.io.to(convRoom).emit("location_access_updated", payload);
+      if (convRoom)
+        req.io.to(convRoom).emit("location_access_updated", payload);
       if (message.sender)
-        req.io.to(message.sender.toString()).emit("location_access_updated", payload);
+        req.io
+          .to(message.sender.toString())
+          .emit("location_access_updated", payload);
       if (message.receiver)
-        req.io.to(message.receiver.toString()).emit("location_access_updated", payload);
+        req.io
+          .to(message.receiver.toString())
+          .emit("location_access_updated", payload);
     }
 
     return response(res, 200, "Location access recorded", {
@@ -3974,7 +3974,11 @@ export const revokeLocation = async (req, res) => {
 
     const senderId = (message.sender?._id || message.sender)?.toString();
     if (currentUserId !== senderId) {
-      return response(res, 403, "Only the sender can stop sharing this location");
+      return response(
+        res,
+        403,
+        "Only the sender can stop sharing this location",
+      );
     }
 
     const loc =
@@ -3997,11 +4001,16 @@ export const revokeLocation = async (req, res) => {
 
     if (req.io) {
       const convRoom = message.conversation?.toString();
-      if (convRoom) req.io.to(convRoom).emit("location_access_updated", payload);
+      if (convRoom)
+        req.io.to(convRoom).emit("location_access_updated", payload);
       if (message.sender)
-        req.io.to(message.sender.toString()).emit("location_access_updated", payload);
+        req.io
+          .to(message.sender.toString())
+          .emit("location_access_updated", payload);
       if (message.receiver)
-        req.io.to(message.receiver.toString()).emit("location_access_updated", payload);
+        req.io
+          .to(message.receiver.toString())
+          .emit("location_access_updated", payload);
     }
 
     return response(res, 200, "Location sharing stopped", {
