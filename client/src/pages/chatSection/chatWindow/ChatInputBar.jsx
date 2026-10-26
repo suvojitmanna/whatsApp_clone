@@ -193,9 +193,7 @@ export const ChatInputBar = ({
       }
     } catch (err) {
       console.error("Magic rewrite error:", err);
-      const errMsg =
-        err.response?.data?.message ||
-        "Failed to polish tone. Please try again.";
+      const errMsg = err.response?.data?.message || "Failed to polish tone. Please try again.";
       toast.error(errMsg);
     } finally {
       setIsRewriting(false);
@@ -222,6 +220,7 @@ export const ChatInputBar = ({
         toast.success(`🌐 Translated draft to ${(liveTranslateLang || "en").toUpperCase()}!`);
       }
     } catch (err) {
+      console.log(err);
       toast.error("Failed to translate draft.");
     } finally {
       setIsTranslatingDraft(false);
@@ -253,26 +252,24 @@ export const ChatInputBar = ({
         setIsViewOnce(false);
       }
       handleSendMessage(undefined, extraOptions);
-      toast.success(
-        `⏰ Scheduled message queued for ${dt.toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-        })} at ${dt.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}`
+      toast.success(`⏰ Scheduled message queued for ${dt.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+      })} at ${dt.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`
       );
     } else {
       setScheduledFor(dt);
       setShowScheduleMenu(false);
-      toast.info(
-        `⏰ Schedule set for ${dt.toLocaleDateString([], {
-          month: "short",
-          day: "numeric",
-        })} at ${dt.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}. Type your message and click Send!`
+      toast.info(`⏰ Schedule set for ${dt.toLocaleDateString([], {
+        month: "short",
+        day: "numeric",
+      })} at ${dt.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}. Type your message and click Send!`
       );
       messageInputRef.current?.focus();
     }
@@ -1604,13 +1601,12 @@ export const ChatInputBar = ({
                 onClick={() => {
                   setIsViewOnce((prev) => {
                     const next = !prev;
-
                     if (next) {
-                      toast.info(
-                        "1 View-once message enabled. Disappears after viewing!"
-                      );
+                      toast.info("View-once message enabled!");
                     }
-
+                    else {
+                      toast.info("View-once message disabled");
+                    }
                     return next;
                   });
                 }}
@@ -1632,9 +1628,9 @@ export const ChatInputBar = ({
               >
                 <span className="flex items-center justify-center text-[20px] leading-none">
                   {isViewOnce ? (
-                    <PiEyeLight className="text-green-500" />
-                  ) : (
                     <PiEyeSlash className="text-green-500" />
+                  ) : (
+                    <PiEyeLight className="text-green-500" />
                   )}
                 </span>
               </button>

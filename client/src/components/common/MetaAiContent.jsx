@@ -683,9 +683,7 @@ export function MetaAiFeedbackBar({
       setFeedback(null);
     } else {
       setFeedback(type);
-      toast.success(
-        type === "up" ? "Thanks for your feedback!" : "Feedback noted. We'll improve!"
-      );
+      toast.success(type === "up" ? "Thanks for your feedback!" : "Feedback noted. We'll improve!");
       onFeedback?.(type);
     }
   };

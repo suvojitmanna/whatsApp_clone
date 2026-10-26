@@ -102,14 +102,13 @@ const ContactInfoListsTab = ({
           "whatsapp_favourite_chats",
           JSON.stringify(nextFavs)
         );
-      } catch { }
+      } catch (e) {
+        console.log(e);
+      }
     }
 
     window.dispatchEvent(new Event("whatsapp_lists_changed"));
-
-    toast.success(
-      isMember ? `Removed from ${listName}` : `Added to ${listName}`
-    );
+    toast.success(isMember ? `Removed from ${listName}` : `Added to ${listName}`);
   };
 
   const handleCreateNewList = (e) => {
@@ -130,7 +129,9 @@ const ContactInfoListsTab = ({
         "whatsapp_all_custom_lists",
         JSON.stringify(updatedCustom)
       );
-    } catch { }
+    } catch (e) {
+      console.log(e);
+    }
     window.dispatchEvent(new Event("whatsapp_lists_changed"));
     handleToggleContactList(trimmed);
     setNewListName("");

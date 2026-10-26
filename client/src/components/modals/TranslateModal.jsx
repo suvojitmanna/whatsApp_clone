@@ -36,17 +36,17 @@ export default function TranslateModal({
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   useEffect(() => {
-    if (isOpen && initialText) {
-      handleTranslate(targetLang);
-    } else {
-      setTranslation("");
-      setIsSpeaking(false);
-      window.speechSynthesis?.cancel();
+    setTargetLang("");
+    setTranslation("");
+    setLoading(false);
+    setIsSpeaking(false);
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
   }, [isOpen, initialText]);
 
   const handleTranslate = async (lang) => {
-    if (!initialText?.trim()) return;
+    if (!initialText?.trim() || !lang) return;
     setLoading(true);
     setTranslation("");
     try {
@@ -147,9 +147,9 @@ export default function TranslateModal({
           <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs sm:text-sm">
             <div>
               <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 select-none">
-                Translate to:
+                Select Language to Translate:
               </label>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+              <div className="flex flex-wrap gap-1.5 max-h-28 sm:max-h-32 overflow-y-auto pr-1">
                 {LANGUAGES.map((lang) => {
                   const isSelected = targetLang === lang.name;
                   return (
@@ -158,7 +158,7 @@ export default function TranslateModal({
                       type="button"
                       onClick={() => handleLangChange(lang.name)}
                       className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${isSelected
-                        ? "bg-cyan-500 text-white border-cyan-500 shadow-sm"
+                        ? "bg-cyan-500 text-white border-cyan-500 shadow-sm shadow-cyan-500/20"
                         : "bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 hover:border-cyan-500/40 text-gray-700 dark:text-gray-300"
                         }`}
                     >
@@ -181,14 +181,14 @@ export default function TranslateModal({
             <div>
               <div className="flex items-center justify-between mb-1 select-none">
                 <span className="text-[11px] font-semibold text-cyan-500 uppercase tracking-wider flex items-center gap-1">
-                  <span>✨ Translation ({targetLang}):</span>
+                  <span>✨ Translation{targetLang ? ` (${targetLang})` : ""}:</span>
                 </span>
                 {translation && !loading && (
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={handleSpeak}
-                      className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-cyan-400 transition-colors"
+                      className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-400 hover:text-cyan-400 transition-colors cursor-pointer"
                       title={isSpeaking ? "Stop speaking" : "Listen to translation"}
                     >
                       {isSpeaking ? <FaVolumeMute size={12} className="text-cyan-400" /> : <FaVolumeUp size={12} />}
@@ -196,7 +196,7 @@ export default function TranslateModal({
                     <button
                       type="button"
                       onClick={handleCopy}
-                      className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-white p-1 rounded hover:bg-black/10 dark:hover:bg-white/10"
+                      className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-white p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 cursor-pointer"
                       title="Copy translation"
                     >
                       {copied ? <FaCheck size={11} className="text-emerald-400" /> : <FaCopy size={11} />}
@@ -209,13 +209,21 @@ export default function TranslateModal({
               <div className="p-3.5 rounded-xl bg-gradient-to-br from-cyan-500/10 via-transparent to-purple-500/10 border border-cyan-500/25 min-h-[90px] max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed select-text font-medium text-gray-800 dark:text-gray-100 text-xs sm:text-sm">
                 {loading ? (
                   <div className="flex items-center gap-2.5 text-cyan-500 py-3">
-                    <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-                    <span>Translating message with AI...</span>
+                    <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                    <span>Translating into {targetLang} with Meta AI...</span>
                   </div>
                 ) : translation ? (
                   translation
                 ) : (
-                  <span className="text-gray-400 italic">Select a language to translate...</span>
+                  <div className="flex flex-col items-center justify-center py-4 text-center select-none">
+                    <HiLanguage className="text-2xl text-cyan-500/70 mb-1" />
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-300">
+                      Select a language above
+                    </span>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+                      Choose any language above to translate this message with Meta AI
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

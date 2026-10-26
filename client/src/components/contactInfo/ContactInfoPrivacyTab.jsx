@@ -74,12 +74,10 @@ const ContactInfoPrivacyTab = ({
       all[chatId] = updated;
       localStorage.setItem("whatsapp_advanced_privacy", JSON.stringify(all));
       window.dispatchEvent(new Event("whatsapp_advanced_privacy_updated"));
-    } catch { }
-    toast.success(
-      updated.enabled
-        ? "Advanced chat privacy turned on"
-        : "Advanced chat privacy turned off"
-    );
+    } catch (e) {
+      console.log(e)
+    }
+    toast.success(updated.enabled ? "Advanced chat privacy turned on" : "Advanced chat privacy turned off");
   };
 
   if (contactInfoTab === "privacy") {

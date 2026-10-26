@@ -737,9 +737,7 @@ const ContactInfo = () => {
       const memberId = (viewingMember._id || viewingMember.id)?.toString();
       const memberConv = viewingMemberConv?._id?.toString();
       await clearChat(memberConv || chatId, memberId);
-      toast.success(
-        `Chat with ${viewingMember?.username || viewingMember?.name || "contact"} cleared`
-      );
+      toast.success(`Chat with ${viewingMember?.username || viewingMember?.name || "contact"} cleared`);
       return;
     }
     const targetId = targetUserId || selectedContact?._id;
@@ -763,9 +761,7 @@ const ContactInfo = () => {
     if (!targetId) return;
     blockContact(targetId);
     if (report) {
-      toast.success(
-        `${selectedContact?.username || "Contact"} reported and blocked`
-      );
+      toast.success(`${selectedContact?.username || "Contact"} reported and blocked`);
     } else {
       toast.success(`${selectedContact?.username || "Contact"} blocked`);
     }
@@ -873,9 +869,7 @@ const ContactInfo = () => {
           },
         };
       });
-      toast.error(
-        err?.response?.data?.message || "Failed to update permissions"
-      );
+      toast.error(err?.response?.data?.message || "Failed to update permissions");
     }
   };
 
@@ -912,11 +906,7 @@ const ContactInfo = () => {
           },
         };
       });
-      toast.success(
-        currentlyAdmin
-          ? `${memberName} dismissed as admin`
-          : `${memberName} is now an admin`
-      );
+      toast.success(currentlyAdmin ? `${memberName} dismissed as admin` : `${memberName} is now an admin`);
     } catch (err) {
       console.error("Error updating admin status:", err);
       toast.error(err?.response?.data?.message || "Failed to update admin");
@@ -1038,9 +1028,7 @@ const ContactInfo = () => {
           toast.info(`${memberName} was removed from the group`);
         } catch (err) {
           console.error("Error removing member:", err);
-          toast.error(
-            err?.response?.data?.message || "Failed to remove member"
-          );
+          toast.error(err?.response?.data?.message || "Failed to remove member");
         }
       },
     });

@@ -310,13 +310,12 @@ const ContactInfoMainTab = ({
           continue;
         }
 
-        const isVideo =
-          m.contentType === "video" ||
+        const isVideo = m.contentType === "video" ||
           Boolean(
             (m.imageOrVideoUrl || m.url) &&
             (m.imageOrVideoUrl || m.url).match(/\.(mp4|webm|mov|mkv)($|\?)/i),
           );
-        const isImage =
+        const isImage = m.contentType === "image" ||
           m.contentType === "image" ||
           Boolean((m.imageOrVideoUrl || m.url) && !isVideo);
 
@@ -430,10 +429,8 @@ const ContactInfoMainTab = ({
       username:
         member.username || member.name || matchedUser?.username || "Contact",
       name: member.username || member.name || matchedUser?.name || "Contact",
-      profilePicture:
-        member.profilePicture || matchedUser?.profilePicture || "",
-      about:
-        member.about || matchedUser?.about || "Hey there! I am using WhatsApp.",
+      profilePicture: member.profilePicture || matchedUser?.profilePicture || "",
+      about: member.about || matchedUser?.about || "Hey there! I am using WhatsApp.",
       phoneNumber: member.phoneNumber || matchedUser?.phoneNumber || "",
       conversation: existingConv || matchedUser?.conversation || null,
       isGroup: false,
@@ -462,10 +459,8 @@ const ContactInfoMainTab = ({
       groupName: groupConv.groupName || groupConv.name || "Group",
       name: groupConv.groupName || groupConv.name || "Group",
       username: groupConv.groupName || groupConv.name || "Group",
-      profilePicture:
-        groupConv.groupProfileImage || groupConv.profilePicture || "",
-      groupProfileImage:
-        groupConv.groupProfileImage || groupConv.profilePicture || "",
+      profilePicture: groupConv.groupProfileImage || groupConv.profilePicture || "",
+      groupProfileImage: groupConv.groupProfileImage || groupConv.profilePicture || "",
       groupAdmin: groupConv.groupAdmin,
       groupDescription: groupConv.groupDescription || "",
       about: groupConv.groupDescription || "",
@@ -565,9 +560,7 @@ const ContactInfoMainTab = ({
       toast.success("Group name updated");
     } catch (err) {
       console.error("Error updating group name:", err);
-      toast.error(
-        err?.response?.data?.message || "Failed to update group name",
-      );
+      toast.error(err?.response?.data?.message || "Failed to update group name");
     }
   };
 
@@ -599,9 +592,7 @@ const ContactInfoMainTab = ({
       toast.success("Group description updated");
     } catch (err) {
       console.error("Error updating group description:", err);
-      toast.error(
-        err?.response?.data?.message || "Failed to update group description",
-      );
+      toast.error(err?.response?.data?.message || "Failed to update group description");
     }
   };
 
@@ -2170,9 +2161,7 @@ const ContactInfoMainTab = ({
             <div
               onClick={() => {
                 if (isAdvancedPrivacyOn) {
-                  toast.info(
-                    "Export chat is disabled while Advanced chat privacy is turned on"
-                  );
+                  toast.info("Export chat is disabled while Advanced chat privacy is turned on");
                   return;
                 }
                 handleExportChat();

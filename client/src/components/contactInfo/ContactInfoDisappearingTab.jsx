@@ -21,19 +21,17 @@ const ContactInfoDisappearingTab = ({
   const handleSelectDisappearing = (duration) => {
     if (!chatId) return;
     setDisappearingDuration(chatId, duration);
-    toast.success(
-      duration === "Off"
-        ? "Disappearing messages turned off"
-        : `Disappearing messages set to ${duration}`
+    toast.success(duration === "Off"
+      ? "Disappearing messages turned off"
+      : `Disappearing messages set to ${duration}`
     );
   };
 
   const handleSelectDefaultTimer = (duration) => {
     setDefaultMessageTimer(duration);
-    toast.success(
-      duration === "Off"
-        ? "Default timer turned off"
-        : `Default timer set to ${duration}`
+    toast.success(duration === "Off"
+      ? "Default timer turned off"
+      : `Default timer set to ${duration}`
     );
   };
 
